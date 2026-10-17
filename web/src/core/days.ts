@@ -69,14 +69,29 @@ export function addDays(date: string, days: number): string {
   return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10)
 }
 
-function localMidnight(date: string): number {
+function zoneOffset(epoch: number): number {
+  const local = zoned(epoch)
+  const [year, month, day] = local.date.split('-').map(Number) as [number, number, number]
+  return Date.UTC(year, month - 1, day) + local.minutes * 60_000 - epoch
+}
+
+/** Minuten na lokale middernacht. */
+export function localMinutes(epoch: number): number {
+  return zoned(epoch).minutes
+}
+
+/**
+ * Het moment waarop de lokale klok op `date` `hours` uur aanwijst (24 = middernacht erna). Twee rondes: de
+ * afstand tot UTC op het gezochte moment kan verschillen van die op de eerste gok, rond een klokwissel.
+ */
+export function localTime(date: string, hours: number): number {
   const [year, month, day] = date.split('-').map(Number) as [number, number, number]
-  const utcMidnight = Date.UTC(year, month - 1, day)
-  // De zone verschilt hooguit twee uur van UTC: de lokale klok bij UTC-middernacht geeft de afstand, en de
-  // overgangen liggen 's nachts om 2/3 uur, dus de afstand op lokale middernacht is dezelfde.
-  const local = zoned(utcMidnight)
-  const wall = Date.UTC(Number(local.date.slice(0, 4)), Number(local.date.slice(5, 7)) - 1, Number(local.date.slice(8, 10))) + local.minutes * 60_000
-  return utcMidnight - (wall - utcMidnight)
+  const wall = Date.UTC(year, month - 1, day, hours)
+  return wall - zoneOffset(wall - zoneOffset(wall))
+}
+
+function localMidnight(date: string): number {
+  return localTime(date, 0)
 }
 
 /** UTC-grenzen van een lokale dag: begin inclusief, einde exclusief (23 of 25 uur bij een klokwissel). */
@@ -101,7 +116,7 @@ function known(samples: Sample[], bounds: { start: number; end: number }): Array
  * Regen over de dag: elk frame telt voor de tijd tot halverwege zijn buren, zodat radar en nowcast (5 min) en
  * HARMONIE (uur) elk hun eigen duur krijgen. Een frame zonder waarde is onbekend, niet droog.
  */
-function rainTotal(samples: Sample[], bounds: { start: number; end: number }): number | null {
+export function rainTotal(samples: Sample[], bounds: { start: number; end: number }): number | null {
   const sorted = [...samples].sort((left, right) => left.epoch - right.epoch)
   let total = 0
   let counted = false
@@ -122,15 +137,27 @@ function rainTotal(samples: Sample[], bounds: { start: number; end: number }): n
 
 /** De dagdefinities van docs/ecmwf.md, toegepast op de uren die er zijn. */
 export function aggregateHourlyDay(inputs: HourlyDayInputs, bounds: { start: number; end: number }): DayValues {
+  return aggregateHourlyWindow(inputs, bounds, { wind: WIND_WINDOW, cloud: CLOUD_WINDOW })
+}
+
+/**
+ * Een willekeurig venster: min/max, regensom, de hoogste gemiddelde wind met zijn richting, hoogste stoot en
+ * gemiddelde bewolking. `hours` beperkt wind en bewolking tot lokale klokvensters (de dagdefinities).
+ */
+export function aggregateHourlyWindow(
+  inputs: HourlyDayInputs,
+  bounds: { start: number; end: number },
+  hours: { wind?: readonly [number, number]; cloud?: readonly [number, number] } = {},
+): DayValues {
   const temperatures = known(inputs.temperature, bounds).map((sample) => sample.value)
   const gusts = known(inputs.gust, bounds).map((sample) => sample.value)
-  const clouds = known(inputs.cloud, bounds).filter((sample) => inWindow(sample.epoch, CLOUD_WINDOW)).map((sample) => sample.value)
+  const clouds = known(inputs.cloud, bounds).filter((sample) => !hours.cloud || inWindow(sample.epoch, hours.cloud)).map((sample) => sample.value)
   const northward = new Map(known(inputs.windV, bounds).map((sample) => [sample.epoch, sample.value]))
   let windMs: number | null = null
   let windFromDegrees: number | null = null
   for (const eastward of known(inputs.windU, bounds)) {
     const v = northward.get(eastward.epoch)
-    if (v === undefined || !inWindow(eastward.epoch, WIND_WINDOW)) continue
+    if (v === undefined || (hours.wind && !inWindow(eastward.epoch, hours.wind))) continue
     const speed = Math.hypot(eastward.value, v)
     if (windMs !== null && speed <= windMs) continue
     windMs = speed

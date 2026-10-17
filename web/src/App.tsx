@@ -15,7 +15,7 @@ import type { IsolineCounters } from './core/perf'
 import UvBar, { uvBarLabel } from './components/UvBar'
 import { loadBasemapStyle, temperatureLayerBeforeId, type MapTheme } from './core/basemap'
 import { createMapStart, mapStartSource } from './core/map-start'
-import { chunkField, type EcmwfDayField, type Grid, type Manifest, type ManifestChunk, type MrfHeader, type TimelineFrame } from './core/contract'
+import { chunkField, type EcmwfDayField, type EcmwfStepField, type Grid, type Manifest, type ManifestChunk, type MrfHeader, type TimelineFrame } from './core/contract'
 import { DayNightLayer } from './core/day-night-layer'
 
 const PerfHud = lazy(() => import('./components/PerfHud'))
@@ -42,7 +42,8 @@ import { mapFrameFromGrid, NETHERLANDS_FLANDERS_BOUNDS } from './core/map-frame'
 import { basemapBlendTargets, blendedPaintValue, mapNightStep, nightShare, type BlendTarget } from './core/basemap-blend'
 import { MrfClient, type MotionField } from './core/mrf'
 import { pointValue, pointValueBilinear, projectPoint as project } from './core/point-value'
-import { buildDayList, ecmwfDayChunks, type EcmwfPointValues, type Sample } from './core/days'
+import { buildDayList, ecmwfDayChunks, localDate, type HourlyDayInputs, type Sample } from './core/days'
+import { buildLadder, buildSlotRows, ecmwfStepChunks, hourlyEnd } from './core/ladder'
 import { rainBetween, rainPatch, type RainPatch } from './core/rain-point-detail'
 import { selectPairMotion } from './core/motion-selection'
 import { findCataloguePlace, isInPlaceZone, loadPlaces, namedCataloguePlace, nearestPlace, places, rememberPlace, rememberSearchedPlace } from './core/places'
@@ -3061,6 +3062,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       setRainLookChoice(DEFAULT_RAIN_LOOK)
       setCloudMapForms(true)
       setCloudMapSample('live')
+      setDayListMode(false)
       focusMode.pin(DEFAULT_FOCUS_MODE)
       setFocusPinned(DEFAULT_FOCUS_MODE)
     })
@@ -3191,52 +3193,77 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
 
   const manifestNow = () => manifest() ? Date.parse(manifest()!.now) : 0
 
-  // Komende dagen (U91, MIP-36): vandaag en morgen uit de HARMONIE-puntreeksen, daarna de ECMWF-dagvelden.
-  // Beide laden pas als de lijst bijna in beeld is, buiten het kritieke pad.
-  const [dayListNear, setDayListNear] = createSignal(false)
-  const [ecmwfPoint, setEcmwfPoint] = createSignal<{ key: string; values: EcmwfPointValues }>()
-  const ecmwfChunks = createMemo(() => manifest() ? ecmwfDayChunks(manifest()!) : new Map<EcmwfDayField, ManifestChunk>())
-  const ecmwfKey = () => {
-    const section = manifest()?.ecmwf
-    return section && ecmwfChunks().size ? `${section.run} ${location().lng} ${location().lat}` : undefined
+  // Lange termijn (U91/U91b, MIP-36): standaard glijdt de urentabel over in 3 u, dagdelen en dag/nacht; onder ?dev
+  // kan de oude uurtabel met de lijst "Komende dagen" terug. HARMONIE-aggregaten en ECMWF-punten laden pas als die
+  // rijen of de lijst bijna in beeld zijn, buiten het kritieke pad.
+  const [dayListMode, setDayListMode] = createSignal(devMode && localStorage.getItem(DAY_LIST_STORAGE_KEY) === 'lijst')
+  const [longRangeNear, setLongRangeNear] = createSignal(false)
+  const ecmwfDayValues = ecmwfPointValues(createMemo(() => manifest() ? ecmwfDayChunks(manifest()!) : new Map<EcmwfDayField, ManifestChunk>()))
+  const stepChunks = createMemo(() => manifest() ? ecmwfStepChunks(manifest()!) : new Map<EcmwfStepField, ManifestChunk>())
+  const ecmwfStepValues = ecmwfPointValues(stepChunks)
+  function ecmwfPointValues<F extends EcmwfDayField | EcmwfStepField>(chunks: Accessor<Map<F, ManifestChunk>>): Accessor<Partial<Record<F, Array<number | null>>> | undefined> {
+    const [loaded, setLoaded] = createSignal<{ key: string; values: Partial<Record<F, Array<number | null>>> }>()
+    const key = () => {
+      const section = manifest()?.ecmwf
+      return section && chunks().size ? `${section.run} ${location().lng} ${location().lat}` : undefined
+    }
+    createEffect(() => {
+      const wanted = key()
+      if (!longRangeNear() || !wanted || untrack(loaded)?.key === wanted) return
+      const [x, y] = project(location().lng, location().lat)
+      void Promise.all([...chunks()].map(async ([field, chunk]) => {
+        try {
+          const header = await client.getHeader(chunk)
+          const frames = await client.getFrames(chunk, chunk.times.map((_, index) => index), 'low', undefined, 'L2')
+          // Richting in graden mengt niet: 359° en 1° zouden 180° worden.
+          const sample = field === 'day_wind_dir' ? pointValue : pointValueBilinear
+          return [field, frames.map((decoded) => sample(header, decoded, x, y))] as const
+        } catch {
+          return [field, []] as const
+        }
+      })).then((entries) => {
+        if (key() === wanted) setLoaded({ key: wanted, values: Object.fromEntries(entries) as Partial<Record<F, Array<number | null>>> })
+      })
+    })
+    return () => {
+      const point = loaded()
+      return point && point.key === key() ? point.values : undefined
+    }
   }
   createEffect(() => {
-    const key = ecmwfKey()
-    if (!dayListNear() || !key || untrack(ecmwfPoint)?.key === key) return
-    const chunks = ecmwfChunks()
-    const [x, y] = project(location().lng, location().lat)
-    void Promise.all([...chunks].map(async ([field, chunk]) => {
-      try {
-        const header = await client.getHeader(chunk)
-        const frames = await client.getFrames(chunk, chunk.times.map((_, index) => index), 'low', undefined, 'L2')
-        // Richting in graden mengt niet: 359° en 1° zouden 180° worden.
-        const sample = field === 'day_wind_dir' ? pointValue : pointValueBilinear
-        return [field, frames.map((decoded) => sample(header, decoded, x, y))] as const
-      } catch {
-        return [field, []] as const
-      }
-    })).then((entries) => {
-      if (ecmwfKey() === key) setEcmwfPoint({ key, values: Object.fromEntries(entries) })
-    })
+    if (longRangeNear() && pointLoadStage() !== 'complete') untrack(() => { void completePointSeries(pointLoad, 'low', 'L2', 'lange termijn') })
   })
-  createEffect(() => {
-    if (dayListNear() && pointLoadStage() !== 'complete') untrack(() => { void completePointSeries(pointLoad, 'low', 'L2', 'dagenlijst') })
-  })
-  const dayRows = createMemo(() => {
-    const section = manifest()?.ecmwf
-    const point = ecmwfPoint()
+  const hourlyInputs = createMemo((): HourlyDayInputs | undefined => {
+    if (pointLoadStage() !== 'complete') return undefined
     const samples = (frames: Array<{ epoch: number }>, values: Array<number | null>): Sample[] =>
       frames.map((frame, index) => ({ epoch: frame.epoch, value: values[index] ?? null }))
-    const hourly = pointLoadStage() === 'complete' ? {
+    return {
       temperature: samples(tempTimeline(), temperatureSeries()),
       rain: samples(timeline(), rainSeries()),
       cloud: samples(cloudTimeline(), cloudSeries()),
       windU: samples(windUFrames(), windUSeries()),
       windV: samples(windVFrames(), windVSeries()),
       gust: samples(gustTimeline(), gustSeries()),
-    } : undefined
-    const ecmwf = section && ecmwfChunks().size ? { section, values: point && point.key === ecmwfKey() ? point.values : undefined } : undefined
-    return buildDayList(manifestNow(), hourly, ecmwf)
+    }
+  })
+  const dayRows = createMemo(() => {
+    const section = manifest()?.ecmwf
+    return buildDayList(manifestNow(), hourlyInputs(), section?.days.length ? { section, values: ecmwfDayValues() } : undefined)
+  })
+  const ladderHourlyEnd = createMemo(() => hourlyEnd(manifestNow()))
+  const slotRows = createMemo(() => {
+    if (dayListMode() || !manifest()) return []
+    const now = manifestNow()
+    const section = manifest()!.ecmwf
+    const steps = section?.steps?.length && stepChunks().size
+      ? { intervals: section.steps.map((step) => ({ start: Date.parse(step.start), end: Date.parse(step.end) })), values: ecmwfStepValues() }
+      : undefined
+    return buildSlotRows(now, buildLadder(now), {
+      harmonieEpochs: tempTimeline().map((frame) => frame.epoch),
+      hourly: hourlyInputs(),
+      steps,
+      days: section?.days.length ? { dates: section.days.map((day) => day.date), values: ecmwfDayValues() } : undefined,
+    }, localDate(ladderHourlyEnd() - 3_600_000))
   })
   const forecast = createMemo(() => measurePerfPhase('table-render', () => buildHourlyForecast({
     rain: timeline(),
@@ -3250,6 +3277,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     windV: windVFrames(),
     gust: gustTimeline(),
   }, manifest() ? Date.parse(manifest()!.now) : 0), { memo: 'uurindeling' }))
+  // Glijdende tabel: het uurdeel stopt waar de ladder begint (U91b).
+  const tableRows = createMemo(() => dayListMode() ? forecast() : forecast().filter((row) => row.epoch < ladderHourlyEnd()))
   // De straling voedt de tabel (weericoon, UV-schatting) en de hemel achter de scrubber. Gelezen waarden
   // blijven staan zolang locatie en tijdlijn dezelfde zijn: een uurstop van de hemel mag niet terugvallen
   // op de wolkenlaagschatting omdat de tabel of het venster is doorgeschoven (U62).
@@ -3551,7 +3580,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   function scrollTableToEpoch(epoch: number, behavior: ScrollBehavior): boolean {
     const scroller = forecastPanelElement.querySelector<HTMLElement>('.table-scroll')
     const rows = [...forecastPanelElement.querySelectorAll<HTMLElement>('tr[data-epoch]')]
-    const current = rows.find((row) => Number(row.dataset.epoch) === epoch) ?? rows.reduce<HTMLElement | undefined>((nearest, row) =>
+    const current = rows.find((row) => rowContains(Number(row.dataset.epoch), Number(row.dataset.end ?? Number.NaN), epoch)) ?? rows.reduce<HTMLElement | undefined>((nearest, row) =>
       !nearest || Math.abs(Number(row.dataset.epoch) - epoch) < Math.abs(Number(nearest.dataset.epoch) - epoch) ? row : nearest, undefined)
     const heading = forecastPanelElement.querySelector<HTMLElement>('thead')
     if (!scroller || !current || !heading) return false
@@ -3567,15 +3596,15 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let tablePreviewPositioned = false
   let tableFollowFrame: number | undefined
   // Doel-scrollTop per uurrij: één meting per tabel-layout, daarna leest volgen niets meer uit de layout.
-  let tableRowTops: Map<number, number> | undefined
-  function measureTableRowTops(scroller: HTMLElement): Map<number, number> | undefined {
+  let tableRowTops: Map<number, { top: number; end: number }> | undefined
+  function measureTableRowTops(scroller: HTMLElement): Map<number, { top: number; end: number }> | undefined {
     const heading = forecastPanelElement.querySelector<HTMLElement>('thead')
     if (!heading) return undefined
     const scrollerTop = scroller.getBoundingClientRect().top
     const headingHeight = heading.getBoundingClientRect().height
-    const tops = new Map<number, number>()
+    const tops = new Map<number, { top: number; end: number }>()
     for (const row of forecastPanelElement.querySelectorAll<HTMLElement>('tr[data-epoch]')) {
-      tops.set(Number(row.dataset.epoch), scroller.scrollTop + row.getBoundingClientRect().top - scrollerTop - headingHeight)
+      tops.set(Number(row.dataset.epoch), { top: scroller.scrollTop + row.getBoundingClientRect().top - scrollerTop - headingHeight, end: Number(row.dataset.end ?? Number.NaN) })
     }
     return tops
   }
@@ -3588,9 +3617,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (!scroller) return false
     tableRowTops ??= measureTableRowTops(scroller)
     if (!tableRowTops?.size) return false
-    const nearestEpoch = tableRowTops.has(epoch) ? epoch : [...tableRowTops.keys()].reduce((nearest, candidate) =>
+    // Een grove rij (U91b) volgt de cursor over zijn hele venster; anders de dichtstbijzijnde uurrij.
+    const containing = [...tableRowTops].find(([start, row]) => rowContains(start, row.end, epoch))?.[0]
+    const nearestEpoch = containing ?? [...tableRowTops.keys()].reduce((nearest, candidate) =>
       Math.abs(candidate - epoch) < Math.abs(nearest - epoch) ? candidate : nearest)
-    const target = tableRowTops.get(nearestEpoch)!
+    const target = tableRowTops.get(nearestEpoch)!.top
     stopTableFollow()
     const from = scroller.scrollTop
     if (!animate || Math.abs(target - from) < 1) {
@@ -3721,6 +3752,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         />
         <Show when={devMode}>
           <DevPanel
+            dayList={dayListMode()}
+            onDayList={(enabled) => { setDayListMode(enabled); localStorage.setItem(DAY_LIST_STORAGE_KEY, enabled ? 'lijst' : 'glijdend') }}
             cloudMapForms={cloudMapForms()}
             onCloudMapForms={(enabled) => { setCloudMapForms(enabled); localStorage.setItem('motregen-cloud-map', enabled ? 'vormen' : 'sluier') }}
             cloudMapSample={cloudMapSample()}
@@ -3788,7 +3821,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           <div class="table-scroll">
             <ForecastTable
               onMountTable={setForecastTable}
-              rows={forecast()}
+              rows={tableRows()}
+              longRange={slotRows()}
+              timelineEnd={timeline().at(-1)?.epoch}
               series={{
                 rain: rainSeries(), uv: uvSeries(), uvClear: uvClearSeries(), radiation: radiationSeries(), temperature: temperatureSeries(),
                 feelsLike: feelsLikeSeries(), cloud: cloudSeries(), windU: windUSeries(), windV: windVSeries(), gust: gustSeries(),
@@ -3806,7 +3841,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
               mobileTableOpen={tableModeSelected()}
               onOpenMobileTable={tableViewAvailable() ? scrollToTable : undefined}
               onSelectMobileMode={tableViewAvailable() ? scrollToMap : undefined}
-              onNeedRows={() => { void completePointSeries(pointLoad, 'high') }}
+              onNeedRows={() => {
+                void completePointSeries(pointLoad, 'high')
+                if (!dayListMode()) setLongRangeNear(true)
+              }}
               onNeedHistory={() => { void loadHistoryRows() }}
               onSelectTime={selectTableTime}
               onOpenHistory={() => {
@@ -3820,8 +3858,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
               } }}
             />
             {/* Pas na de eerste regen-draw: de lijst en zijn chunk horen niet bij het kritieke pad. */}
-            <Show when={manifest() && pointLoadsStarted()}>
-              <DayList rows={dayRows()} windUnit={windUnit()} dayNight={expressive()} onNear={() => setDayListNear(true)} />
+            <Show when={dayListMode() && manifest() && pointLoadsStarted()}>
+              <DayList rows={dayRows()} windUnit={windUnit()} dayNight={expressive()} onNear={() => setLongRangeNear(true)} />
             </Show>
           </div>
         </section>
@@ -3889,6 +3927,15 @@ function cancelIdle(handle: number): void {
   if (cancel) cancel.call(window, handle)
   else window.clearTimeout(handle)
 }
+
+/** Een uurrij heeft geen `data-end` en dekt één uur. */
+function rowContains(start: number, end: number, epoch: number): boolean {
+  return epoch >= start && epoch < (Number.isFinite(end) ? end : start + 3_600_000)
+}
+
+// ?dev-knop "Dagen: lijst onder tabel" (U91b, eigenaar orkestrator, vervalt 2026-11-01): de oude uurtabel tot het
+// einde van HARMONIE met de lijst "Komende dagen" eronder, in plaats van de glijdende tabel.
+const DAY_LIST_STORAGE_KEY = 'motregen-dagenlijst'
 
 // Zoomgrens: nooit minder dan deze breedte in beeld (Min. breedte, T3g; knop weg in U30).
 const MINIMUM_MAP_WIDTH_KM = 20

@@ -2,7 +2,7 @@ import { chromium } from '@playwright/test'
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 
-// Beelden van de lijst "Komende dagen" (U91) op 1280 en 390 px, licht en donker thema, plus console-fouten en
+// Beelden van de lijst "Komende dagen" (U91) en de glijdende tabel (U91b) op 1280 en 390 px, licht en donker thema, plus console-fouten en
 // mislukte verzoeken. De worker bekijkt deze zelf vóór elk "klaar". SHOT_CLOCK (ISO) zet de browserklok, bijv. 's nachts.
 const [origin, outDir, label = 'dagen'] = process.argv.slice(2)
 if (!origin || !outDir) throw new Error('usage: pnpm exec tsx scripts/days-shot.ts ORIGIN OUT_DIR [LABEL]')
@@ -23,6 +23,14 @@ for (const theme of (process.env.SHOT_THEMES ?? 'light,dark').split(',')) {
     await page.goto(new URL(`/${process.env.SHOT_QUERY ? `?${process.env.SHOT_QUERY}` : ''}`, origin).href)
     await page.waitForTimeout(6_000)
     await page.screenshot({ path: join(outDir, `${label}-${theme}-${name}-boven.png`) })
+    // Glijdende tabel (U91b): elke overgang naar een grovere rij bovenaan in beeld.
+    for (const grain of ['3h', 'part', 'day']) {
+      const row = page.locator(`tr[data-grain="${grain}"]`).first()
+      if (!await row.count()) continue
+      await row.evaluate((element) => element.scrollIntoView({ block: 'center' }))
+      await page.waitForTimeout(grain === '3h' ? 6_000 : 1_000)
+      await page.screenshot({ path: join(outDir, `${label}-${theme}-${name}-${grain}.png`) })
+    }
     const list = page.locator('.day-list')
     if (await list.count()) {
       await list.scrollIntoViewIfNeeded()

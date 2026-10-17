@@ -8,6 +8,7 @@ const weekdayLongFormat = new Intl.DateTimeFormat(LOCALE, { weekday: 'long' })
 const dayShortFormat = new Intl.DateTimeFormat(LOCALE, { weekday: 'short', day: 'numeric', month: 'short' })
 // Dagenlijst: kalenderdagen in Nederlandse tijd, ook als de browser elders staat (MIP-36).
 const weekdayDayFormat = new Intl.DateTimeFormat(LOCALE, { weekday: 'short', day: 'numeric', timeZone: 'Europe/Amsterdam' })
+const dayHeadingFormat = new Intl.DateTimeFormat(LOCALE, { weekday: 'long', day: 'numeric', timeZone: 'Europe/Amsterdam' })
 const numberFormats = new Map<number, Intl.NumberFormat>()
 
 /** "14:05" */
@@ -33,6 +34,11 @@ export function formatDayShort(epoch: number): string {
 /** "di 20" */
 export function formatWeekdayDay(epoch: number): string {
   return weekdayDayFormat.format(epoch)
+}
+
+/** "maandag 19" */
+export function formatDayHeading(epoch: number): string {
+  return dayHeadingFormat.format(epoch)
 }
 
 /** Getal in nl-NL met hooguit `maximumFractionDigits` decimalen ("1,5"). */

@@ -7,6 +7,8 @@ import { CLOUD_MAP_SAMPLES, type CloudMapSample } from '../core/cloud-map'
 // Alleen via ?dev; hooguit 3–4 knoppen per groep (PO 2026-09-25). Elke knop staat in
 // docs/dev-opties.md met eigenaar en vervaldatum (MIP-12).
 interface Props {
+  dayList: boolean
+  onDayList: (enabled: boolean) => void
   cloudMapForms: boolean
   onCloudMapForms: (enabled: boolean) => void
   cloudMapSample: CloudMapSample
@@ -61,7 +63,12 @@ export default function DevPanel(props: Props) {
 
   return <details class="dev-panel" open data-testid="dev-panel">
     <summary>Dev-opties</summary>
-    <Group title="Wolkenkaart" open>
+    <Group title="Tabel" open>
+      <Control label="Dagen: lijst onder tabel" output={props.dayList ? 'Aan' : 'Uit'} toggle hint="Uit (standaard): de urentabel wordt naar achteren grover, tot dag en nacht. Aan: de uurtabel tot het eind van HARMONIE met de lijst Komende dagen eronder. U91b, vervalt 2026-11-01.">
+        <input type="checkbox" checked={props.dayList} onChange={(event) => props.onDayList(event.currentTarget.checked)} />
+      </Control>
+    </Group>
+    <Group title="Wolkenkaart">
       <Control label="Wolkenbeeld" output={props.cloudMapForms ? 'vormen' : 'oude sluier'} hint="Vormen uit bewolking en licht. De fijne structuur is getekend; de regionale velden komen uit het model.">
         <select aria-label="Wolkenbeeld" value={props.cloudMapForms ? 'vormen' : 'sluier'} onChange={(event) => props.onCloudMapForms(event.currentTarget.value === 'vormen')}>
           <option value="vormen">vormen</option><option value="sluier">oude sluier</option>

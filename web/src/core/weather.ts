@@ -33,6 +33,16 @@ export function deriveDayIcon(precipMm: number | null, cloudFraction: number | n
   return deriveWeatherIcon(0, cloudFraction, true)
 }
 
+// Grove tabelrijen (U91b): regen vanaf 0,2 mm in het venster, zwaar bij gemiddeld 2 mm/u of meer.
+const SPAN_RAIN_MM = 0.2
+const SPAN_HEAVY_RAIN_MM_PER_HOUR = 2
+
+export function deriveSpanIcon(precipMm: number | null, cloudFraction: number | null, daylight: boolean, hours: number): WeatherIconModel | null {
+  if (precipMm == null || cloudFraction == null) return null
+  const rate = precipMm >= SPAN_RAIN_MM ? Math.max(0.1, precipMm / hours) : 0
+  return deriveWeatherIcon(rate >= SPAN_HEAVY_RAIN_MM_PER_HOUR ? 7.5 : rate, cloudFraction, daylight)
+}
+
 /** Windsamenvatting uit snelheid en meteorologische richting, zoals `summarizeWind` die uit u/v maakt. */
 export function summarizeWindFrom(speed: number | null, fromDegrees: number | null, gust: number | null = null, unit: WindUnit = 'bft'): WindSummary | null {
   if (speed == null || fromDegrees == null) return null

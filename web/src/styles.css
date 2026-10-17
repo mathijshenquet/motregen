@@ -967,6 +967,15 @@ td small { color: var(--muted); font-size: 9px; }
 .wind-reading small { margin-left: 1px; }
 .wind-arrow { flex: none; color: var(--accent); }
 
+/* Glijdende tabel (U91b): dagkop boven de grovere rijen, het venster klein onder de naam. */
+.forecast-table tr.day-heading-row td { padding: 16px 8px 6px var(--panel-inset, 16px); border-bottom: 1px solid var(--line-strong); color: var(--text); background: var(--surface); font-size: 12px; font-weight: 760; letter-spacing: .02em; text-align: left; text-transform: capitalize; }
+.forecast-table tr.span-row .time-label strong { font-size: 13px; }
+.forecast-table tr.beyond-timeline { cursor: default; }
+.forecast-table tr.span-row .time-label:not(button) { cursor: default; }
+.rain-chance { color: var(--accent); font-size: 10px; font-weight: 650; line-height: 1.1; }
+.span-cloud { color: var(--muted); font-size: 12px; font-weight: 650; }
+.span-minimum { font-weight: 600; }
+
 /* Komende dagen (U91): één regel per dag onder de urentabel, met dezelfde kolomtaal; overdag-hemel per dag naar
    de bewolking, zoals de dagrijen van de tabel. */
 .day-list { padding-top: 22px; }
