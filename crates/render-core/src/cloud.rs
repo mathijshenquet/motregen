@@ -475,6 +475,17 @@ fn cloud_cells(point: Vec2) -> f32 {
     let mut nearest_squared: f32 = 1.0;
     for y in -1..=1 {
         for x in -1..=1 {
+            // Het middelpunt van de buurcel ligt in haar eigen vak en de straal is hooguit 0,8: ligt dat hele vak verder
+            // dan 0,8 weg, dan kan ze het begin (1,0) niet verslaan. 0,65 in plaats van 0,64 houdt dat exact in f32.
+            let gap_x = (x as f32 - offset_in_cell[0])
+                .max(offset_in_cell[0] - (x as f32 + 1.0))
+                .max(0.0);
+            let gap_y = (y as f32 - offset_in_cell[1])
+                .max(offset_in_cell[1] - (y as f32 + 1.0))
+                .max(0.0);
+            if gap_x * gap_x + gap_y * gap_y >= 0.65 {
+                continue;
+            }
             let neighbour = [cell[0] + x as f32, cell[1] + y as f32];
             let center = [
                 hash(neighbour),
@@ -1214,6 +1225,45 @@ mod tests {
             -9_000_000.0,
         ] {
             assert_eq!(floor(value), value.floor(), "{value}");
+        }
+    }
+
+    /// `cloudCells` zonder het overslaan van verre buurcellen, letterlijk als de shader.
+    fn cloud_cells_reference(point: Vec2) -> f32 {
+        let cell = [floor(point[0]), floor(point[1])];
+        let offset_in_cell = [point[0] - cell[0], point[1] - cell[1]];
+        let mut nearest_squared: f32 = 1.0;
+        for y in -1..=1 {
+            for x in -1..=1 {
+                let neighbour = [cell[0] + x as f32, cell[1] + y as f32];
+                let center = [
+                    hash(neighbour),
+                    hash([neighbour[0] + 31.7, neighbour[1] + 31.7]),
+                ];
+                let delta = [
+                    x as f32 + center[0] - offset_in_cell[0],
+                    y as f32 + center[1] - offset_in_cell[1],
+                ];
+                let distance_squared = delta[0] * delta[0] + delta[1] * delta[1];
+                let radius = mix(0.35, 0.8, hash([neighbour[0] + 71.3, neighbour[1] + 71.3]));
+                nearest_squared = nearest_squared.min(distance_squared / (radius * radius));
+            }
+        }
+        1.0 - smoothstep(0.1, 1.0, nearest_squared.sqrt())
+    }
+
+    #[test]
+    fn skipping_distant_cells_changes_no_value() {
+        for index in 0..400_000 {
+            let point = [
+                (index % 997) as f32 * 0.0731 - 30.0,
+                (index / 997) as f32 * 0.0617 - 12.0,
+            ];
+            assert_eq!(
+                cloud_cells(point).to_bits(),
+                cloud_cells_reference(point).to_bits(),
+                "{point:?}"
+            );
         }
     }
 
