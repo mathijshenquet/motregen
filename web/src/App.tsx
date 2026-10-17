@@ -3819,7 +3819,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
                 focusMode.set(mode, source, active)
               } }}
             />
-            <Show when={manifest()}>
+            {/* Pas na de eerste regen-draw: de lijst en zijn chunk horen niet bij het kritieke pad. */}
+            <Show when={manifest() && pointLoadsStarted()}>
               <DayList rows={dayRows()} windUnit={windUnit()} dayNight={expressive()} onNear={() => setDayListNear(true)} />
             </Show>
           </div>
