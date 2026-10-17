@@ -216,6 +216,19 @@ in
       '';
     };
 
+    ecmwfPackage = lib.mkOption {
+      type = lib.types.package;
+      default = cfg.ingestPackage;
+      defaultText = lib.literalExpression "config.services.motregen.ingestPackage";
+      description = "Package providing motregen-ecmwf (ECMWF daily forecast job).";
+    };
+
+    ecmwfInManifest = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Include the ECMWF daily forecast from ecmwf.json in manifest.json.";
+    };
+
     frontendPackage = lib.mkOption {
       type = lib.types.package;
       default = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-web;
@@ -356,6 +369,7 @@ in
       environment = {
         MOTREGEN_DATA_DIR = cfg.dataDir;
         MOTREGEN_CAMS_IN_MANIFEST = lib.boolToString cfg.camsInManifest;
+        MOTREGEN_ECMWF_IN_MANIFEST = lib.boolToString cfg.ecmwfInManifest;
         RUST_LOG = "info";
       };
 
@@ -456,6 +470,61 @@ in
       wantedBy = [ "timers.target" ];
       timerConfig = {
         OnCalendar = "*-*-* 09:00:00 UTC";
+        Persistent = true;
+      };
+    };
+
+    systemd.services.motregen-ecmwf = {
+      description = "ECMWF daily forecast for motregen.nl";
+      wants = [ "network-online.target" ];
+      after = [ "network-online.target" ];
+
+      environment = {
+        MOTREGEN_DATA_DIR = cfg.dataDir;
+        RUST_LOG = "info";
+      };
+
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = lib.getExe' cfg.ecmwfPackage "motregen-ecmwf";
+        DynamicUser = true;
+        User = "motregen-ingest";
+        StateDirectory = "motregen";
+        StateDirectoryMode = "0755";
+        UMask = "0022";
+        Restart = "on-failure";
+        RestartSec = "30min";
+
+        PrivateDevices = true;
+        PrivateTmp = true;
+        ProtectClock = true;
+        ProtectControlGroups = true;
+        ProtectHome = true;
+        ProtectHostname = true;
+        ProtectKernelLogs = true;
+        ProtectKernelModules = true;
+        ProtectKernelTunables = true;
+        ProtectProc = "invisible";
+        ProtectSystem = "strict";
+        ProcSubset = "pid";
+        RestrictAddressFamilies = [
+          "AF_INET"
+          "AF_INET6"
+          "AF_UNIX"
+        ];
+        RestrictNamespaces = true;
+        RestrictRealtime = true;
+        LockPersonality = true;
+        CapabilityBoundingSet = "";
+        AmbientCapabilities = "";
+        SystemCallArchitectures = "native";
+      };
+    };
+
+    systemd.timers.motregen-ecmwf = {
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnCalendar = [ "*-*-* 08:15:00 UTC" "*-*-* 20:15:00 UTC" ];
         Persistent = true;
       };
     };
