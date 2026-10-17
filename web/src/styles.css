@@ -1007,6 +1007,35 @@ td small { color: var(--muted); font-size: 9px; }
 :root[data-theme="dark"] .forecast-panel[data-contrast="breed"] .forecast-table.day-night-table tr.day-hour .weather-icon .weather-cloud,
 :root[data-theme="dark"] .forecast-panel[data-contrast="smal"] .forecast-table.day-night-table tr.span-row.day-hour:not([data-grain="3h"]) .weather-icon .weather-cloud { fill: #9fb4be; stroke: #d6e2e7; }
 
+/* Nacht zonder donkere rijen (U91b, PO 2026-10-17): de rijen blijven neutraal, zoals met Expressief uit, en één
+   aanvullend teken zegt dag of nacht. */
+/* Rail: een strook in de luchtkleur van het moment in de linkergoot, doorlopend over alle rijen en zonbanden. */
+.forecast-table[data-night-cue="rail"] :is(td.time-cell, tr.sun-row > td) { position: relative; }
+.forecast-table[data-night-cue="rail"] :is(td.time-cell, tr.sun-row > td)::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: -1px;
+  left: calc(var(--panel-inset, 16px) - 11px);
+  width: 5px;
+  background: var(--rail);
+}
+.forecast-table[data-night-cue="rail"] tr.day-start > td.time-cell::before { top: -2px; }
+/* Symbool: een maantje voor de weekdag en een nauwelijks koelere nachtrij. */
+.night-mark { display: inline-block; margin-right: 3px; vertical-align: -1px; color: var(--accent); }
+.forecast-table[data-night-cue="symbool"] tr.night-hour:not(.sun-row) > td { background: color-mix(in srgb, #5b74a8 6%, var(--surface)); }
+/* Sterren: spaarzame puntjes in nachtrijen, zonder dat de rij donkerder wordt. Twee tegels van ongelijke maat
+   (onderling ondeelbaar) zodat er geen zichtbaar raster ontstaat. */
+.forecast-table[data-night-cue="sterren"] { --star: rgba(70, 92, 140, .34); }
+:root[data-theme="dark"] .forecast-table[data-night-cue="sterren"] { --star: rgba(214, 230, 255, .42); }
+.forecast-table[data-night-cue="sterren"] tr.night-hour:not(.sun-row) {
+  background-image:
+    radial-gradient(circle at 23px 9px, var(--star) 0 .7px, transparent 1.3px),
+    radial-gradient(circle at 151px 41px, var(--star) 0 .6px, transparent 1.2px),
+    radial-gradient(circle at 88px 17px, var(--star) 0 .8px, transparent 1.4px);
+  background-size: 233px 61px, 233px 61px, 307px 47px;
+}
+
 /* Glijdende tabel (U91b): grove rijen dragen hun dag zelf; een dagwissel krijgt een iets donkerdere lijn in de
    kleur van de rij zelf, nooit een strook in paneelkleur (PO 2026-10-17). */
 .forecast-table tr.day-start > td { border-top: 2px solid var(--line-strong); }

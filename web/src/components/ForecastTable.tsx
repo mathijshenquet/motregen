@@ -6,8 +6,10 @@ import { isSunUp, solarElevationSin, sunEvents, type SunEvent } from '../core/so
 import { dailyClearSkyUvMax, uvReading } from '../core/uv'
 import { deriveSpanIcon, deriveWeatherIcon, summarizeWind, summarizeWindFrom, UNLIKELY_RAIN_PERCENT, type WindUnit } from '../core/weather'
 import type { SlotRow } from '../core/ladder'
-import { BUTTON_ICON, Clock, CloudRain, CloudSun, Table2, Thermometer, Wind } from './icons'
+import { BUTTON_ICON, Clock, CloudRain, CloudSun, Moon, Table2, Thermometer, Wind } from './icons'
 import UvBar from './UvBar'
+import { skyRailGradient } from '../core/sky-rail'
+import type { NightCue } from '../core/dev-settings'
 import { CALM_BAR_STOPS, cssRgb, paletteColor } from '../core/temperature-palette'
 import WeatherIcon from './WeatherIcon'
 import WindReading from './WindReading'
@@ -38,6 +40,8 @@ interface Props {
   timelineEnd?: number
   /** Zonband bij elke zonsop- en ondergang (de oude uurtabel); anders alleen de eerstvolgende van elk (U91b). */
   allSunEvents?: boolean
+  /** Nacht zonder donkere rijen (U91b): lucht-rail links, maantje bij het label, of sterretjes in de nachtrijen. */
+  nightCue?: NightCue
   series: ForecastSeries
   location: { lng: number; lat: number }
   columns: { weather: boolean; air: boolean; temperature: boolean; wind: boolean }
@@ -314,7 +318,9 @@ export default function ForecastTable(props: Props) {
   })
   const columnCount = () => 1 + Number(props.columns.weather) + Number(props.columns.air) + Number(props.columns.temperature) + Number(props.columns.wind)
 
-  return <table ref={tableElement} class="forecast-table" classList={{ 'day-night-table': props.dayNight !== false }} data-mode={props.focus.pinned} data-hover={hovered()}>
+  const rail = (start: number, end: number) => props.nightCue === 'rail' ? skyRailGradient(start, end, props.location.lng, props.location.lat) : undefined
+  const NightMark = (mark: { night: boolean }) => <Show when={props.nightCue === 'symbool' && mark.night}><Moon class="night-mark" size={10} strokeWidth={2.4} aria-label="nacht" /></Show>
+  return <table ref={tableElement} class="forecast-table" classList={{ 'day-night-table': props.dayNight !== false }} data-mode={props.focus.pinned} data-hover={hovered()} data-night-cue={props.nightCue}>
     <thead><tr
       classList={{ 'sky-head': !!headSky(), 'day-hour': headSky()?.daylight === true, 'night-hour': headSky()?.daylight === false }}
       style={headSky() ? { '--day-overcast': headSky()!.overcast.toFixed(2), '--day-overcast-next': headSky()!.overcast.toFixed(2) } : undefined}
@@ -394,6 +400,7 @@ export default function ForecastTable(props: Props) {
           style={{
             '--day-overcast': dayDarkness().toFixed(3),
             '--day-overcast-next': nextDayDarkness().toFixed(3),
+            '--rail': rail(row.epoch, row.epoch + hour),
           }}
           ref={(element) => {
             rowElements.set(row.epoch, element)
@@ -434,7 +441,7 @@ export default function ForecastTable(props: Props) {
               }}
             >
               <strong>{time(row.epoch)}</strong>
-              <span classList={{ 'now-label': row.kind === 'now' }}>{row.kind === 'now' ? 'Nu' : formatWeekdayShort(row.epoch)}</span>
+              <span classList={{ 'now-label': row.kind === 'now' }}><NightMark night={!daylight()} />{row.kind === 'now' ? 'Nu' : formatWeekdayShort(row.epoch)}</span>
             </button>
           </td>
           <Show when={props.columns.weather}>
@@ -469,7 +476,7 @@ export default function ForecastTable(props: Props) {
           </tr>
         </Show>
         <Show when={sunEvent()}>{(event) =>
-          <tr class="sun-row" classList={{ 'past-hour': row.kind === 'past', 'sunrise-row': event().kind === 'rise', 'sunset-row': event().kind === 'set' }}>
+          <tr class="sun-row" classList={{ 'past-hour': row.kind === 'past', 'sunrise-row': event().kind === 'rise', 'sunset-row': event().kind === 'set' }} style={{ '--rail': rail(row.epoch + hour, row.epoch + hour) }}>
             <td colSpan={columnCount()}><SunGlyph />{sunLabel(event())}</td>
           </tr>
         }</Show>
@@ -524,7 +531,7 @@ export default function ForecastTable(props: Props) {
       const selectSpan = () => { if (selectable) props.onSelectTime?.(row.slot.start) }
       return <>
         <Show when={span.sunBefore}>{(event) =>
-          <tr class="sun-row" classList={{ 'sunrise-row': event().kind === 'rise', 'sunset-row': event().kind === 'set' }}>
+          <tr class="sun-row" classList={{ 'sunrise-row': event().kind === 'rise', 'sunset-row': event().kind === 'set' }} style={{ '--rail': rail(row.slot.start, row.slot.start) }}>
             <td colSpan={columnCount()}><SunGlyph />{`${event().kind === 'rise' ? 'Zon op' : 'Zon onder'} ${formatTime(event().epoch)}`}</td>
           </tr>
         }</Show>
@@ -533,7 +540,7 @@ export default function ForecastTable(props: Props) {
           data-end={row.slot.end}
           data-grain={row.slot.grain}
           data-source={row.source}
-          style={{ '--day-overcast': overcast(), '--day-overcast-next': overcast() }}
+          style={{ '--day-overcast': overcast(), '--day-overcast-next': overcast(), '--rail': rail(row.slot.start, row.slot.end) }}
           ref={(element) => {
             spanElements.set(row.slot.start, element)
             rowEpochs.set(element, row.slot.start)
@@ -557,7 +564,7 @@ export default function ForecastTable(props: Props) {
           onClick={selectSpan}
         >
           <td class="time-cell">
-            <Show when={selectable} fallback={<span class="time-label" title={row.slot.range || undefined}><strong>{row.slot.label}</strong><span>{weekday}</span></span>}>
+            <Show when={selectable} fallback={<span class="time-label" title={row.slot.range || undefined}><strong>{row.slot.label}</strong><span><NightMark night={!span.daylight} />{weekday}</span></span>}>
               <button
                 type="button"
                 class="time-label"
@@ -567,7 +574,7 @@ export default function ForecastTable(props: Props) {
                   selectSpan()
                   if (props.mobileTableOpen) props.onSelectMobileMode?.()
                 }}
-              ><strong>{row.slot.label}</strong><span>{weekday}</span></button>
+              ><strong>{row.slot.label}</strong><span><NightMark night={!span.daylight} />{weekday}</span></button>
             </Show>
           </td>
           <Show when={props.columns.weather}>

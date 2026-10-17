@@ -70,7 +70,7 @@ import { formatUv, uvChipLabel, uvLevel, uvReading } from './core/uv'
 import { WIND_UNITS, type WindUnit } from './core/weather'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
 import { DEFAULT_WIND_TUNING, MOBILE_WIND, WIND_MAX_FPS, WIND_PARAMETERS, WIND_SIMULATION_FPS, WindLayer } from './core/wind-layer'
-import { clearTuningStorage, TABLE_CONTRASTS, type TableContrast } from './core/dev-settings'
+import { clearTuningStorage, nightCue, TABLE_CONTRASTS, type TableContrast } from './core/dev-settings'
 import { watchIdle } from './core/activity'
 import { CLOUD_LAYERS, type CloudLayer } from './core/cloud-section'
 import { browserUsageEnvironment, createUsageTracker, installUsageBeacon, sanitizeUsageLabel, storedUsageLabel, USAGE_LABEL_STORAGE_KEY } from './core/usage'
@@ -3837,7 +3837,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
               }}
               location={location()}
               windUnit={windUnit()}
-              dayNight={expressive()}
+              dayNight={expressive() && !nightCue(tableContrast())}
+              nightCue={expressive() ? nightCue(tableContrast()) : undefined}
               onHeadSky={setTableHeadSky}
               onVisibleRows={inViewOnly ? (epochs) => setPeekRows(new Set(epochs)) : undefined}
               columns={{ weather: hasWeatherIcons(), air: hasWeatherIcons() || uvTimeline().length > 0 || radiationTimeline().length > 0, temperature: hasTemperature(), wind: hasWind() }}
@@ -3943,14 +3944,19 @@ function rowContains(start: number, end: number, epoch: number): boolean {
 // ?dev-knop "Dagen: lijst onder tabel" (U91b, eigenaar orkestrator, vervalt 2026-11-01): de oude uurtabel tot het
 // einde van HARMONIE met de lijst "Komende dagen" eronder, in plaats van de glijdende tabel.
 const DAY_LIST_STORAGE_KEY = 'motregen-dagenlijst'
-// ?dev-keuze "Dag/nacht-contrast" (U91b, eigenaar orkestrator, vervalt 2026-11-01): breed is de standaard, omdat
-// uur- en grove rijen dan dezelfde nacht en dag dragen; smal verzacht alleen dagdelen en dag/nacht, sterk is het oude.
+// ?dev-keuze "Dag/nacht-contrast" (U91b, eigenaar orkestrator, vervalt 2026-11-01). Standaard de rail: neutrale rijen
+// zonder lichtheidsverschil, en toch het verloop van de dag met schemering op de echte tijden (PO 2026-10-17: "minder
+// op donkerte leunen"). Symbool en sterren zijn de andere niet-donkere tekens; breed, smal en sterk tinten de rijen.
 const TABLE_CONTRAST_STORAGE_KEY = 'motregen-dagnacht-contrast'
-const DEFAULT_TABLE_CONTRAST: TableContrast = 'breed'
+const DEFAULT_TABLE_CONTRAST: TableContrast = 'rail'
 
+// `?dev&contrast=rail` kiest een waarde direct (en bewaart hem), zodat de PO varianten per link kan vergelijken.
 function storedTableContrast(devMode: boolean): TableContrast {
-  const stored = devMode ? localStorage.getItem(TABLE_CONTRAST_STORAGE_KEY) : null
-  return TABLE_CONTRASTS.find((contrast) => contrast === stored) ?? DEFAULT_TABLE_CONTRAST
+  if (!devMode) return DEFAULT_TABLE_CONTRAST
+  const linked = TABLE_CONTRASTS.find((contrast) => contrast === new URLSearchParams(window.location.search).get('contrast'))
+  if (linked) localStorage.setItem(TABLE_CONTRAST_STORAGE_KEY, linked)
+  const stored = localStorage.getItem(TABLE_CONTRAST_STORAGE_KEY)
+  return linked ?? TABLE_CONTRASTS.find((contrast) => contrast === stored) ?? DEFAULT_TABLE_CONTRAST
 }
 
 // Zoomgrens: nooit minder dan deze breedte in beeld (Min. breedte, T3g; knop weg in U30).

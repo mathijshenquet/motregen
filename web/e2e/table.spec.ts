@@ -36,7 +36,8 @@ test('desktop opens the table on the now-row and fetches history only when scrol
 
 test('the heading row takes the sky of the top visible table row while scrolling (U62)', async ({ page, isMobile }) => {
   test.skip(isMobile, 'De open tabel op mobiel heeft een eigen test; hier het desktoppaneel')
-  await page.goto('/')
+  // Alleen de getinte standen kleuren rijen en kop; sinds U91b staat dat achter ?dev (standaard is de lucht-rail).
+  await page.goto('/?dev&contrast=sterk')
   await expect(page.locator('tr.current-hour')).toBeAttached()
   const heading = page.locator('.forecast-table thead tr')
   const scrollRowUnderHeading = (rowClass: string) => page.evaluate((wanted) => {

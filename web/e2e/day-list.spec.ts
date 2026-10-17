@@ -77,3 +77,21 @@ test('under ?dev the hourly table keeps all hours with the day list below it, fi
   await expect(today.locator('.day-max')).toHaveText(/^-?\d+°$/, { timeout: 20_000 })
   await expect(list.locator('.day-row').nth(3).locator('.day-max')).toHaveText('—')
 })
+
+test('night shows as a sky rail by default, and ?dev&contrast picks another cue directly (U91b)', async ({ page }) => {
+  await page.goto('/')
+  await settled(page)
+  const table = page.locator('.forecast-table')
+  await expect(table).toHaveAttribute('data-night-cue', 'rail')
+  await expect(table).not.toHaveClass(/day-night-table/)
+  expect(await page.locator('tr[data-epoch]').first().evaluate((row) => getComputedStyle(row).getPropertyValue('--rail'))).toMatch(/^linear-gradient/)
+
+  await page.goto('/?dev&contrast=symbool')
+  await settled(page)
+  await expect(table).toHaveAttribute('data-night-cue', 'symbool')
+  await expect(page.locator('tr.night-hour .night-mark').first()).toBeAttached()
+  await page.goto('/?dev&contrast=sterk')
+  await settled(page)
+  await expect(table).toHaveClass(/day-night-table/)
+  await expect(table).not.toHaveAttribute('data-night-cue', /.+/)
+})
