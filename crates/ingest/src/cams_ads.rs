@@ -181,6 +181,9 @@ fn checked(response: Response, what: &str) -> Result<Response> {
 /// by (parameterNumber, constituentType); anything else in the file is an error, so a
 /// changed encoding can never be published under the wrong name.
 pub fn decode_grib(path: &Path) -> Result<CamsRun> {
+    let _guard = crate::GRIB_DECODER_LOCK
+        .lock()
+        .map_err(|error| anyhow::anyhow!("GRIB decoder lock poisoned: {error}"))?;
     let mut file = CodesFile::new_from_file(path, ProductKind::GRIB)
         .with_context(|| format!("opening {}", path.display()))?;
     let mut run = None;
