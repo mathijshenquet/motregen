@@ -42,7 +42,7 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   const rainGroup = groups.filter({ has: page.locator('summary', { hasText: /^Regen$/ }) })
   await expect(rainGroup.locator('.dev-control label > span')).toHaveText(['Regenisolijnen'])
   const isolines = rainGroup.getByRole('combobox')
-  await expect(isolines).toHaveValue('kleurgrenzen')
+  await expect(isolines).toHaveValue('stappen')
   await isolines.selectOption('dicht')
   await expect.poll(() => page.evaluate(() => localStorage.getItem('motregen-dev-regenisolijnen'))).toBe('dicht')
   await page.reload()
@@ -57,7 +57,7 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   await expect(page.getByTestId('perf-hud')).toBeHidden()
   await panel.getByRole('button', { name: 'Reset alle instellingen' }).click()
   await expect.poll(() => page.evaluate((keys) => keys.map((key) => localStorage.getItem(`motregen-${key}`)), removedKeys)).toEqual(removedKeys.map(() => null))
-  await expect(rainGroup.getByRole('combobox')).toHaveValue('kleurgrenzen')
+  await expect(rainGroup.getByRole('combobox')).toHaveValue('stappen')
   await expect.poll(() => page.evaluate(() => localStorage.getItem('motregen-dev-regenisolijnen'))).toBeNull()
 
   for (const summary of await groups.locator('> summary').all()) {
