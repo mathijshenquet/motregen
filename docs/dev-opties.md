@@ -13,6 +13,7 @@ Hooguit 3–4 knoppen per groep (PO 2026-09-25); de eerste groep start open.
 
 | groep | knop | doel | eigenaar | vervalt bij |
 | --- | --- | --- | --- | --- |
+| Tabel | Dagen: lijst onder tabel | uit (standaard): de urentabel glijdt over in 3 u, dagdelen en dag/nacht tot dag 10 (U91b, `TABLE_LADDER` in `web/src/core/ladder.ts`); aan: de uurtabel tot het eind van HARMONIE met de lijst "Komende dagen" eronder (U91). Sleutel `dagenlijst` | orkestrator (U91b) | 2026-11-01 |
 | Regen | Regenisolijnen | lijnen binnen de regen op vaste intensiteiten, alleen bij menging rand: kleurgrenzen 1 · 2 · 13 mm/u (standaard in de proef) / klassen 2,5 · 10 · 50 mm/u / dicht 0,5 · 1 · 2 · 5 · 10 · 20 mm/u / geen (alleen de buitenrand) | U86 | 2026-10-23 |
 | Wolkenkaart | Wolkenbeeld | vormen / oude sluier op dezelfde live modeldata | PM / MIP-34 | na PO-keuze, uiterlijk 2026-10-19 |
 | Wolkenkaart | Voorbeeldlucht | live / gaten / sluier / dicht / overgang; laatste vier gefingeerde conceptgevallen, niet bewaard tussen bezoeken | PM / MIP-34 | idem |

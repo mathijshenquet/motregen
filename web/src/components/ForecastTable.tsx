@@ -462,7 +462,8 @@ export default function ForecastTable(props: Props) {
       }
       const wind = createMemo(() => summarizeWindFrom(values()?.windMs ?? null, values()?.windFromDegrees ?? null, values()?.gustMs ?? null, props.windUnit), undefined, { equals: sameFields })
       const degrees = (reading: number | null | undefined) => reading == null ? placeholder() : `${Math.round(reading)}°`
-      const singleTemperature = () => values()?.tmin != null && Math.round(values()!.tmin!) === Math.round(values()!.tmax ?? Number.NaN)
+      // Een venster van één temperatuur, of zonder waarden, krijgt geen tweede regel.
+      const showMinimum = () => values()?.tmin != null && Math.round(values()!.tmin!) !== Math.round(values()!.tmax ?? Number.NaN)
       const selectable = row.slot.start <= (props.timelineEnd ?? Number.NEGATIVE_INFINITY)
       const overcast = () => ((values()?.cloud ?? 50) / 100 * 0.75).toFixed(3)
       rowSkies.set(row.slot.start, () => ({ daylight: span.daylight, overcast: 0 }))
@@ -537,7 +538,7 @@ export default function ForecastTable(props: Props) {
           </Show>
           <Show when={props.columns.temperature}><td class="temperature-cell" {...columnHover('temperature')}
             title={values()?.tmax == null ? undefined : `Luchttemperatuur, hoogste ${degrees(values()!.tmax)} en laagste ${degrees(values()!.tmin)}`}>
-            {degrees(values()?.tmax)}<Show when={!singleTemperature()}><small class="air-temperature span-minimum">{degrees(values()?.tmin)}</small></Show>
+            {degrees(values()?.tmax)}<Show when={showMinimum()}><small class="air-temperature span-minimum">{degrees(values()?.tmin)}</small></Show>
           </td></Show>
           <Show when={props.columns.wind}><td class="wind-cell" {...columnHover('wind')}><Show when={wind()} fallback={placeholder()}>{(summary) =>
             <WindReading summary={summary()} />
