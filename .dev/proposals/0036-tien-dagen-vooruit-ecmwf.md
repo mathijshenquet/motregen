@@ -107,16 +107,15 @@ PO, 17 oktober 2026, aangenomen met een andere weergave dan A1:
    willekeurige vensters kan aggregeren.
 2. **Weergave: geen aparte lijst, maar een glijdende urentabel** (PO: "die tabel naadloos laten overgaan in de
    langetermijnvoorspelling … progressief meer uren aggregeren … tot je alleen dag+nacht overhoudt"). Eerst uren, dan
-   blokken van 3 uur, dan dagdelen, dan dag en nacht tot dag 10. De urentabel wordt daardoor korter.
+   blokken van 3 uur, dan dagdelen, dan dag (06–18) en nacht (18–06) tot dag 10. De urentabel wordt daardoor korter.
    De lijst "Komende dagen" (A1) blijft tot 2026-11-01 als `?dev`-optie.
 3. **Bron per rij (B1)**: HARMONIE als die het venster volledig dekt, anders ECMWF. Regenkans alleen op dagrijen.
 4. **Vorm**:
    - de dag staat in de rij, zonder losse dagkoppen;
    - bij een nachtrij staat de laagste temperatuur groot, bij een dagrij de hoogste;
    - neerslag wordt gedempt bij minder dan 30 % kans;
-   - geen gloed per rij. In de hele tabel staat bij elke zonsop- en zonsondergang dezelfde pseudo-rij "Zon op/onder
-     hh:mm". In het dag/nacht-deel lopen Dag en Nacht van zonsopgang tot zonsondergang en andersom (PO: "in de
-     hele tabel precies in dag op en ondergang pseudo rij");
+   - geen gloed per rij. In de hele tabel staat precies één pseudo-rij "Zon op" en één "Zon onder": de eerstvolgende
+     (PO: "in de hele tabel precies een pseudorij op en een ondergang"). Dag en Nacht zijn vaste vensters (06–18, 18–06);
    - het dag/nacht-contrast is zachter, met een smalle en een brede variant ter keuze achter `?dev`.
 5. ECMWF komt in het versheidspaneel.
 6. **Uitrol** (de vlag `ecmwfInManifest` op prod en twee downloads per dag) bespreken we later apart.
