@@ -1,5 +1,27 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-17 07:49 CEST — MIP-35: meting zonder ons en bots live; U88 dagrapport loopt (Claude, w9)
+
+PO: "laten we dev traffic eruit filteren als mogelijk, dat kan ook een nieuwe update zijn (zonder changelog), maak
+maar wat zinnigs. doe maar privechat." MIP-35 aangenomen (besluit en ingevulde open vragen in het voorstel).
+
+Live op prod (main 97c4f34, `/run/current-system` = 5xc49d08…, nixos-vm + toplevel synchroon 0):
+1. Vite-proxy stuurt `s=1` niet meer door: previews/rigs op de dev-host (Lille, OVH = het "Franse" verkeer in
+   Cloudflare) tellen niet meer als prod-sessie.
+2. Caddy slaat usage-regels over bij UA `(?i)(bot/|\bbot\b|crawl|spider|slurp|headless|lighthouse)`; UA wordt niet
+   gelogd. Eerste versie (`bot\b`) ving een CUBOT-telefoon; gefixt en live geverifieerd.
+3. De lege regels zonder pad (150–900/dag) waren Caddy's automatische http→https-server, die het usage-log overneemt
+   zonder de log_skip-regels. Eigen `http://`-site zonder logger; live: 308 en geen regel.
+Mijn probes vanochtend voegden ~3 sessies toe aan 2026-10-17.
+
+Analyse 26/9–17/10: sessies vooral wij (pieken 676/527/415/310); touch-bakens ≈ echte gebruikers, 20–30/dag op goede
+dagen. Cloudflare-token heeft nu alle rechten (PO); GraphQL `httpRequests1dGroups` werkt (Free-plan, geen botscore).
+PO-chat-id gevonden via de kanaalbeheerders; de bot kan hem DM'en (sendChatAction ok).
+
+In vlucht: U88 (gpt-6.1-sol, herdr w4D, branch track/u88-gebruiksrapport vanaf 8f02f2e): Telegram-tellingen in de
+bot, `tg`-veld in het baken (v3), dagrapport 08:00 naar de PO. Na oplevering zet ik op prod `MOTREGEN_REPORT_CHAT_ID`
+en een alleen-lezen `CLOUDFLARE_ANALYTICS_TOKEN` in de secrets (niet het token met alle rechten).
+
 ## 2026-10-16 17:06 CEST — v0.2.0 uitgerold en in @motregen_updates (Claude, w9)
 
 PO: "doe maar 2 [kwartierbalken], daarna u85 en u76 mergen en alles deployen, elk nieuwswaardig item een telegram
