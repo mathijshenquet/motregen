@@ -10,7 +10,7 @@ De gewone Windmodus van de webapp behoudt regen. Tempo en vensters staan uitslui
 | Regenradar | 100 s | 28/5 | 109 | 6 | 20,536 s |
 | Gevoelstemperatuur | 100 s | 28/5 | 217 | 6 | 39,821 s |
 | Wind | 75 s | 15/2 | 289 | 8 | 39,600 s |
-| Lucht (U92) | 100 s | 28/5 | 217 | 6 | 39,821 s |
+| Lucht (U92) | 100 s | 28/5 | 127 | 6 | 23,750 s |
 
 Het tempo is 9,33 kaartminuten per seconde voor regen/temperatuur en 9,375 voor Wind;
 de app met `PLAYBACK_TEMPO_HOURS = 8` mat op 2026-10-11 9,35.
@@ -133,8 +133,9 @@ de gedeelde kernen; meet losse modi voor hun eigen tijdlat. Parallelle fasetijde
 ## Lucht (U92)
 
 `--mode air` maakt wat de app in de modus Lucht toont: de basiskaart op volle verzadiging, temperatuurpunten, daarboven
-de wolkenkaart van MIP-34 en de klok met titel Lucht; regen en winddeeltjes zijn in Lucht weggefade. Film als
-Gevoelstemperatuur (−1…+5 uur) plus 85 stills, `air-loop.mp4` en `air-EPOCH.jpg`.
+de wolkenkaart van MIP-34 en de klok met titel Lucht; regen en winddeeltjes zijn in Lucht weggefade. Film −30 min…+3 uur in het tempo van
+Gevoelstemperatuur plus 85 stills, `air-loop.mp4` en `air-EPOCH.jpg`. Het kortere venster houdt Lucht op hooguit +50 %
+van de hele generatie (PO 2026-10-17); ruim een derde van de Luchttijd gaat naar de stills buiten de film.
 
 `render-core/src/cloud.rs` is een port van `cloud-map-shader.ts` en de veldvoorbereiding uit `cloud-map.ts`
 (vorm, donkerte uit het grondlicht, stroming uit de regen-motionannexen, het bulkpad van `CloudDriftLoader` met
@@ -144,7 +145,7 @@ SHA-256 van de app-shader met die waarvan de port is gemaakt, zodat een shaderwi
 
 Rekentijd: de film tekent de wolken op een kwart van de pixels die de app gebruikt (de app op een derde van de
 uitvoerresolutie per as, de film op een zesde), de terugtrace op de helft van het grove app-raster, en haalt het reliëf uit de buurpixels in plaats van elk
-patroon twee keer te rekenen. Op de U82-snapshot ging dat van 85 naar 21 CPU-seconden per film op twee kernen.
+patroon twee keer te rekenen. Op de U82-snapshot ging dat (oud venster −1…+5 uur) van 85 naar 21 CPU-seconden per film op twee kernen.
 `bot/air-parity.ts` vergelijkt een dag- en een nachtframe met de app op hetzelfde kader en dezelfde data: kaart-ΔE
 1,22 en 1,26 tegenover een JPEG-vloer van 0,99 en 1,02 (drempel: vloer + 0,5, p99 ≤ 8).
 
