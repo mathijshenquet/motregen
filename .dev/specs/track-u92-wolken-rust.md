@@ -39,8 +39,11 @@ temperatuur/gevoel en wind. PO 2026-10-17: "zet een agent op die wolkenrender in
    dekking, kleur dag/nacht, schaduw; de terugtrace langs de regenbeweging met dezelfde stappen; de twee banken met
    het gemengde traject (niet twee beelden crossfaden); de ankers uit het bulkpad. Constanten komen uit de TS-bron via
    de bestaande generator, geen handkopie.
-2. **In welke film**: in de app staan de wolken in Weer **achter** de regen. Doe hetzelfde in de regenfilm (en de
-   regen-stills). Geen aparte Lucht-film nu. Maak het per modus aan/uit te zetten, zodat een PO-keuze later één regel is.
+2. **In welke film** (gecorrigeerd door de orkestrator): in de app staan de wolken **alleen in Lucht** (`airFocus() > 0`);
+   in Weer zijn ze uit, en in Lucht faden regen en winddeeltjes weg. De bot heeft nog geen Lucht-film (`PresetMode`
+   kent `air`, de Rust-renderer alleen Weather/Wind/Feels). Bouw daarom een nieuwe Rust-modus **Lucht** die oplevert
+   wat de app in Lucht toont, en sluit hem aan in de bot als film en still voor `air` (selectie, sequentie, bijschrift),
+   op dezelfde manier als de bestaande modi. **De regenfilm verandert niet.** Uitrol naar de bot blijft een PO-besluit.
 3. **Pariteit**: een test die per thema (dag, nacht) één native frame vergelijkt met een app-screenshot op hetzelfde
    tijdstip en dezelfde uitsnede, met een ΔE-drempel zoals bij regen/wind. GPU- en CPU-floats verschillen iets; kies
    een eerlijke drempel en motiveer hem in de LOG.
