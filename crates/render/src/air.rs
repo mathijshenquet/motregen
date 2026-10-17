@@ -415,10 +415,12 @@ pub fn render(
         now,
         clock,
     };
+    // Grotere batches: minder wachten op het traagste frame (stills met JPEG); 8 frames ≈ 30 MiB RGB, gemeten ~1 s
+    // sneller op 2 kernen. In `all` delen de modi de kernen en blijven de batches klein.
     let batch_size = if crate::shared::inputs().is_some() {
         2
     } else {
-        4
+        8
     };
     let (mut files, bytes, loop_ms, mut total) = thread::scope(|scope| -> Result<_> {
         let (sender, receiver) = mpsc::sync_channel::<Vec<Output>>(1);
