@@ -22,7 +22,7 @@ export const USAGE_FEATURES = [
   'fresh', // versheidspaneel geopend
   'about', // About geopend
   'share', // deel-link gedeeld of naar het klembord gekopieerd
-  'tg',
+  'tg', // pagina draait in de Telegram-webview (Mini App)
 ] as const
 export type UsageFeature = typeof USAGE_FEATURES[number]
 
