@@ -57,9 +57,19 @@ try {
   const results = []
   for (const sample of samples) {
     const epoch = now + sample.minutes * 60_000
-    await page.evaluate(async (epoch) => {
-      await (window as unknown as { __motregenRenderFrame: (epoch: number) => Promise<void> }).__motregenRenderFrame(epoch)
-    }, epoch)
+    // Een grote tijdsprong in still-mode meldt soms dat de wolkenlaag nog laadt (bekend, MIP-34); dan opnieuw.
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await page.evaluate(async (epoch) => {
+          await (window as unknown as { __motregenRenderFrame: (epoch: number) => Promise<void> }).__motregenRenderFrame(epoch)
+        }, epoch)
+        break
+      } catch (error) {
+        if (attempt === 3) throw error
+        console.info(JSON.stringify({ event: 'air-parity-retry', sample: sample.name, attempt, reason: String(error).slice(0, 120) }))
+        await new Promise((resolve) => setTimeout(resolve, 1_000))
+      }
+    }
     const reference = await page.screenshot()
     const referenceRgb = await sharp(reference).removeAlpha().raw().toBuffer()
     const nativeJpeg = await readFile(join(nativeDirectory, `air-${epoch}.jpg`))

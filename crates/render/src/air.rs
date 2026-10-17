@@ -11,9 +11,9 @@ use rayon::prelude::*;
 use render_core::{
     clock::ClockTransition,
     cloud::{
-        CloudFrame, CloudHour, CloudInputs, CloudTarget, CloudVolume, DriftSample, MotionView,
-        RasterBlend, RasterView, cloud_frame, composite, drift_anchor, drift_epochs, drift_path,
-        motion_mean, prepare_hour, render_fill,
+        CloudFrame, CloudHour, CloudInputs, CloudQuality, CloudTarget, CloudVolume, DriftSample,
+        MotionView, RasterBlend, RasterView, cloud_frame, composite, drift_anchor, drift_epochs,
+        drift_path, motion_mean, prepare_hour, render_fill,
     },
     constants::constants,
     field::Field,
@@ -34,6 +34,17 @@ use std::{
 
 const HOUR: i64 = 3_600_000;
 pub const TITLE: &str = "Lucht";
+
+// Rekentijd (U92, gemeten in de track-LOG op 2 kernen): de app tekent de wolken op de helft van zijn CSS-pixels; de
+// film op een kwart, met de terugtrace op de helft van het grove app-raster en het reliëf uit de buurpixels. Samen
+// van 85 naar circa 21 CPU-seconden per film; de afwijking tegenover de app blijft onder 0,3 ΔE boven de JPEG-vloer.
+const FILL_DIVISOR: f64 = 2.0;
+const TRAVEL_DIVISOR: f64 = 2.0;
+const QUALITY: CloudQuality = CloudQuality {
+    neighbour_relief: true,
+    // Dezelfde rand als de app (8 app-pixels) op het grovere vuldoel.
+    border_pixels: 4,
+};
 
 /// Twee geladen bronframes en hun tijdmenging; houdt de rasters vast zolang een `RasterBlend` ernaar wijst.
 struct LoadedBlend {
@@ -245,7 +256,7 @@ impl Painter<'_> {
                 grid: self.cloud_grid,
                 hours: &input.hours,
             };
-            let filled = render_fill(&volume, &input.cloud, self.fill, Some(self.travel));
+            let filled = render_fill(&volume, &input.cloud, self.fill, Some(self.travel), QUALITY);
             let size = &constants().size;
             composite(
                 &mut rgb,
@@ -301,20 +312,20 @@ impl Painter<'_> {
 pub fn targets(projection: &Projection) -> (CloudTarget, CloudTarget) {
     let size = &constants().size;
     let scale = mode_constants().isoline.fill_resolution;
-    let fill_width = (size.width as f64 * scale).round().max(1.0) as usize;
-    let fill_height = (size.height as f64 * scale).round().max(1.0) as usize;
+    let app_width = (size.width as f64 * scale).round().max(1.0);
+    let app_height = (size.height as f64 * scale).round().max(1.0);
     let downsample = mode_constants().cloud.flow_downsample;
     let fill = CloudTarget::new(
         &projection.columns,
         &projection.rows,
-        fill_width,
-        fill_height,
+        (app_width / FILL_DIVISOR).round() as usize,
+        (app_height / FILL_DIVISOR).round() as usize,
     );
     let travel = CloudTarget::new(
         &projection.columns,
         &projection.rows,
-        fill_width.div_ceil(downsample),
-        fill_height.div_ceil(downsample),
+        ((app_width as usize).div_ceil(downsample) as f64 / TRAVEL_DIVISOR).ceil() as usize,
+        ((app_height as usize).div_ceil(downsample) as f64 / TRAVEL_DIVISOR).ceil() as usize,
     );
     (fill, travel)
 }

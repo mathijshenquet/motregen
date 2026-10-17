@@ -394,8 +394,27 @@ pub fn cloud_frame(
 type Vec2 = [f32; 2];
 type Vec3 = [f32; 3];
 
+/// `floor` zonder functieaanroep: zonder SSE4.1 wordt `f32::floor` een aanroep naar compiler-builtins, en die kostte
+/// een zesde van de wolkentijd. Exact voor eindige waarden; vanaf 2^23 is elke f32 al geheel.
+fn floor(value: f32) -> f32 {
+    if value.abs() >= 8_388_608.0 {
+        return value;
+    }
+    let truncated = value as i32 as f32;
+    if truncated > value {
+        truncated - 1.0
+    } else {
+        truncated
+    }
+}
+
+/// Afronden naar een byte voor waarden binnen 0–255 (geen `roundf`-aanroep, zie `floor`).
+fn round_to_byte(value: f32) -> u8 {
+    (value.clamp(0.0, 255.0) + 0.5) as u8
+}
+
 fn fract(value: f32) -> f32 {
-    value - value.floor()
+    value - floor(value)
 }
 
 fn mix(from: f32, to: f32, amount: f32) -> f32 {
@@ -423,7 +442,7 @@ fn hash(point: Vec2) -> f32 {
 }
 
 fn noise(point: Vec2) -> f32 {
-    let cell = [point[0].floor(), point[1].floor()];
+    let cell = [floor(point[0]), floor(point[1])];
     let mut offset = [point[0] - cell[0], point[1] - cell[1]];
     offset = offset.map(|value| value * value * (3.0 - 2.0 * value));
     let top = mix(hash(cell), hash([cell[0] + 1.0, cell[1]]), offset[0]);
@@ -451,7 +470,7 @@ fn cloud_noise(mut point: Vec2) -> f32 {
 }
 
 fn cloud_cells(point: Vec2) -> f32 {
-    let cell = [point[0].floor(), point[1].floor()];
+    let cell = [floor(point[0]), floor(point[1])];
     let offset_in_cell = [point[0] - cell[0], point[1] - cell[1]];
     let mut nearest_squared: f32 = 1.0;
     for y in -1..=1 {
@@ -533,17 +552,10 @@ fn dot3(left: Vec3, right: Vec3) -> f32 {
     left[0] * right[0] + left[1] * right[1] + left[2] * right[2]
 }
 
-/// `transportedCloud`: kleur en optische diepte van het ene patroon op het gemengde voetpunt.
-fn transported_cloud(
-    origin: Vec2,
-    extent: Vec2,
-    foot: Vec2,
-    cover: f32,
-    darkness: f32,
-    weights: Vec3,
-    night: f32,
-) -> [f32; 4] {
-    let mut point = [
+/// Eerste helft van `transportedCloud`: het patroonpunt van het gemengde voetpunt (vast per kaartplek, licht
+/// vervormd en gedraaid).
+fn cloud_point(origin: Vec2, extent: Vec2, foot: Vec2) -> Vec2 {
+    let point = [
         (origin[0] + foot[0] * extent[0] - 500_000.0) / 10_000.0,
         (origin[1] + foot[1] * extent[1] - 6_800_000.0) / 10_000.0,
     ];
@@ -552,14 +564,36 @@ fn transported_cloud(
         noise(scaled(point, 0.55, -12.7)) - 0.5,
     ];
     let warped = [point[0] + warp[0] * 0.6, point[1] + warp[1] * 0.6];
-    point = [
+    [
         0.94 * warped[0] + 0.34 * warped[1],
         -0.34 * warped[0] + 0.94 * warped[1],
-    ];
-    let bodies = cloud_bodies(point, weights);
-    let shifted = cloud_bodies([point[0] - 0.12, point[1] + 0.18], weights);
-    let relief: Vec3 =
-        std::array::from_fn(|layer| ((bodies[layer] - shifted[layer]) * 0.22).clamp(-0.05, 0.05));
+    ]
+}
+
+/// Het reliëf vergelijkt elk type met zijn patroon iets verderop.
+const RELIEF_OFFSET: Vec2 = [-0.12, 0.18];
+
+fn relief_from(bodies: Vec3, shifted: Vec3) -> Vec3 {
+    std::array::from_fn(|layer| ((bodies[layer] - shifted[layer]) * 0.22).clamp(-0.05, 0.05))
+}
+
+fn direct_relief(point: Vec2, bodies: Vec3, weights: Vec3) -> Vec3 {
+    let shifted = cloud_bodies(
+        [point[0] + RELIEF_OFFSET[0], point[1] + RELIEF_OFFSET[1]],
+        weights,
+    );
+    relief_from(bodies, shifted)
+}
+
+/// Tweede helft van `transportedCloud`: kleur en optische diepte uit de typepatronen en hun reliëf.
+fn cloud_color(
+    bodies: Vec3,
+    relief: Vec3,
+    cover: f32,
+    darkness: f32,
+    weights: Vec3,
+    night: f32,
+) -> [f32; 4] {
     let opacity = [
         cloud_opacity(bodies[0], cover, darkness, 1.0, night),
         cloud_opacity(bodies[1], cover, darkness, 1.0, night),
@@ -576,17 +610,104 @@ fn transported_cloud(
     [color[0] + light, color[1] + light, color[2] + light, depth]
 }
 
+/// Één vulpixel na de eerste pas: alles behalve het reliëf.
+#[derive(Clone, Copy)]
+struct FillSample {
+    valid: f32,
+    cover: f32,
+    darkness: f32,
+    weights: Vec3,
+    point: Vec2,
+    bodies: Vec3,
+}
+
+/// Reliëf uit de buurpixels: de patroonverschuiving omgerekend naar pixels via de lokale afgeleide van het
+/// patroonpunt, en daar de al berekende patronen bilineair bemonsterd. `None` als de buren dat niet dragen; dan
+/// rekent de aanroeper het reliëf direct.
+fn neighbour_relief(
+    samples: &[Option<FillSample>],
+    width: usize,
+    height: usize,
+    column: usize,
+    row: usize,
+) -> Option<Vec3> {
+    let sample = samples[row * width + column]?;
+    let point_at =
+        |column: usize, row: usize| samples[row * width + column].map(|sample| sample.point);
+    // Centraal verschil waar beide buren er zijn, anders eenzijdig.
+    let slope = |before: Option<Vec2>, after: Option<Vec2>| -> Option<Vec2> {
+        match (before, after) {
+            (Some(before), Some(after)) => {
+                Some([(after[0] - before[0]) / 2.0, (after[1] - before[1]) / 2.0])
+            }
+            (None, Some(after)) => Some([after[0] - sample.point[0], after[1] - sample.point[1]]),
+            (Some(before), None) => {
+                Some([sample.point[0] - before[0], sample.point[1] - before[1]])
+            }
+            (None, None) => None,
+        }
+    };
+    let along_columns = slope(
+        column.checked_sub(1).and_then(|left| point_at(left, row)),
+        (column + 1 < width)
+            .then(|| point_at(column + 1, row))
+            .flatten(),
+    )?;
+    let along_rows = slope(
+        row.checked_sub(1).and_then(|up| point_at(column, up)),
+        (row + 1 < height)
+            .then(|| point_at(column, row + 1))
+            .flatten(),
+    )?;
+    // Los op: along_columns·dx + along_rows·dy = RELIEF_OFFSET.
+    let determinant = along_columns[0] * along_rows[1] - along_rows[0] * along_columns[1];
+    if determinant.abs() < 1e-9 {
+        return None;
+    }
+    let shift_columns =
+        (RELIEF_OFFSET[0] * along_rows[1] - along_rows[0] * RELIEF_OFFSET[1]) / determinant;
+    let shift_rows =
+        (along_columns[0] * RELIEF_OFFSET[1] - RELIEF_OFFSET[0] * along_columns[1]) / determinant;
+    let target_column = column as f32 + shift_columns;
+    let target_row = row as f32 + shift_rows;
+    let west = floor(target_column);
+    let north = floor(target_row);
+    if west < 0.0 || north < 0.0 || west + 1.0 >= width as f32 || north + 1.0 >= height as f32 {
+        return None;
+    }
+    let mix_east = target_column - west;
+    let mix_south = target_row - north;
+    let (west, north) = (west as usize, north as usize);
+    let mut shifted = [0.0f32; 3];
+    for (neighbour_column, neighbour_row, weight) in [
+        (west, north, (1.0 - mix_east) * (1.0 - mix_south)),
+        (west + 1, north, mix_east * (1.0 - mix_south)),
+        (west, north + 1, (1.0 - mix_east) * mix_south),
+        (west + 1, north + 1, mix_east * mix_south),
+    ] {
+        let neighbour = samples[neighbour_row * width + neighbour_column]?;
+        for (layer, value) in shifted.iter_mut().enumerate() {
+            // Een buur rekent alleen de typen die hij zelf gebruikt; ontbreekt er een die hier telt, dan direct.
+            if sample.weights[layer] > 0.0 && neighbour.weights[layer] <= 0.0 {
+                return None;
+            }
+            *value += neighbour.bodies[layer] * weight;
+        }
+    }
+    Some(relief_from(sample.bodies, shifted))
+}
+
 /// De stroming op `uv` en tijdindex `time`: trilineair, zoals `textureLod` op de RG16F-volumetextuur.
 fn flow_at(volume: &CloudVolume<'_>, uv: Vec2, time: f32) -> Vec2 {
     let width = volume.grid.width;
     let height = volume.grid.height;
     let column = uv[0] * width as f32 - 0.5;
     let row = uv[1] * height as f32 - 0.5;
-    let west = column.floor();
-    let north = row.floor();
+    let west = floor(column);
+    let north = floor(row);
     let mix_x = column - west;
     let mix_y = row - north;
-    let layer = time.floor();
+    let layer = floor(time);
     let mix_z = time - layer;
     let clamp_column = |value: f32| (value as isize).clamp(0, width as isize - 1) as usize;
     let clamp_row = |value: f32| (value as isize).clamp(0, height as isize - 1) as usize;
@@ -672,6 +793,23 @@ impl CloudTarget {
     }
 }
 
+/// Keuzes waarin de botfilm van de app mag afwijken om rekentijd te sparen (U92-hefbomen, gemeten in de LOG).
+#[derive(Clone, Copy, Debug)]
+pub struct CloudQuality {
+    /// Het reliëf uit de buurpixels halen in plaats van elk patroon een tweede keer te rekenen.
+    pub neighbour_relief: bool,
+    /// Breedte van de rand in vulpixels die direct terugtracet; de app gebruikt 8 pixels van zijn vuldoel.
+    pub border_pixels: usize,
+}
+
+impl CloudQuality {
+    /// Precies wat de app tekent.
+    pub const APP: Self = Self {
+        neighbour_relief: false,
+        border_pixels: 8,
+    };
+}
+
 /// Rendert de wolkenvulling (voorvermenigvuldigd RGBA8, zoals het vuldoel van de app) en, met `travel`, eerst de
 /// terugtrace op het grove raster.
 pub fn render_fill(
@@ -679,6 +817,7 @@ pub fn render_fill(
     frame: &CloudFrame,
     fill: &CloudTarget,
     travel: Option<&CloudTarget>,
+    quality: CloudQuality,
 ) -> Vec<u8> {
     let grid = volume.grid;
     let field = volume.blended(frame.time);
@@ -724,9 +863,12 @@ pub fn render_fill(
         .map(|&position| spline_taps(position, grid.height))
         .collect();
     // Randpixels kunnen buiten het grove raster vallen: die tracet de shader direct (8 pixels marge).
-    let margin_u = ((fill.columns[1] - fill.columns[0]).abs() / grid.width as f64 * 8.0) as f32;
-    let margin_v = ((fill.rows[1] - fill.rows[0]).abs() / grid.height as f64 * 8.0) as f32;
-    let mut output = vec![0u8; fill.width * fill.height * 4];
+    let border = quality.border_pixels;
+    let margin_u =
+        ((fill.columns[1] - fill.columns[0]).abs() / grid.width as f64 * border as f64) as f32;
+    let margin_v =
+        ((fill.rows[1] - fill.rows[0]).abs() / grid.height as f64 * border as f64) as f32;
+    let mut samples: Vec<Option<FillSample>> = vec![None; fill.width * fill.height];
     for (row, row_taps) in vertical.iter().enumerate() {
         for (column, column_taps) in horizontal.iter().enumerate() {
             let mut sample = [0.0f32; 4];
@@ -754,10 +896,10 @@ pub fn render_fill(
                 && uv[1] > margin_v
                 && uv[0] < 1.0 - margin_u
                 && uv[1] < 1.0 - margin_v
-                && column >= 8
-                && row >= 8
-                && column + 8 < fill.width
-                && row + 8 < fill.height;
+                && column >= border
+                && row >= border
+                && column + border < fill.width
+                && row + border < fill.height;
             let (mut foot_a, mut foot_b) = match &cached {
                 Some((travel, offsets)) if interior => {
                     let offset = travel_offset(travel, offsets, fill, column, row);
@@ -780,15 +922,44 @@ pub fn render_fill(
                 mix(foot_b[0], foot_a[0], weight_a),
                 mix(foot_b[1], foot_a[1], weight_a),
             ];
-            let transported =
-                transported_cloud(origin, extent, foot, cover, darkness, weights, night);
-            let opacity = (1.0 - (-transported[3]).exp()) * valid;
-            let shadow = cover * darkness * mix(0.15, 0.08, night) * valid;
+            let point = cloud_point(origin, extent, foot);
+            samples[row * fill.width + column] = Some(FillSample {
+                valid,
+                cover,
+                darkness,
+                weights,
+                point,
+                bodies: cloud_bodies(point, weights),
+            });
+        }
+    }
+    let mut output = vec![0u8; fill.width * fill.height * 4];
+    for row in 0..fill.height {
+        for column in 0..fill.width {
+            let Some(sample) = samples[row * fill.width + column] else {
+                continue;
+            };
+            let relief = if quality.neighbour_relief {
+                neighbour_relief(&samples, fill.width, fill.height, column, row)
+            } else {
+                None
+            }
+            .unwrap_or_else(|| direct_relief(sample.point, sample.bodies, sample.weights));
+            let colored = cloud_color(
+                sample.bodies,
+                relief,
+                sample.cover,
+                sample.darkness,
+                sample.weights,
+                night,
+            );
+            let opacity = (1.0 - (-colored[3]).exp()) * sample.valid;
+            let shadow = sample.cover * sample.darkness * mix(0.15, 0.08, night) * sample.valid;
             let shadow_color = [0.22, 0.29, 0.36];
             let destination = (row * fill.width + column) * 4;
             for channel in 0..3 {
-                let value = transported[channel] * opacity
-                    + shadow_color[channel] * shadow * (1.0 - opacity);
+                let value =
+                    colored[channel] * opacity + shadow_color[channel] * shadow * (1.0 - opacity);
                 output[destination + channel] = unit_to_byte(value);
             }
             output[destination + 3] = unit_to_byte(opacity + shadow * (1.0 - opacity));
@@ -798,7 +969,7 @@ pub fn render_fill(
 }
 
 fn unit_to_byte(value: f32) -> u8 {
-    (value.clamp(0.0, 1.0) * 255.0).round() as u8
+    round_to_byte(value.clamp(0.0, 1.0) * 255.0)
 }
 
 /// `cloudTravel`: handmatig bilineair uit het grove raster, op de fragmentpositie in het vuldoel.
@@ -811,8 +982,8 @@ fn travel_offset(
 ) -> [f32; 4] {
     let at_x = (column as f32 + 0.5) / fill.width as f32 * travel.width as f32 - 0.5;
     let at_y = (row as f32 + 0.5) / fill.height as f32 * travel.height as f32 - 0.5;
-    let west = at_x.floor();
-    let north = at_y.floor();
+    let west = floor(at_x);
+    let north = floor(at_y);
     let mix_x = at_x - west;
     let mix_y = at_y - north;
     let fetch = |x: f32, y: f32| offsets[y as usize * travel.width + x as usize];
@@ -842,7 +1013,12 @@ fn spline_taps(position: f64, size: usize) -> [(usize, f32); 4] {
     })
 }
 
+/// Een vulrij, horizontaal verbreed tot de uitvoerbreedte, met zijn rijnummer.
+type WideRow = (usize, Vec<[f32; 4]>);
+
 /// Legt de vulling over `rgb`: bilineair opgeschaald, maal `opacity`, als voorvermenigvuldigde alfa-over.
+/// Eerst horizontaal per vulrij (één keer per rij), dan verticaal per uitvoerrij: dezelfde bilineaire weging als de
+/// texture-fetch in de composietshader van de app.
 pub fn composite(
     rgb: &mut [u8],
     output_width: usize,
@@ -852,63 +1028,63 @@ pub fn composite(
     fill_height: usize,
     opacity: f32,
 ) {
-    let scale_x = fill_width as f64 / output_width as f64;
-    let scale_y = fill_height as f64 / output_height as f64;
     let horizontal: Vec<_> = (0..output_width)
-        .map(|column| {
-            let position =
-                ((column as f64 + 0.5) * scale_x - 0.5).clamp(0.0, fill_width as f64 - 1.0);
-            let west = position.floor() as usize;
-            (
-                west,
-                (west + 1).min(fill_width - 1),
-                (position - west as f64) as f32,
-            )
-        })
+        .map(|column| interpolation_taps(column, output_width, fill_width))
         .collect();
+    let widen = |fill_row: usize| -> Vec<[f32; 4]> {
+        let row = &filled[fill_row * fill_width * 4..(fill_row + 1) * fill_width * 4];
+        horizontal
+            .iter()
+            .map(|&(west, east, mix_east)| {
+                std::array::from_fn(|channel| {
+                    f32::from(row[west * 4 + channel]) * (1.0 - mix_east)
+                        + f32::from(row[east * 4 + channel]) * mix_east
+                })
+            })
+            .collect()
+    };
+    // De twee verbrede vulrijen rond de huidige uitvoerrij; bij de volgende vulrij schuift de onderste naar boven.
+    let mut pair: Option<(WideRow, WideRow)> = None;
     for row in 0..output_height {
-        let position = ((row as f64 + 0.5) * scale_y - 0.5).clamp(0.0, fill_height as f64 - 1.0);
-        let north = position.floor() as usize;
-        let south = (north + 1).min(fill_height - 1);
-        let vertical = (position - north as f64) as f32;
-        for (column, &(west, east, horizontal)) in horizontal.iter().enumerate() {
-            let corners = [
-                (
-                    (north * fill_width + west) * 4,
-                    (1.0 - horizontal) * (1.0 - vertical),
-                ),
-                (
-                    (north * fill_width + east) * 4,
-                    horizontal * (1.0 - vertical),
-                ),
-                (
-                    (south * fill_width + west) * 4,
-                    (1.0 - horizontal) * vertical,
-                ),
-                ((south * fill_width + east) * 4, horizontal * vertical),
-            ];
-            if corners
-                .iter()
-                .all(|&(index, _)| filled[index + 3] == 0 && filled[index] == 0)
-            {
+        let (north, south, mix_south) = interpolation_taps(row, output_height, fill_height);
+        let (upper, lower) = match pair.take() {
+            Some((upper, lower)) if upper.0 == north && lower.0 == south => (upper, lower),
+            Some((_, lower)) if lower.0 == north => (lower, (south, widen(south))),
+            _ => ((north, widen(north)), (south, widen(south))),
+        };
+        let (northern, southern) = (&upper.1, &lower.1);
+        let output_row = &mut rgb[row * output_width * 3..(row + 1) * output_width * 3];
+        for (column, pixel) in output_row.chunks_exact_mut(3).enumerate() {
+            let (top, bottom) = (northern[column], southern[column]);
+            if top == [0.0; 4] && bottom == [0.0; 4] {
                 continue;
             }
-            let mut rgba = [0.0f32; 4];
-            for (index, weight) in corners {
-                for channel in 0..4 {
-                    rgba[channel] += f32::from(filled[index + channel]) * weight;
-                }
-            }
             // De overlaycanvas bewaart de laag als 8 bits voorvermenigvuldigd; daarna legt de browser hem over de kaart.
-            let overlay = rgba.map(|value| (value * opacity).round().clamp(0.0, 255.0));
-            let destination = (row * output_width + column) * 3;
-            for channel in 0..3 {
-                let under = f32::from(rgb[destination + channel]);
-                rgb[destination + channel] =
-                    (under * (1.0 - overlay[3] / 255.0) + overlay[channel]).round() as u8;
+            let overlay: [f32; 4] = std::array::from_fn(|channel| {
+                f32::from(round_to_byte(
+                    (top[channel] * (1.0 - mix_south) + bottom[channel] * mix_south) * opacity,
+                ))
+            });
+            for (channel, value) in pixel.iter_mut().enumerate() {
+                *value = round_to_byte(
+                    f32::from(*value) * (1.0 - overlay[3] / 255.0) + overlay[channel],
+                );
             }
         }
+        pair = Some((upper, lower));
     }
+}
+
+/// Bilineaire buren en gewicht van de rechter/onderste buur voor uitvoerpixel `index`, met CLAMP_TO_EDGE.
+fn interpolation_taps(index: usize, output_size: usize, source_size: usize) -> (usize, usize, f32) {
+    let scale = source_size as f64 / output_size as f64;
+    let position = ((index as f64 + 0.5) * scale - 0.5).clamp(0.0, source_size as f64 - 1.0);
+    let first = position.floor() as usize;
+    (
+        first,
+        (first + 1).min(source_size - 1),
+        (position - first as f64) as f32,
+    )
 }
 
 #[cfg(test)]
@@ -951,6 +1127,27 @@ mod tests {
             assert!((0.0..1.0).contains(&value));
             assert!((0.0..=1.0).contains(&noise(point)));
             assert!((0.0..=1.0).contains(&cloud_cells(point)));
+        }
+    }
+
+    #[test]
+    fn inline_floor_matches_the_standard_floor() {
+        for index in -20_000..20_000 {
+            let value = index as f32 * 0.137 + 0.0001;
+            assert_eq!(floor(value), value.floor(), "{value}");
+            assert_eq!(fract(value), value - value.floor());
+        }
+        for value in [
+            -1.0,
+            -0.5,
+            0.0,
+            0.5,
+            1.0,
+            8_388_607.5,
+            9_000_000.0,
+            -9_000_000.0,
+        ] {
+            assert_eq!(floor(value), value.floor(), "{value}");
         }
     }
 
