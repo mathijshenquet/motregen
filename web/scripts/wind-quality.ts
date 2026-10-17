@@ -11,13 +11,12 @@ import { join } from 'node:path'
 //   zoom  — continue zoom 7→9 (100 stappen van 0,02, één per animatieframe) tegen één sprong 7→9,
 //           inkt per windframe
 //   profile — dichtheidsprofiel langs de wind (loef/lij), als de build `windProfile` heeft
-// WIND_TUNING = JSON met afwijkingen voor `motregen-wind-tuning-v4`; SCENARIOS=ink,crop,zoom; THEMES; DPR.
+// SCENARIOS=ink,crop,zoom; THEMES; DPR.
 const [origin, outDir, label = 'run'] = process.argv.slice(2)
 if (!origin || !outDir) throw new Error('usage: pnpm exec tsx scripts/wind-quality.ts ORIGIN OUT_DIR [LABEL]')
 mkdirSync(outDir, { recursive: true })
 const scenarios = (process.env.SCENARIOS ?? 'ink,crop,zoom').split(',')
 const themes = (process.env.THEMES ?? 'dark,light').split(',')
-const tuning = process.env.WIND_TUNING ?? ''
 const dpr = Number(process.env.DPR ?? 2)
 const size = { width: 1280, height: 800 }
 const start = { lng: 5.2, lat: 52.2, zoom: 7 }
@@ -32,13 +31,10 @@ for (const theme of themes) {
   const context = await browser.newContext({ viewport: size, deviceScaleFactor: dpr })
   // tsx (esbuild keepNames) wikkelt benoemde functies in __name(), ook binnen page.evaluate.
   await context.addInitScript('globalThis.__name = (value) => value')
-  await context.addInitScript(([value, custom, view]) => {
+  await context.addInitScript(([value, view]) => {
     localStorage.setItem('motregen-theme', value!)
     localStorage.setItem('motregen-map-view', view!)
-    localStorage.removeItem('motregen-wind-tuning-v3')
-    if (custom) localStorage.setItem('motregen-wind-tuning-v4', custom)
-    else localStorage.removeItem('motregen-wind-tuning-v4')
-  }, [theme, tuning, JSON.stringify(start)])
+  }, [theme, JSON.stringify(start)])
   const page = await context.newPage()
   page.setDefaultTimeout(120_000)
   await page.goto(new URL('/', origin).href)

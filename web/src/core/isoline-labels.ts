@@ -5,7 +5,7 @@ import type { Grid } from './contract'
 import type { MapTheme } from './basemap'
 import { isolineColor, isolineLabelText, type IsolineFeatureCollection, type IsolineKind } from './isolines'
 import { ringFadeAt, type ShortRing } from './isoline-contours'
-import { projectToLevel, smoothstep, type FieldSlice, type SliceSample } from './isoline-spline'
+import { projectToLevel, type FieldSlice, type SliceSample } from './isoline-spline'
 
 const EARTH_RADIUS = 6378137
 
@@ -18,8 +18,6 @@ interface Anchor {
   column: number
   row: number
   born: number
-  /** Vervaging op de lokale |∇T|, zoals de lijn eronder. */
-  fade: number
   /** Lengte-fade van de ring waar het anker op ligt (1 op lange en open lijnen). */
   ringFade: number
   marker: Marker
@@ -40,7 +38,6 @@ export class IsolineLabels {
   private linesChanged = false
   private opacity = 0
   private step = 1
-  private fade?: [number, number]
   private rings: readonly ShortRing[] = []
 
   constructor(
@@ -83,11 +80,6 @@ export class IsolineLabels {
     if (opacity === this.opacity) return
     this.opacity = opacity
     for (const anchor of this.anchors) this.applyOpacity(anchor)
-  }
-
-  /** smoothstep-grenzen in °C/km, of undefined voor geen vervaging. */
-  setFade(fade: [number, number] | undefined): void {
-    this.fade = fade
   }
 
   clear(): void {
@@ -156,7 +148,7 @@ export class IsolineLabels {
     text.style.opacity = '0'
     if (!this.reducedMotion()) text.style.transition = `opacity ${FADE_MS}ms ease-out`
     element.append(text)
-    const anchor: Anchor = { level, column, row, born: now, text, dying: false, fade: 1, ringFade: 1, marker: new Marker({ element, rotationAlignment: 'map', pitchAlignment: 'map' }) }
+    const anchor: Anchor = { level, column, row, born: now, text, dying: false, ringFade: 1, marker: new Marker({ element, rotationAlignment: 'map', pitchAlignment: 'map' }) }
     this.place(anchor, sample)
     anchor.marker.addTo(this.map)
     this.anchors.push(anchor)
@@ -175,7 +167,6 @@ export class IsolineLabels {
   private place(anchor: Anchor, sample: SliceSample): void {
     const lngLat = this.toLngLat(anchor.column, anchor.row)
     anchor.marker.setLngLat(lngLat)
-    anchor.fade = this.fade ? smoothstep(this.fade[0], this.fade[1], Math.hypot(sample.gx, sample.gy) / this.kmPerCell(lngLat[1])) : 1
     anchor.ringFade = ringFadeAt(this.rings, anchor.level, anchor.column, anchor.row)
     this.applyOpacity(anchor)
     // Het 3857-rooster is op schermschaal conform: rij omlaag = scherm omlaag. De tekst loopt
@@ -187,12 +178,7 @@ export class IsolineLabels {
   }
 
   private applyOpacity(anchor: Anchor): void {
-    anchor.marker.setOpacity(this.opacity * anchor.fade * anchor.ringFade)
-  }
-
-  /** Het rooster is Web Mercator: een cel is op breedte φ dx·cos φ echte meters. */
-  private kmPerCell(lat: number): number {
-    return this.grid.dx * Math.cos(lat * Math.PI / 180) / 1_000
+    anchor.marker.setOpacity(this.opacity * anchor.ringFade)
   }
 
   private pxPerCell(): number {

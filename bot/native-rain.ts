@@ -1,5 +1,5 @@
 import { readData } from './data-source.js'
-import { rainSampling, DEFAULT_RAIN_FIELD_TUNING } from '../web/src/core/rain-smoothing.js'
+import { rainSampling } from '../web/src/core/rain-smoothing.js'
 import type { RainSampling } from '../web/src/core/rain-sampling.js'
 import { NativeRaster } from './native-raster.js'
 import { zstdDecompressSync } from 'node:zlib'
@@ -85,7 +85,7 @@ export class NativeRainData {
         motion = { width: size.bw, height: size.bh, vectors: new Int8Array(vectors.buffer, vectors.byteOffset, vectors.byteLength) }
       }
     }
-    return { grid: left.grid, left: left.raster, right: right.raster, mix: blend.mix, leftHeader: left.header, rightHeader: right.header, motion, ...(this.field === 'rain_rate' ? { leftSampling: rainSampling(leftFrame.source, leftFrame.epoch - this.now, DEFAULT_RAIN_FIELD_TUNING), rightSampling: rainSampling(rightFrame.source, rightFrame.epoch - this.now, DEFAULT_RAIN_FIELD_TUNING) } : {}), intervalMinutes: (rightFrame.epoch - leftFrame.epoch) / 60_000 }
+    return { grid: left.grid, left: left.raster, right: right.raster, mix: blend.mix, leftHeader: left.header, rightHeader: right.header, motion, ...(this.field === 'rain_rate' ? { leftSampling: rainSampling(leftFrame.source, leftFrame.epoch - this.now), rightSampling: rainSampling(rightFrame.source, rightFrame.epoch - this.now) } : {}), intervalMinutes: (rightFrame.epoch - leftFrame.epoch) / 60_000 }
   }
 
   clear(): void { this.rasters.clear(); this.chunks.clear() }

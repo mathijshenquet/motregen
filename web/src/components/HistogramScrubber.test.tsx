@@ -349,7 +349,7 @@ describe('histogram scrubber', () => {
     const clouds = { timeline: { high: timeline, mid: timeline, low: timeline }, values: { high: [80, 80, 80, 80, 80], mid: [60, 60, 60, 60, 60], low: [0, 0, 0, 0, 0] } }
     const [mapTheme, setMapTheme] = createSignal<'light' | 'dark'>('light')
     const [expressive, setExpressive] = createSignal(true)
-    const look = (theme: 'light' | 'dark') => ({ palette: 'violet-laat', blend: 'drempel-zacht', contrast: 0, theme }) as const
+    const look = (theme: 'light' | 'dark') => ({ palette: 'violet-laat', blend: 'rand', contrast: 0, theme }) as const
     const { container } = render(() => <HistogramScrubber
       timeline={timeline}
       values={[1, 1, 1, 1, 1]}

@@ -11,7 +11,6 @@ export interface TraceRequest {
   step: number
   toleranceCells: number
   ringKm: number
-  gradient?: [number, number]
 }
 
 export interface TraceResult {
@@ -43,7 +42,7 @@ export class TraceCore {
     if (!fields.length || fields.some((field) => !field)) return undefined
     const slice = fields.length === 1 ? fields[0]! : blendSlice(fields as PreparedField[], weights.map(({ weight }) => weight))
     const contours = traceContours(slice, this.grid, { step: request.step, toleranceCells: request.toleranceCells })
-    const { data, stats } = buildSegments(contours, { ringKm: request.ringKm, gradient: request.gradient })
+    const { data, stats } = buildSegments(contours, { ringKm: request.ringKm })
     const points = contours.reduce((sum, contour) => sum + contour.points.length / 2, 0)
     const rings = shortRings(contours, request.ringKm, request.toleranceCells)
     return { request, data, rings, ringFade: ringFadeRaster(rings, this.grid.width, this.grid.height), stats: { ...stats, points, ms: performance.now() - started } }

@@ -1,6 +1,6 @@
 import type { MapTheme } from './map-theme.js'
 
-export const WIND_PARTICLES_PER_MEGAPIXEL = 620
+export const WIND_PARTICLES_PER_MEGAPIXEL = 620 // Dichtheid, U89 (PO 2026-10-17).
 export const WIND_REFERENCE_ZOOM = 6.4
 export const WIND_INITIAL_STAGGER_SECONDS = 2
 export const WIND_SIMULATION_FPS = 30
@@ -13,11 +13,6 @@ export function trailFloor(seconds: number): number { return Math.max(0.6, secon
 
 /** Vloer voor de RGBA16F-buffer: geen afrondingsghosts, alleen onzichtbare rest opruimen. */
 export function halfFloatTrailFloor(seconds: number): number { return seconds * 2 / 255 }
-// v3 (U20): alleen afwijkingen van de default worden bewaard. v4 (U30/MIP-12): alleen de vier
-// knoppen van WindTuning; v3 wordt eenmalig gemigreerd, de rest van v3 (nu constanten) valt weg.
-export const WIND_TUNING_STORAGE_KEY = 'motregen-wind-tuning-v4'
-export const LEGACY_WIND_TUNING_STORAGE_KEY = 'motregen-wind-tuning-v3'
-
 // De staart ontstaat in een trailbuffer die per seconde vervaagt; de particle
 // zelf stempelt alleen zijn kop. Leven en fades zijn schermafstanden (CSS-px),
 // zodat snelheid tempo wordt en niet de hoeveelheid inkt per particle.
@@ -48,8 +43,7 @@ export interface WindParameters {
 }
 
 /**
- * Alle windparameters. Instelbaar (?dev, JSON-export) zijn alleen Dichtheid, Intensiteit,
- * Lijnbreedte en Tempo; de rest is sinds U30 constant op de waarde van U3–U24.
+ * Alle windparameters staan vast: U30 en U89 (PO 2026-10-17), op de bestaande productwaarden.
  * `visibility` zet App per frame voor de focusdemping (vroeger ook de knop Contrast).
  */
 export const WIND_PARAMETERS: WindParameters = {
@@ -67,11 +61,11 @@ export const WIND_PARAMETERS: WindParameters = {
   // 0,75×-buffer die LINEAR opgeschaald korrelig/zacht oogt (U24).
   bufferDpr: 2,
   headIntensity: 0.95, // Kopintensiteit (U3b)
-  lineWidth: 2.5,
-  speed: 1,
+  lineWidth: 2.5, // Lijnbreedte, U89 (PO 2026-10-17).
+  speed: 1, // Tempo, U89 (PO 2026-10-17).
   // PO 2026-09-25 live (U34): default subtieler dan U24 (0,75); windfocus (U19) tweent naar
   // WIND_FOCUS_INTENSITY.
-  intensity: 0.5,
+  intensity: 0.5, // Intensiteit, U89 (PO 2026-10-17).
   visibility: 1, // Contrast (U3); App vermenigvuldigt met de focusdemping
   maxFps: 60, // Max. fps (U8c)
   // PO 2026-09-25 live (U34): koppen boven water (de `water`-laag van de basemap) een derde zachter.

@@ -13,22 +13,7 @@ Hooguit 3–4 knoppen per groep (PO 2026-09-25); de eerste groep start open.
 
 | groep | knop | doel | eigenaar | vervalt bij |
 | --- | --- | --- | --- | --- |
-| Temperatuur | Isolijnen | graden tussen twee isolijnen (1/2/5) | U8 | promotie tot productinstelling (MIP) of weg na PO-keuze |
-| Temperatuur | Vulling-stijl | kleur tussen de lijnen als vlakke banden of doorlopend verloop | U25b / PO (main `5fcd35b`) | na PO-keuze banden/verloop |
-| Temperatuur | Vervagen | lijnen en kleur vervagen op vlak veld (uit/gradiënt) | U8c | weg zodra de PO "uit" bevestigt (default sinds U13) |
-| Wind | Dichtheid | windstreepjes per beeldoppervlak | U3b / U24 | promotie of weg na PO-keuze windbeeld |
-| Wind | Intensiteit | felheid van de streepjes (windfocus zet ze voller) | U3 / U24 | idem |
-| Wind | Lijnbreedte | dikte van de streepjes | U3 | idem |
-| Wind | Tempo | snelheid van de streepjes | U3b | idem |
-| Wind | Kopieer wind als JSON | de vier waarden naar het klembord (PO-terugkoppelweg) | U20 | blijft zolang de windknoppen er zijn |
-| Regen | Regenpalet | kleuren van de regen op de kaart en in het histogram: violet-laat (standaard sinds de PO-keuze van 2026-10-11) / huidig (het palet van vóór U77, ter vergelijking) / blauw-grijs-rood / blauw-violet-rood / violet-klassen / oplopend-donker | U77 | 2026-10-17; dan wordt de keuze een constante en gaan de andere paletten weg |
-| Regen | Regenmenging | hoe regen in Weer over de kaart ligt: drempel-zacht (standaard sinds de PO-keuze van 2026-10-11) / huidig (vóór U77; lichte regen telt licht op bij de kaart) / zuiver (echte alfa-over) / steil / drempel / rand; de laatste vier borgen het contrast van de lichtste regen met land, water en bebouwing | U77 | idem |
-| Regen | Regencontrast | de lat van de contrastregel, vrij in te vullen van 0 tot 20 L* (standaard 0 = regel uit, PO-keuze 2026-10-11) — het kleinste helderheidsverschil van de lichtste zichtbare regen met land, water en bebouwing (alleen bij steil, drempel, drempel-zacht en rand) | U77 | 2026-10-17, of eerder zodra de PO kiest |
 | Regen | Regenisolijnen | lijnen binnen de regen op vaste intensiteiten, alleen bij menging rand: kleurgrenzen 1 · 2 · 13 mm/u (standaard in de proef) / klassen 2,5 · 10 · 50 mm/u / dicht 0,5 · 1 · 2 · 5 · 10 · 20 mm/u / geen (alleen de buitenrand) | U86 | 2026-10-23 |
-| Regen | Regen in Wind/Lucht | hoe de regen in Wind en Lucht terugtreedt: per-modus (standaard, PO-keuze 2026-10-11: gedempt in Wind, vermenigvuldigd in Lucht) / huidig (het beeld van vóór U77: overdag vermenigvuldigd, met de witte zoom) / als-weer / gedempt / vermenigvuldigd — alle behalve huidig met dezelfde menging als Weer | U77 | 2026-10-17 |
-| Kaart | Regenveld radar/nowcast | override op het product voor radar, nowcast en blend: auto (standaard) / blokken / bilineair (vóór U72) / bronlineair / glad / blur 3×3 … 9×9 | U72 | 2026-10-16, of eerder als de PO niets meer wil bijstellen |
-| Kaart | Regenveld HARMONIE | dezelfde override voor het weermodel (vanaf ruim 6 uur vooruit) | U72 | idem |
-| Laden | Eerste regen | het eerste regenframe direct na het manifest vragen (vroeg) of pas na de kaart-opzet (laat; herladen) | U54 | zodra een telefoonopname de winst heeft vastgelegd of weerlegd |
 | Wolkenkaart | Wolkenbeeld | vormen / oude sluier op dezelfde live modeldata | PM / MIP-34 | na PO-keuze, uiterlijk 2026-10-19 |
 | Wolkenkaart | Voorbeeldlucht | live / gaten / sluier / dicht / overgang; laatste vier gefingeerde conceptgevallen, niet bewaard tussen bezoeken | PM / MIP-34 | idem |
 | Lucht nu | strakblauw · mooie wolkenlucht · melkachtig · grijs · Mordor | tijd, klasse en gekozen locatie op 0,1° als menselijk anker voor de wolkenanalyse | U46 | na de analyse |
@@ -45,6 +30,16 @@ Weggesnoeid in U30 (nu constanten met herkomstregel): Vulling (0,35, PO-keuze na
 (90 px, U8b), Focus dim (0,25, U8), Min. breedte (20 km, T3g), plus de 19 knoppen uit MIP-12. Sinds U58 (PO-keuze 2026-10-07 live): Klok › Jog-schaal → vast 2 min/px, naar rechts is later
 (`CLOCK_JOG_MS_PER_PX`); de scrubberschaal en de omgekeerde richting zijn afgevallen. Sinds U62 (PO-keuze 2026-10-08): Chrome › Rand kaart/zijpaneel → "oud" blijft (de bestaande `border-left` + lichte schaduw op `.dashboard`); de standen geen/A/B en de sleutel `dev-rand` zijn weg ("Reset alle instellingen" wist een achtergebleven waarde). Sinds U62 (PO-keuze 2026-10-08, "beide veel beter"): Kaart › Regen in Wind → vast vermenigvuldigen (overdag; 's nachts gedempt) en Kaart › Regen in Lucht → vast het voorstel (overdag vermenigvuldigd met de sluier; 's nachts grijsblauwe sluier op 0,3 en gedempte regen), zie `rainPresentation` in `focus-mode.ts`; de oude sleutels `dev-regen-wind` en `dev-regen-lucht` wist "Reset alle instellingen". Sinds U62 (PO 2026-10-08, proef afgevallen): Laden › Splash-achtergrond (dekkend/70 %/40 %/glas) is weg — een doorzichtige sluier toont niets eerder, want de tegels komen pas rond het einde van de splash (opnames in `.dev/tracks/u62-mobiele-hemel-venster/splash/`); de oude sleutel `dev-splash` wist "Reset alle instellingen". Sinds U62 (PO-keuze 2026-10-08: niveau "iets"): Mobiel › Windstreepjes → vast op telefoon/smal scherm (`MOBILE_WIND` in `wind-layer.ts`: sterkte ×1,25, lijnfactor 0,72, zee-demping 0,2); de oude sleutel `dev-wind-mobiel` wist "Reset alle instellingen". Sinds U62 (PO-keuzes 2026-10-08): Chrome › Klokpil → vast mee-tinten, samen met de zoekbalk en de merkdruppel (klassen `sky-day`/`sky-night` op `.map-shell`); Chrome › Kaart → de basiskaart volgt de kaarttijd zolang Expressief aan staat (`mapFollowsTime` in `App.tsx`, MIP-24); de oude sleutels `dev-klokpil` en `dev-kaart-automatisch` wist "Reset alle instellingen". Sinds U62 (PO-keuze 2026-10-08, "veel beter"): Laden › Kaderhemel → vast aan (`FRAME_SKY_ASSUMED_COVER` in `HistogramScrubber.tsx`); de oude sleutel `dev-kaderhemel` wist "Reset alle instellingen". Sinds U72 (PO-keuzes 2026-10-09): het regenveld wordt per frame voorgefilterd met een Gaussische vervaging over broncellen — "blur 5 tot +2 uur, vanaf daar 9", met sigma lineair oplopend tussen +2 u en +3 u t.o.v. de data-nu (`autoBlurSigma` in `rain-smoothing.ts`); Kaart › Tijdmenging HARMONIE → vast meebewegen voor elke stap van 30 minuten of langer (`rainWarpLimit`; de standen kruisfade en vloeiend en de sleutel `dev-regenveld-tijd` zijn weg, "Reset alle instellingen" wist een achtergebleven waarde). Sinds U37 (PO-keuze 2026-09-25): Scrubber regen/wolken → de
 wolkendoorsnede (variant A) is vast de weermodus-scrubber; variant B (strook) is weg.
+
+Sinds U89 (PO 2026-10-17) staan de resterende proefwaarden vast op hun bestaande standaard:
+Regenpalet `violet-laat`, Regenmenging `rand`, Regencontrast 0 en Regen in Wind/Lucht `per-modus`.
+Regenveld radar/nowcast en HARMONIE gebruiken altijd `auto`; de alternatieve filters en de bijbehorende
+meetstand zijn vervallen. Temperatuur tekent isolijnen per 1 °C, met banden en zonder gradiëntvervaging.
+Wind houdt dichtheid 620/MP, intensiteit 0,5, lijnbreedte 2,5 px en tempo 1; de JSON-export is vervallen.
+Eerste regen blijft vroeg. De herkomst staat bij de constanten in `rain-palette.ts`, `rain-presentation.ts`,
+`rain-smoothing.ts`, `isolines.ts`, `wind-presentation.ts` en de vroege regenaanvraag in `App.tsx`.
+De bot gebruikt nog `PRE_U77_RAIN_LOOK` (palet en menging `huidig`) voor zijn oude compositor;
+de overige paletten en mengingen zijn weg. Regenisolijnen blijven instelbaar.
 
 De overige elf windparameters (Afstand per leven, Fade-in/-out, Max. leeftijd, Spawn-jitter,
 Snelheidsdemping, Buffer-rest, Buffer-DPR max, Kopintensiteit, Contrast, Max. fps) zijn sinds
@@ -67,12 +62,10 @@ Rig-schakelaar zonder knop: `dev-speelregel` = `venster` zet onder `?dev` de oud
 (spelen pas na laadfase "window"), zodat de mobiele laadrig oud en nieuw uit één build meet
 (`koud-spelend-vensterregel`). Eigenaar U54; vervalt zodra de PO de speelregel heeft bevestigd.
 De knop "Scherm en scroll" schrijft `dev-viewport` (`aan`/`uit`, U62).
-De Regenveld-knoppen schrijven `dev-regenveld-radar` en `dev-regenveld-harmonie` (U72); zonder `?dev` worden ze niet gelezen en geldt `auto`. Rig-schakelaar zonder knop: `dev-regenveld-meet` = `aan` meet onder `?dev` elke voorfilter-pass (wacht op de GPU, dus alleen voor `rig/filter-cost.ts`); eigenaar U72, vervalt met de knoppen.
-De knoppen Regenpalet, Regenmenging en Regencontrast (eigen groep Regen, zodat Kaart op twee knoppen blijft) schrijven `dev-regenpalet`, `dev-regenmenging` en `dev-regencontrast` (U77); zonder `?dev` worden ze niet gelezen en geldt de standaard (`DEFAULT_RAIN_LOOK` in `web/src/core/rain-palette.ts`: violet-laat, drempel-zacht, contrast 0). Die menging geldt ook in Wind en Lucht.
-De knop "Regen in Wind/Lucht" schrijft `dev-regen-wind-lucht` (U77); zonder `?dev` geldt de standaard (`DEFAULT_FOCUS_RAIN_VARIANT` in `web/src/core/rain-presentation.ts`: per-modus). De bot houdt Wind op de stand `huidig` (`PRE_U77_FOCUS_RAIN_VARIANT`) zolang hij met `PRE_U77_RAIN_LOOK` rendert.
-De knop "Eerste regen" schrijft `dev-eerste-regen`; de rig zet dezelfde sleutel in `koud-spelend-regen-laat`.
-Tuning/debug: `wind-tuning-v4` (v3 wordt bij het laden gemigreerd), `perf` en de eenmalige
-`perf-cold`. Oude sleutels (`wind-tuning`, `-v2`, `-v3`, `splash-slowdown`, `scrubber-view`, `clock-jog`) wist
-"Reset alle instellingen".
+Regenisolijnen schrijft `dev-regenisolijnen` (U86); alleen onder `?dev` gelezen.
+Tuning/debug: `perf` en de eenmalige `perf-cold`. Oude sleutels, ook die van de in U89 verwijderde
+knoppen (`dev-regenpalet`, `dev-regenmenging`, `dev-regencontrast`, `dev-regen-wind-lucht`,
+`dev-regenveld-radar`, `dev-regenveld-harmonie`, `dev-regenveld-meet`, `dev-eerste-regen` en
+`wind-tuning-v4` met zijn voorgangers), wist "Reset alle instellingen"; ze worden niet meer gelezen.
 
 Tijdelijke U63-meetbuild: `VITE_MAP_START=off` schakelt uitsluitend met `?dev` de progressieve z4-startkaart uit voor de gepaarde controle. Gewone bezoeken houden de startkaart aan. Eigenaar U63; vervalt2026-10-09; geen paneelknop of opslagsleutel.

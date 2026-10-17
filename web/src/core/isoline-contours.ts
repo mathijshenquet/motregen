@@ -9,8 +9,6 @@ export interface Contour {
   closed: boolean
   /** x0, y0, x1, y1, … (kolom, rij). */
   points: Float32Array
-  /** |∇T| per punt in °C/km. */
-  gradient: Float32Array
   lengthKm: number
 }
 
@@ -189,10 +187,9 @@ export function traceContours(field: PreparedField, grid: Grid, options: Contour
       return { column: column - delta * sampler.gx, row: row - delta * sampler.gy, gx: sampler.gx, gy: sampler.gy }
     }
     for (const line of marchingSquares(nodes, level, 0, 0, buffers, cells.subarray(offsets[k]!, offsets[k + 1]!))) {
-      const xs: number[] = [], ys: number[] = [], gradient: number[] = []
+      const xs: number[] = [], ys: number[] = []
       const push = (point: TracePoint) => {
         xs.push(point.column); ys.push(point.row)
-        gradient.push(Math.hypot(point.gx, point.gy) / kmAt(point.row))
       }
       const coarse = line.points.map(([x, y]): TracePoint => {
         const column = x + window.left, row = y + window.top
@@ -223,7 +220,7 @@ export function traceContours(field: PreparedField, grid: Grid, options: Contour
       }
       const points = new Float32Array(count * 2)
       for (let index = 0; index < count; index++) { points[index * 2] = xs[index]!; points[index * 2 + 1] = ys[index]! }
-      contours.push({ level, closed: line.closed, points, gradient: Float32Array.from(gradient), lengthKm })
+      contours.push({ level, closed: line.closed, points, lengthKm })
     }
   }
   return contours
@@ -339,7 +336,6 @@ export interface SegmentOptions {
   /** Ringen korter dan dit (km) vervagen; 0 = uit. */
   ringKm: number
   /** smoothstep-grenzen op |∇T| (°C/km) per punt, of undefined. */
-  gradient?: [number, number]
 }
 
 export interface SegmentStats {
@@ -364,10 +360,9 @@ export function buildSegments(contours: readonly Contour[], options: SegmentOpti
     if (fade <= 0) continue
     const count = contour.points.length / 2
     const segments = contour.closed ? count : count - 1
-    const alpha = (index: number) => fade * (options.gradient ? smoothstep(options.gradient[0], options.gradient[1], contour.gradient[index]!) : 1)
     for (let index = 0; index < segments; index++) {
       const next = (index + 1) % count
-      data.set([contour.points[index * 2]!, contour.points[index * 2 + 1]!, contour.points[next * 2]!, contour.points[next * 2 + 1]!, alpha(index), alpha(next)], offset)
+      data.set([contour.points[index * 2]!, contour.points[index * 2 + 1]!, contour.points[next * 2]!, contour.points[next * 2 + 1]!, fade, fade], offset)
       offset += SEGMENT_FLOATS
     }
   }

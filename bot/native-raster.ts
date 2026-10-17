@@ -1,4 +1,4 @@
-import { kernelTaps, type RainSampling } from '../web/src/core/rain-sampling.js'
+import { blurTaps, type RainSampling } from '../web/src/core/rain-sampling.js'
 import { rainWarpLimit } from '../web/src/core/rain-smoothing.js'
 import { execFile, spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -124,9 +124,9 @@ export class NativeRaster {
     header.writeDoubleLE(warp.capCells, 36); header.writeDoubleLE(warp.fadeEndCells, 44)
     const describe = (sampling: RainSampling | undefined, offset: number) => {
       const kernel = sampling?.kernel ?? 'bilinear'
-      const kind = kernel === 'source-linear' ? 1 : kernel === 'source-cubic' ? 2 : kernel === 'source-blur' ? 3 : 0
+      const kind = kernel === 'source-blur' ? 3 : 0
       header.writeUInt32LE(kind, offset)
-      header.writeUInt32LE(kind ? kernelTaps(kernel as Exclude<typeof kernel, 'nearest' | 'bilinear'>, sampling?.blurSigma ?? 0) : 0, offset + 4)
+      header.writeUInt32LE(kind ? blurTaps(sampling?.blurSigma ?? 0) : 0, offset + 4)
       header.writeDoubleLE(sampling?.sourceCellWidth ?? 1, offset + 8)
       header.writeDoubleLE(sampling?.blurSigma ?? 0, offset + 16)
     }

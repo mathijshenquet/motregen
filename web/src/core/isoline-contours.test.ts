@@ -32,7 +32,6 @@ describe('isoline contours on the exact B-spline surface', () => {
     expect(ring.closed).toBe(true)
     expect(ring.lengthKm).toBeCloseTo(2 * Math.PI * 10, 0)
     // Tolerantie 0,02 cel op r = 10: een koorde van ~1 cel mag ~0,0125 afwijken, dus niet verdicht.
-    expect(ring.gradient[0]).toBeCloseTo(0.5, 1)
   })
 
   it('refines chords more on tight curves', () => {

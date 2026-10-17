@@ -5,13 +5,11 @@ import { join } from 'node:path'
 // Windbeeld rond een zoom z6 → z8 → z6 (track U20), per build gelijk: 1280×800 DPR 2, live data,
 // land + zee in beeld. Stills in rust en ~0,3/2/4 s na elke zoom, inkt land/zee per still tegen hetzelfde beeld met
 // de windcanvas verborgen (wind-ink-methode), en de effectieve opacity/intensiteit van de laag.
-// WIND_TUNING = JSON voor `motregen-wind-tuning-v2` (leeg = geen opgeslagen tuning).
 const [origin, outDir, label = 'run'] = process.argv.slice(2)
-if (!origin || !outDir) throw new Error('usage: pnpm exec tsx scripts/wind-bisect.ts ORIGIN OUT_DIR [LABEL]  (VIDEO=1, THEMES=light,dark, WIND_TUNING=json, CYCLES=n, NOSTILLS=1)')
+if (!origin || !outDir) throw new Error('usage: pnpm exec tsx scripts/wind-bisect.ts ORIGIN OUT_DIR [LABEL]  (VIDEO=1, THEMES=light,dark, CYCLES=n, NOSTILLS=1)')
 mkdirSync(outDir, { recursive: true })
 const video = process.env.VIDEO === '1'
 const themes = (process.env.THEMES ?? 'light,dark').split(',')
-const tuning = process.env.WIND_TUNING ?? ''
 const size = { width: 1280, height: 800 }
 const view = { lng: 4.9, lat: 52.35, zoom: 6.5 }
 const zoomedIn = 8
@@ -24,13 +22,10 @@ const browser = await chromium.launch({ headless: true, args: ['--enable-webgl',
 const results: Record<string, unknown> = {}
 for (const theme of themes) {
   const context = await browser.newContext({ viewport: size, deviceScaleFactor: 2, ...(video ? { recordVideo: { dir: outDir, size } } : {}) })
-  await context.addInitScript(([value, custom, start]) => {
+  await context.addInitScript(([value, start]) => {
     localStorage.setItem('motregen-theme', value!)
     localStorage.setItem('motregen-map-view', start!)
-    localStorage.removeItem('motregen-wind-tuning-v3')
-    if (custom) localStorage.setItem('motregen-wind-tuning-v2', custom)
-    else localStorage.removeItem('motregen-wind-tuning-v2')
-  }, [theme, tuning, JSON.stringify(view)])
+  }, [theme, JSON.stringify(view)])
   const page = await context.newPage()
   page.setDefaultTimeout(120_000)
   await page.goto(new URL('/', origin).href)

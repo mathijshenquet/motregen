@@ -28,8 +28,8 @@ export const initialManifest = params.has('skywatch-render') ? undefined : fetch
 // De kleine HTML-entry kan eerder klaar zijn dan de app die deze fout aan de gebruiker toont.
 void initialManifest?.catch(() => undefined)
 
-const firstRainLate = params.has('dev') && localStorage.getItem('motregen-dev-eerste-regen') === 'laat'
-if (initialManifest && initialClient && !firstRainLate && params.get('tg') !== '1') {
+// U89, PO 2026-10-17: Eerste regen blijft vroeg, ook met achtergebleven proefinstellingen.
+if (initialManifest && initialClient && params.get('tg') !== '1') {
   const client = initialClient
   const initialUrl = new URL(location.href)
   void initialManifest.then((manifest) => {

@@ -1,11 +1,7 @@
 import { createSignal, For, type JSX } from 'solid-js'
 import { copyText } from '../core/clipboard'
 import { appendSkyDiaryEntry, SKY_DIARY_CLASSES, skyDiaryJson, type SkyDiaryClass } from '../core/dev-settings'
-import { ISOLINE_FADES, ISOLINE_FILL_STYLES, ISOLINE_STEPS, type IsolineFade, type IsolineFillStyle, type IsolineStep, type IsolineTuning } from '../core/isolines'
-import { DEFAULT_RAIN_CONTRAST, RAIN_BLENDS, RAIN_CONTRAST_RANGE, RAIN_ISOLINE_RATES, RAIN_ISOLINE_SETS, RAIN_PALETTES, sanitizeRainContrast, type RainBlendName, type RainIsolineSetName, type RainLookChoice, type RainPaletteName } from '../core/rain-palette'
-import { FOCUS_RAIN_VARIANTS, type FocusRainVariant } from '../core/rain-presentation'
-import { RAIN_SMOOTHINGS, type RainFieldTuning, type RainSmoothing } from '../core/rain-smoothing'
-import { sanitizeWindTuning, WIND_TUNING_CONTROLS, type WindTuning } from '../core/wind-layer'
+import { RAIN_ISOLINE_RATES, RAIN_ISOLINE_SETS, type RainIsolineSetName, type RainLookChoice } from '../core/rain-palette'
 import { CLOUD_MAP_SAMPLES, type CloudMapSample } from '../core/cloud-map'
 
 // Alleen via ?dev; hooguit 3–4 knoppen per groep (PO 2026-09-25). Elke knop staat in
@@ -15,18 +11,8 @@ interface Props {
   onCloudMapForms: (enabled: boolean) => void
   cloudMapSample: CloudMapSample
   onCloudMapSample: (sample: CloudMapSample) => void
-  isolineTuning: IsolineTuning
-  onIsolineTuning: (patch: Partial<IsolineTuning>) => void
-  firstRainLate: boolean
-  onFirstRainLate: (late: boolean) => void
-  windTuning: WindTuning
-  onWindTuning: (tuning: WindTuning) => void
-  rainFieldTuning: RainFieldTuning
-  onRainFieldTuning: (patch: Partial<RainFieldTuning>) => void
   rainLook: RainLookChoice
   onRainLook: (patch: Partial<RainLookChoice>) => void
-  focusRainVariant: FocusRainVariant
-  onFocusRainVariant: (variant: FocusRainVariant) => void
   viewportDiagnose: boolean
   onViewportDiagnose: (enabled: boolean) => void
   perfVisible: boolean
@@ -43,31 +29,10 @@ interface Props {
   onUsageLabel: (text: string) => void
 }
 
-const WIND_HINTS: Record<keyof WindTuning, string> = {
-  particlesPerMegapixel: 'Aantal windstreepjes per beeldoppervlak.',
-  intensity: 'Hoe fel de windstreepjes zijn; windfocus zet ze voller.',
-  lineWidth: 'Dikte van de windstreepjes.',
-  speed: 'Hoe snel de windstreepjes bewegen.',
-}
-
-const RAIN_SMOOTHING_HINT = 'Auto: het product (blur 5×5 tot 2 uur vooruit, oplopend naar 9×9 vanaf 3 uur). Blokken: elke rastercel hard. Bilineair: zoals vóór U72. Bronlineair, glad en blur wegen de cellen van de bron zelf: lineair, bicubisch (scherp) of als Gaussische vervaging over 3×3 tot 9×9 broncellen.'
-
-const RAIN_PALETTE_HINT = 'Kleuren van de regen op de kaart en in het histogram. Violet-laat is de standaard (PO 2026-10-11). Huidig: het palet van vóór U77 (lichtblauw, groen, geel, oranje, paars). Blauw-grijs-rood: het PO-voorstel. Blauw-violet-rood: hetzelfde met violet in plaats van grijs (violet vanaf ruim 1 mm/u). Violet-klassen: hetzelfde verloop, later (blauw tot 2, violet bij 4,5, rood bij 10). Violet-laat: nog later (blauw tot 4, violet bij 7, rood bij 13). Oplopend-donker: de volgorde zit in de helderheid, overdag steeds donkerder en \'s nachts steeds lichter.'
 const RAIN_ISOLINE_HINT = 'Lijnen binnen de regen op vaste intensiteiten, alleen bij menging rand. Kleurgrenzen (standaard): 1, 2 en 13 mm/u. Klassen: 2,5, 10 en 50 mm/u (licht/matig/zwaar/zeer zwaar). Dicht: zes lijnen. Proef U86, vervalt 2026-10-23.'
-const RAIN_BLEND_HINT = 'Hoe regen in Weer over de kaart ligt (Wind en Lucht blijven zoals ze zijn). Drempel-zacht is de standaard (PO 2026-10-11). Huidig: de menging van vóór U77, lichte regen telt licht op bij de kaart (de witte halo). Zuiver: echte dekking, verder gelijk. Steil: de hele gladgestreken zoom meteen dekkend. Drempel: niets tot de rand van de data, daar meteen dekkend (0,55). Drempel-zacht: dezelfde rand, maar met een lagere dekking (0,38) en een twee keer zo brede oploop. Rand: drempel met een dunne contour. Steil, drempel, drempel-zacht en rand schuiven de lichtste kleuren per thema op tot ze genoeg afsteken bij land, water en bebouwing.'
-const RAIN_CONTRAST_HINT = 'De lat van de contrastregel bij steil, drempel, drempel-zacht en rand: hoe veel de lichtste zichtbare regen in helderheid (L*, schaal 0–100) minstens moet verschillen van land, water en bebouwing. Vrij in te vullen van 0 tot 20. 0 is de standaard (PO 2026-10-11): de regel staat uit en je ziet de beginkleur van het palet. Hoger: een donkerdere, zwaardere rand die boven het lichtblauwe water meer afsteekt; 15 was de lat in de eerste ronde.'
-const FOCUS_RAIN_HINT = 'Hoe de regen in Wind en Lucht terugtreedt. Per-modus (standaard): gedempt in Wind, vermenigvuldigd in Lucht. Huidig: het beeld van vóór U77 (overdag vermenigvuldigd, met de witte zoom). Alle standen behalve huidig tekenen de regen met dezelfde menging als Weer. Als-weer: precies als Weer, treedt niet terug. Gedempt: in beide modi doorzichtiger en grijzer. Vermenigvuldigd: in beide modi overdag vermenigvuldigd met de kaart of de sluier.'
-
 export default function DevPanel(props: Props) {
-  const [windCopied, setWindCopied] = createSignal(false)
   const [skyClass, setSkyClass] = createSignal<SkyDiaryClass>('mooie wolkenlucht')
   const [skyNotice, setSkyNotice] = createSignal('')
-
-  async function copyWind(): Promise<void> {
-    await copyText(JSON.stringify(props.windTuning, null, 2))
-    setWindCopied(true)
-    window.setTimeout(() => setWindCopied(false), 1_500)
-  }
 
   function recordSky(klasse: SkyDiaryClass): void {
     const location = currentLocation()
@@ -96,24 +61,7 @@ export default function DevPanel(props: Props) {
 
   return <details class="dev-panel" open data-testid="dev-panel">
     <summary>Dev-opties</summary>
-    <Group title="Temperatuur" open>
-      <Control label="Isolijnen" output={`${props.isolineTuning.step}°`} hint="Aantal graden tussen twee temperatuurlijnen.">
-        <select value={props.isolineTuning.step} onChange={(event) => props.onIsolineTuning({ step: Number(event.currentTarget.value) as IsolineStep })}>
-          {ISOLINE_STEPS.map((step) => <option value={step}>{step} °C</option>)}
-        </select>
-      </Control>
-      <Control label="Vulling-stijl" output={props.isolineTuning.fillStyle} hint="Kleur tussen de lijnen als vlakke banden per stap of als doorlopend verloop.">
-        <select value={props.isolineTuning.fillStyle} onChange={(event) => props.onIsolineTuning({ fillStyle: event.currentTarget.value as IsolineFillStyle })}>
-          {ISOLINE_FILL_STYLES.map((style) => <option value={style}>{style}</option>)}
-        </select>
-      </Control>
-      <Control label="Vervagen" output={props.isolineTuning.fade} hint="Gradiënt: lijnen en kleur vervagen waar de temperatuur nauwelijks verandert.">
-        <select value={props.isolineTuning.fade} onChange={(event) => props.onIsolineTuning({ fade: event.currentTarget.value as IsolineFade })}>
-          {ISOLINE_FADES.map((fade) => <option value={fade}>{fade}</option>)}
-        </select>
-      </Control>
-    </Group>
-    <Group title="Wolkenkaart">
+    <Group title="Wolkenkaart" open>
       <Control label="Wolkenbeeld" output={props.cloudMapForms ? 'vormen' : 'oude sluier'} hint="Vormen uit bewolking en licht. De fijne structuur is getekend; de regionale velden komen uit het model.">
         <select aria-label="Wolkenbeeld" value={props.cloudMapForms ? 'vormen' : 'sluier'} onChange={(event) => props.onCloudMapForms(event.currentTarget.value === 'vormen')}>
           <option value="vormen">vormen</option><option value="sluier">oude sluier</option>
@@ -125,59 +73,10 @@ export default function DevPanel(props: Props) {
         </select>
       </Control>
     </Group>
-    <Group title="Wind">
-      <For each={WIND_TUNING_CONTROLS}>{(control) =>
-        <Control label={control.label} output={`${props.windTuning[control.key]}${control.unit ? ` ${control.unit}` : ''}`} hint={WIND_HINTS[control.key]}>
-          <input type="range" aria-label={control.label} min={control.min} max={control.max} step={control.step} value={props.windTuning[control.key]}
-            onInput={(event) => props.onWindTuning(sanitizeWindTuning({ ...props.windTuning, [control.key]: event.currentTarget.valueAsNumber }))} />
-        </Control>
-      }</For>
-      <Action label={windCopied() ? 'Gekopieerd' : 'Kopieer wind als JSON'} hint="Zet de vier windwaarden op het klembord, om terug te sturen." onClick={() => void copyWind()} />
-    </Group>
     <Group title="Regen">
-      <Control label="Regenpalet" output={props.rainLook.palette} hint={RAIN_PALETTE_HINT}>
-        <select value={props.rainLook.palette} onChange={(event) => props.onRainLook({ palette: event.currentTarget.value as RainPaletteName })}>
-          <For each={RAIN_PALETTES}>{(palette) => <option value={palette}>{palette}</option>}</For>
-        </select>
-      </Control>
-      <Control label="Regenmenging" output={props.rainLook.blend} hint={RAIN_BLEND_HINT}>
-        <select value={props.rainLook.blend} onChange={(event) => props.onRainLook({ blend: event.currentTarget.value as RainBlendName })}>
-          <For each={RAIN_BLENDS}>{(blend) => <option value={blend}>{blend}</option>}</For>
-        </select>
-      </Control>
-      <Control label="Regencontrast" output={`${props.rainLook.contrast ?? DEFAULT_RAIN_CONTRAST} L*`} hint={RAIN_CONTRAST_HINT}>
-        <input type="number" aria-label="Regencontrast" min={RAIN_CONTRAST_RANGE.minimum} max={RAIN_CONTRAST_RANGE.maximum} step={RAIN_CONTRAST_RANGE.step} value={props.rainLook.contrast ?? DEFAULT_RAIN_CONTRAST}
-          // Een leeg veld (halverwege het typen) is geen keuze: de vorige lat blijft staan.
-          onInput={(event) => { if (event.currentTarget.value.trim() !== '') props.onRainLook({ contrast: sanitizeRainContrast(event.currentTarget.valueAsNumber) }) }} />
-      </Control>
       <Control label="Regenisolijnen" output={props.rainLook.isolines ?? 'geen'} hint={RAIN_ISOLINE_HINT}>
         <select value={props.rainLook.isolines ?? 'geen'} onChange={(event) => props.onRainLook({ isolines: event.currentTarget.value as RainIsolineSetName })}>
           <For each={RAIN_ISOLINE_SETS}>{(set) => <option value={set}>{set}{RAIN_ISOLINE_RATES[set].length ? ` (${RAIN_ISOLINE_RATES[set].join(' · ').replaceAll('.', ',')} mm/u)` : ''}</option>}</For>
-        </select>
-      </Control>
-      <Control label="Regen in Wind/Lucht" output={props.focusRainVariant} hint={FOCUS_RAIN_HINT}>
-        <select value={props.focusRainVariant} onChange={(event) => props.onFocusRainVariant(event.currentTarget.value as FocusRainVariant)}>
-          <For each={FOCUS_RAIN_VARIANTS}>{(variant) => <option value={variant}>{variant}</option>}</For>
-        </select>
-      </Control>
-    </Group>
-    <Group title="Kaart">
-      <Control label="Regenveld radar/nowcast" output={props.rainFieldTuning.radar} hint={`Hoe radar, nowcast en blend tussen de cellen worden ingevuld. ${RAIN_SMOOTHING_HINT}`}>
-        <select value={props.rainFieldTuning.radar} onChange={(event) => props.onRainFieldTuning({ radar: event.currentTarget.value as RainSmoothing })}>
-          <For each={RAIN_SMOOTHINGS}>{(smoothing) => <option value={smoothing}>{smoothing}</option>}</For>
-        </select>
-      </Control>
-      <Control label="Regenveld HARMONIE" output={props.rainFieldTuning.harmonie} hint={`Hoe het weermodel (vanaf ruim 6 uur vooruit) tussen de cellen wordt ingevuld. ${RAIN_SMOOTHING_HINT}`}>
-        <select value={props.rainFieldTuning.harmonie} onChange={(event) => props.onRainFieldTuning({ harmonie: event.currentTarget.value as RainSmoothing })}>
-          <For each={RAIN_SMOOTHINGS}>{(smoothing) => <option value={smoothing}>{smoothing}</option>}</For>
-        </select>
-      </Control>
-    </Group>
-    <Group title="Laden">
-      <Control label="Eerste regen" output={props.firstRainLate ? 'laat' : 'vroeg'} hint="Vroeg: het regenframe op de cursor en het volgende gaan direct na het manifest de lijn op. Laat: pas na de kaart-opzet, zoals voorheen. Herlaad met ?perf=1 om ttfp te vergelijken.">
-        <select value={props.firstRainLate ? 'laat' : 'vroeg'} onChange={(event) => props.onFirstRainLate(event.currentTarget.value === 'laat')}>
-          <option value="vroeg">vroeg</option>
-          <option value="laat">laat</option>
         </select>
       </Control>
     </Group>

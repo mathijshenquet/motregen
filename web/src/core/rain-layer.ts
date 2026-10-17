@@ -1,6 +1,6 @@
-import type { RainKernel, RainSampling, RainFilterPass, RainWarpLimit } from './rain-sampling.js'
-import { kernelTaps } from './rain-sampling.js'
-export type { RainKernel, RainSampling, RainFilterPass, RainWarpLimit } from './rain-sampling.js'
+import type { RainSampling, RainWarpLimit } from './rain-sampling.js'
+import { blurTaps } from './rain-sampling.js'
+export type { RainSampling, RainWarpLimit } from './rain-sampling.js'
 import type { CustomLayerInterface, CustomRenderMethodInput, Map as MapLibreMap } from 'maplibre-gl'
 import { MercatorCoordinate } from 'maplibre-gl'
 import type { Grid } from './contract'
@@ -13,14 +13,6 @@ export { rainColormap }
 
 import { WARP_CAP_CELLS, WARP_FADE_END_CELLS, FLOW_BLEND_CURVE } from './rain-motion.js'
 export { WARP_CAP_CELLS, WARP_FADE_END_CELLS, FLOW_BLEND_CURVE } from './rain-motion.js'
-
-/**
- * Hoe een frame tussen de cellen wordt ingevuld. `bilinear` is het product; de rest is de U72-proef.
- * De `source-`kernen wegen broncellen (de blokken die de dichtste-buur-regrid van de ingest achterlaat)
- * in plaats van rastercellen, zodat dezelfde stand op het grove HARMONIE-raster evenveel gladstrijkt.
- */
-type SourceKernel = Exclude<RainKernel, 'nearest' | 'bilinear'>
-const SOURCE_KERNEL_IDS: Record<SourceKernel, number> = { 'source-linear': 0, 'source-cubic': 1, 'source-blur': 2 }
 
 const DEFAULT_SAMPLING: RainSampling = { kernel: 'bilinear', sourceCellWidth: 1 }
 const DEFAULT_WARP_LIMIT: RainWarpLimit = { capCells: WARP_CAP_CELLS, fadeEndCells: WARP_FADE_END_CELLS }
@@ -53,8 +45,6 @@ uniform float u_brightness;
 uniform float u_has_motion;
 uniform float u_interval_minutes;
 uniform vec2 u_grid_size;
-uniform float u_left_nearest;
-uniform float u_right_nearest;
 uniform float u_warp_cap_cells;
 uniform float u_warp_fade_end_cells;
 uniform int u_outline_count;
@@ -93,13 +83,6 @@ vec2 rainSample(sampler2D frame, vec2 uv) {
   return vec2(value, (inside ? 1.0 : 0.0) * valid);
 }
 
-vec2 nearestSample(sampler2D frame, vec2 uv) {
-  bool inside = all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0)));
-  ivec2 cell = clamp(ivec2(floor(uv * u_grid_size)), ivec2(0), ivec2(u_grid_size) - 1);
-  float value = texelFetch(frame, cell, 0).r;
-  return vec2(value, (inside ? 1.0 : 0.0) * (1.0 - step(0.999, value)));
-}
-
 // Kubische B-spline over 4×4 cellen, alleen voor de isolijnen: continu in waarde én helling, dus de lijnen knikken
 // niet op de celgrenzen zoals bij lineair invullen. Cellen zonder data tellen niet mee.
 float smoothRain(sampler2D frame, vec2 uv) {
@@ -126,10 +109,6 @@ float smoothRain(sampler2D frame, vec2 uv) {
   return weightSum > 0.0 ? sum / weightSum : 0.0;
 }
 
-vec2 kernelSample(sampler2D frame, vec2 uv, float nearest) {
-  return nearest > 0.5 ? nearestSample(frame, uv) : rainSample(frame, uv);
-}
-
 void main() {
   float weight = blendWeight(u_mix);
   vec2 velocity = (texture(u_motion, v_uv).rg * 255.0 - 128.0) * 0.1;
@@ -140,8 +119,8 @@ void main() {
   vec2 intervalUv = velocity * u_interval_minutes / u_grid_size;
   vec2 leftUv = v_uv - intervalUv * weight * capScale * crossfadeFallback * motionValid;
   vec2 rightUv = v_uv + intervalUv * (1.0 - weight) * capScale * crossfadeFallback * motionValid;
-  vec2 left = kernelSample(u_left, leftUv, u_left_nearest);
-  vec2 right = kernelSample(u_right, rightUv, u_right_nearest);
+  vec2 left = rainSample(u_left, leftUv);
+  vec2 right = rainSample(u_right, rightUv);
   float value = mix(left.r * left.g, right.r * right.g, weight);
   color = texture(u_lut, vec2(value, 0.5));
   // Toon (U62): rustiger maken zonder te verbleken. Minder verzadiging houdt de helderheid van de
@@ -175,25 +154,14 @@ const filterFragmentSource = `#version 300 es
 precision highp float;
 uniform sampler2D u_frame;
 uniform vec2 u_grid_size;
-uniform int u_kernel;
 uniform int u_taps;
 uniform float u_sigma;
 uniform float u_source_cell;
 uniform float u_along_x;
 out vec4 color;
 
-const int KERNEL_SOURCE_LINEAR = ${SOURCE_KERNEL_IDS['source-linear']};
-const int KERNEL_SOURCE_CUBIC = ${SOURCE_KERNEL_IDS['source-cubic']};
-
 float kernelWeight(float signedDistance) {
   float distance = abs(signedDistance);
-  if (u_kernel == KERNEL_SOURCE_LINEAR) return max(0.0, 1.0 - distance);
-  if (u_kernel == KERNEL_SOURCE_CUBIC) {
-    // Catmull-Rom: gaat door de bronwaarden zelf, dus maakt glad zonder te vervagen.
-    if (distance < 1.0) return 1.5 * distance * distance * distance - 2.5 * distance * distance + 1.0;
-    if (distance < 2.0) return -0.5 * distance * distance * distance + 2.5 * distance * distance - 4.0 * distance + 2.0;
-    return 0.0;
-  }
   // Gauss, verlaagd met zijn waarde op de rand van het venster: een tap die erbij komt of wegvalt begint
   // dan op nul en geeft geen sprong.
   float radius = float(u_taps) * 0.5;
@@ -208,9 +176,8 @@ void main() {
   ivec2 ownCell = ivec2(gl_FragCoord.xy);
   int lastCell = int(alongX ? u_grid_size.x : u_grid_size.y) - 1;
   float position = (alongX ? gl_FragCoord.x : gl_FragCoord.y) / u_source_cell - 0.5;
-  bool evenTaps = u_taps % 2 == 0;
-  float anchor = evenTaps ? floor(position) : floor(position + 0.5);
-  int firstOffset = evenTaps ? 1 - u_taps / 2 : -(u_taps - 1) / 2;
+  float anchor = floor(position + 0.5);
+  int firstOffset = -(u_taps - 1) / 2;
   float weightedValue = 0.0;
   float validWeight = 0.0;
   float totalWeight = 0.0;
@@ -224,7 +191,6 @@ void main() {
     validWeight += tapWeight * tapValid;
     totalWeight += tapWeight;
   }
-  // De kubische kern schiet bij een scherpe rand door; onder nul en boven de hoogste geldige byte bestaat niet.
   float value = clamp(weightedValue / max(validWeight, 0.0001), 0.0, 254.0 / 255.0);
   bool valid = validWeight / max(totalWeight, 0.0001) >= 0.5;
   color = vec4(valid ? value : 1.0, 0.0, 0.0, 1.0);
@@ -268,8 +234,6 @@ export class RainLayer implements CustomLayerInterface {
   private filterVertexArray?: WebGLVertexArrayObject
   /** Tussenresultaat na de x-pass. */
   private filterScratch?: WebGLTexture
-  /** Zet de meting van het voorfilter aan; elke pass wacht dan op de GPU, dus alleen voor een meetrig. */
-  onFilterPass?: (pass: RainFilterPass) => void
   /** Hooguit twee: één per getoond frame. */
   private filteredFrames: FilteredFrame[] = []
 
@@ -394,8 +358,6 @@ export class RainLayer implements CustomLayerInterface {
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_has_motion'), this.hasMotion ? 1 : 0)
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_interval_minutes'), this.intervalMinutes)
     gl.uniform2f(gl.getUniformLocation(this.program, 'u_grid_size'), this.grid.width, this.grid.height)
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_left_nearest'), this.leftSampling.kernel === 'nearest' ? 1 : 0)
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_right_nearest'), this.rightSampling.kernel === 'nearest' ? 1 : 0)
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_warp_cap_cells'), this.warpLimit.capCells)
     gl.uniform1f(gl.getUniformLocation(this.program, 'u_warp_fade_end_cells'), this.warpLimit.fadeEndCells)
     gl.uniform1i(gl.getUniformLocation(this.program, 'u_outline_count'), this.outlines.length)
@@ -417,21 +379,19 @@ export class RainLayer implements CustomLayerInterface {
 
   /** De textuur die de hoofdshader voor dit frame leest: het ruwe frame, of de voorgefilterde versie ervan. */
   private sampledTexture(gl: WebGL2RenderingContext, raw: WebGLTexture, data: Uint8Array | undefined, sampling: RainSampling, otherData: Uint8Array | undefined): WebGLTexture {
-    const kernel = sampling.kernel
-    if (!data || !isSourceKernel(kernel)) return raw
-    const sigma = kernel === 'source-blur' ? sampling.blurSigma ?? 1 : 0
-    const taps = kernelTaps(kernel, sigma)
-    const matches = (frame: FilteredFrame) => frame.data === data && frame.kernel === kernel && frame.sigma === sigma && frame.sourceCellWidth === sampling.sourceCellWidth
+    if (!data || sampling.kernel !== 'source-blur') return raw
+    const sigma = sampling.blurSigma ?? 1
+    const taps = blurTaps(sigma)
+    const matches = (frame: FilteredFrame) => frame.data === data && frame.sigma === sigma && frame.sourceCellWidth === sampling.sourceCellWidth
     const ready = this.filteredFrames.find(matches)
     if (ready) return ready.texture
     // Hergebruik de textuur van een frame dat niet meer getoond wordt; die van het andere getoonde frame blijft.
     let target = this.filteredFrames.length < 2 ? undefined : this.filteredFrames.find((frame) => frame.data !== otherData) ?? this.filteredFrames[0]
     if (!target) {
-      target = { texture: this.gridTexture(gl), data, kernel, taps, sigma, sourceCellWidth: sampling.sourceCellWidth }
+      target = { texture: this.gridTexture(gl), data, taps, sigma, sourceCellWidth: sampling.sourceCellWidth }
       this.filteredFrames.push(target)
     }
     target.data = data
-    target.kernel = kernel
     target.taps = taps
     target.sigma = sigma
     target.sourceCellWidth = sampling.sourceCellWidth
@@ -439,17 +399,11 @@ export class RainLayer implements CustomLayerInterface {
     return target.texture
   }
 
-  private filterPass(gl: WebGL2RenderingContext, input: WebGLTexture, output: WebGLTexture, frame: FilteredFrame, axis: 'x' | 'y'): void {
-    const measure = this.onFilterPass
+  private filterPass(gl: WebGL2RenderingContext, input: WebGLTexture, output: WebGLTexture, axis: 'x' | 'y'): void {
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, output, 0)
-    if (measure) waitForGpu(gl)
-    const startedAt = performance.now()
     gl.bindTexture(gl.TEXTURE_2D, input)
     gl.uniform1f(gl.getUniformLocation(this.filterProgram!, 'u_along_x'), axis === 'x' ? 1 : 0)
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
-    if (!measure) return
-    waitForGpu(gl)
-    measure({ kernel: frame.kernel, taps: frame.taps, sourceCellWidth: frame.sourceCellWidth, axis, milliseconds: performance.now() - startedAt })
   }
 
   private gridTexture(gl: WebGL2RenderingContext): WebGLTexture {
@@ -481,12 +435,11 @@ export class RainLayer implements CustomLayerInterface {
     gl.activeTexture(gl.TEXTURE0)
     gl.uniform1i(gl.getUniformLocation(this.filterProgram, 'u_frame'), 0)
     gl.uniform2f(gl.getUniformLocation(this.filterProgram, 'u_grid_size'), this.grid.width, this.grid.height)
-    gl.uniform1i(gl.getUniformLocation(this.filterProgram, 'u_kernel'), SOURCE_KERNEL_IDS[target.kernel])
     gl.uniform1i(gl.getUniformLocation(this.filterProgram, 'u_taps'), target.taps)
     gl.uniform1f(gl.getUniformLocation(this.filterProgram, 'u_sigma'), target.sigma)
     gl.uniform1f(gl.getUniformLocation(this.filterProgram, 'u_source_cell'), target.sourceCellWidth)
-    this.filterPass(gl, raw, this.filterScratch, target, 'x')
-    this.filterPass(gl, this.filterScratch, target.texture, target, 'y')
+    this.filterPass(gl, raw, this.filterScratch, 'x')
+    this.filterPass(gl, this.filterScratch, target.texture, 'y')
 
     gl.bindVertexArray(previousVertexArray)
     gl.bindFramebuffer(gl.FRAMEBUFFER, previousFramebuffer)
@@ -502,22 +455,10 @@ export class RainLayer implements CustomLayerInterface {
 interface FilteredFrame {
   texture: WebGLTexture
   data: Uint8Array
-  kernel: SourceKernel
   taps: number
-  /** Sigma van de Gauss in broncellen; 0 bij de andere kernen. */
+  /** Sigma van de Gauss in broncellen. */
   sigma: number
   sourceCellWidth: number
-}
-
-// `gl.finish()` keert in Chromium terug zonder op het GPU-proces te wachten (gemeten: elke pass 0,0 ms);
-// een pixel teruglezen wacht wel tot al het werk voor het gebonden doel klaar is.
-function waitForGpu(gl: WebGL2RenderingContext): void {
-  gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4))
-}
-
-
-function isSourceKernel(kernel: RainKernel): kernel is SourceKernel {
-  return kernel in SOURCE_KERNEL_IDS
 }
 
 /** Welke regentextures opnieuw moeten; `swap` als het nieuwe linkerframe het oude rechter is. */

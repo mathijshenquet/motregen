@@ -3,7 +3,7 @@ import type { Grid } from './contract'
 import { isolineWidthCss, IsolineLayer, lineProfile, traceDue, traceTimes } from './isoline-layer'
 
 const grid = { width: 2, height: 2, x0: 0, y0: 0, dx: 1, dy: -1 } as unknown as Grid
-const style = { step: 1, fill: 0.7, color: [0, 0, 0] as [number, number, number], gradientFade: true }
+const style = { step: 1, fill: 0.7, color: [0, 0, 0] as [number, number, number] }
 
 describe('IsolineLayer frame identity', () => {
   it('reports only the hour layers whose run or frame changed after a manifest refresh', () => {
