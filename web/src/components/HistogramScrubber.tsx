@@ -12,6 +12,14 @@ import type { PaletteStops } from '../core/temperature-palette'
 import { measurePerfPhase } from '../core/perf'
 import { formatNumber, formatTime, formatWeekdayLong, formatWeekdayShort } from '../core/locale'
 
+export const NOW_JUMP_STYLES = ['uit', 'rand', 'knop'] as const
+export type NowJumpStyle = typeof NOW_JUMP_STYLES[number]
+/** Hoogte van de grafiek op desktop in px, inclusief de urenbalk van 26 px (proef, PO 2026-10-17). */
+export const CHART_HEIGHTS = [198, 240, 280] as const
+export type ChartHeight = typeof CHART_HEIGHTS[number]
+export const NOW_JUMP_STORAGE_KEY = 'motregen-dev-naar-nu'
+export const CHART_HEIGHT_STORAGE_KEY = 'motregen-dev-grafiekhoogte'
+
 interface Props {
   timeline: TimelineFrame[]
   values: Array<number | null>
@@ -26,6 +34,8 @@ interface Props {
   loadStage?: 'initial' | 'direct' | 'window' | 'complete'
   locationLabel: string
   onCursor: (cursor: number) => void
+  /** Proef onder ?dev (PO 2026-10-17): een knop terug naar nu zodra de nu-lijn buiten beeld is. */
+  nowJump?: NowJumpStyle
   onIntent?: () => void
   onPlaying: (playing: boolean) => void
   /** Alleen een expliciete afspeelkeuze, niet het hervatten na slepen. */
@@ -602,6 +612,13 @@ export default function HistogramScrubber(props: Props) {
     }, RESUME_IDLE_MS)
   }
 
+  const nowSide = createMemo(() => {
+    const x = nowX() + shownOffset()
+    if (x < 0) return 'left'
+    if (x > plotWidth()) return 'right'
+    return undefined
+  })
+
   return <section class="scrubber" aria-label={`Regenverwachting en tijd voor ${props.locationLabel}`}>
     <div
       ref={surfaceElement}
@@ -774,6 +791,12 @@ export default function HistogramScrubber(props: Props) {
             <span class="now-tick" style={{ left: `${nowX()}px` }}>Nu</span>
           </div>
         </div>
+        <Show when={(props.nowJump ?? 'uit') !== 'uit' && nowSide()}>{(side) =>
+          <button type="button" class={`now-jump now-jump-${props.nowJump}`} classList={{ right: side() === 'right' }} aria-label="Naar nu"
+            onPointerDown={(event) => event.stopPropagation()} onClick={() => scrollToEpoch(nowEpoch())}>
+            {props.nowJump === 'knop' ? (side() === 'left' ? '← Nu' : 'Nu →') : <span aria-hidden="true">{side() === 'left' ? '‹' : '›'}</span>}
+          </button>
+        }</Show>
         <div class="day-labels" aria-hidden="true"><For each={daySegments()}>{(segment, index) =>
           <span ref={(element) => { dayLabelElements[index()] = element }} classList={{ night: rulerNightAt(stickyLeft(segment, shownOffset()) - shownOffset()) }} style={{ transform: `translateX(${stickyLeft(segment, shownOffset())}px)` }}>{segment.label}</span>
         }</For></div>

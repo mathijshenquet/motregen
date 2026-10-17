@@ -1,3 +1,4 @@
+import { CHART_HEIGHTS, NOW_JUMP_STYLES, type ChartHeight, type NowJumpStyle } from './HistogramScrubber'
 import { createSignal, For, type JSX } from 'solid-js'
 import { copyText } from '../core/clipboard'
 import { appendSkyDiaryEntry, SKY_DIARY_CLASSES, skyDiaryJson, type SkyDiaryClass } from '../core/dev-settings'
@@ -26,6 +27,10 @@ interface Props {
   /** Exacte body van het gebruiksbaken (MIP-13): het privacycontract zichtbaar gemaakt. */
   usageBody: string
   usageLabel: string | null
+  nowJump: NowJumpStyle
+  onNowJump: (style: NowJumpStyle) => void
+  chartHeight: ChartHeight
+  onChartHeight: (height: ChartHeight) => void
   onUsageLabel: (text: string) => void
 }
 
@@ -77,6 +82,18 @@ export default function DevPanel(props: Props) {
       <Control label="Regenisolijnen" output={props.rainLook.isolines ?? 'geen'} hint={RAIN_ISOLINE_HINT}>
         <select value={props.rainLook.isolines ?? 'geen'} onChange={(event) => props.onRainLook({ isolines: event.currentTarget.value as RainIsolineSetName })}>
           <For each={RAIN_ISOLINE_SETS}>{(set) => <option value={set}>{set}{RAIN_ISOLINE_RATES[set].length ? ` (${RAIN_ISOLINE_RATES[set].join(' · ').replaceAll('.', ',')} mm/u)` : ''}</option>}</For>
+        </select>
+      </Control>
+    </Group>
+    <Group title="Tijdlijn">
+      <Control label="Naar nu" output={props.nowJump} hint="Proef: een knop terug naar nu zodra de nu-lijn uit de grafiek geschoven is. Rand: een smalle strook over de hele hoogte aan de kant van nu, alleen een pijl. Knop: een pil &quot;← Nu&quot; onderaan, vast aan de zijkant.">
+        <select aria-label="Naar nu" value={props.nowJump} onChange={(event) => props.onNowJump(event.currentTarget.value as NowJumpStyle)}>
+          <For each={NOW_JUMP_STYLES}>{(style) => <option value={style}>{style}</option>}</For>
+        </select>
+      </Control>
+      <Control label="Grafiekhoogte" output={`${props.chartHeight} px`} hint="Proef: hoogte van de grafiek op desktop, inclusief de urenbalk van 26 px. 198 is de huidige hoogte.">
+        <select aria-label="Grafiekhoogte" value={props.chartHeight} onChange={(event) => props.onChartHeight(Number(event.currentTarget.value) as ChartHeight)}>
+          <For each={CHART_HEIGHTS}>{(height) => <option value={height}>{height} px</option>}</For>
         </select>
       </Control>
     </Group>
