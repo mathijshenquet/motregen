@@ -78,15 +78,15 @@ test('portrait mobile keeps history mounted and unlocks the same table offset', 
   await scroller.evaluate((element) => { element.scrollTop = 0 })
   await expect(page.locator('tr.past-hour').first()).toBeVisible()
 
-  const tablePageOffset = await page.evaluate(() => window.scrollY)
-  await page.evaluate(async (acceptedOffset) => {
-    document.documentElement.style.scrollSnapType = 'none'
-    window.scrollTo(0, acceptedOffset - 48)
-    window.dispatchEvent(new Event('scrollend'))
+  const tablePageOffset = await page.locator('.app-shell').evaluate((shell) => shell.scrollTop)
+  await page.locator('.app-shell').evaluate(async (shell, acceptedOffset) => {
+    shell.style.scrollSnapType = 'none'
+    shell.scrollTo(0, acceptedOffset - 48)
+    shell.dispatchEvent(new Event('scrollend'))
     await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())))
-    window.scrollTo(0, acceptedOffset)
-    document.documentElement.style.scrollSnapType = ''
-    window.dispatchEvent(new Event('scrollend'))
+    shell.scrollTo(0, acceptedOffset)
+    shell.style.scrollSnapType = ''
+    shell.dispatchEvent(new Event('scrollend'))
   }, tablePageOffset)
   await expect(page.locator('.app-shell')).toHaveClass(/table-scroll-open/)
   await expect.poll(() => scroller.evaluate((element) => Math.round(element.scrollTop))).toBe(0)
@@ -112,7 +112,7 @@ test('mobile previews the heading and current row, then scrolls smoothly between
   expect(preview.next.bottom).toBeGreaterThan(page.viewportSize()!.height)
 
   await page.getByRole('button', { name: 'Wind' }).tap()
-  await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBe(0)
+  await expect.poll(() => page.locator('.app-shell').evaluate((shell) => Math.round(shell.scrollTop))).toBe(0)
 
   await page.getByRole('button', { name: 'Tabel' }).tap()
   await expect(page.locator('.app-shell')).toHaveClass(/table-view-open/)
@@ -123,7 +123,7 @@ test('mobile previews the heading and current row, then scrolls smoothly between
   await page.getByRole('button', { name: 'Weer', exact: true }).tap()
   await expect(page.locator('.app-shell')).not.toHaveClass(/table-view-open/)
   await expect(page.locator('.app-shell')).not.toHaveClass(/table-scroll-open/)
-  await expect.poll(() => page.evaluate(() => Math.round(window.scrollY))).toBeLessThanOrEqual(1)
+  await expect.poll(() => page.locator('.app-shell').evaluate((shell) => Math.round(shell.scrollTop))).toBeLessThanOrEqual(1)
   await expect(page.locator('.map-shell')).toBeVisible()
   await expect(page.locator('.map-shell')).toHaveAttribute('data-rendering', 'true')
 })
@@ -159,49 +159,29 @@ test('wind column shows the gust and follows the unit setting across reloads', a
   await expect(page.locator('tr.current-hour .wind-reading .wind-unit')).toHaveText('km/u', { timeout: 20_000 })
 })
 
-test.describe('telefoon met ingeklapte adresbalk', () => {
+test.describe('telefoon staand', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 
-  test('scrolling (not tapping) to the table opens the table view even when the panel cannot reach the top', async ({ page }) => {
+  test('scrolling (not tapping) to the table opens the table view at the end of the app-shell scroll, without scrolling the document', async ({ page }) => {
     await page.goto('/')
     await expect(page.locator('tr.current-hour')).toBeAttached()
-    // Android Chrome met ingeklapte adresbalk: het scherm is hoger dan het paneel, dus de pagina eindigt
-    // voordat het paneel bovenaan staat (PO 2026-10-07: een strook histogram bleef in beeld, kaart bleef actief).
-    await page.addStyleTag({ content: '.forecast-panel { height: calc(100vh - 56px) !important; min-height: 0 !important; }' })
     await page.mouse.move(195, 400)
     await page.mouse.wheel(0, 2_000)
     await expect(page.locator('.app-shell')).toHaveClass(/table-view-open/)
     await expect(page.locator('.app-shell')).toHaveClass(/table-scroll-open/)
     await expect(page.getByRole('button', { name: 'Tabel' })).toHaveAttribute('aria-pressed', 'true')
     await expect(page.locator('.map-shell')).toHaveAttribute('data-rendering', 'false')
-    expect(await page.locator('.forecast-panel').evaluate((element) => Math.round(element.getBoundingClientRect().top))).toBeGreaterThan(2)
+    // PO 2026-10-17: het document scrollt nooit, dus geen browserbalk verschuift het snappunt; dat is het scrolleinde.
+    const position = await page.locator('.app-shell').evaluate((shell) => ({
+      document: document.scrollingElement!.scrollTop,
+      panelTop: Math.round(shell.querySelector('.forecast-panel')!.getBoundingClientRect().top),
+      remaining: Math.round(shell.scrollHeight - shell.clientHeight - shell.scrollTop),
+    }))
+    expect(position).toEqual({ document: 0, panelTop: 0, remaining: 0 })
 
-    // Terug via de pagina zelf: het wiel boven de open tabel scrolt de rijen.
-    await page.evaluate(() => window.scrollTo(0, 0))
+    await page.locator('.app-shell').evaluate((shell) => shell.scrollTo(0, 0))
     await expect(page.locator('.app-shell')).not.toHaveClass(/table-view-open/)
     await expect(page.locator('.map-shell')).toHaveAttribute('data-rendering', 'true')
-  })
-
-  test('a page left just beside the table snap point is pulled back, without a strip of scrubber above the table (U62)', async ({ page }) => {
-    await page.goto('/')
-    await expect(page.locator('tr.current-hour')).toBeAttached()
-    await expect(page.locator('.map-splash.ready')).toBeAttached()
-    // Firefox voor Android laat de pagina naast het snappunt staan als de adresbalk terugkomt (PO 2026-10-08).
-    // Chromium zet haar zelf terug; zonder CSS-snap moet de app het doen.
-    await page.addStyleTag({ content: 'html { scroll-snap-type: none !important; }' })
-    await page.getByRole('button', { name: 'Tabel' }).click()
-    const panelTop = () => page.locator('.forecast-panel').evaluate((element) => Math.round(element.getBoundingClientRect().top))
-    await expect.poll(panelTop).toBe(0)
-    await expect(page.locator('.app-shell')).toHaveClass(/table-view-open/)
-
-    // De terugkerende adresbalk schuift de pagina een stukje terug: 35 px scrubber boven de tabel.
-    // In dezelfde tik teruglezen: de app zet de pagina al bij het einde van de scroll terug.
-    expect(await page.evaluate(() => {
-      window.scrollBy(0, -35)
-      return Math.round(document.querySelector('.forecast-panel')!.getBoundingClientRect().top)
-    })).toBe(35)
-    await expect.poll(panelTop).toBe(0)
-    await expect(page.locator('.app-shell')).toHaveClass(/table-view-open/)
   })
 
   test('the table preview tweens to the cursor hour while a finger drags the scrubber (U62)', async ({ page }) => {
