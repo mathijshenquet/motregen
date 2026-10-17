@@ -21,9 +21,9 @@ describe('table ladder', () => {
       '2026-10-18 3h 03–06', '2026-10-18 3h 06–09', '2026-10-18 3h 09–12', '2026-10-18 3h 12–15',
       '2026-10-18 3h 15–18', '2026-10-18 3h 18–21', '2026-10-18 3h 21–24', '2026-10-19 part Nacht 00–06',
     ])
-    expect(summary(slots).slice(11, 18)).toEqual([
-      '2026-10-20 part Nacht 00–06', '2026-10-20 part Ochtend 06–12', '2026-10-20 part Middag 12–18', '2026-10-20 part Avond 18–24',
-      '2026-10-21 night Nacht 00–06', '2026-10-21 day Dag 06–18', '2026-10-21 night Nacht 18–06',
+    expect(summary(slots).slice(11, 17)).toEqual([
+      '2026-10-20 part Nacht 00–06', '2026-10-20 part Ochtend 06–12', '2026-10-20 part Middag 12–18', '2026-10-20 night Nacht 18–06',
+      '2026-10-21 day Dag 06–18', '2026-10-21 night Nacht 18–06',
     ])
     expect(summary(slots).at(-1)).toBe('2026-10-26 night Nacht 18–06')
     // Aaneengesloten: geen gat en geen overlap tussen de rijen.
@@ -48,13 +48,13 @@ describe('table ladder', () => {
     expect(hours(slots.find((slot) => slot.date === '2026-03-29' && slot.label === 'Ochtend')!)).toBe(6)
   })
 
-  it('crosses midnight between two 3-hour rows and puts the day heading on the first row of the new day', () => {
+  it('crosses midnight between two 3-hour rows and marks the first row of the new day', () => {
     const now = at('2026-10-17T05:00:00Z') // 07:00 lokaal
     const slots = buildLadder(now)
     expect(summary(slots).slice(0, 2)).toEqual(['2026-10-17 3h 21–24', '2026-10-18 3h 00–03'])
     expect(slots[0]!.end).toBe(localTime('2026-10-18', 0))
     const rows = buildSlotRows(now, slots.slice(0, 3), { harmonieEpochs: Array.from({ length: 60 }, (_, index) => at('2026-10-17T03:00:00Z') + index * hour) })
-    expect(rows.map((row) => row.heading)).toEqual([undefined, 'Morgen', undefined])
+    expect(rows.map((row) => row.dayStart)).toEqual([undefined, true, undefined])
     expect(rows.every((row) => row.source === 'harmonie' && row.values === undefined)).toBe(true)
   })
 })
@@ -71,7 +71,7 @@ describe('slot sources', () => {
     const rows = buildSlotRows(now, slots, { harmonieEpochs, steps: { intervals } })
     // Nacht 00–06 (22–04 UTC) ligt binnen HARMONIE; de ochtend loopt tot 10 UTC en HARMONIE stopt om 07.
     expect(rows.map((row) => `${row.slot.label} ${row.source}`)).toEqual(['Nacht harmonie', 'Ochtend ecmwf', 'Middag ecmwf', 'Avond ecmwf'])
-    expect(rows[0]!.heading).toBe('maandag 19')
+    expect(rows[0]!.dayStart).toBe(true)
   })
 
   it('aggregates loaded steps and puts the chance of rain only on day rows', () => {
@@ -81,10 +81,10 @@ describe('slot sources', () => {
       steps: { intervals, values: { step_tmax_c: constant(12), step_tmin_c: constant(6), step_precip_mm: constant(1.5), step_cloud: constant(80), step_wind_u_ms: constant(4), step_wind_v_ms: constant(0) } },
       days: { dates: ['2026-10-21'], values: { day_precip_prob: [70] } },
     })
-    expect(rows.map((row) => row.slot.grain)).toEqual(['night', 'day', 'night'])
-    expect(rows[1]!.values).toMatchObject({ tmax: 12, tmin: 6, cloud: 80, precipProb: 70, windMs: 4, windFromDegrees: 270 })
-    expect(rows[1]!.values!.precipMm).toBeCloseTo(6) // 12 uur × 1,5 mm per 3 u
-    expect(rows[0]!.values!.precipProb).toBeNull()
+    expect(rows.map((row) => row.slot.grain)).toEqual(['day', 'night'])
+    expect(rows[0]!.values).toMatchObject({ tmax: 12, tmin: 6, cloud: 80, precipProb: 70, windMs: 4, windFromDegrees: 270 })
+    expect(rows[0]!.values!.precipMm).toBeCloseTo(6) // 12 uur × 1,5 mm per 3 u
+    expect(rows[1]!.values!.precipProb).toBeNull()
   })
 
   it('shows only day rows from the day fields while there are no steps, and drops what has no source', () => {

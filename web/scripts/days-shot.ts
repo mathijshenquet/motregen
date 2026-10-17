@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 
 // Beelden van de lijst "Komende dagen" (U91) en de glijdende tabel (U91b) op 1280 en 390 px, licht en donker thema, plus console-fouten en
-// mislukte verzoeken. De worker bekijkt deze zelf vóór elk "klaar". SHOT_CLOCK (ISO) zet de browserklok, bijv. 's nachts.
+// mislukte verzoeken. De worker bekijkt deze zelf vóór elk "klaar".
 const [origin, outDir, label = 'dagen'] = process.argv.slice(2)
 if (!origin || !outDir) throw new Error('usage: pnpm exec tsx scripts/days-shot.ts ORIGIN OUT_DIR [LABEL]')
 mkdirSync(outDir, { recursive: true })
@@ -14,12 +14,20 @@ for (const theme of (process.env.SHOT_THEMES ?? 'light,dark').split(',')) {
   for (const [name, viewport] of Object.entries(viewports)) {
     const context = await browser.newContext({ viewport, deviceScaleFactor: 2, hasTouch: name === 'mobile', isMobile: name === 'mobile', colorScheme: theme === 'dark' ? 'dark' : 'light' })
     const page = await context.newPage()
-    if (process.env.SHOT_CLOCK) await page.clock.install({ time: new Date(process.env.SHOT_CLOCK) })
     page.on('console', (message) => { if (message.type() === 'error') problems.push(`${theme}/${name} console: ${message.text()}`) })
     page.on('pageerror', (error) => problems.push(`${theme}/${name} pageerror: ${error.message}`))
     page.on('requestfailed', (request) => problems.push(`${theme}/${name} requestfailed: ${request.url()} ${request.failure()?.errorText}`))
     page.on('response', (response) => { if (response.status() >= 400) problems.push(`${theme}/${name} HTTP ${response.status()}: ${response.url()}`) })
     await page.addInitScript((choice) => localStorage.setItem('motregen-theme', choice), theme)
+    // SHOT_NOW (ISO): manifest-"nu" en browserklok verschoven, bijv. naar de avond, om de tabel 's nachts te zien.
+    if (process.env.SHOT_NOW) {
+      const shifted = process.env.SHOT_NOW
+      await page.clock.install({ time: new Date(shifted) })
+      await page.route('**/data/manifest.json*', async (route) => {
+        const response = await route.fetch()
+        await route.fulfill({ response, json: { ...await response.json(), now: shifted } })
+      })
+    }
     await page.goto(new URL(`/${process.env.SHOT_QUERY ? `?${process.env.SHOT_QUERY}` : ''}`, origin).href)
     await page.waitForTimeout(6_000)
     await page.screenshot({ path: join(outDir, `${label}-${theme}-${name}-boven.png`) })

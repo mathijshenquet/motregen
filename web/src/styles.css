@@ -967,14 +967,38 @@ td small { color: var(--muted); font-size: 9px; }
 .wind-reading small { margin-left: 1px; }
 .wind-arrow { flex: none; color: var(--accent); }
 
-/* Glijdende tabel (U91b): dagkop boven de grovere rijen, het venster klein onder de naam. */
-.forecast-table tr.day-heading-row td { padding: 16px 8px 6px var(--panel-inset, 16px); border-bottom: 1px solid var(--line-strong); color: var(--text); background: var(--surface); font-size: 12px; font-weight: 760; letter-spacing: .02em; text-align: left; text-transform: capitalize; }
-.forecast-table tr.span-row .time-label strong { font-size: 13px; }
+/* Glijdende tabel (U91b): grove rijen dragen hun dag zelf; een dagwissel krijgt een iets donkerdere lijn in de
+   kleur van de rij zelf, nooit een strook in paneelkleur (PO 2026-10-17). */
+.forecast-table tr.day-start > td { border-top: 2px solid var(--line-strong); }
+.forecast-table.day-night-table tr.day-hour.day-start > td { border-top-color: color-mix(in oklab, #000 16%, var(--day-sky-start)); }
+/* Op een dag/nacht-grens markeert de schemering de wissel al; een lijn zou er dwars doorheen lopen. */
+.forecast-table.day-night-table tr:is(.dawn-after, .dusk-after).day-start > td { border-top-width: 0; }
+.forecast-table.day-night-table tr.night-hour.day-start > td { border-top-color: color-mix(in oklab, #000 55%, var(--surface)); }
 .forecast-table tr.beyond-timeline { cursor: default; }
 .forecast-table tr.span-row .time-label:not(button) { cursor: default; }
 .rain-chance { color: var(--accent); font-size: 10px; font-weight: 650; line-height: 1.1; }
-.span-cloud { color: var(--muted); font-size: 12px; font-weight: 650; }
-.span-minimum { font-weight: 600; }
+.rain-amount.unlikely { color: var(--muted); font-weight: 600; }
+/* Het balkje staat onder het grote getal; het kleine getal aan zijn kant van de schaal: minimum links, maximum rechts. */
+.span-temperature-range { display: grid; grid-template-columns: 1fr 32px 1fr; align-items: center; column-gap: 4px; margin-top: 2px; }
+.span-temperature-range .span-temperature-bar { grid-column: 2; grid-row: 1; }
+.span-temperature-range .span-other { display: inline; grid-column: 3; grid-row: 1; justify-self: start; }
+.span-temperature-range.other-is-low .span-other { grid-column: 1; justify-self: end; }
+.span-temperature-bar { position: relative; width: 32px; height: 4px; border-radius: 999px; background: color-mix(in srgb, var(--muted) 22%, transparent); }
+.span-temperature-bar i { position: absolute; top: 0; bottom: 0; min-width: 4px; border-radius: inherit; }
+.cloud-reading { display: inline-flex; align-items: center; gap: 5px; }
+.cloud-reading-track { position: relative; width: 34px; height: 5px; border-radius: 999px; background: color-mix(in srgb, var(--muted) 18%, transparent); }
+.cloud-reading-fill { position: absolute; top: 0; bottom: 0; left: 0; min-width: 5px; border-radius: inherit; background: color-mix(in srgb, var(--muted) 70%, transparent); }
+.cloud-reading-value { color: var(--muted); font-size: 11px; font-weight: 650; }
+/* Schemering zonder zonband (dagdelen, dag/nacht): de rand tussen de rijen kleurt warm, de tekst in het midden
+   houdt de eigen rijkleur. */
+.forecast-table.day-night-table tr.span-row.dusk-before { background: radial-gradient(ellipse 50% 60% at 50% 118%, rgba(255, 170, 92, .5), transparent 70%), linear-gradient(180deg, var(--day-sky-start) 55%, color-mix(in srgb, #ef7a64 42%, var(--day-sky-start)) 100%); }
+.forecast-table.day-night-table tr.span-row.dusk-after { background: radial-gradient(ellipse 54% 70% at 50% -18%, rgba(237, 91, 83, .5), rgba(119, 43, 92, .22) 45%, transparent 75%), linear-gradient(180deg, #2a1a30 0%, var(--surface) 45%); }
+.forecast-table.day-night-table tr.span-row.dawn-before { background: radial-gradient(ellipse 50% 60% at 50% 118%, rgba(255, 164, 92, .42), transparent 70%), linear-gradient(180deg, var(--surface) 55%, #33192f 100%); }
+.forecast-table.day-night-table tr.span-row.dawn-after { background: radial-gradient(ellipse 54% 70% at 50% -18%, rgba(255, 164, 92, .5), rgba(238, 95, 107, .18) 45%, transparent 75%), linear-gradient(180deg, color-mix(in srgb, #f7ad7b 34%, var(--day-sky-start)) 0%, var(--day-sky-end) 45%); }
+/* Dag en nacht wisselen elkaar af: een rij heeft dan aan beide randen schemering. */
+.forecast-table.day-night-table tr.span-row.dusk-after.dawn-before { background: radial-gradient(ellipse 54% 70% at 50% -18%, rgba(237, 91, 83, .5), rgba(119, 43, 92, .22) 45%, transparent 75%), radial-gradient(ellipse 50% 60% at 50% 118%, rgba(255, 164, 92, .42), transparent 70%), linear-gradient(180deg, #2a1a30 0%, var(--surface) 40% 60%, #33192f 100%); }
+.forecast-table.day-night-table tr.span-row.dawn-after.dusk-before { background: radial-gradient(ellipse 54% 70% at 50% -18%, rgba(255, 164, 92, .5), rgba(238, 95, 107, .18) 45%, transparent 75%), radial-gradient(ellipse 50% 60% at 50% 118%, rgba(255, 170, 92, .5), transparent 70%), linear-gradient(180deg, color-mix(in srgb, #f7ad7b 34%, var(--day-sky-start)) 0%, var(--day-sky-end) 40% 60%, color-mix(in srgb, #ef7a64 42%, var(--day-sky-start)) 100%); }
+.forecast-table.day-night-table tr.span-row:is(.dusk-before, .dusk-after, .dawn-before, .dawn-after) td { background: transparent; }
 
 /* Komende dagen (U91): één regel per dag onder de urentabel, met dezelfde kolomtaal; overdag-hemel per dag naar
    de bewolking, zoals de dagrijen van de tabel. */

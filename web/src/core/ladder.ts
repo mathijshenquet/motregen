@@ -1,6 +1,5 @@
 import { chunkField, type EcmwfStepField, type Manifest, type ManifestChunk } from './contract'
 import { addDays, aggregateHourlyWindow, localDate, localMinutes, localTime, type DayValues, type EcmwfPointValues, type HourlyDayInputs } from './days'
-import { formatDayHeading } from './locale'
 
 const hour = 3_600_000
 
@@ -13,7 +12,7 @@ export const TABLE_LADDER = {
   hourlyHours: 12,
   /** Per 3 uur tot het eind van deze dag; 0 = vandaag, 1 = morgen. */
   threeHourlyThroughDay: 1,
-  /** Zoveel dagen daarna per dagdeel: nacht 00–06, ochtend, middag, avond. */
+  /** Zoveel dagen daarna per dagdeel: nacht 00–06, ochtend, middag, avond; de laatste eindigt met de nacht 18–06. */
   partDays: 2,
   /** Daarna per dag (06–18) en nacht (18–06), tot en met deze dag; 0 = vandaag. */
   lastDay: 9,
@@ -29,14 +28,14 @@ export interface LadderSlot {
   /** Lokale datum van het begin; een nacht 18–06 hoort bij de dag waarop hij begint. */
   date: string
   label: string
-  /** Klokvenster, "06–12". */
+  /** Klokvenster, "06–12" (titel van de rij; de rij zelf toont de dag). */
   range: string
 }
 
 export interface SlotRow {
   slot: LadderSlot
-  /** Dagkop boven de eerste rij van een nieuwe dag. */
-  heading?: string
+  /** Eerste rij van een nieuwe lokale dag: de tabel trekt er een duidelijkere lijn boven. */
+  dayStart?: boolean
   source: 'harmonie' | 'ecmwf'
   /** undefined = nog niet geladen. */
   values?: DayValues
@@ -72,26 +71,19 @@ export function buildLadder(now: number, ladder: Ladder = TABLE_LADDER): LadderS
   }
   for (let day = 0; day < ladder.partDays; day++) {
     const date = addDays(firstPartDay, day)
-    for (const [label, clock] of PARTS) {
+    // De laatste dagdelendag eindigt met de hele nacht 18–06: dan begint de dag/nacht-reeks met een dag, zonder
+    // losse restnacht 00–06 die dezelfde naam en datum zou dragen als de nacht erna.
+    const last = day === ladder.partDays - 1
+    for (const [label, clock] of last ? PARTS.slice(0, 3) : PARTS) {
       slots.push({ start: localTime(date, clock), end: localTime(date, clock + 6), grain: 'part', date, label, range: `${pad(clock)}–${pad(clock + 6)}` })
     }
+    if (last) slots.push({ start: localTime(date, 18), end: localTime(date, 30), grain: 'night', date, label: 'Nacht', range: '18–06' })
   }
-  // Na de dagdelen staat de klok op middernacht: die eerste nacht loopt nog tot 06.
-  const firstDayNight = addDays(firstPartDay, ladder.partDays)
-  slots.push({ start: localTime(firstDayNight, 0), end: localTime(firstDayNight, 6), grain: 'night', date: firstDayNight, label: 'Nacht', range: '00–06' })
-  for (let date = firstDayNight; date <= addDays(today, ladder.lastDay); date = addDays(date, 1)) {
+  for (let date = addDays(firstPartDay, ladder.partDays); date <= addDays(today, ladder.lastDay); date = addDays(date, 1)) {
     slots.push({ start: localTime(date, 6), end: localTime(date, 18), grain: 'day', date, label: 'Dag', range: '06–18' })
     slots.push({ start: localTime(date, 18), end: localTime(date, 30), grain: 'night', date, label: 'Nacht', range: '18–06' })
   }
   return slots.filter((slot) => slot.start >= cursor || slot.grain === '3h')
-}
-
-/** "Morgen", "maandag 19" (de tabel zet de hoofdletter). */
-export function dayHeading(date: string, now: number): string {
-  const today = localDate(now)
-  if (date === today) return 'Vandaag'
-  if (date === addDays(today, 1)) return 'Morgen'
-  return formatDayHeading(localTime(date, 12))
 }
 
 export const ECMWF_STEP_FIELDS: readonly EcmwfStepField[] = ['step_tmax_c', 'step_tmin_c', 'step_precip_mm', 'step_gust_ms', 'step_temp_c', 'step_wind_u_ms', 'step_wind_v_ms', 'step_cloud']
@@ -244,7 +236,7 @@ export function buildSlotRows(now: number, slots: LadderSlot[], data: LadderData
       }
     }
     if (!row) continue
-    if (slot.date !== previousDate) row.heading = dayHeading(slot.date, now)
+    if (slot.date !== previousDate) row.dayStart = true
     previousDate = slot.date
     rows.push(row)
   }

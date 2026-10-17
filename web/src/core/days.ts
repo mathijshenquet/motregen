@@ -27,6 +27,8 @@ export interface HourlyDayInputs {
   windU: Sample[]
   windV: Sample[]
   gust: Sample[]
+  /** Gevoelstemperatuur; alleen de tabel gebruikt hem (U91b). */
+  feelsLike?: Sample[]
 }
 
 export interface DayValues {
@@ -39,6 +41,9 @@ export interface DayValues {
   windFromDegrees: number | null
   gustMs: number | null
   cloud: number | null
+  /** Gevoelstemperatuur over het venster, waar HARMONIE hem heeft. */
+  feelsMax?: number | null
+  feelsMin?: number | null
 }
 
 export interface DayRow extends DayValues {
@@ -172,7 +177,12 @@ export function aggregateHourlyWindow(
     windFromDegrees,
     gustMs: gusts.length ? Math.max(...gusts) : null,
     cloud: clouds.length ? clouds.reduce((sum, value) => sum + value, 0) / clouds.length : null,
+    ...(inputs.feelsLike && feels(known(inputs.feelsLike, bounds).map((sample) => sample.value))),
   }
+}
+
+function feels(values: number[]): Pick<DayValues, 'feelsMax' | 'feelsMin'> {
+  return values.length ? { feelsMax: Math.max(...values), feelsMin: Math.min(...values) } : {}
 }
 
 /**

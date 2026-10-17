@@ -40,7 +40,9 @@ test('the sliding table turns coarser after the hourly rows and loads the long r
   const dayRow = page.locator('tr[data-grain="day"]').first()
   await dayRow.evaluate((element) => element.scrollIntoView({ block: 'center' }))
   await expect.poll(() => ecmwf.length).toBeGreaterThan(0)
-  await expect(page.locator('tr.day-heading-row').first()).toBeVisible()
+  // De dag staat in de rij zelf, geen losse kopbalk (PO 2026-10-17).
+  await expect(page.locator('tr.day-heading-row')).toHaveCount(0)
+  await expect(dayRow.locator('.time-label span')).toHaveText(/^[a-z]{2} \d{1,2}$/i)
   await expect(dayRow).toHaveClass(/beyond-timeline/)
   // Een ontbrekende chunk is geen laadtoestand: een streep, geen puntjes.
   await expect(dayRow.locator('.temperature-cell')).toHaveText('—')

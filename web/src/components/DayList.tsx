@@ -1,7 +1,7 @@
 import { createMemo, For, onCleanup, onMount, Show } from 'solid-js'
 import type { DayRow } from '../core/days'
-import { paletteColor, paletteStops, type Rgb } from '../core/temperature-palette'
-import { deriveDayIcon, summarizeWindFrom, type WindUnit } from '../core/weather'
+import { CALM_BAR_STOPS, cssRgb, paletteColor } from '../core/temperature-palette'
+import { deriveDayIcon, summarizeWindFrom, UNLIKELY_RAIN_PERCENT, type WindUnit } from '../core/weather'
 import WeatherIcon from './WeatherIcon'
 import WindReading from './WindReading'
 
@@ -13,11 +13,7 @@ interface Props {
   onNear: () => void
 }
 
-// Een vaste schaal, niet gerekt over het bereik van de tien dagen: 9–15 °C blijft dan rustig groen-geel.
-const BAR_STOPS = paletteStops({ low: -10, high: 30 })
 const NEAR_MARGIN_PX = 600
-
-const css = (color: Rgb) => `rgb(${color.map((channel) => Math.round(channel * 255)).join(' ')})`
 
 export default function DayList(props: Props) {
   let element!: HTMLElement
@@ -62,7 +58,7 @@ export default function DayList(props: Props) {
           return {
             left: `${(row.tmin - range.low) / range.span * 100}%`,
             width: `${Math.max(0, row.tmax - row.tmin) / range.span * 100}%`,
-            'background-image': `linear-gradient(90deg, ${css(paletteColor(row.tmin, BAR_STOPS))}, ${css(paletteColor(row.tmax, BAR_STOPS))})`,
+            'background-image': `linear-gradient(90deg, ${cssRgb(paletteColor(row.tmin, CALM_BAR_STOPS))}, ${cssRgb(paletteColor(row.tmax, CALM_BAR_STOPS))})`,
           }
         }
         const label = () => [
@@ -83,7 +79,7 @@ export default function DayList(props: Props) {
           <span class="day-name">{row.label}</span>
           <span class="day-weather">
             <Show when={icon()} fallback={<span class="day-icon-placeholder">{placeholder()}</span>}>{(model) => <WeatherIcon model={model()} />}</Show>
-            <Show when={rain()}>{(amount) => <span class="rain-amount">{amount()}<small> mm</small></span>}</Show>
+            <Show when={rain()}>{(amount) => <span class="rain-amount" classList={{ unlikely: (row.precipProb ?? 100) < UNLIKELY_RAIN_PERCENT }}>{amount()}<small> mm</small></span>}</Show>
           </span>
           <span class="day-chance" classList={{ likely: (chance() ?? 0) >= 50 }}>{chance() ? `${chance()}%` : ''}</span>
           <span class="day-temperatures">

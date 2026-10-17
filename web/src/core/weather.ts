@@ -33,6 +33,9 @@ export function deriveDayIcon(precipMm: number | null, cloudFraction: number | n
   return deriveWeatherIcon(0, cloudFraction, true)
 }
 
+// Onder deze regenkans (ECMWF-ensemble) staat de hoeveelheid uit de hoofdrun gedempt (PO 2026-10-17).
+export const UNLIKELY_RAIN_PERCENT = 30
+
 // Grove tabelrijen (U91b): regen vanaf 0,2 mm in het venster, zwaar bij gemiddeld 2 mm/u of meer.
 const SPAN_RAIN_MM = 0.2
 const SPAN_HEAVY_RAIN_MM_PER_HOUR = 2

@@ -3244,6 +3244,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       windU: samples(windUFrames(), windUSeries()),
       windV: samples(windVFrames(), windVSeries()),
       gust: samples(gustTimeline(), gustSeries()),
+      feelsLike: samples(feelsLikeTimeline(), feelsLikeSeries()),
     }
   })
   const dayRows = createMemo(() => {
