@@ -11,10 +11,13 @@ import * as palette from '../web/src/core/temperature-palette.js'
 import { NETHERLANDS_FLANDERS_BOUNDS } from '../web/src/core/map-frame.js'
 import { createHash } from 'node:crypto'
 import * as cloudMap from '../web/src/core/cloud-map.js'
+import { prepareCloudMapField } from '../web/src/core/cloud-map.js'
 import { cloudFlowFragment, cloudMapFragment } from '../web/src/core/cloud-map-shader.js'
 import { DARKEST_HALVINGS, FAIR_HALVINGS, LAYER_BLOCKING, layerTransmission, skyDarkness } from '../web/src/core/cloud-section.js'
 import { solarElevationSin } from '../web/src/core/solar.js'
 import { cloudModification } from '../web/src/core/uv.js'
+import type { Grid, MrfHeader } from '../web/src/core/contract.js'
+import type { FieldBlend } from '../web/src/core/sun.js'
 
 export function modeConstants() {
   const now = '2026-08-28T15:00:00Z'
@@ -69,10 +72,48 @@ function cloudConstants() {
     }
   }))
   const shader = cloudMapFragment('') + cloudFlowFragment('')
+  const field_fixtures = ['2026-10-16T11:00:00Z', '2026-10-16T21:00:00Z'].map((time) => cloudFieldFixture(Date.parse(time)))
   return {
     flow_steps: cloudMap.CLOUD_FLOW_STEPS, flow_hours: cloudMap.CLOUD_FLOW_HOURS, flow_downsample: cloudMap.CLOUD_FLOW_DOWNSAMPLE,
     blur: isoline.isolineBlurPasses('cloud'), layer_blocking: LAYER_BLOCKING, darkest_halvings: DARKEST_HALVINGS, fair_halvings: FAIR_HALVINGS,
-    light_fixtures, shader_sha256: createHash('sha256').update(shader).digest('hex'),
+    light_fixtures, field_fixtures, shader_sha256: createHash('sha256').update(shader).digest('hex'),
+  }
+}
+
+/** Een klein wolkenrooster met lagen, straling en regenbeweging op eigen roosters, door `prepareCloudMapField`. */
+function cloudFieldFixture(epoch: number) {
+  const grid: Grid = { crs: 'EPSG:3857', x0: 300_000, y0: 7_000_000, dx: 16_000, dy: -16_000, width: 6, height: 5 }
+  const cells = grid.width * grid.height
+  const values = Float32Array.from({ length: cells }, (_, cell) => [0, 12, 48, 77, 100, 63, 5][cell % 7]!)
+  const valid = Float32Array.from({ length: cells }, (_, cell) => cell === 7 ? 0 : 1)
+  // Kwantisatie zoals de MRF-headers: code → waarde, 255 = geen data.
+  const quant = Array.from({ length: 256 }, (_, code) => code === 255 ? null : code * 0.5)
+  const raster = (offset: number, width: number, height: number, seed: number) => {
+    const rasterGrid: Grid = { crs: 'EPSG:3857', x0: 300_000 + offset, y0: 7_000_000 - offset, dx: 20_000, dy: -20_000, width, height }
+    const data = Uint8Array.from({ length: width * height }, (_, cell) => (cell * 37 + seed * 11) % 7 === 0 ? 255 : (cell * 53 + seed * 29) % 201)
+    return { grid: rasterGrid, data }
+  }
+  const blend = (seed: number, offset = 5_000, width = 5, height = 4, mix = 0.35): FieldBlend => {
+    const left = raster(offset, width, height, seed), right = raster(offset, width, height, seed + 1)
+    const header = (gridValue: Grid) => ({ grid: gridValue, quant }) as unknown as MrfHeader
+    return { left: left.data, right: right.data, leftHeader: header(left.grid), rightHeader: header(right.grid), mix }
+  }
+  const motionGrid: Grid = { crs: 'EPSG:3857', x0: 280_000, y0: 7_020_000, dx: 1_000, dy: -1_000, width: 120, height: 110 }
+  const vectors = Int8Array.from({ length: 3 * 3 * 2 }, (_, index) => index === 0 ? -128 : ((index * 23) % 41) - 20)
+  const inputs = {
+    low: blend(1), mid: blend(3, 9_000, 4, 4, 0.8), high: blend(5),
+    radiation: blend(7, 2_000, 5, 4, 0.5), radiationNext: blend(9, 2_000, 5, 4, 0.25),
+    motion: { grid: motionGrid, field: { width: 3, height: 3, vectors: new Uint8Array(vectors.buffer) } },
+  }
+  const prepared = prepareCloudMapField(grid, { values, valid }, epoch, inputs)
+  const view = (data: Uint8Array, header: MrfHeader) => ({ grid: header.grid, values: [...data] })
+  const blendView = (value: FieldBlend) => ({ left: view(value.left, value.leftHeader), right: view(value.right, value.rightHeader), mix: value.mix })
+  return {
+    epoch, grid, values: [...values], valid: [...valid], quant,
+    low: blendView(inputs.low), mid: blendView(inputs.mid), high: blendView(inputs.high),
+    radiation: blendView(inputs.radiation), radiation_next: blendView(inputs.radiationNext),
+    motion: { grid: motionGrid, width: 3, height: 3, vectors: [...vectors] },
+    hints: [...prepared.cloudHints!], flow: [...prepared.cloudFlow!],
   }
 }
 

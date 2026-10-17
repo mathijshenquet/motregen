@@ -1101,6 +1101,72 @@ mod tests {
         assert_eq!(mode_constants().cloud.shader_sha256, PORTED_SHADER_SHA256);
     }
 
+    fn fixture_blend<'a>(
+        blend: &'a crate::mode_constants::BlendFixture,
+        quant: &'a [Option<f32>],
+    ) -> RasterBlend<'a> {
+        let view = |raster: &'a crate::mode_constants::RasterFixture| RasterView {
+            grid: &raster.grid,
+            quant,
+            values: &raster.values,
+        };
+        RasterBlend {
+            left: view(&blend.left),
+            right: view(&blend.right),
+            mix: blend.mix,
+        }
+    }
+
+    #[test]
+    fn prepares_the_hour_like_prepare_cloud_map_field() {
+        let fixtures = &mode_constants().cloud.field_fixtures;
+        assert_eq!(fixtures.len(), 2);
+        for fixture in fixtures {
+            let quant = &fixture.quant;
+            let blend = |blend| fixture_blend(blend, quant);
+            let field = Field {
+                width: fixture.grid.width,
+                height: fixture.grid.height,
+                values: fixture.values.clone(),
+                valid: fixture.valid.clone(),
+            };
+            let hour = prepare_hour(
+                &fixture.grid,
+                &field,
+                fixture.epoch,
+                CloudInputs {
+                    low: Some(blend(&fixture.low)),
+                    mid: Some(blend(&fixture.mid)),
+                    high: Some(blend(&fixture.high)),
+                    radiation: Some(blend(&fixture.radiation)),
+                    radiation_next: Some(blend(&fixture.radiation_next)),
+                    motion: Some(MotionView {
+                        grid: &fixture.motion.grid,
+                        width: fixture.motion.width,
+                        height: fixture.motion.height,
+                        vectors: &fixture.motion.vectors,
+                    }),
+                },
+            );
+            for (cell, channels) in hour.channels.iter().enumerate() {
+                for (index, actual) in [channels[2], channels[3]].into_iter().enumerate() {
+                    let expected = fixture.hints[cell * 2 + index];
+                    assert!(
+                        (actual - expected).abs() < 1e-6,
+                        "cel {cell} hint {index}: {actual} ≠ {expected}"
+                    );
+                }
+                for (index, &actual) in hour.flow[cell].iter().enumerate() {
+                    let expected = fixture.flow[cell * 2 + index];
+                    assert!(
+                        (actual - expected).abs() < 1e-5,
+                        "cel {cell} stroming {index}: {actual} ≠ {expected}"
+                    );
+                }
+            }
+        }
+    }
+
     #[test]
     fn drift_matches_the_loader_and_cloud_drift_at() {
         let epochs = drift_epochs(1_800_000, 4 * 3_600_000);

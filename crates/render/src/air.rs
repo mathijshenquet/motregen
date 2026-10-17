@@ -35,9 +35,10 @@ use std::{
 const HOUR: i64 = 3_600_000;
 pub const TITLE: &str = "Lucht";
 
-// Rekentijd (U92, gemeten in de track-LOG op 2 kernen): de app tekent de wolken op de helft van zijn CSS-pixels; de
-// film op een kwart, met de terugtrace op de helft van het grove app-raster en het reliëf uit de buurpixels. Samen
-// van 85 naar circa 21 CPU-seconden per film; de afwijking tegenover de app blijft onder 0,3 ΔE boven de JPEG-vloer.
+// Rekentijd (U92, gemeten in de track-LOG op 2 kernen): de app tekent de wolken per as op de helft van zijn
+// CSS-pixels, de film op een kwart; de terugtrace op de helft van het grove app-raster en het reliëf uit de
+// buurpixels. Samen van 85 naar circa 21 CPU-seconden per film; de afwijking tegenover de app blijft onder 0,3 ΔE
+// boven de JPEG-vloer.
 const FILL_DIVISOR: f64 = 2.0;
 const TRAVEL_DIVISOR: f64 = 2.0;
 const QUALITY: CloudQuality = CloudQuality {

@@ -74,6 +74,21 @@ it('retries a failed shared generation without publishing incomplete sequence re
   } finally { await renderer.close(); await rm(directory, { recursive: true, force: true }) }
 })
 
+it('includes Lucht in the shared generation only when air is a Rust mode', async () => {
+  vi.stubEnv('MOTREGEN_RUST_RENDERER', 'weather,feels,wind')
+  const directory = await mkdtemp(join(tmpdir(), 'motregen-rust-air-'))
+  try {
+    const withoutAir = await generation(directory)
+    expect(Object.keys(withoutAir.modes)).toEqual(['weather', 'feels', 'wind'])
+    vi.stubEnv('MOTREGEN_RUST_RENDERER', 'weather,feels,wind,air')
+    await expect(rust.validateRustGeneration(withoutAir, manifest, directory)).rejects.toThrow()
+    const withAir = await generation(directory)
+    expect(Object.keys(withAir.modes)).toEqual(['weather', 'air', 'feels', 'wind'])
+    await rust.validateRustGeneration(withAir, manifest, directory)
+    expect(withAir.modes.air!.files[0]!.file).toBe('air-loop.mp4')
+  } finally { await rm(directory, { recursive: true, force: true }) }
+})
+
 it('validates every mode before accepting a shared Rust generation', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'motregen-rust-all-receipt-'))
   try {

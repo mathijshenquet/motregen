@@ -10,6 +10,7 @@ De gewone Windmodus van de webapp behoudt regen. Tempo en vensters staan uitslui
 | Regenradar | 100 s | 28/5 | 109 | 6 | 20,536 s |
 | Gevoelstemperatuur | 100 s | 28/5 | 217 | 6 | 39,821 s |
 | Wind | 75 s | 15/2 | 289 | 8 | 39,600 s |
+| Lucht (U92) | 100 s | 28/5 | 217 | 6 | 39,821 s |
 
 Het tempo is 9,33 kaartminuten per seconde voor regen/temperatuur en 9,375 voor Wind;
 de app met `PLAYBACK_TEMPO_HOURS = 8` mat op 2026-10-11 9,35.
@@ -24,7 +25,8 @@ motregen-render --data-dir /pad/data --basemap-dir /pad/platen --mode all --out-
 ```
 
 `--manifest /pad/snapshot.json` kiest een vast manifest in plaats van `DATA_DIR/manifest.json`. Chunks worden
-steeds relatief aan `--data-dir` gelezen. De modi zijn `weather` (standaard), `wind`, `feels` en `all`. `--help` en `--version` zijn
+steeds relatief aan `--data-dir` gelezen. De modi zijn `weather` (standaard), `wind`, `feels`, `air` en `all`; `all` rendert de modi uit `--modes`
+(standaard `weather,wind,feels`). `--help` en `--version` zijn
 beschikbaar. Een ontbrekende chunk, verkeerde plaatprojectie, ontoereikende tijdlijn of encoderfout geeft een
 niet-nul exitstatus. `media.json` verschijnt pas na succesvolle afronding van de volledige matrix.
 
@@ -128,6 +130,24 @@ wanneer de drie tijdplannen uiteenlopen. De batches in `all` zijn kleiner dan bi
 Alle MP4/JPEG-bestanden staan rechtstreeks in de uitvoermap. Timing per modus in `all` omvat wachten op
 de gedeelde kernen; meet losse modi voor hun eigen tijdlat. Parallelle fasetijden zijn niet optelbaar.
 
+## Lucht (U92)
+
+`--mode air` maakt wat de app in de modus Lucht toont: de basiskaart op volle verzadiging, temperatuurpunten, daarboven
+de wolkenkaart van MIP-34 en de klok met titel Lucht; regen en winddeeltjes zijn in Lucht weggefade. Film als
+Gevoelstemperatuur (−1…+5 uur) plus 85 stills, `air-loop.mp4` en `air-EPOCH.jpg`.
+
+`render-core/src/cloud.rs` is een port van `cloud-map-shader.ts` en de veldvoorbereiding uit `cloud-map.ts`
+(vorm, donkerte uit het grondlicht, stroming uit de regen-motionannexen, het bulkpad van `CloudDriftLoader` met
+nul op het uur vóór `now`). De shader rekent in f32, zoals de GPU. `sky_light.rs` (zonnestand, lichtfactor,
+donkerte) en de veldvoorbereiding worden getoetst tegen gegenereerde TypeScript-fixtures; een test vergelijkt de
+SHA-256 van de app-shader met die waarvan de port is gemaakt, zodat een shaderwijziging in de app de gate laat falen.
+
+Rekentijd: de film tekent de wolken op een kwart van de pixels die de app gebruikt (de app op een derde van de
+uitvoerresolutie per as, de film op een zesde), de terugtrace op de helft van het grove app-raster, en haalt het reliëf uit de buurpixels in plaats van elk
+patroon twee keer te rekenen. Op de U82-snapshot ging dat van 85 naar 21 CPU-seconden per film op twee kernen.
+`bot/air-parity.ts` vergelijkt een dag- en een nachtframe met de app op hetzelfde kader en dezelfde data: kaart-ΔE
+1,22 en 1,26 tegenover een JPEG-vloer van 0,99 en 1,02 (drempel: vloer + 0,5, p99 ≤ 8).
+
 ## Klok per modus
 
 De gekozen U76-schuifklok is standaard, met tussenposities 1/6 en 15/16. Alleen veranderende cijfers bewegen;
@@ -161,7 +181,7 @@ Metingen, bronanalyse en reproduceerbare geïsoleerde proeven staan in
 ## Optionele Node-aanroep
 
 ```sh
-MOTREGEN_RUST_RENDERER=weather,feels,wind
+MOTREGEN_RUST_RENDERER=weather,feels,wind   # ,air biedt ook /lucht aan
 MOTREGEN_DATA_DIR=/pad/data
 MOTREGEN_RUST_BASEMAP_DIR=/pad/platen
 MOTREGEN_RENDER_BIN=/pad/motregen-render
@@ -171,7 +191,8 @@ Zonder Nix-module staat de schakelaar standaard uit. Node geeft alleen de manife
 uitvoercontract en neemt de complete MP4/JPEG-matrix over onder de bestaande cachesleutels. De rendereridentiteit
 in de sleutel onderscheidt deze beelden van de oude route. `MOTREGEN_RENDER_BIN` valt terug op `motregen-render`
 in PATH; het Nix-botpakket vult het pad automatisch in. Verwijder de schakelaar voor de bestaande route.
-Een modus die niet in de lijst staat gebruikt zijn bestaande renderer. Wind importeert alleen de film;
+Een modus die niet in de lijst staat gebruikt zijn bestaande renderer. Lucht (`air`) bestaat alleen in Rust:
+zonder `air` in de lijst biedt de bot `/lucht` en de knop Lucht niet aan, en verandert er niets. Wind importeert alleen de film;
 regen en gevoelstemperatuur importeren ook alle 85 JPEGs zonder opnieuw te encoderen. Zijn alle drie de modi
 gekozen, dan delen gelijktijdige cache-misses één `--mode all`-proces en worden de drie receipts verdeeld over
 de bestaande sequentiecache. Node valideert eerst de volledige matrix. Een gedeeltelijke keuze gebruikt losse
@@ -181,7 +202,7 @@ De bestaande Node-pixelroute blijft op `PRE_U77_RAIN_LOOK`; de Rust-route toont 
 ## Nix-unit en terugval
 
 `services.motregen.bot.rustModes` kiest voor `renderer` en `combined` standaard
-`[ "weather" "feels" "wind" ]`. De unit zet `MOTREGEN_RUST_RENDERER` en
+`[ "weather" "feels" "wind" ]`; `"air"` mag erbij en zet Lucht aan (PO-besluit). De unit zet `MOTREGEN_RUST_RENDERER` en
 `MOTREGEN_RUST_BASEMAP_DIR` op de store-platen. De botwrapper levert `MOTREGEN_RENDER_BIN`, de renderwrapper
 voegt ffmpeg aan PATH toe. Bij alle drie Rust-modi bevat de unit geen Chromium-pad. Een lege lijst herstelt
 de bestaande Node-route; een gedeeltelijke lijst houdt Chromium voor de overige modi beschikbaar.
