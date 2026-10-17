@@ -121,6 +121,8 @@ Echte lokale run: **2026-10-17 00 UTC**, exit 0, proceswandtijd **164,991 second
 (exclusief de eerste releasebuild van 35,85 seconden). Gedownload: **387.260.962 bytes**
 (369,3 MiB), inclusief indices; 486 geselecteerde GRIB2-berichten. Publicatie: negen chunks,
 **49.851 bytes** totaal, met elk negen dagen (18–26 oktober, inclusief de wintertijdwissel).
+Een tweede uitvoering met dezelfde cache eindigde met exit 0 in **4,537 seconden**,
+met **0 gedownloade bytes** en dezelfde publicatie.
 
 Puntcontrole Utrecht (52,09 N / 5,12 O), dag 3 vanaf 17 oktober = **19 oktober 2026**,
 UTC-interval 18 oktober 22:00 tot 19 oktober 22:00, leads 46–70. `grib_ls -l 52.09,5.12,1`
