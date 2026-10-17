@@ -121,16 +121,51 @@ export function stepsCover(steps: Interval[], window: Interval): boolean {
 }
 
 /**
- * Een venster uit de ECMWF-stappen (3 u tot +144 u, daarna 6 u, in UTC): extremen en stoot over elke stap die het
- * venster raakt, regen naar overlap in tijd (gelijkmatig binnen de stap), wind en bewolking uit de momentopnamen op
+ * Een venster uit de ECMWF-stappen (3 u tot +144 u, daarna 6 u, in UTC): stoot over elke stap die het venster raakt, regen naar overlap in tijd (gelijkmatig binnen de stap), wind en bewolking uit de momentopnamen op
  * de stapeinden in het venster; valt er geen in, dan de dichtstbijzijnde bij het midden.
  */
+// Kwantisatiestap van de temperatuurvelden is 0,4 °C (docs/ecmwf.md).
+const EXTREME_TOLERANCE_C = 0.5
+
 export function aggregateSteps(steps: Interval[], values: EcmwfStepValues, window: Interval): DayValues {
   const at = (field: EcmwfStepField, index: number) => values[field]?.[index] ?? null
   const touching = steps.flatMap((step, index) => overlap(step, window) > 0 ? [index] : [])
   const known = (field: EcmwfStepField, indexes: number[]) => indexes.flatMap((index) => at(field, index) == null ? [] : [at(field, index)!])
-  const tmax = known('step_tmax_c', touching)
-  const tmin = known('step_tmin_c', touching)
+  const ends = steps.flatMap((step, index) => step.end >= window.start && step.end <= window.end ? [index] : [])
+  // De temperatuur op een stapeinde, en lineair ertussen: zo krijgen de vensterranden een eigen waarde.
+  const momentAt = (epoch: number): number | null => {
+    for (let index = 0; index < steps.length; index++) {
+      const right = steps[index]!
+      if (right.end < epoch) continue
+      const rightValue = at('step_temp_c', index)
+      if (right.end === epoch) return rightValue
+      const leftIndex = steps.findIndex((step) => step.end === right.start)
+      const leftValue = leftIndex < 0 ? null : at('step_temp_c', leftIndex)
+      if (leftValue == null || rightValue == null) return null
+      return leftValue + (rightValue - leftValue) * (epoch - right.start) / (right.end - right.start)
+    }
+    return null
+  }
+  // Wanneer viel het extreem van een stap? Gelijk aan de temperatuur aan begin of eind (binnen de kwantisatie):
+  // daar; anders midden in de stap. Het telt als dat moment in het venster ligt; anders kwam een middagpiek uit
+  // een half rakende stap in de nacht terecht, of viel bij 6-uursstappen de middag uit de dag.
+  const extremeInWindow = (index: number, value: number): boolean => {
+    const step = steps[index]!
+    if (step.start >= window.start && step.end <= window.end) return true
+    const near = (moment: number | null) => moment != null && Math.abs(moment - value) <= EXTREME_TOLERANCE_C
+    const inside = (epoch: number) => epoch >= window.start && epoch <= window.end
+    const atStart = near(momentAt(step.start))
+    const atEnd = near(at('step_temp_c', index))
+    if (atStart || atEnd) return (atStart && inside(step.start)) || (atEnd && inside(step.end))
+    return inside((step.start + step.end) / 2)
+  }
+  const extremes = (field: 'step_tmax_c' | 'step_tmin_c') => touching.flatMap((index) => {
+    const value = at(field, index)
+    return value != null && extremeInWindow(index, value) ? [value] : []
+  })
+  const moments = [...known('step_temp_c', ends), ...[momentAt(window.start), momentAt(window.end)].flatMap((value) => value == null ? [] : [value])]
+  const tmax = [...extremes('step_tmax_c'), ...moments]
+  const tmin = [...extremes('step_tmin_c'), ...moments]
   const gust = known('step_gust_ms', touching)
   let precipMm: number | null = null
   for (const index of touching) {
@@ -140,13 +175,12 @@ export function aggregateSteps(steps: Interval[], values: EcmwfStepValues, windo
     precipMm = (precipMm ?? 0) + amount * overlap(step, window) / (step.end - step.start)
   }
   const middle = (window.start + window.end) / 2
-  const inside = steps.flatMap((step, index) => step.end >= window.start && step.end <= window.end ? [index] : [])
   const nearest = steps.reduce<number | undefined>((best, step, index) =>
     best === undefined || Math.abs(step.end - middle) < Math.abs(steps[best]!.end - middle) ? index : best, undefined)
-  const moments = inside.length ? inside : nearest === undefined ? [] : [nearest]
+  const snapshots = ends.length ? ends : nearest === undefined ? [] : [nearest]
   let windMs: number | null = null
   let windFromDegrees: number | null = null
-  for (const index of moments) {
+  for (const index of snapshots) {
     const u = at('step_wind_u_ms', index)
     const v = at('step_wind_v_ms', index)
     if (u == null || v == null) continue
@@ -155,7 +189,7 @@ export function aggregateSteps(steps: Interval[], values: EcmwfStepValues, windo
     windMs = speed
     windFromDegrees = (Math.atan2(-u, -v) * 180 / Math.PI + 360) % 360
   }
-  const clouds = known('step_cloud', moments)
+  const clouds = known('step_cloud', snapshots)
   return {
     tmax: tmax.length ? Math.max(...tmax) : null,
     tmin: tmin.length ? Math.min(...tmin) : null,

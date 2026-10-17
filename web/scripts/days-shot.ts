@@ -31,6 +31,13 @@ for (const theme of (process.env.SHOT_THEMES ?? 'light,dark').split(',')) {
       await page.waitForTimeout(grain === '3h' ? 6_000 : 1_000)
       await page.screenshot({ path: join(outDir, `${label}-${theme}-${name}-${grain}.png`) })
     }
+    // SHOT_MODES=weather,air,temperature,wind: elke tabelmodus vastzetten, met de dagdelen in beeld.
+    for (const mode of (process.env.SHOT_MODES ?? '').split(',').filter(Boolean)) {
+      await page.locator(`.${mode}-focus`).first().click()
+      await page.locator('tr[data-grain="part"]').first().evaluate((element) => element.scrollIntoView({ block: 'center' }))
+      await page.waitForTimeout(1_500)
+      await page.screenshot({ path: join(outDir, `${label}-${theme}-${name}-modus-${mode}.png`) })
+    }
     const list = page.locator('.day-list')
     if (await list.count()) {
       await list.scrollIntoViewIfNeeded()

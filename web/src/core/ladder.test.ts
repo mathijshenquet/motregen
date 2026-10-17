@@ -109,11 +109,33 @@ describe('step aggregation', () => {
       step_cloud: [10, 40, 100],
     }, window)
     expect(values.precipMm).toBeCloseTo(2 + 3 + 1)
+    // Zonder momentopnamen geldt het midden van de stap: 03–06 (04:30) telt nog, 09–12 (10:30) niet meer.
     expect(values).toMatchObject({ tmax: 14, tmin: 5, gustMs: 18 })
     // Stapeinden 06 en 09 UTC vallen in het venster, 12 UTC niet.
     expect(values.windMs).toBeCloseTo(6)
     expect(values.windFromDegrees).toBeCloseTo(180)
     expect(values.cloud).toBe(25)
+  })
+
+  it('keeps afternoon warmth out of a night window that only touches the afternoon step', () => {
+    const intervals = steps('2026-10-21T12:00:00Z', 6) // 12–15, 15–18 … 03–06 UTC
+    const night = { start: at('2026-10-21T16:00:00Z'), end: at('2026-10-22T04:00:00Z') } // 18–06 lokaal
+    const values = aggregateSteps(intervals, {
+      // De piek van 15–18 UTC viel om 15 UTC (17 lokaal): gelijk aan de temperatuur aan het begin van de stap.
+      step_tmax_c: [14.2, 14, 11, 10, 9, 9], step_tmin_c: [12, 11, 10, 9, 8, 7], step_temp_c: [14, 11, 10, 9, 8, 8],
+    }, night)
+    expect(values.tmax).toBeCloseTo(13) // 18 lokaal, tussen 14 en 11 °C
+    // Het minimum van 03–06 UTC (7 °C) ligt midden in die stap, na 06 lokaal.
+    expect(values.tmin).toBe(8)
+  })
+
+  it('keeps an afternoon peak inside a 6-hour step that the day window only partly covers', () => {
+    const intervals = steps('2026-10-24T00:00:00Z', 3, 6) // 00–06, 06–12, 12–18 UTC
+    const day = { start: at('2026-10-24T04:00:00Z'), end: at('2026-10-24T16:00:00Z') } // 06–18 lokaal
+    const values = aggregateSteps(intervals, {
+      step_tmax_c: [9, 11.5, 12], step_tmin_c: [7, 8, 9], step_temp_c: [8, 11, 9],
+    }, day)
+    expect(values.tmax).toBe(12)
   })
 
   it('falls back to the step end nearest the middle when a 6-hour step leaves none inside', () => {
