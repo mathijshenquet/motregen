@@ -31,12 +31,12 @@ const STEPS_PER_PERIOD = 8
 
 // Deel van het licht dat een gesloten laag tegenhoudt (cirrus τ < 3,6; altostratus 3,6–23; stratus > 23,
 // ISCCP; één gesloten lage laag laat ~25 % door, Kasten & Czeplak 1980). Alleen voor uren zonder straling.
-const LAYER_BLOCKING: Record<CloudLayer, number> = { high: 0.25, mid: 0.6, low: 0.75 }
+export const LAYER_BLOCKING: Record<CloudLayer, number> = { high: 0.25, mid: 0.6, low: 0.75 }
 // Elke halvering van het licht telt even zwaar (Weber-Fechner); na zoveel halveringen is het "Mordor".
-const DARKEST_HALVINGS = 3
+export const DARKEST_HALVINGS = 3
 // Zoveel halvering telt nog als mooi weer en kleurt niet grijs (PO 2026-10-07 live: een lekkere dag met
 // sluierbewolking oogde blauwgrijs). 0,35 halvering ≈ 78 % van het licht.
-const FAIR_HALVINGS = 0.35
+export const FAIR_HALVINGS = 0.35
 // Deel van de schemergloed dat een loodgrijze lucht wegneemt.
 const GLOW_DAMPING = 0.7
 // Breedte van het uitsmeren van de donkerte over de tijd, en de afstand tussen de kleurstops van de hemel.

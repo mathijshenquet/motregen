@@ -7,7 +7,7 @@ import { MediaUnavailableError, REGISTER_NOTICE } from './register.js'
 import type { PlaceWeather } from './place-weather.js'
 import type { SearchPlace } from '../web/src/core/place-search.js'
 import type { MessageSelections } from './selections.js'
-import { cacheKey, keyboard, matchingModes, modeForCommand, parseCallback, LOOP_MODES, STILL_MINUTES, type MediaSelection, type StillManifest } from './stills.js'
+import { cacheKey, enabledLoopModes, keyboard, matchingModes, modeForCommand, parseCallback, LOOP_MODES, STILL_MINUTES, type MediaSelection, type StillManifest } from './stills.js'
 
 export interface BotRuntime {
   api: TelegramApi
@@ -240,7 +240,7 @@ export async function configureBot(runtime: BotRuntime): Promise<void> {
     commands: [
       { command: 'start', description: 'Open de motregen Mini App' },
       { command: 'weer', description: 'Wolken en regen voor een plaats: /weer ams' },
-      ...LOOP_MODES.flatMap((entry) => [
+      ...enabledLoopModes().flatMap((entry) => [
         { command: entry.command, description: `${entry.label} als bewegende kaart` },
         ...entry.listed.map((alias) => ({ command: alias, description: `Zelfde als /${entry.command}` })),
       ]),

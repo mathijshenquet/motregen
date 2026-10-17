@@ -19,6 +19,8 @@ let
   '';
   caddyDataDir = "/run/motregen-data";
   renderModes = [ "weather" "feels" "wind" ];
+  # Lucht (U92) bestaat alleen in Rust; zonder "air" in rustModes biedt de bot hem niet aan.
+  rustOnlyModes = [ "air" ];
   botRenders = cfg.bot.role != "poller";
   botUsesRust = botRenders && cfg.bot.rustModes != [ ];
   botNeedsBrowser = botRenders && builtins.any (mode: !(builtins.elem mode cfg.bot.rustModes)) renderModes;
@@ -273,9 +275,9 @@ in
         description = "Package providing the Telegram bot and renderer.";
       };
       rustModes = lib.mkOption {
-        type = lib.types.listOf (lib.types.enum renderModes);
+        type = lib.types.listOf (lib.types.enum (renderModes ++ rustOnlyModes));
         default = renderModes;
-        description = "Modes rendered in Rust for renderer/combined roles; an empty list restores the Node route.";
+        description = "Modes rendered in Rust for renderer/combined roles; an empty list restores the Node route. Add \"air\" to offer the Lucht film (Rust only).";
       };
       dataDir = lib.mkOption {
         type = lib.types.str;

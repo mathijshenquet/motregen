@@ -226,6 +226,7 @@ function basemapTileKey(event: { sourceId?: string; tile?: { tileID?: { key?: st
 export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const devMode = new URLSearchParams(window.location.search).has('dev')
   const stillMode = new URLSearchParams(window.location.search).get('still') === '1'
+  let rigFreeCamera = false
   // Bewaar de invoer voordat de live permalink de adresbalk normaliseert.
   const initialUrl = new URL(window.location.href)
   const initialPresets = parsePresets(initialUrl.search, Date.now(), initialUrl.pathname, initialUrl.hash)
@@ -300,7 +301,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   // e2e-meetpunt: exacte schermprojectie van de kaart (marker-positiechecks zonder herberekening).
   ;(window as unknown as { __motregenProject: (lng: number, lat: number) => { x: number; y: number } | undefined }).__motregenProject = (lng, lat) => map?.project([lng, lat])
   // Rig-haak: zet de camera exact, zodat opeenvolgende opnames hetzelfde kaartvenster hebben (regenbeweging-repro).
-  ;(window as unknown as { __motregenJumpTo: (lng: number, lat: number, zoom: number) => void }).__motregenJumpTo = (lng, lat, zoom) => map?.jumpTo({ center: [lng, lat], zoom })
+  // `free`: zonder kaartbegrenzing, voor de pariteit met de botplaten die een eigen kader hebben (U92).
+  ;(window as unknown as { __motregenJumpTo: (lng: number, lat: number, zoom: number, free?: boolean) => void }).__motregenJumpTo = (lng, lat, zoom, free = false) => {
+    rigFreeCamera = free
+    map?.jumpTo({ center: [lng, lat], zoom })
+  }
   // Camera voor de e2e van pin-navigatie en pan/zoom-only (U26).
   ;(window as unknown as { __motregenCamera: () => object | undefined }).__motregenCamera = () => map && {
     ...map.getCenter(), zoom: map.getZoom(), bearing: map.getBearing(), pitch: map.getPitch(), location: location(),
@@ -3033,6 +3038,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
 
   // Vervangt maxBounds (dat altijd cover afdwingt): per as contain of cover, zie map-constraint.
   function constrainMapView(center: maplibregl.LngLat, zoom: number): { center: maplibregl.LngLat; zoom: number } {
+    if (rigFreeCamera) return { center, zoom }
     const view = constrainView({ lng: center.lng, lat: center.lat, zoom }, MAP_CONTAIN_BOUNDS, mapViewport(), map?.getMaxZoom())
     return { center: new maplibregl.LngLat(view.lng, view.lat), zoom: view.zoom }
   }

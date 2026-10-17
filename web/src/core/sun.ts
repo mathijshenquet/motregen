@@ -1,5 +1,5 @@
-import type { MrfHeader } from './contract'
-import { solarElevationSin } from './solar'
+import type { MrfHeader } from './contract.js'
+import { solarElevationSin } from './solar.js'
 
 export const SUN_ICONS_ENABLED = false
 

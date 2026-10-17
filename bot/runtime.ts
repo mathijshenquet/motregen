@@ -8,7 +8,7 @@ import { StillRenderError } from './render-error.js'
 import { FileIdCache, FRAME_RETENTION } from './file-ids.js'
 import { StillPhotos } from './photos.js'
 import { MessageSelections } from './selections.js'
-import { PREWARM_HOURS, STILL_HOURS, LOOP_MODES, type StillManifest, type MediaSelection } from './stills.js'
+import { PREWARM_HOURS, STILL_HOURS, enabledLoopModes, type StillManifest, type MediaSelection } from './stills.js'
 import { createPoller } from './poller.js'
 import { createPlaceWeather } from './place-weather.js'
 import { createRegister, REGISTER_FILENAME, TelegramRegister, writeRegister } from './register.js'
@@ -159,7 +159,8 @@ async function refreshRendered(renderer: StillRenderer, photos: StillPhotos, ava
         const started = performance.now()
         const next = new Map<string, RenderedMedia>()
         step = 'render'
-        const renders = await Promise.allSettled(LOOP_MODES.map(async (definition) => {
+        const modes = enabledLoopModes()
+        const renders = await Promise.allSettled(modes.map(async (definition) => {
           const loopSelection = { mode: definition.mode, hour: 'loop' } as const
           try {
             next.set(selectionKey(loopSelection), await renderer.render(loopSelection, manifest))
@@ -177,7 +178,7 @@ async function refreshRendered(renderer: StillRenderer, photos: StillPhotos, ava
         const failedIndex = renders.findIndex((result) => result.status === 'rejected')
         const failed = renders[failedIndex]
         if (failed?.status === 'rejected') {
-          mode = LOOP_MODES[failedIndex]!.mode
+          mode = modes[failedIndex]!.mode
           throw failed.reason
         }
         if (signal.aborted) return

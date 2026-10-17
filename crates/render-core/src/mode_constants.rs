@@ -11,12 +11,14 @@ pub struct ModeConstants {
     pub saturation: f64,
     pub bounds: Bounds,
     pub palette: Palette,
+    pub cloud: Cloud,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct LoopPlans {
     pub wind: LoopPlan,
     pub feels: LoopPlan,
+    pub air: LoopPlan,
 }
 
 #[derive(Debug, Deserialize)]
@@ -107,6 +109,88 @@ pub struct Palette {
     pub cold: f64,
     pub warm: f64,
     pub minimum_span: f64,
+}
+
+/// Wolkenkaart (U92), uit `cloud-map.ts`, `cloud-section.ts` en `isolines.ts`.
+#[derive(Debug, Deserialize)]
+pub struct Cloud {
+    pub flow_steps: usize,
+    pub flow_hours: f64,
+    pub flow_downsample: usize,
+    pub blur: usize,
+    pub layer_blocking: LayerBlocking,
+    pub darkest_halvings: f64,
+    pub fair_halvings: f64,
+    pub light_fixtures: Vec<LightFixture>,
+    pub field_fixtures: Vec<FieldFixture>,
+    /// SHA-256 van de shaderbron waarvan `cloud.rs` de port is.
+    pub shader_sha256: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct LayerBlocking {
+    pub high: f64,
+    pub mid: f64,
+    pub low: f64,
+}
+
+/// Controlewaarde van de lichtketen, berekend door de TypeScript-bron.
+#[derive(Debug, Deserialize)]
+pub struct LightFixture {
+    pub epoch: f64,
+    pub longitude: f64,
+    pub latitude: f64,
+    pub sin_elevation: f64,
+    pub radiation_before: Option<f64>,
+    pub radiation_after: Option<f64>,
+    pub modification: Option<f64>,
+    pub low: f64,
+    pub mid: f64,
+    pub high: f64,
+    pub transmission: f64,
+    pub light: Option<f64>,
+    pub darkness: f64,
+}
+
+/// Invoer en uitkomst van `prepareCloudMapField` op een klein synthetisch rooster.
+#[derive(Debug, Deserialize)]
+pub struct FieldFixture {
+    pub epoch: i64,
+    pub grid: crate::projection::Grid,
+    pub values: Vec<f32>,
+    pub valid: Vec<f32>,
+    pub quant: Vec<Option<f32>>,
+    pub low: BlendFixture,
+    pub mid: BlendFixture,
+    pub high: BlendFixture,
+    pub radiation: BlendFixture,
+    pub radiation_next: BlendFixture,
+    pub motion: MotionFixture,
+    /// Per cel vorm en donkerte.
+    pub hints: Vec<f32>,
+    /// Per cel stroming in wolkencellen per uur.
+    pub flow: Vec<f32>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct BlendFixture {
+    pub left: RasterFixture,
+    pub right: RasterFixture,
+    pub mix: f64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RasterFixture {
+    pub grid: crate::projection::Grid,
+    pub values: Vec<u8>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MotionFixture {
+    pub grid: crate::projection::Grid,
+    pub width: usize,
+    pub height: usize,
+    pub vectors: Vec<i8>,
 }
 
 pub fn mode_constants() -> &'static ModeConstants {

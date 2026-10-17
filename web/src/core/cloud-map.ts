@@ -1,10 +1,9 @@
-import type { MotionField } from './mrf'
-import type { Grid, MrfHeader } from './contract'
-import type { CloudDriftSample, PreparedField } from './isoline-field'
-import type { FieldBlend } from './sun'
-import { layerTransmission, skyDarkness } from './cloud-section'
-import { solarElevationSin } from './solar'
-import { cloudModification } from './uv'
+import type { Grid, MotionField, MrfHeader } from './contract.js'
+import type { CloudDriftSample, PreparedField } from './isoline-field.js'
+import type { FieldBlend } from './sun.js'
+import { layerTransmission, skyDarkness } from './cloud-section.js'
+import { solarElevationSin } from './solar.js'
+import { cloudModification } from './uv.js'
 
 export const CLOUD_MAP_SAMPLES = ['live', 'gaten', 'sluier', 'dicht', 'overgang'] as const
 export type CloudMapSample = typeof CLOUD_MAP_SAMPLES[number]
@@ -23,7 +22,7 @@ export interface CloudMapStyle {
   sample: CloudMapSample
 }
 
-export type { CloudDriftSample } from './isoline-field'
+export type { CloudDriftSample } from './isoline-field.js'
 
 export function cloudMotionMean(source: CloudMapInputs['motion']): [number, number] {
   if (!source) return [0, 0]
