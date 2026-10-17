@@ -772,7 +772,16 @@ mod tests {
                 .collect(),
             days,
         };
-        let chunks = ecmwf::build_chunks(&daily).unwrap();
+        let step_run = ecmwf::StepRun {
+            run,
+            steps: ecmwf::steps::for_run(run),
+            fields: ecmwf::StepField::ALL
+                .into_iter()
+                .map(|field| (field, vec![vec![1.0; ecmwf::CROP.cell_count()]; 64]))
+                .collect(),
+        };
+        let mut chunks = ecmwf::build_chunks(&daily).unwrap();
+        chunks.extend(ecmwf::steps::build_chunks(&step_run).unwrap());
         ecmwf::write_publication(directory.path(), &daily, &chunks).unwrap();
         daemon.rtcor = Some(test_chunk("rtcor", &run.to_rfc3339(), "rtcor-test.mrf"));
         daemon.arome.push(test_chunk(
@@ -795,13 +804,14 @@ mod tests {
         let section = manifest.ecmwf.unwrap();
         assert_eq!(section.license, ecmwf::LICENSE);
         assert_eq!(section.days, daily.days);
+        assert_eq!(section.steps, step_run.steps);
         assert_eq!(
             manifest
                 .chunks
                 .iter()
                 .filter(|chunk| chunk.source == "ecmwf")
                 .count(),
-            9
+            17
         );
         for chunk in &chunks {
             assert!(manifest.chunks.contains(&chunk.manifest));

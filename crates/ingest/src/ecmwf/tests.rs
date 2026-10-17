@@ -13,6 +13,7 @@ pub fn synthetic(run: DateTime<Utc>) -> EcmwfRun {
                 Parameter::Precip => (0, end as f32),
                 Parameter::Tmax => (previous, 20.0),
                 Parameter::Tmin => (previous, 10.0),
+                Parameter::Temp => (end, 15.0),
                 Parameter::Gust => (end - 1, 12.0),
                 Parameter::U => (end, 3.0),
                 Parameter::V => (end, 4.0),
@@ -256,4 +257,146 @@ fn feed_rejects_mismatched_chunks_and_path_traversal() {
             .refresh(directory.path(), daily.run)
             .is_err()
     );
+}
+
+#[test]
+fn step_fields_keep_instants_and_deaccumulated_totals_across_resolution_change() {
+    let mut run = synthetic(utc("2026-10-17T00:00:00Z"));
+    for message in &mut run.messages {
+        if message.parameter == Parameter::Temp && message.end == 150 {
+            message.values.fill(17.6);
+        }
+    }
+    let step_run = steps::prepare(&run).unwrap();
+    assert_eq!(step_run.steps.len(), 64);
+    assert_eq!(step_run.steps[0].start, run.run);
+    assert_eq!(step_run.steps[0].end, run.run + Duration::hours(3));
+    assert_eq!(step_run.steps[47].end, run.run + Duration::hours(144));
+    assert_eq!(step_run.steps[48].start, run.run + Duration::hours(144));
+    assert_eq!(step_run.steps[48].end, run.run + Duration::hours(150));
+    assert_eq!(step_run.steps[63].end, run.run + Duration::hours(240));
+    assert_eq!(step_run.fields[&StepField::Precip][47][0], 3.0);
+    assert_eq!(step_run.fields[&StepField::Precip][48][0], 6.0);
+    assert_eq!(step_run.fields[&StepField::Temp][48][0], 17.6);
+    let total: f32 = step_run.fields[&StepField::Precip]
+        .iter()
+        .map(|frame| frame[0])
+        .sum();
+    assert_eq!(total, 240.0);
+
+    let chunks = steps::build_chunks(&step_run).unwrap();
+    assert_eq!(chunks.len(), 8);
+    for chunk in &chunks {
+        let decoded = mrf::decode(&chunk.bytes).unwrap();
+        assert_eq!(decoded.header.grid, GRID.mrf_grid());
+        assert_eq!(decoded.frames.len(), 64);
+        assert_eq!(
+            chunk.manifest.times,
+            step_run
+                .steps
+                .iter()
+                .map(|step| iso(step.end))
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(chunk.manifest.source, SOURCE);
+    }
+    let rain = chunks
+        .iter()
+        .find(|chunk| chunk.manifest.field == "step_precip_mm")
+        .unwrap();
+    let decoded = mrf::decode(&rain.bytes).unwrap();
+    let published_total: f32 = decoded
+        .frames
+        .iter()
+        .map(|frame| decoded.header.quant[frame[0] as usize].unwrap())
+        .sum();
+    assert_eq!(published_total, 240.0);
+}
+
+#[test]
+fn step_quantization_preserves_light_rain_and_signed_wind_components() {
+    let mut run = synthetic(utc("2026-10-17T00:00:00Z"));
+    for message in &mut run.messages {
+        match message.parameter {
+            Parameter::Precip => message.values.fill(message.end as f32 * 0.05 / 3.0),
+            Parameter::U => message.values.fill(-3.25),
+            Parameter::V => message.values.fill(4.5),
+            _ => {}
+        }
+    }
+    let step_run = steps::prepare(&run).unwrap();
+    let chunks = steps::build_chunks(&step_run).unwrap();
+    for (field, expected) in [
+        ("step_precip_mm", 0.05),
+        ("step_wind_u_ms", -3.25),
+        ("step_wind_v_ms", 4.5),
+    ] {
+        let chunk = chunks
+            .iter()
+            .find(|chunk| chunk.manifest.field == field)
+            .unwrap();
+        let decoded = mrf::decode(&chunk.bytes).unwrap();
+        assert!(
+            decoded.frames[0]
+                .iter()
+                .all(
+                    |cell| (decoded.header.quant[*cell as usize].unwrap() - expected).abs() < 1e-6
+                )
+        );
+    }
+    for field in StepField::ALL {
+        let table = field.quantization_table();
+        assert_eq!(table.len(), 256);
+        assert_eq!(table[255], None);
+        assert!(
+            table[..255]
+                .windows(2)
+                .all(|pair| pair[0].unwrap() < pair[1].unwrap())
+        );
+    }
+}
+
+#[test]
+fn step_sidecar_matches_frames_and_rejects_missing_fields_or_wrong_bounds() {
+    let directory = tempfile::tempdir().unwrap();
+    let run = synthetic(utc("2026-10-17T00:00:00Z"));
+    let daily = aggregate(&run).unwrap();
+    let step_run = steps::prepare(&run).unwrap();
+    let mut chunks = build_chunks(&daily).unwrap();
+    chunks.extend(steps::build_chunks(&step_run).unwrap());
+    write_publication(directory.path(), &daily, &chunks).unwrap();
+    let mut feed = Feed::default();
+    assert!(feed.refresh(directory.path(), run.run).unwrap());
+    assert_eq!(feed.chunks.len(), 17);
+    assert_eq!(feed.section.as_ref().unwrap().steps, step_run.steps);
+
+    let path = directory.path().join(SIDECAR);
+    let valid: Sidecar = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+    let mut wrong_bounds = valid.clone();
+    wrong_bounds.section.steps[48].start += Duration::hours(1);
+    fs::write(&path, serde_json::to_vec(&wrong_bounds).unwrap()).unwrap();
+    assert!(Feed::default().refresh(directory.path(), run.run).is_err());
+
+    let mut wrong_time = valid.clone();
+    wrong_time
+        .chunks
+        .iter_mut()
+        .find(|chunk| chunk.field == "step_temp_c")
+        .unwrap()
+        .times
+        .pop();
+    fs::write(&path, serde_json::to_vec(&wrong_time).unwrap()).unwrap();
+    assert!(Feed::default().refresh(directory.path(), run.run).is_err());
+
+    let mut missing_v = valid.clone();
+    missing_v
+        .chunks
+        .retain(|chunk| chunk.field != "step_wind_v_ms");
+    fs::write(&path, serde_json::to_vec(&missing_v).unwrap()).unwrap();
+    assert!(Feed::default().refresh(directory.path(), run.run).is_err());
+
+    let mut missing_bounds = valid;
+    missing_bounds.section.steps.clear();
+    fs::write(&path, serde_json::to_vec(&missing_bounds).unwrap()).unwrap();
+    assert!(Feed::default().refresh(directory.path(), run.run).is_err());
 }

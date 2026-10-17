@@ -1,9 +1,12 @@
 use std::{
     fs,
     path::{Path, PathBuf},
-    sync::atomic::{AtomicU64, Ordering},
+    sync::{
+        Mutex,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+    },
     thread,
-    time::Duration as Wait,
+    time::{Duration as Wait, Instant},
 };
 
 use anyhow::{Context, Result, bail, ensure};
@@ -18,7 +21,29 @@ use super::{CROP, EcmwfRun, Message, Parameter, forecast_steps};
 use crate::publisher::atomic_write;
 
 pub const DEFAULT_BASE: &str = "https://data.ecmwf.int/forecasts";
+pub const AWS_BASE: &str = "https://ecmwf-forecasts.s3.eu-central-1.amazonaws.com";
 const ATTEMPTS: u32 = 4;
+
+fn overload_delay(retry_after: Option<&str>, now: DateTime<Utc>, attempt: u32) -> Wait {
+    let backoff = Wait::from_secs(5 << attempt);
+    let requested = retry_after
+        .and_then(|value| {
+            value
+                .trim()
+                .parse::<u64>()
+                .ok()
+                .map(Wait::from_secs)
+                .or_else(|| {
+                    DateTime::parse_from_rfc2822(value).ok().map(|date| {
+                        (date.with_timezone(&Utc) - now)
+                            .to_std()
+                            .unwrap_or_default()
+                    })
+                })
+        })
+        .unwrap_or_default();
+    backoff.max(requested)
+}
 
 #[derive(Clone, Debug, Deserialize)]
 struct IndexEntry {
@@ -84,6 +109,10 @@ pub struct OpenDataClient {
     base: String,
     cache: PathBuf,
     downloaded: AtomicU64,
+    throttled: AtomicBool,
+    prefer_mirror: AtomicBool,
+    serial_request: Mutex<()>,
+    resume_at: Mutex<Option<Instant>>,
 }
 
 impl OpenDataClient {
@@ -100,6 +129,10 @@ impl OpenDataClient {
                 .to_owned(),
             cache: data_dir.join(".ecmwf-cache"),
             downloaded: AtomicU64::new(0),
+            throttled: AtomicBool::new(false),
+            prefer_mirror: AtomicBool::new(false),
+            serial_request: Mutex::new(()),
+            resume_at: Mutex::new(None),
         })
     }
 
@@ -143,11 +176,73 @@ impl OpenDataClient {
         self.cache.join(run.format("%Y%m%dT%H").to_string())
     }
 
+    fn request_url(&self, url: &str) -> String {
+        if self.prefer_mirror.load(Ordering::Relaxed)
+            && let Some(suffix) = url.strip_prefix(DEFAULT_BASE)
+        {
+            return format!("{AWS_BASE}{suffix}");
+        }
+        url.to_owned()
+    }
+
+    fn wait_for_resume(&self) -> Result<()> {
+        loop {
+            let mut resume = self
+                .resume_at
+                .lock()
+                .map_err(|error| anyhow::anyhow!("ECMWF cooldown lock poisoned: {error}"))?;
+            let now = Instant::now();
+            if let Some(until) = *resume
+                && until > now
+            {
+                drop(resume);
+                thread::sleep(until - now);
+            } else {
+                if self.throttled.load(Ordering::Relaxed) {
+                    *resume = Some(now + Wait::from_secs(1));
+                }
+                return Ok(());
+            }
+        }
+    }
+
+    fn record_overload(&self, retry_after: Option<&str>, attempt: u32) -> Result<Wait> {
+        self.throttled.store(true, Ordering::Relaxed);
+        let delay = overload_delay(retry_after, Utc::now(), attempt);
+        let until = Instant::now()
+            .checked_add(delay)
+            .context("ECMWF Retry-After is too large")?;
+        let mut resume = self
+            .resume_at
+            .lock()
+            .map_err(|error| anyhow::anyhow!("ECMWF cooldown lock poisoned: {error}"))?;
+        *resume = Some(resume.map_or(until, |previous| previous.max(until)));
+        if self.base == DEFAULT_BASE && !self.prefer_mirror.swap(true, Ordering::Relaxed) {
+            warn!(
+                mirror = AWS_BASE,
+                "ECMWF portal overloaded; using the official AWS mirror"
+            );
+        }
+        Ok(delay)
+    }
+
     fn request(&self, url: &str, range: Option<(u64, u64)>) -> Result<Option<Vec<u8>>> {
         let mut last_error = None;
         for attempt in 0..ATTEMPTS {
+            let _serial = if self.throttled.load(Ordering::Relaxed) {
+                Some(
+                    self.serial_request
+                        .lock()
+                        .map_err(|error| anyhow::anyhow!("ECMWF request lock poisoned: {error}"))?,
+                )
+            } else {
+                None
+            };
+            self.wait_for_resume()?;
+            let target = self.request_url(url);
+            let mut overloaded = false;
             let result = (|| -> Result<Option<Vec<u8>>> {
-                let mut request = self.client.get(url);
+                let mut request = self.client.get(&target);
                 if let Some((offset, length)) = range {
                     request = request.header(
                         header::RANGE,
@@ -157,6 +252,18 @@ impl OpenDataClient {
                 let mut response = request.send()?;
                 if response.status() == StatusCode::NOT_FOUND {
                     return Ok(None);
+                }
+                if matches!(
+                    response.status(),
+                    StatusCode::TOO_MANY_REQUESTS | StatusCode::SERVICE_UNAVAILABLE
+                ) {
+                    overloaded = true;
+                    let retry_after = response
+                        .headers()
+                        .get(header::RETRY_AFTER)
+                        .and_then(|value| value.to_str().ok());
+                    let delay = self.record_overload(retry_after, attempt)?;
+                    warn!(url = target, status = %response.status(), retry_after, delay_seconds = delay.as_secs_f64(), concurrency = 1, "ECMWF throttled; waiting before further requests");
                 }
                 response.error_for_status_ref()?;
                 if let Some((offset, length)) = range {
@@ -187,9 +294,9 @@ impl OpenDataClient {
             match result {
                 Ok(bytes) => return Ok(bytes),
                 Err(error) => {
-                    warn!(%url, attempt = attempt + 1, error = %error, "ECMWF request failed");
+                    warn!(url = target, attempt = attempt + 1, error = %error, "ECMWF request failed");
                     last_error = Some(error);
-                    if attempt + 1 < ATTEMPTS {
+                    if !overloaded && attempt + 1 < ATTEMPTS {
                         thread::sleep(Wait::from_secs(1 << attempt));
                     }
                 }
@@ -390,7 +497,7 @@ pub fn decode_message(path: &Path) -> Result<Message> {
         Parameter::Precip | Parameter::Prob1 | Parameter::Prob5 => "accum",
         Parameter::Tmax | Parameter::Gust => "max",
         Parameter::Tmin => "min",
-        Parameter::U | Parameter::V | Parameter::Cloud => "instant",
+        Parameter::Temp | Parameter::U | Parameter::V | Parameter::Cloud => "instant",
     };
     ensure!(
         step_type == expected_type,
@@ -399,7 +506,7 @@ pub fn decode_message(path: &Path) -> Result<Message> {
     let units = string("units")?;
     let expected_units = match parameter {
         Parameter::Precip => "m",
-        Parameter::Tmax | Parameter::Tmin => "K",
+        Parameter::Tmax | Parameter::Tmin | Parameter::Temp => "K",
         Parameter::U | Parameter::V | Parameter::Gust => "m s**-1",
         Parameter::Cloud => "(0 - 1)",
         Parameter::Prob1 | Parameter::Prob5 => "%",
@@ -447,7 +554,7 @@ pub fn decode_message(path: &Path) -> Result<Message> {
             } else {
                 match parameter {
                     Parameter::Precip => (value * 1000.0) as f32,
-                    Parameter::Tmax | Parameter::Tmin => (value - 273.15) as f32,
+                    Parameter::Tmax | Parameter::Tmin | Parameter::Temp => (value - 273.15) as f32,
                     Parameter::Cloud => (value * 100.0) as f32,
                     _ => value as f32,
                 }
@@ -471,6 +578,46 @@ pub fn decode_message(path: &Path) -> Result<Message> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn retry_after_seconds_and_http_dates_override_shorter_backoff() {
+        let now: DateTime<Utc> = "2026-10-17T12:00:00Z".parse().unwrap();
+        assert_eq!(overload_delay(Some("90"), now, 0), Wait::from_secs(90));
+        assert_eq!(
+            overload_delay(Some("Sat, 17 Oct 2026 12:01:00 GMT"), now, 1),
+            Wait::from_secs(60)
+        );
+        assert_eq!(
+            overload_delay(Some("Sat, 17 Oct 2026 11:59:00 GMT"), now, 2),
+            Wait::from_secs(20)
+        );
+        assert_eq!(overload_delay(Some("invalid"), now, 2), Wait::from_secs(20));
+    }
+
+    #[test]
+    fn overload_switches_default_source_to_mirror_and_keeps_custom_sources() {
+        let directory = tempfile::tempdir().unwrap();
+        let client = OpenDataClient::new(directory.path(), None).unwrap();
+        let url = format!("{DEFAULT_BASE}/20261017/00z/ifs/0p25/oper/example.grib2");
+        assert_eq!(client.request_url(&url), url);
+        assert_eq!(
+            client.record_overload(Some("90"), 0).unwrap(),
+            Wait::from_secs(90)
+        );
+        assert!(client.throttled.load(Ordering::Relaxed));
+        assert!(client.resume_at.lock().unwrap().unwrap() > Instant::now());
+        assert_eq!(
+            client.request_url(&url),
+            format!("{AWS_BASE}/20261017/00z/ifs/0p25/oper/example.grib2")
+        );
+        let custom =
+            OpenDataClient::new(directory.path(), Some("http://127.0.0.1:4321".into())).unwrap();
+        custom.record_overload(None, 0).unwrap();
+        assert_eq!(
+            custom.request_url("http://127.0.0.1:4321/example.grib2"),
+            "http://127.0.0.1:4321/example.grib2"
+        );
+    }
 
     #[test]
     fn cache_cleanup_keeps_only_the_published_run() {
@@ -526,6 +673,7 @@ mod tests {
                     Parameter::Precip => "tp",
                     Parameter::Tmax => "mx2t3",
                     Parameter::Tmin => "mn2t3",
+                    Parameter::Temp => "2t",
                     Parameter::U => "10u",
                     Parameter::V => "10v",
                     Parameter::Gust => "10fg",
@@ -539,7 +687,11 @@ mod tests {
                 length: 20,
             })
             .collect::<Vec<_>>();
-        let mut three_hour = entries[5].clone();
+        let mut three_hour = entries
+            .iter()
+            .find(|entry| entry.param == "10fg")
+            .unwrap()
+            .clone();
         three_hour.param = "10fg3".into();
         entries.push(three_hour);
         let picked = selected(&entries, false, 3).unwrap();

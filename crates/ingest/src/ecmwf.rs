@@ -13,6 +13,8 @@ use crate::{
 };
 
 pub mod download;
+pub mod steps;
+pub use steps::{Step, StepField, StepRun};
 
 pub const SOURCE: &str = "ecmwf";
 pub const SIDECAR: &str = "ecmwf.json";
@@ -42,6 +44,7 @@ pub enum Parameter {
     Precip,
     Tmax,
     Tmin,
+    Temp,
     U,
     V,
     Gust,
@@ -51,10 +54,11 @@ pub enum Parameter {
 }
 
 impl Parameter {
-    pub const FORECAST: [Self; 7] = [
+    pub const FORECAST: [Self; 8] = [
         Self::Precip,
         Self::Tmax,
         Self::Tmin,
+        Self::Temp,
         Self::U,
         Self::V,
         Self::Gust,
@@ -66,6 +70,7 @@ impl Parameter {
             "tp" => Self::Precip,
             "mx2t3" | "mx2t6" => Self::Tmax,
             "mn2t3" | "mn2t6" => Self::Tmin,
+            "2t" => Self::Temp,
             "10u" => Self::U,
             "10v" => Self::V,
             "10fg3" | "10fg" => Self::Gust,
@@ -257,7 +262,7 @@ fn overlap_seconds(run: DateTime<Utc>, message: &Message, day: &Day) -> i64 {
     (end - start).num_seconds().max(0)
 }
 
-pub fn aggregate(run: &EcmwfRun) -> Result<DailyRun> {
+fn grouped_messages(run: &EcmwfRun) -> Result<BTreeMap<Parameter, Vec<&Message>>> {
     let mut grouped: BTreeMap<Parameter, Vec<&Message>> = BTreeMap::new();
     for message in &run.messages {
         ensure!(
@@ -313,6 +318,11 @@ pub fn aggregate(run: &EcmwfRun) -> Result<DailyRun> {
             "missing or duplicate ENS probability window"
         );
     }
+    Ok(grouped)
+}
+
+pub fn aggregate(run: &EcmwfRun) -> Result<DailyRun> {
+    let grouped = grouped_messages(run)?;
     let precipitation = precipitation_intervals(&grouped[&Parameter::Precip])?;
     let days = complete_days(run.run, run.run + Duration::hours(240));
     ensure!(
@@ -474,6 +484,8 @@ pub struct EcmwfSection {
     pub run: String,
     pub license: String,
     pub days: Vec<Day>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub steps: Vec<Step>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -490,6 +502,14 @@ pub fn write_publication(data_dir: &Path, run: &DailyRun, chunks: &[ProducedChun
             run: iso(run.run),
             license: LICENSE.into(),
             days: run.days.clone(),
+            steps: if chunks
+                .iter()
+                .any(|chunk| StepField::from_name(&chunk.manifest.field).is_some())
+            {
+                steps::for_run(run.run)
+            } else {
+                Vec::new()
+            },
         },
         chunks: chunks.iter().map(|chunk| chunk.manifest.clone()).collect(),
     };
@@ -559,11 +579,24 @@ fn load_sidecar(data_dir: &Path) -> Result<(EcmwfSection, Vec<ProducedChunk>)> {
         sidecar.section.days == complete_days(run, run + Duration::hours(240)),
         "ECMWF sidecar day bounds disagree with run"
     );
-    let times = sidecar
+    let day_times = sidecar
         .section
         .days
         .iter()
         .map(|day| iso(day.noon()))
+        .collect::<Vec<_>>();
+    let has_steps = !sidecar.section.steps.is_empty();
+    if has_steps {
+        ensure!(
+            sidecar.section.steps == steps::for_run(run),
+            "ECMWF sidecar step bounds disagree with run"
+        );
+    }
+    let step_times = sidecar
+        .section
+        .steps
+        .iter()
+        .map(|step| iso(step.end))
         .collect::<Vec<_>>();
     let mut fields = Vec::new();
     let chunks = sidecar
@@ -581,6 +614,12 @@ fn load_sidecar(data_dir: &Path) -> Result<(EcmwfSection, Vec<ProducedChunk>)> {
                     == Some(filename),
                 "unsafe ECMWF chunk filename"
             );
+            let times = if StepField::from_name(&entry.field).is_some() {
+                ensure!(has_steps, "ECMWF step chunk without interval metadata");
+                &step_times
+            } else {
+                &day_times
+            };
             let chunk = produced_chunk(
                 filename.into(),
                 fs::read(data_dir.join("chunks").join(filename))?,
@@ -589,7 +628,7 @@ fn load_sidecar(data_dir: &Path) -> Result<(EcmwfSection, Vec<ProducedChunk>)> {
                 chunk.manifest == *entry
                     && entry.source == SOURCE
                     && entry.run == sidecar.section.run
-                    && entry.times == times,
+                    && entry.times == *times,
                 "ECMWF chunk disagrees with sidecar"
             );
             let header = mrf::parse_header(&chunk.bytes)?.header;
@@ -602,7 +641,10 @@ fn load_sidecar(data_dir: &Path) -> Result<(EcmwfSection, Vec<ProducedChunk>)> {
         })
         .collect::<Result<Vec<_>>>()?;
     fields.sort_unstable();
-    let mut expected = Field::ALL.map(Field::name);
+    let mut expected = Field::ALL.map(Field::name).to_vec();
+    if has_steps {
+        expected.extend(StepField::ALL.map(StepField::name));
+    }
     expected.sort_unstable();
     ensure!(fields == expected, "missing or duplicate ECMWF fields");
     Ok((sidecar.section, chunks))

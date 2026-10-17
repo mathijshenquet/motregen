@@ -40,8 +40,11 @@ fn main() -> Result<()> {
         }
         None => client.latest_run(Utc::now())?,
     };
-    let daily = ecmwf::aggregate(&client.fetch(run)?)?;
-    let chunks = ecmwf::build_chunks(&daily)?;
+    let forecast = client.fetch(run)?;
+    let daily = ecmwf::aggregate(&forecast)?;
+    let steps = ecmwf::steps::prepare(&forecast)?;
+    let mut chunks = ecmwf::build_chunks(&daily)?;
+    chunks.extend(ecmwf::steps::build_chunks(&steps)?);
     ecmwf::write_publication(&config.data_dir, &daily, &chunks)?;
     if let Err(error) = client.prune_cache(run) {
         warn!(%error, "ECMWF cache pruning failed");
