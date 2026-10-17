@@ -3,7 +3,7 @@ import { dirname } from 'node:path'
 import type { TelegramApi, TelegramMessage } from './api.js'
 import type { RenderedMedia } from './render.js'
 import { sequencePlan } from './sequences.js'
-import { cacheKey, caption, LOOP_MODES, STILL_HOURS, stillEpoch, type MediaSelection, type StillManifest } from './stills.js'
+import { cacheKey, caption, enabledLoopModes, STILL_HOURS, stillEpoch, type MediaSelection, type StillManifest } from './stills.js'
 
 export const REGISTER_FILENAME = 'motregen-register.json'
 export const REGISTER_NOTICE = 'Nieuwste beschikbare generatie getoond.'
@@ -17,7 +17,7 @@ export interface MediaRegister {
 }
 
 export function registerSelections(): MediaSelection[] {
-  return LOOP_MODES.flatMap((definition) => {
+  return enabledLoopModes().flatMap((definition) => {
     const selections: MediaSelection[] = [{ mode: definition.mode, hour: 'loop' }]
     if (definition.mode !== 'wind') for (const hour of STILL_HOURS) selections.push({ mode: definition.mode, hour })
     return selections

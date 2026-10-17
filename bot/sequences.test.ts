@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { fpsFraction, holdFrames, LOOP_TIMING, sequencePlan } from './sequences.js'
-import { cacheKey, LOOP_MODES, PREWARM_HOURS, type StillManifest } from './stills.js'
+import { cacheKey, enabledLoopModes, LOOP_MODES, PREWARM_HOURS, type StillManifest } from './stills.js'
 
 const manifest: StillManifest = { version: 0, generated: '2026-10-07T12:00:00Z', now: '2026-10-07T12:00:00Z', chunks: [] }
 const now = Date.parse(manifest.now)
@@ -75,7 +75,7 @@ describe('one frame sequence per mode', () => {
 
   it('isolates loop ids from still ids and all 173 artifacts from a new generation', () => {
     const keys = new Set<string>()
-    for (const definition of LOOP_MODES) {
+    for (const definition of enabledLoopModes()) {
       const plan = sequencePlan(definition.mode, manifest)
       const selections = definition.mode === 'wind' ? [{ mode: definition.mode, hour: 'loop' } as const] : [
         { mode: definition.mode, hour: 'loop' } as const,
@@ -92,7 +92,7 @@ describe('one frame sequence per mode', () => {
 
   it('prewarms 13 media while retaining all delta frames for lazy stills', () => {
     const keys = new Set<string>()
-    for (const definition of LOOP_MODES) {
+    for (const definition of enabledLoopModes()) {
       keys.add(cacheKey({ mode: definition.mode, hour: 'loop' }, manifest))
       if (definition.mode === 'wind') continue
       const plan = sequencePlan(definition.mode, manifest)

@@ -1,4 +1,4 @@
-import { CLOUD_FLOW_HOURS, CLOUD_FLOW_STEPS } from './cloud-map'
+import { CLOUD_FLOW_HOURS, CLOUD_FLOW_STEPS } from './cloud-map.js'
 
 const cloudFlowSampling = `vec2 wind(vec2 uv, float age) {
   // Older travel holds the wind one hour before the cursor, continuously across hour boundaries.

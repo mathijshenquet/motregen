@@ -1,4 +1,4 @@
-import { nativeRenderer, rustRenderer } from './native-settings.js'
+import { rendererBackend, rustRenderer } from './native-settings.js'
 import { NATIVE_VIEW } from './native-view.js'
 import { FRAME_PIXELS } from './config.js'
 import { createHash } from 'node:crypto'
@@ -13,6 +13,8 @@ import { LOOP_TIMING } from './sequences.js'
 const DEFAULT_DELTA_MINUTES = [-60, -10, 10, 60] as const
 export const STILL_MODES = [
   { mode: 'weather', command: 'regen', aliases: [], listed: [], query: 'weer', label: 'Regen', button: 'Regen', deltaMinutes: DEFAULT_DELTA_MINUTES },
+  // Lucht (U92): wolkenkaart zoals de app in Lucht; alleen beschikbaar met de Rust-renderer voor `air`.
+  { mode: 'air', command: 'lucht', aliases: [], listed: [], query: 'lucht', label: 'Lucht', button: 'Lucht', deltaMinutes: DEFAULT_DELTA_MINUTES },
   // PO 2026-10-07: /temperatuur met alias /hitte. /gevoel (de naam tot U58) blijft werken zonder vermelding.
   // De knop heet Temperatuur, net als het commando (PO 2026-10-08); de tab in de app blijft "Gevoel".
   { mode: 'feels', command: 'temperatuur', aliases: ['hitte', 'gevoel'], listed: ['hitte'], query: 'gevoel', label: 'Gevoelstemperatuur', button: 'Temperatuur', deltaMinutes: DEFAULT_DELTA_MINUTES },
@@ -22,10 +24,15 @@ export const LOOP_MODES = [...STILL_MODES,
   { mode: 'wind', command: 'wind', aliases: [], listed: [], query: 'wind', label: 'Wind', button: 'Wind', deltaMinutes: [] },
 ] as const
 
+/** De modi die de bot aanbiedt: Lucht alleen als de Rust-renderer hem maakt, zodat zonder die keuze niets verandert. */
+export function enabledLoopModes(environment: NodeJS.ProcessEnv = process.env): Array<typeof LOOP_MODES[number]> {
+  return LOOP_MODES.filter((entry) => entry.mode !== 'air' || rustRenderer('air', environment))
+}
+
 /** De modus van een commando of alias, zonder schuine streep. */
 export function modeForCommand(command: string): LoopMode | undefined {
   const name = command.toLowerCase()
-  return LOOP_MODES.find((entry) => entry.command === name || (entry.aliases as readonly string[]).includes(name))?.mode
+  return enabledLoopModes().find((entry) => entry.command === name || (entry.aliases as readonly string[]).includes(name))?.mode
 }
 
 export const STILL_MINUTES = Array.from({ length: 85 }, (_, index) => -120 + index * 10)
@@ -72,7 +79,7 @@ export function caption(mode: LoopMode, epoch: number): string {
 
 export function cacheKey(selection: MediaSelection, manifest: StillManifest): string {
   const epoch = selection.hour === 'loop' ? Date.parse(manifest.now) : stillEpoch(manifest, selection.hour)
-  const backend = rustRenderer(selection.mode) ? 'rust' : nativeRenderer(selection.mode)
+  const backend = rendererBackend(selection.mode)
   const identity = JSON.stringify({
     renderer: backend === 'rust' ? 32 : backend === 'playwright' ? 15 : selection.mode === 'weather' ? 21 : 22,
     video: selection.hour === 'loop' ? videoSettings() : undefined,
@@ -114,7 +121,7 @@ export function callbackData(selection: MediaSelection, epoch?: number, generate
 export function parseCallback(data: string | undefined): CallbackSelection | undefined {
   if (!data) return undefined
   const [mode, hourText, epochText, generatedText, extra] = data.split(':')
-  if (extra !== undefined || !LOOP_MODES.some((entry) => entry.mode === mode)) return undefined
+  if (extra !== undefined || !enabledLoopModes().some((entry) => entry.mode === mode)) return undefined
   if (hourText === 'loop' && epochText !== undefined && generatedText === undefined && /^\d{13}$/.test(epochText)) return { mode: mode as LoopMode, hour: 'loop', generated: Number(epochText) }
   if (hourText === 'at' && STILL_MODES.some((entry) => entry.mode === mode) && /^\d{13}$/.test(epochText ?? '') && /^\d{13}$/.test(generatedText ?? '')) return { mode: mode as StillMode, hour: 'at', epoch: Number(epochText), generated: Number(generatedText) }
   if (epochText !== undefined) return undefined
@@ -127,7 +134,7 @@ export function parseCallback(data: string | undefined): CallbackSelection | und
 
 export function matchingModes(query: string): LoopMode[] {
   const normalized = query.trim().toLocaleLowerCase('nl-NL')
-  return LOOP_MODES.filter((entry) => {
+  return enabledLoopModes().filter((entry) => {
     return !normalized || [entry.command, ...entry.aliases, entry.label.toLocaleLowerCase('nl-NL')].some((name) => name.includes(normalized))
   }).map((entry) => entry.mode)
 }
@@ -140,7 +147,7 @@ export interface InlineButton {
 }
 
 export function keyboard(selection: MediaSelection, epoch: number, generated?: string): { inline_keyboard: InlineButton[][] } {
-  const modeButtons = LOOP_MODES.map((entry) => ({
+  const modeButtons = enabledLoopModes().map((entry) => ({
     text: `${selection.mode === entry.mode ? '✓ ' : ''}${entry.button}`,
     callback_data: callbackData(entry.mode === 'wind' || selection.hour === 'loop' ? { mode: entry.mode, hour: 'loop' } : { mode: entry.mode, hour: selection.hour }, epoch, generated),
   }))

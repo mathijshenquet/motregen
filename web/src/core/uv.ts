@@ -1,5 +1,5 @@
-import { solarPosition } from './solar'
-import { formatNumber } from './locale'
+import { solarPosition } from './solar.js'
+import { formatNumber } from './locale.js'
 
 export type UvLevel = 'laag' | 'matig' | 'hoog' | 'zeer hoog' | 'extreem'
 

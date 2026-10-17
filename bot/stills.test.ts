@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { telegramPresets } from '../web/src/core/telegram-presets.js'
-import { cacheKey, caption, deltaLabel, keyboard, matchingModes, miniAppLink, modeForCommand, parseCallback, presetUrl, STILL_HOURS, STILL_MINUTES, STILL_MODES, stillEpoch, stillTime, validateManifest, type StillManifest } from './stills.js'
+import { cacheKey, caption, deltaLabel, enabledLoopModes, keyboard, matchingModes, miniAppLink, modeForCommand, parseCallback, presetUrl, STILL_HOURS, STILL_MINUTES, STILL_MODES, stillEpoch, stillTime, validateManifest, type StillManifest } from './stills.js'
 
 const manifest: StillManifest = {
   version: 0,
@@ -8,6 +8,8 @@ const manifest: StillManifest = {
   now: '2026-10-07T12:10:00Z',
   chunks: [{ url: 'chunks/rain.mrf', times: ['2026-10-07T12:10:00Z'] }],
 }
+
+afterEach(() => { vi.unstubAllEnvs() })
 
 describe('stills and Telegram selections', () => {
   it('formats Dutch captions in Amsterdam time through the daylight-saving boundary', () => {
@@ -47,12 +49,12 @@ describe('stills and Telegram selections', () => {
   })
 
   it('provides relative steps with an independent now button and no duplicate app button', () => {
-    expect(STILL_MODES.map((entry) => entry.command)).toEqual(['regen', 'temperatuur'])
+    expect(STILL_MODES.map((entry) => entry.command)).toEqual(['regen', 'lucht', 'temperatuur'])
     expect(STILL_MINUTES).toHaveLength(85)
     expect(STILL_MINUTES[0]).toBe(-120)
     expect(STILL_MINUTES.at(-1)).toBe(720)
     const selections = new Set<string>()
-    for (const definition of STILL_MODES) {
+    for (const definition of enabledLoopModes().filter((entry) => entry.mode !== 'wind')) {
       for (const hour of STILL_HOURS) {
         const selection = { mode: definition.mode, hour }
         const inline = keyboard(selection, stillEpoch(manifest, hour), manifest.generated)
@@ -93,6 +95,23 @@ describe('stills and Telegram selections', () => {
       expect(keyboard({ mode: definition.mode, hour: 'loop' }, stillEpoch(manifest, 0), manifest.generated).inline_keyboard[1].map((button) => button.text)).toEqual(['−1u', '−10m', 'nu', '+10m', '+1u', '✓ Loop'])
     }
     expect(matchingModes('lucht')).toEqual([])
+  })
+
+  it('offers Lucht only when the Rust renderer makes it', () => {
+    vi.stubEnv('MOTREGEN_RUST_RENDERER', 'weather,feels,wind,air')
+    expect(enabledLoopModes().map((entry) => entry.mode)).toEqual(['weather', 'air', 'feels', 'wind'])
+    expect(modeForCommand('lucht')).toBe('air')
+    expect(matchingModes('lucht')).toEqual(['air'])
+    expect(parseCallback('air:loop')).toEqual({ mode: 'air', hour: 'loop' })
+    expect(parseCallback('air:0')).toEqual({ mode: 'air', hour: 0 })
+    const inline = keyboard({ mode: 'air', hour: 0 }, stillEpoch(manifest, 0), manifest.generated)
+    expect(inline.inline_keyboard[0]!.map((button) => button.text)).toEqual(['Regen', '✓ Lucht', 'Temperatuur', 'Wind'])
+    expect(inline.inline_keyboard[1]!.map((button) => button.text)).toEqual(['−1u', '−10m', '✓ nu', '+10m', '+1u', 'Loop'])
+    expect(cacheKey({ mode: 'air', hour: 'loop' }, manifest)).toMatch(/^air-loop-/)
+    expect(new URL(presetUrl('https://motregen.nl', 'air', stillEpoch(manifest, 0))).searchParams.get('modus')).toBe('lucht')
+    vi.stubEnv('MOTREGEN_RUST_RENDERER', 'weather,feels,wind')
+    expect(enabledLoopModes()).toHaveLength(3)
+    expect(() => cacheKey({ mode: 'air', hour: 0 }, manifest)).toThrow('Rust-renderer')
   })
 
   it('rejects an unavailable or invalid manifest before launching Chromium', () => {

@@ -6,6 +6,8 @@ export const LOOP_TIMING = {
   weather: { stepSeconds: 100, fps: 5.6, startMinutes: -60, endMinutes: 120 },
   wind: { stepSeconds: 75, fps: 7.5, startMinutes: -60, endMinutes: 300 },
   feels: { stepSeconds: 100, fps: 5.6, startMinutes: -60, endMinutes: 300 },
+  // U92: zelfde venster en tempo als Gevoelstemperatuur (HARMONIE-uurvelden, zoals de app in Lucht afspeelt).
+  air: { stepSeconds: 100, fps: 5.6, startMinutes: -60, endMinutes: 300 },
 } satisfies Record<LoopMode, { stepSeconds: number; fps: number; startMinutes: number; endMinutes: number }>
 
 export interface SequencePlan {
