@@ -12,6 +12,9 @@ const origin = process.argv[4] ?? 'https://motregen.nl'
 if (!publication) throw new Error('publicatiemap ontbreekt')
 
 const sidecars = { ecmwf: 'ecmwf.json', cams: 'cams.json' }
+// Dezelfde cache-header als caddy op prod: chunknamen dragen een inhoudshash. Met no-store meldde Chromium elke
+// Range-respons als net::ERR_ABORTED nadat de bytes al binnen waren (U91), en bleef de bytecache van de client buiten beeld.
+const CHUNK_CACHE = 'public, max-age=31536000, immutable'
 
 async function readSidecar(name) {
   try {
@@ -50,11 +53,11 @@ createServer(async (request, response) => {
         if (range) {
           const start = Number(range[1])
           const end = Math.min(bytes.length - 1, range[2] ? Number(range[2]) : bytes.length - 1)
-          response.writeHead(206, { 'content-type': 'application/octet-stream', 'cache-control': 'no-store', 'content-range': `bytes ${start}-${end}/${bytes.length}`, 'content-length': end - start + 1 })
+          response.writeHead(206, { 'content-type': 'application/octet-stream', 'cache-control': CHUNK_CACHE, 'content-range': `bytes ${start}-${end}/${bytes.length}`, 'content-length': end - start + 1 })
           response.end(bytes.subarray(start, end + 1))
           return
         }
-        response.writeHead(200, { 'content-type': 'application/octet-stream', 'cache-control': 'no-store', 'content-length': bytes.length })
+        response.writeHead(200, { 'content-type': 'application/octet-stream', 'cache-control': CHUNK_CACHE, 'content-length': bytes.length })
         response.end(bytes)
         return
       } catch {}
