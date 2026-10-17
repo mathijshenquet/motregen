@@ -8,8 +8,8 @@ import { rainColormap } from '../web/src/core/rain-chart.js'
 import { colourOverGround, DEFAULT_RAIN_LOOK, rainOutlines } from '../web/src/core/rain-palette.js'
 import { rainPresentation } from '../web/src/core/rain-presentation.js'
 import { FLOW_BLEND_CURVE } from '../web/src/core/rain-motion.js'
-import { autoBlurSigma, rainSampling, rainWarpLimit, DEFAULT_RAIN_FIELD_TUNING } from '../web/src/core/rain-smoothing.js'
-import { BLUR_RADIUS_SIGMA, kernelTaps } from '../web/src/core/rain-sampling.js'
+import { autoBlurSigma, rainSampling, rainWarpLimit } from '../web/src/core/rain-smoothing.js'
+import { BLUR_RADIUS_SIGMA, blurTaps } from '../web/src/core/rain-sampling.js'
 import { selectTemperaturePlaces, temperatureLabelSpacingPx, temperatureLayer } from '../web/src/core/temperature.js'
 import { DEFAULT_LOCATION, stillMapTheme } from '../web/src/core/still-theme.js'
 import { buildTimeline, frameBlend } from '../web/src/core/time-model.js'
@@ -49,7 +49,7 @@ export function renderConstants() {
   const plan = sequencePlan('weather', { version: 0, generated: now, now, chunks: [] })
   const samples = Array.from({ length: 721 }, (_, minute) => {
     const sigma = autoBlurSigma(minute * 60_000)
-    return { sigma, taps: kernelTaps('source-blur', sigma) }
+    return { sigma, taps: blurTaps(sigma) }
   })
   return {
     version: 1,
@@ -59,7 +59,7 @@ export function renderConstants() {
     wind_presentation: Object.fromEntries([false, true].map((night) => [night ? 'dark' : 'light', rainPresentation({ temperatureFocus: 0, windFocus: 1, airFocus: 0, night })])),
     rain_outlines: Object.fromEntries((['light', 'dark'] as const).map((theme) => [theme, rainOutlines({ ...DEFAULT_RAIN_LOOK, theme }).map((outline) => ({ index: outline.index, colour: outline.colour, strength: outline.strength, half_width: outline.halfWidth }))])),
     flow_curve: FLOW_BLEND_CURVE,
-    sampling: { samples, kernel_radius: BLUR_RADIUS_SIGMA, radar_cell_width: rainSampling('rtcor', 0, DEFAULT_RAIN_FIELD_TUNING).sourceCellWidth, harmonie_cell_width: rainSampling('harmonie', 0, DEFAULT_RAIN_FIELD_TUNING).sourceCellWidth },
+    sampling: { samples, kernel_radius: BLUR_RADIUS_SIGMA, radar_cell_width: rainSampling('rtcor', 0).sourceCellWidth, harmonie_cell_width: rainSampling('harmonie', 0).sourceCellWidth },
     warp: Array.from({ length: 61 }, (_, interval) => rainWarpLimit(interval)),
     places: selectTemperaturePlaces(NATIVE_VIEW.zoom, temperatureLabelSpacingPx(FRAME.width, FRAME.height)),
     temperature_style: { light: temperatureLayer('light'), dark: temperatureLayer('dark') },

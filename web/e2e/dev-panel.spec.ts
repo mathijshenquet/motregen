@@ -6,18 +6,20 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   await page.goto('/?histogram=wait&zon=markering&uvbalk=stip')
   await expect(page.locator('.map-splash.ready')).toBeAttached()
   await expect(page.getByTestId('dev-panel')).toHaveCount(0)
-  // Zonder ?dev tekent de regen in het product: de PO-keuze van 2026-10-11 (U77).
-  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-look', 'violet-laat/rand')
   // De oude losse ?-parameters doen niets meer.
   await expect(page.getByTestId('perf-hud')).toBeHidden()
 
+  const removedKeys = ['dev-regenpalet', 'dev-regenmenging', 'dev-regencontrast', 'dev-regen-wind-lucht', 'dev-regenveld-radar', 'dev-regenveld-harmonie', 'dev-regenveld-meet', 'dev-eerste-regen', 'wind-tuning-v4', 'wind-tuning-v3']
+  await page.evaluate((keys) => {
+    for (const key of keys) localStorage.setItem(`motregen-${key}`, 'oude proefwaarde')
+  }, removedKeys)
   await page.goto('/?dev')
   const panel = page.getByTestId('dev-panel')
   await expect(panel).toBeVisible()
   const groups = panel.locator('.dev-group')
-  await expect(groups.locator('> summary')).toHaveText(['Temperatuur', 'Wolkenkaart', 'Wind', 'Regen', 'Kaart', 'Laden', 'Lucht nu', 'Meting', 'Diagnose'])
+  await expect(groups.locator('> summary')).toHaveText(['Wolkenkaart', 'Regen', 'Lucht nu', 'Meting', 'Diagnose'])
   // Alleen de eerste groep start open.
-  await expect.poll(() => groups.evaluateAll((elements) => elements.map((element) => (element as HTMLDetailsElement).open))).toEqual([true, false, false, false, false, false, false, false, false])
+  await expect.poll(() => groups.evaluateAll((elements) => elements.map((element) => (element as HTMLDetailsElement).open))).toEqual([true, false, false, false, false])
   await expect(panel).not.toContainText('Wolkrand')
 
   const controls = panel.locator('.dev-control')
@@ -30,37 +32,22 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
     await expect(control).toHaveAttribute('title', hint)
   }
 
-  // Wind: de vier MIP-12-knoppen, opgeslagen als v4 (alleen afwijkingen).
-  await groups.locator('> summary', { hasText: 'Wind' }).click()
-  // Op de groepstitel, niet op de inhoud.
-  const wind = groups.filter({ has: page.locator('summary', { hasText: /^Wind$/ }) })
-  await expect(wind.locator('input[type=range]')).toHaveCount(4)
-  await expect(wind.locator('.dev-control label > span')).toHaveText(['Dichtheid', 'Intensiteit', 'Lijnbreedte', 'Tempo'])
-  // Alleen afwijkingen worden opgeslagen; 0,5 is sinds de live windtuning (U34) zelf de default.
-  await wind.getByLabel('Intensiteit').fill('0.8')
-  await expect.poll(() => page.evaluate(() => localStorage.getItem('motregen-wind-tuning-v4'))).toBe('{"intensity":0.8}')
-  // Op een telefoon staat de wind op de achtergrond een stap sterker (U62: ×1,25).
-  await expect(page.locator('.map-shell')).toHaveAttribute('data-wind-intensity', testInfo.project.use.hasTouch ? '1.00' : '0.80')
-
   // Sinds de PO-keuzes van 2026-10-08 geen knoppen meer: onder Expressief tinten klokpil, zoekbalk en
   // merkdruppel mee met het cursoruur en volgt de basiskaart de kaarttijd.
   await expect(page.locator('.map-shell')).toHaveClass(/sky-(day|night)/)
   await expect(page.locator('.map')).toHaveAttribute('data-map-night', /^[01]\.\d\d$/)
+  await expect(page.locator('.map-shell')).toHaveAttribute('data-wind-intensity', '0.50')
 
-  // U77-proef: palet, menging en contrastlat van de regen; de keuze staat op de kaart en overleeft een reset niet.
   await groups.locator('> summary', { hasText: /^Regen$/ }).click()
   const rainGroup = groups.filter({ has: page.locator('summary', { hasText: /^Regen$/ }) })
-  await expect(rainGroup.locator('.dev-control label > span')).toHaveText(['Regenpalet', 'Regenmenging', 'Regencontrast', 'Regenisolijnen', 'Regen in Wind/Lucht'])
-  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-focus-variant', 'per-modus')
-  // De standaard is de PO-keuze (2026-10-11, menging rand sinds 2026-10-16); `huidig` + `huidig` zet ter vergelijking het beeld van vóór U77 terug.
-  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-look', 'violet-laat/rand')
-  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-contrast', '0')
-  await rainGroup.getByLabel('Regenpalet').selectOption('huidig')
-  await rainGroup.getByLabel('Regenmenging').selectOption('huidig')
-  await rainGroup.getByLabel('Regencontrast').fill('7')
-  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-look', 'huidig/huidig')
-  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-contrast', '7')
-  await expect.poll(() => page.evaluate(() => ['regenpalet', 'regenmenging', 'regencontrast'].map((name) => localStorage.getItem(`motregen-dev-${name}`)))).toEqual(['huidig', 'huidig', '7'])
+  await expect(rainGroup.locator('.dev-control label > span')).toHaveText(['Regenisolijnen'])
+  const isolines = rainGroup.getByRole('combobox')
+  await expect(isolines).toHaveValue('kleurgrenzen')
+  await isolines.selectOption('dicht')
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('motregen-dev-regenisolijnen'))).toBe('dicht')
+  await page.reload()
+  await groups.locator('> summary', { hasText: /^Regen$/ }).click()
+  await expect(rainGroup.getByRole('combobox')).toHaveValue('dicht')
 
   await groups.locator('> summary', { hasText: 'Diagnose' }).click()
   const perfToggle = panel.getByRole('checkbox', { name: /Perf-HUD/ })
@@ -69,10 +56,9 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   await perfToggle.uncheck()
   await expect(page.getByTestId('perf-hud')).toBeHidden()
   await panel.getByRole('button', { name: 'Reset alle instellingen' }).click()
-  await expect.poll(() => page.evaluate(() => localStorage.getItem('motregen-wind-tuning-v4'))).toBeNull()
-  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-look', 'violet-laat/rand')
-  await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-contrast', '0')
-  await expect.poll(() => page.evaluate(() => localStorage.getItem('motregen-dev-regenpalet'))).toBeNull()
+  await expect.poll(() => page.evaluate((keys) => keys.map((key) => localStorage.getItem(`motregen-${key}`)), removedKeys)).toEqual(removedKeys.map(() => null))
+  await expect(rainGroup.getByRole('combobox')).toHaveValue('kleurgrenzen')
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('motregen-dev-regenisolijnen'))).toBeNull()
 
   for (const summary of await groups.locator('> summary').all()) {
     if (!await summary.evaluate((element) => (element.parentElement as HTMLDetailsElement).open)) await summary.click()

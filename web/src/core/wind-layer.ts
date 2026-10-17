@@ -1,5 +1,5 @@
-import { WIND_REFERENCE_ZOOM, WIND_TUNING_STORAGE_KEY, LEGACY_WIND_TUNING_STORAGE_KEY, WIND_PARAMETERS, DEFAULT_WIND_TUNING, MIN_PARTICLES, MAX_PARTICLES, ADVECTION_SCALE, WORLD_TILE_SIZE, MERCATOR_SCALE, advanceLife, headAlpha, weakWindTempo, speedDamping, bufferDecay, particleCountForViewport, windZoomCompensation, smooth, setWindColor, type WindParameters, type WindTuning, type ParticleLife } from './wind-presentation.js'
-export { WIND_PARTICLES_PER_MEGAPIXEL, WIND_REFERENCE_ZOOM, WIND_TUNING_STORAGE_KEY, LEGACY_WIND_TUNING_STORAGE_KEY, WIND_PARAMETERS, MOBILE_WIND, DEFAULT_WIND_TUNING, WIND_MAX_FPS, WIND_FOCUS_INTENSITY, advanceLife, headAlpha, expectedLifetime, weakWindTempo, speedDamping, bufferDecay, windColor, windScreenSpeed, particleCountForViewport, windZoomCompensation, type WindParameters, type WindTuning, type ParticleLife, BEAUFORT_STOPS } from './wind-presentation.js'
+import { WIND_REFERENCE_ZOOM, WIND_PARAMETERS, MIN_PARTICLES, MAX_PARTICLES, ADVECTION_SCALE, WORLD_TILE_SIZE, MERCATOR_SCALE, advanceLife, headAlpha, weakWindTempo, speedDamping, bufferDecay, particleCountForViewport, windZoomCompensation, smooth, setWindColor, type WindParameters, type ParticleLife } from './wind-presentation.js'
+export { WIND_PARTICLES_PER_MEGAPIXEL, WIND_REFERENCE_ZOOM, WIND_PARAMETERS, MOBILE_WIND, DEFAULT_WIND_TUNING, WIND_MAX_FPS, WIND_FOCUS_INTENSITY, advanceLife, headAlpha, expectedLifetime, weakWindTempo, speedDamping, bufferDecay, windColor, windScreenSpeed, particleCountForViewport, windZoomCompensation, type WindParameters, type WindTuning, type ParticleLife, BEAUFORT_STOPS } from './wind-presentation.js'
 import type { CustomLayerInterface, CustomRenderMethodInput, Map as MapLibreMap, MapSourceDataEvent, GeoJSONFeature } from 'maplibre-gl'
 import type { MapTheme } from './basemap'
 import type { Grid } from './contract'
@@ -8,22 +8,6 @@ import { prepareShaderPrograms } from './shader-programs'
 import { loadedWaterTiles, WaterTileCache, waterMaskNeedsRebuild, waterTileKey, type WaterMaskView, type WaterTile, type WaterMaskRequest, type WaterMaskReply } from './wind-water-mask'
 import { WIND_INITIAL_STAGGER_SECONDS, windLifeScale, trailFloor, halfFloatTrailFloor } from './wind-presentation.js'
 export { WIND_SIMULATION_FPS, trailFloor, halfFloatTrailFloor } from './wind-presentation.js'
-
-export interface WindTuningControl {
-  key: keyof WindTuning
-  label: string
-  min: number
-  max: number
-  step: number
-  unit?: string
-}
-
-export const WIND_TUNING_CONTROLS: readonly WindTuningControl[] = [
-  { key: 'particlesPerMegapixel', label: 'Dichtheid', min: 50, max: 2_000, step: 10, unit: '/MP' },
-  { key: 'intensity', label: 'Intensiteit', min: 0, max: 2, step: 0.01, unit: '×' },
-  { key: 'lineWidth', label: 'Lijnbreedte', min: 0.5, max: 8, step: 0.05, unit: 'px' },
-  { key: 'speed', label: 'Tempo', min: 0.2, max: 3, step: 0.05, unit: '×' },
-]
 
 // Onder deze CSS-breedte (de mobiele layout) is de lijn dunner (`narrowLineFactor`).
 const NARROW_VIEWPORT_PX = 430
@@ -1606,47 +1590,6 @@ export function trailUvTransform(previous: TrailView, current: TrailView): UvTra
     // Uitzoomen perst een staart in lengte, niet in breedte: inkt per oppervlak ×schaal.
     retention: Math.min(1, 1 / zoomScale),
   }
-}
-
-type TuningStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
-
-export function loadWindTuning(storage: TuningStorage | undefined = globalThis.localStorage): WindTuning {
-  try {
-    const stored = storage?.getItem(WIND_TUNING_STORAGE_KEY)
-    if (stored) return sanitizeWindTuning(JSON.parse(stored) as unknown)
-    const legacy = storage?.getItem(LEGACY_WIND_TUNING_STORAGE_KEY)
-    if (!legacy) return { ...DEFAULT_WIND_TUNING }
-    // v3 → v4: sanitize houdt alleen de vier knoppen; onbekende sleutels vallen weg.
-    const tuning = sanitizeWindTuning(JSON.parse(legacy) as unknown)
-    storage?.removeItem(LEGACY_WIND_TUNING_STORAGE_KEY)
-    storeWindTuning(tuning, storage)
-    return tuning
-  } catch {
-    return { ...DEFAULT_WIND_TUNING }
-  }
-}
-
-// Alleen afwijkingen van de default worden weggeschreven, zodat latere default-wijzigingen
-// ook gebruikers bereiken die aan één andere knop zaten.
-export function storeWindTuning(tuning: WindTuning, storage: Pick<Storage, 'setItem' | 'removeItem'> | undefined = globalThis.localStorage): void {
-  try {
-    const custom: Partial<WindTuning> = {}
-    for (const control of WIND_TUNING_CONTROLS) if (tuning[control.key] !== DEFAULT_WIND_TUNING[control.key]) custom[control.key] = tuning[control.key]
-    if (Object.keys(custom).length) storage?.setItem(WIND_TUNING_STORAGE_KEY, JSON.stringify(custom))
-    else storage?.removeItem(WIND_TUNING_STORAGE_KEY)
-  } catch {
-    // opslag vol of geblokkeerd: tuning blijft voor deze sessie gelden
-  }
-}
-
-export function sanitizeWindTuning(value: unknown): WindTuning {
-  const tuning = { ...DEFAULT_WIND_TUNING }
-  if (!value || typeof value !== 'object') return tuning
-  for (const control of WIND_TUNING_CONTROLS) {
-    const candidate = (value as Record<string, unknown>)[control.key]
-    if (typeof candidate === 'number' && Number.isFinite(candidate)) tuning[control.key] = Math.max(control.min, Math.min(control.max, candidate))
-  }
-  return tuning
 }
 
 /**

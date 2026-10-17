@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { appendSkyDiaryEntry, clearTuningStorage, loadSkyDiary, SKY_DIARY_STORAGE_KEY, skyDiaryJson } from './dev-settings'
 import { loadLastSavedPlaceId, loadMapView, storeLastSavedPlaceId, storeMapView } from './location-memory'
 import { loadSavedPlaces, storeSavedPlaces } from './saved-places'
-import { DEFAULT_WIND_TUNING, loadWindTuning, storeWindTuning } from './wind-layer'
 
 function memoryStorage(values = new Map<string, string>()) {
   return {
@@ -26,7 +25,7 @@ describe('reset alle instellingen', () => {
     storage.setItem('motregen-theme', 'dark')
     storage.setItem('motregen-expressive', 'off')
     appendSkyDiaryEntry('mooie wolkenlucht', { lat: 52.06, lng: 5.16 }, storage, new Date('2026-10-07T08:00:00Z'))
-    storeWindTuning({ ...DEFAULT_WIND_TUNING, intensity: 0.4 }, storage)
+    storage.setItem('motregen-wind-tuning-v4', '{"intensity":0.4}')
     storage.setItem('motregen-wind-tuning-v3', '{"maxFps":30}')
     storage.setItem('motregen-wind-tuning-v2', '{"intensity":1.9}')
     storage.setItem('motregen-wind-tuning', '{"intensity":0.8}')
@@ -45,7 +44,6 @@ describe('reset alle instellingen', () => {
     expect(storage.getItem('motregen-expressive')).toBe('off')
     expect(loadSkyDiary(storage)).toEqual([{ tijd: '2026-10-07T08:00:00.000Z', klasse: 'mooie wolkenlucht', locatie: { lat: 52.1, lng: 5.2 } }])
     expect(storage.getItem('ander-domein')).toBe('blijft')
-    expect(loadWindTuning(storage)).toEqual(DEFAULT_WIND_TUNING)
   })
 })
 

@@ -4,28 +4,21 @@ import {
   anchorExhausted,
   bufferDecay,
   cellDispersion,
-  DEFAULT_WIND_TUNING,
   downwindProfile,
   expectedLifetime,
   jitteredCellPoint,
   emptiestCell,
   leastOccupiedCell,
-  LEGACY_WIND_TUNING_STORAGE_KEY,
   occupancyGrid,
   headAlpha,
-  loadWindTuning,
   particleCountForViewport,
   pickSpawn,
-  sanitizeWindTuning,
   speedDamping,
-  storeWindTuning,
   trailFloor,
   trailTargetSize,
   trailUvTransform,
   viewportParticleRetention,
   WIND_PARAMETERS,
-  WIND_TUNING_CONTROLS,
-  WIND_TUNING_STORAGE_KEY,
   windColor,
   windScreenSpeed,
   windZoomCompensation,
@@ -298,55 +291,6 @@ describe('wind profile (U24)', () => {
   })
 })
 
-describe('wind tuning', () => {
-  it('exposes exactly the four MIP-12 knobs, each default in range', () => {
-    for (const control of WIND_TUNING_CONTROLS) {
-      expect(DEFAULT_WIND_TUNING[control.key], control.key).toBeGreaterThanOrEqual(control.min)
-      expect(DEFAULT_WIND_TUNING[control.key], control.key).toBeLessThanOrEqual(control.max)
-      expect(DEFAULT_WIND_TUNING[control.key], control.key).toBe(WIND_PARAMETERS[control.key])
-    }
-    expect(WIND_TUNING_CONTROLS.map((control) => control.label)).toEqual(['Dichtheid', 'Intensiteit', 'Lijnbreedte', 'Tempo'])
-    expect(WIND_TUNING_CONTROLS.map((control) => control.key).sort()).toEqual(Object.keys(DEFAULT_WIND_TUNING).sort())
-  })
-
-  it('sanitizes stored tuning: clamps ranges, ignores junk and keys that are constants now', () => {
-    expect(sanitizeWindTuning(undefined)).toEqual(DEFAULT_WIND_TUNING)
-    expect(sanitizeWindTuning('nee')).toEqual(DEFAULT_WIND_TUNING)
-    const tuned = sanitizeWindTuning({ lineWidth: 100, intensity: 'veel', speed: 1.5, trailDistance: 20, maxFps: 30 })
-    expect(tuned).toEqual({ ...DEFAULT_WIND_TUNING, lineWidth: 8, speed: 1.5 })
-  })
-
-  it('persists only non-default knobs so later default changes still reach users', () => {
-    const values = new Map<string, string>()
-    const storage = memoryStorage(values)
-    storeWindTuning({ ...DEFAULT_WIND_TUNING, intensity: 0.3 }, storage)
-    expect(JSON.parse(values.get(WIND_TUNING_STORAGE_KEY)!)).toEqual({ intensity: 0.3 })
-    expect(loadWindTuning(storage).intensity).toBe(0.3)
-    storeWindTuning({ ...DEFAULT_WIND_TUNING }, storage)
-    expect(values.has(WIND_TUNING_STORAGE_KEY)).toBe(false)
-    values.set(WIND_TUNING_STORAGE_KEY, '{kapot')
-    expect(loadWindTuning(storage)).toEqual(DEFAULT_WIND_TUNING)
-  })
-
-  it('migrates v3 once to v4: the four knobs survive, keys that became constants are dropped', () => {
-    expect(WIND_TUNING_STORAGE_KEY).toBe('motregen-wind-tuning-v4')
-    expect(LEGACY_WIND_TUNING_STORAGE_KEY).toBe('motregen-wind-tuning-v3')
-    const values = new Map([[LEGACY_WIND_TUNING_STORAGE_KEY, JSON.stringify({ intensity: 0.3, particlesPerMegapixel: 900, maxFps: 30, trailDistance: 120 })]])
-    const storage = memoryStorage(values)
-    const loaded = loadWindTuning(storage)
-    expect(loaded).toEqual({ ...DEFAULT_WIND_TUNING, intensity: 0.3, particlesPerMegapixel: 900 })
-    expect(values.has(LEGACY_WIND_TUNING_STORAGE_KEY)).toBe(false)
-    expect(JSON.parse(values.get(WIND_TUNING_STORAGE_KEY)!)).toEqual({ intensity: 0.3, particlesPerMegapixel: 900 })
-    expect(loadWindTuning(storage)).toEqual(loaded)
-  })
-
-  it('leaves no key behind when the v3 tuning only touched knobs that are constants now', () => {
-    const values = new Map([[LEGACY_WIND_TUNING_STORAGE_KEY, JSON.stringify({ maxFps: 30, bufferDpr: 1 })]])
-    expect(loadWindTuning(memoryStorage(values))).toEqual(DEFAULT_WIND_TUNING)
-    expect(values.size).toBe(0)
-  })
-})
-
 describe('wind presentation', () => {
   it('uses white particles on dark and the Beaufort contrast ramp on light', () => {
     const light = windColor(8, 'light')
@@ -374,14 +318,6 @@ describe('wind presentation', () => {
     expect(viewportParticleRetention(focused, full, 500, 1_000)).toBe(0.5)
   })
 })
-
-function memoryStorage(values: Map<string, string>) {
-  return {
-    getItem: (key: string) => values.get(key) ?? null,
-    setItem: (key: string, value: string) => void values.set(key, value),
-    removeItem: (key: string) => void values.delete(key),
-  }
-}
 
 describe('mobile wind (U62)', () => {
   it('is stronger and less damped over sea than the default, but stays finer than the desktop line', async () => {

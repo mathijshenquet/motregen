@@ -8,7 +8,7 @@ import { SEGMENT_FLOATS, type ShortRing } from './isoline-contours'
 import { ContourTracer, type TraceRequest, type TraceResult } from './isoline-tracer'
 import { measurePerfPhase, recordPerfPhase } from './perf'
 import { sliceWeights } from './isoline-spline'
-import { ISOLINE_FILL_RESOLUTION, ISOLINE_GRADIENT, ISOLINE_LINE_OPACITY, ISOLINE_RING_KM, ISOLINE_TOLERANCE_PX, ISOLINE_WINDOW } from './isolines'
+import { ISOLINE_FILL_RESOLUTION, ISOLINE_LINE_OPACITY, ISOLINE_RING_KM, ISOLINE_TOLERANCE_PX, ISOLINE_WINDOW } from './isolines'
 import { PALETTE_STOPS, paletteUniforms, type PaletteStops } from './temperature-palette'
 import { CLOUD_MAP_SAMPLES, CLOUD_FLOW_DOWNSAMPLE, CLOUD_FLOW_HOURS, cloudDriftAt, cloudFlowPhase, type CloudMapStyle } from './cloud-map'
 import { cloudMapFragment, cloudFlowFragment } from './cloud-map-shader'
@@ -23,8 +23,6 @@ export interface IsolineStyle {
   fillSmooth?: boolean
   /** Bandkleuren over het actuele bereik; zonder palet geen vulling. */
   palette?: PaletteStops
-  /** Lijnen en vulling vervagen op |∇T| (ISOLINE_GRADIENT). */
-  gradientFade: boolean
   /** false: alleen de vulling (bewolkingssluier, U34). */
   lines?: boolean
   /** Dekking van de lijnen; standaard ISOLINE_LINE_OPACITY. */
@@ -32,8 +30,6 @@ export interface IsolineStyle {
   /** Vuldekking schaalt van 0 naar `fill` tussen deze veldwaarden (bewolkingssluier: helder = doorzichtig). */
   fillByValue?: readonly [number, number]
 }
-
-const EQUATOR_KM = 40_075.017
 
 const quadVertex = `#version 300 es
 in vec2 a_pos;
@@ -54,9 +50,6 @@ uniform vec2 u_grid_size;
 uniform float u_depth;
 uniform float u_time;
 uniform float u_step;
-uniform float u_fade;
-uniform vec2 u_fade_gradient;
-uniform float u_km_per_px;
 in vec2 v_uv;
 out vec4 color;
 
@@ -93,18 +86,11 @@ vec4 sampleField(vec2 uv, float time) {
   vec2 h1 = (cell + 1.5 + w3 / g1) / u_grid_size;
   return g0.y * (g0.x * sampleTime(vec2(h0.x, h0.y), time) + g1.x * sampleTime(vec2(h1.x, h0.y), time))
        + g1.y * (g0.x * sampleTime(vec2(h0.x, h1.y), time) + g1.x * sampleTime(vec2(h1.x, h1.y), time));
-}
-
-// Waar |∇T| klein is dragen de lijnen weinig informatie en bewegen ze het snelst: daar vervagen
-// ze (Vervagen = gradiënt). ds = ∇(T/stap) per pixel.
-float gradientFade(vec2 ds) {
-  if (u_fade < 0.5) return 1.0;
-  return smoothstep(u_fade_gradient.x, u_fade_gradient.y, length(ds) * u_step / u_km_per_px);
 }`
 
 // Vulling per band (bandmidden → palet), zie fillSample in temperature-palette.ts: dezelfde
-// formule, hier per pixel. De lijnfade f komt uit het veld (gradiënt) en uit het ringraster
-// van de tracer (lusjes), zodat kleur en lijn met dezelfde factor vervagen.
+// formule, hier per pixel. De lijnfade komt uit het ringraster van de tracer (lusjes),
+// zodat kleur en lijn met dezelfde factor vervagen.
 const fillFragment = `#version 300 es
 ${fieldSampling}
 uniform float u_fill_base;
@@ -130,10 +116,9 @@ vec3 band(float index) {
 void main() {
   vec2 field = sampleField(v_uv, u_time).rg;
   float s = field.r / u_step;
-  vec2 ds = vec2(dFdx(s), dFdy(s));
   float level = floor(s + 0.5);
   float offset = s - level;
-  float fade = gradientFade(ds);
+  float fade = 1.0;
   if (u_has_ring > 0.5) {
     float ringLevel = texelFetch(u_ring, min(ivec2(v_uv * u_grid_size), ivec2(u_grid_size) - 1), 0).r;
     if (abs(ringLevel - level * u_step) < 0.01) fade *= texture(u_ring, v_uv).g;
@@ -512,7 +497,7 @@ export class IsolineLayer implements CustomLayerInterface {
       if (slice.passed !== camera) {
         slice.time = this.time
         this.vectorPass(gl, map, matrix, 1, 1, slice)
-        this.fillPass(gl, map, matrix, slice)
+        this.fillPass(gl, matrix, slice)
         slice.passed = camera
         this.shown = [{ slice, weight: 1 }]
         this.shownDominant = slice
@@ -548,7 +533,7 @@ export class IsolineLayer implements CustomLayerInterface {
       if (slice.passed === camera) continue
       this.vectorPass(gl, map, matrix, width, height, slice)
       // Op de tijd van de getekende geometrie, niet de scrubber: de bandgrenzen vallen onder de lijnen.
-      this.fillPass(gl, map, matrix, slice)
+      this.fillPass(gl, matrix, slice)
       slice.passed = camera
       passed = true
     }
@@ -601,7 +586,7 @@ export class IsolineLayer implements CustomLayerInterface {
   private traceRequest(zoom: number, time: number): TraceRequest {
     const pxPerCell = Math.abs(this.grid.dx) / (2 * Math.PI * 6378137) * 512 * 2 ** zoom
     const toleranceCells = 2 ** Math.round(Math.log2(ISOLINE_TOLERANCE_PX / pxPerCell))
-    return { time, window: ISOLINE_WINDOW, step: this.style.step, toleranceCells, ringKm: ISOLINE_RING_KM, gradient: this.style.gradientFade ? ISOLINE_GRADIENT : undefined }
+    return { time, window: ISOLINE_WINDOW, step: this.style.step, toleranceCells, ringKm: ISOLINE_RING_KM }
   }
 
   private traced(result: TraceResult | undefined): void {
@@ -757,7 +742,7 @@ export class IsolineLayer implements CustomLayerInterface {
   }
 
   /** Bandkleuren onder de lijnen, op de snede `time`; op ISOLINE_FILL_RESOLUTION (het is glad). */
-  private fillPass(gl: WebGL2RenderingContext, map: MapLibreMap, matrix: ArrayLike<number>, slice: TracedSlice): void {
+  private fillPass(gl: WebGL2RenderingContext, matrix: ArrayLike<number>, slice: TracedSlice): void {
     slice.filled = false
     if (this.style.fill <= 0 || !this.style.palette) return
     const [width, height] = this.targetSize(gl, ISOLINE_FILL_RESOLUTION)
@@ -766,7 +751,7 @@ export class IsolineLayer implements CustomLayerInterface {
     if (this.cloudTravel && this.cloudTravelProgram && this.style.cloudMap?.enabled) {
       const travelWidth = Math.max(1, Math.ceil(width / CLOUD_FLOW_DOWNSAMPLE)), travelHeight = Math.max(1, Math.ceil(height / CLOUD_FLOW_DOWNSAMPLE))
       if (bindTarget(gl, this.cloudTravel, travelWidth, travelHeight, true)) {
-        const motionUniform = this.useField(gl, this.cloudTravelProgram, map, matrix, 1, slice.time)
+        const motionUniform = this.useField(gl, this.cloudTravelProgram, matrix, slice.time)
         this.useCloudFlow(gl, motionUniform, slice.time)
         this.measure('flowMs', () => gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4))
         cached = true
@@ -774,7 +759,7 @@ export class IsolineLayer implements CustomLayerInterface {
     }
     bindTarget(gl, slice.fill, width, height)
     const program = this.fill!
-    const uniform = this.useField(gl, program, map, matrix, (window.devicePixelRatio || 1) * width / Math.max(1, gl.drawingBufferWidth), slice.time)
+    const uniform = this.useField(gl, program, matrix, slice.time)
     gl.uniform1f(uniform('u_fill_base'), this.style.fill)
     gl.uniform1f(uniform('u_fill_smooth'), this.style.fillSmooth ? 1 : 0)
     gl.uniform2f(uniform('u_fill_value'), this.style.fillByValue?.[0] ?? 0, this.style.fillByValue?.[1] ?? 0)
@@ -822,7 +807,7 @@ export class IsolineLayer implements CustomLayerInterface {
   }
 
   /** Veldquad en de gedeelde sampling-uniforms; `ratio` is doelpixels per CSS-pixel. */
-  private useField(gl: WebGL2RenderingContext, program: WebGLProgram, map: MapLibreMap, matrix: ArrayLike<number>, ratio: number, time: number): (name: string) => WebGLUniformLocation | null {
+  private useField(gl: WebGL2RenderingContext, program: WebGLProgram, matrix: ArrayLike<number>, time: number): (name: string) => WebGLUniformLocation | null {
     gl.disable(gl.BLEND)
     gl.disable(gl.DEPTH_TEST)
     gl.disable(gl.STENCIL_TEST)
@@ -837,15 +822,11 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.enableVertexAttribArray(uv)
     gl.vertexAttribPointer(uv, 2, gl.FLOAT, false, 16, 8)
     const uniform = (name: string) => gl.getUniformLocation(program, name)
-    const world = 512 * 2 ** map.getZoom() * ratio
     gl.uniformMatrix4fv(uniform('u_matrix'), false, matrix as Float32List)
     gl.uniform2f(uniform('u_grid_size'), this.grid.width, this.grid.height)
     gl.uniform1f(uniform('u_depth'), this.depth)
     gl.uniform1f(uniform('u_time'), time)
     gl.uniform1f(uniform('u_step'), this.style.step)
-    gl.uniform1f(uniform('u_fade'), this.style.gradientFade ? 1 : 0)
-    gl.uniform2f(uniform('u_fade_gradient'), ...ISOLINE_GRADIENT)
-    gl.uniform1f(uniform('u_km_per_px'), EQUATOR_KM * Math.cos(map.getCenter().lat * Math.PI / 180) / world)
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_3D, this.volume!)
     gl.uniform1i(uniform('u_field'), 0)

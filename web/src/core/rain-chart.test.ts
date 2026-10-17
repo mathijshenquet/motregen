@@ -50,7 +50,7 @@ describe('rain bar colour', () => {
   })
 
   it('follows the chosen palette and map theme, from the same table as the map', () => {
-    const look = { palette: 'blauw-grijs-rood', blend: 'drempel', theme: 'dark' } as const
+    const look = { palette: 'violet-laat', blend: 'rand', theme: 'dark' } as const
     const lut = rainColormap(look)
     const index = Math.round(1 + 253 * Math.log(15 / 0.01) / Math.log(150 / 0.01))
     expect(rainColor(15, look)).toBe(`rgb(${lut[index * 4]}, ${lut[index * 4 + 1]}, ${lut[index * 4 + 2]})`)

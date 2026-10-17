@@ -1,25 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { encodeMotionTexture, motionWarpStrength, neutralizeNoData, planRainUploads, rainColormap, WARP_CAP_CELLS } from './rain-layer'
-import { DEFAULT_RAIN_LOOK } from './rain-palette'
+import { encodeMotionTexture, motionWarpStrength, neutralizeNoData, planRainUploads, WARP_CAP_CELLS } from './rain-layer'
 
 describe('rain rendering transitions', () => {
-  it('keeps one blue below the lightest rain while the opacity rises from the data edge (drempel-zacht)', () => {
-    // `rand` (de standaard sinds 2026-10-16) zet bewust een harde inzet met contour; de zachte oploop hoort bij drempel-zacht.
-    const lut = rainColormap({ ...DEFAULT_RAIN_LOOK, blend: 'drempel-zacht' })
-    const color = (index: number) => Array.from(lut.subarray(index * 4, index * 4 + 4))
-    expect(color(0)).toEqual([64, 152, 238, 0])
-    expect(color(1).slice(0, 3)).toEqual(color(0).slice(0, 3))
-    expect(color(54).slice(0, 3)).toEqual(color(0).slice(0, 3))
-    // Droog en de gladgestreken zoom ver onder de lichtste dataregen (byte 62) blijven leeg; rond de rand van de data
-    // (byte 31) loopt de dekking op zonder sprong.
-    expect(color(1)[3]).toBe(0)
-    expect(color(19)[3]).toBe(0)
-    for (let index = 20; index <= 62; index++) {
-      expect(color(index)[3]! - color(index - 1)[3]!, `byte ${index}`).toBeGreaterThanOrEqual(0)
-      expect(color(index)[3]! - color(index - 1)[3]!, `byte ${index}`).toBeLessThanOrEqual(8)
-    }
-    expect(color(54)[3]).toBeGreaterThan(color(25)[3]!)
-  })
 
   it('maps no-data to dry before linear texture sampling without mutating decoded frames', () => {
     const source = Uint8Array.from([0, 1, 254, 255])

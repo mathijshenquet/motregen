@@ -27,7 +27,7 @@ import { buildHourlyForecast, hourDarkness, isPassiveRow, PASSIVE_FORECAST_HOURS
 import { contextOpacity, DEFAULT_FOCUS_MODE, FOCUS_DIM, FocusMode, mapSaturation, rainPresentation, type FocusKind, windFocusIntensity } from './core/focus-mode'
 import { FrameBatcher } from './core/frame-batcher'
 import { latestRadarEpoch, type RefreshState } from './core/freshness'
-import { adaptiveIsobarStep, PRESSURE_EXTREMUM_KM, pressureExtrema, blendFrames, blurField, DEFAULT_ISOLINE_TUNING, fieldRangeInView, ISOBAR_STEP_HPA, isolineBlurPasses, isolineFrameWeights, type WeightedFrame, ISOLINE_EDGE_FADE_MS, ISOLINE_FILL_OPACITY, ISOLINE_GRADIENT, ISOLINE_RING_KM, ISOLINE_WINDOW, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineKind, type IsolineTuning } from './core/isolines'
+import { adaptiveIsobarStep, PRESSURE_EXTREMUM_KM, pressureExtrema, blendFrames, blurField, TEMPERATURE_ISOLINE_STEP, fieldRangeInView, ISOBAR_STEP_HPA, isolineBlurPasses, isolineFrameWeights, type WeightedFrame, ISOLINE_EDGE_FADE_MS, ISOLINE_FILL_OPACITY, ISOLINE_RING_KM, ISOLINE_WINDOW, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineKind } from './core/isolines'
 import { IsolineLabels } from './core/isoline-labels'
 import { sliceWeights } from './core/isoline-spline'
 import { TraceCore } from './core/isoline-tracer'
@@ -48,12 +48,11 @@ import { startFrameLoop } from './core/playback'
 import { clampPlaybackCursor, playbackReach } from './core/playback-gate'
 import { measurePerfPhase, PERF_COLD_STORAGE_KEY, PERF_STORAGE_KEY, perfPhasesEnabled, recordPerfPhase, type LoadLayer } from './core/perf'
 import type { ProfileRecording } from './core/profile-recorder'
-import { RainLayer, type RainFilterPass } from './core/rain-layer'
-import { DEFAULT_RAIN_FIELD_TUNING, loadRainFieldTuning, RAIN_FIELD_STORAGE_KEYS, RAIN_FILTER_MEASURE_STORAGE_KEY, rainSampling, rainWarpLimit, type RainFieldTuning } from './core/rain-smoothing'
+import { RainLayer } from './core/rain-layer'
+import { rainSampling, rainWarpLimit } from './core/rain-smoothing'
 import { LayerOverlay } from './core/overlay-canvas'
 import { rainColormap } from './core/rain-chart'
-import { DEFAULT_FOCUS_RAIN_VARIANT, FOCUS_RAIN_VARIANT_STORAGE_KEY, focusRainUsesWeatherBlend, loadFocusRainVariant } from './core/rain-presentation'
-import { DEFAULT_RAIN_LOOK, loadRainLookChoice, PRE_U77_RAIN_LOOK, RAIN_ISOLINE_RATES, RAIN_LOOK_STORAGE_KEYS, rainOutlines, rainUsesStraightAlpha, type RainLook, type RainLookChoice } from './core/rain-palette'
+import { DEFAULT_RAIN_LOOK, loadRainLookChoice, RAIN_ISOLINE_RATES, RAIN_LOOK_STORAGE_KEYS, rainOutlines, rainUsesStraightAlpha, type RainLook, type RainLookChoice } from './core/rain-palette'
 import { grantedStartFix, loadLastLocation, loadLastSavedPlaceId, loadMapView, resolveStartLocation, storeLastLocation, storeLastSavedPlaceId, storeMapView, type StartLocation } from './core/location-memory'
 import { attachPinNavigation, PAN_ZOOM_ONLY, PIN_EDGE_MARGIN, restrictMapGestures } from './core/pin-navigation'
 import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedPlace } from './core/saved-places'
@@ -66,7 +65,7 @@ import { buildTimeline, epochInWindow, frameBlend, scrubberViewWindow, seriesVal
 import { formatUv, uvChipLabel, uvLevel, uvReading } from './core/uv'
 import { WIND_UNITS, type WindUnit } from './core/weather'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
-import { DEFAULT_WIND_TUNING, loadWindTuning, MOBILE_WIND, storeWindTuning, WIND_MAX_FPS, WIND_PARAMETERS, WIND_SIMULATION_FPS, WindLayer, type WindTuning } from './core/wind-layer'
+import { DEFAULT_WIND_TUNING, MOBILE_WIND, WIND_MAX_FPS, WIND_PARAMETERS, WIND_SIMULATION_FPS, WindLayer } from './core/wind-layer'
 import { clearTuningStorage } from './core/dev-settings'
 import { watchIdle } from './core/activity'
 import { CLOUD_LAYERS, type CloudLayer } from './core/cloud-section'
@@ -110,7 +109,6 @@ interface IsolineSetConfig {
   active: () => boolean
   step: () => number
   style: () => IsolineStyle
-  labelFade: () => [number, number] | undefined
   coverage: () => number
   setCount: (count: number) => void
 }
@@ -199,7 +197,6 @@ const PLAYBACK_WAIT_AHEAD_FRAMES = 2
 // Rig-schakelaar (?dev): 'venster' zet de oude regel terug (spelen pas na laadfase "window").
 const PLAY_RULE_STORAGE_KEY = 'motregen-dev-speelregel'
 // Rig-schakelaar (?dev): 'laat' vraagt het eerste regenframe weer pas na de kaart-opzet.
-const FIRST_RAIN_STORAGE_KEY = 'motregen-dev-eerste-regen'
 const VIEWPORT_DIAGNOSE_STORAGE_KEY = 'motregen-dev-viewport'
 // Productiedomeinen (nix `services.motregen.domains`, met www) plus loopback voor e2e/PWA-checks.
 const SERVICE_WORKER_HOSTNAMES = ['motregen.nl', 'www.motregen.nl', 'weerok.nl', 'www.weerok.nl', 'localhost', '127.0.0.1']
@@ -341,7 +338,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       if (!isolineLayer) return undefined
       const core = new TraceCore(isolineLayer.grid, isolineLayer.depth)
       fields.forEach((field, index) => core.setLayer(index, field))
-      const { step } = isolineTuning()
+      const step = TEMPERATURE_ISOLINE_STEP
       const times: number[] = []
       for (let run = 0; run < runs; run++) {
         const started = performance.now()
@@ -364,9 +361,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let scrubPrefetch = false
   let initialPickStarted = false
   const playRuleWaitsForWindow = devMode && localStorage.getItem(PLAY_RULE_STORAGE_KEY) === 'venster'
-  const [firstRainLate, setFirstRainLate] = createSignal(devMode && localStorage.getItem(FIRST_RAIN_STORAGE_KEY) === 'laat')
-  // Bij het laden vastgelegd: de knop werkt pas na herladen.
-  const firstRainEarly = !firstRainLate()
   let pointLoad: PointLoadState | undefined
   const windFrameCache = new Map<string, Promise<Float32Array>>()
   const media = matchMedia('(prefers-color-scheme: dark)')
@@ -523,9 +517,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   // Dag of nacht van de koppenrij: de vangnetstrook boven het open tabelpaneel voert dezelfde kleur.
   const [tableHeadSky, setTableHeadSky] = createSignal<HourSky>()
   let lastViewportHeight = window.visualViewport?.height ?? window.innerHeight
-  const [rainFieldTuning, setRainFieldTuning] = createSignal(devMode ? loadRainFieldTuning() : DEFAULT_RAIN_FIELD_TUNING)
   const [rainLookChoice, setRainLookChoice] = createSignal<RainLookChoice>(devMode ? loadRainLookChoice() : DEFAULT_RAIN_LOOK)
-  const [focusRainVariant, setFocusRainVariant] = createSignal(devMode ? loadFocusRainVariant() : DEFAULT_FOCUS_RAIN_VARIANT)
   const [cloudMapForms, setCloudMapForms] = createSignal(!devMode || localStorage.getItem('motregen-cloud-map') !== 'sluier')
   const [cloudMapSample, setCloudMapSample] = createSignal<CloudMapSample>('live')
   const [viewportDiagnose, setViewportDiagnose] = createSignal(devMode && localStorage.getItem(VIEWPORT_DIAGNOSE_STORAGE_KEY) === 'aan')
@@ -676,8 +668,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const usageTicker = window.setInterval(usage.onChange, 5_000)
     onCleanup(() => window.clearInterval(usageTicker))
   }
-  const [windTuning, setWindTuning] = createSignal<WindTuning>(loadWindTuning())
-  const [isolineTuning, setIsolineTuning] = createSignal<IsolineTuning>({ ...DEFAULT_ISOLINE_TUNING })
   // De basiskaart volgt de zonnestand van de kaarttijd zolang Expressief aan staat (PO 2026-10-08, MIP-24);
   // stills houden het vaste thema.
   const mapFollowsTime = () => expressive() && !stillMode
@@ -726,18 +716,18 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const isobarCoverage = () => untrack(() => timelineCoverage(pressureTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS))
   const temperatureIsolines = isolineSet({
     kind: 'temperature', layerId: 'motregen-isolines', timeline: feelsLikeTimeline, focus, active: createMemo(() => focus() > 0),
-    step: () => isolineTuning().step, style: isolineStyle, labelFade, coverage: isolineCoverage, setCount: setIsolineCount,
+    step: () => TEMPERATURE_ISOLINE_STEP, style: isolineStyle, coverage: isolineCoverage, setCount: setIsolineCount,
   })
   // Isobaren (U35): pas bij de eerste windfocus opgehaald, dus de cold start blijft gelijk.
   const pressureIsolines = isolineSet({
     kind: 'pressure', layerId: 'motregen-isobars', timeline: pressureTimeline, focus: windFocus, active: createMemo(() => windFocus() > 0),
-    step: isobarStep, style: isobarStyle, labelFade: () => undefined, coverage: isobarCoverage, setCount: setIsobarCount,
+    step: isobarStep, style: isobarStyle, coverage: isobarCoverage, setCount: setIsobarCount,
   })
   // Bewolkingssluier (PO 2026-09-25 live, U34): cloud_frac als zachte grijswitte vulling, zonder lijnen of
   // labels, alleen in de modus Lucht en pas dan geladen. Wijkt af van MIP-4 ronde 3 ("nooit als kaartlaag").
   const cloudIsolines = isolineSet({
     kind: 'cloud', layerId: 'motregen-cloud-veil', timeline: cloudTimeline, focus: airFocus, active: createMemo(() => airFocus() > 0),
-    step: () => CLOUD_VEIL_STEP, style: cloudVeilStyle, labelFade: () => undefined, coverage: () => untrack(() => timelineCoverage(cloudTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS)), setCount: () => undefined,
+    step: () => CLOUD_VEIL_STEP, style: cloudVeilStyle, coverage: () => untrack(() => timelineCoverage(cloudTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS)), setCount: () => undefined,
   })
   const isolineSets = [temperatureIsolines, pressureIsolines, cloudIsolines]
   // Verborgen tab: afspelen en wind staan stil (zichtbaarheid 0 stopt de windlus; de trails blijven).
@@ -747,9 +737,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const focusedWindTuning = createMemo(() => {
     const intensityGain = mobileWindDevice ? MOBILE_WIND.intensityGain : 1
     return {
-      ...windTuning(),
+      ...DEFAULT_WIND_TUNING,
       // De versterking geldt voor de wind op de achtergrond; bij volle windfocus staat hij al voluit.
-      intensity: windFocusIntensity(windTuning().intensity, windFocus()) * (1 + (intensityGain - 1) * (1 - windFocus())),
+      intensity: windFocusIntensity(DEFAULT_WIND_TUNING.intensity, windFocus()) * (1 + (intensityGain - 1) * (1 - windFocus())),
       narrowLineFactor: mobileWindDevice ? MOBILE_WIND.narrowLineFactor : WIND_PARAMETERS.narrowLineFactor,
       seaPenalty: mobileWindDevice ? MOBILE_WIND.seaPenalty : WIND_PARAMETERS.seaPenalty,
       visibility: mapRendering() ? WIND_PARAMETERS.visibility * contextOpacity(focus(), FOCUS_DIM) * (1 - airFocus()) : 0,
@@ -961,10 +951,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       // Het eerste kaartbeeld gaat vóór alles de lijn op: het regenframe op de cursor en het volgende.
       // Zo wacht het niet op de kaart-opzet en staat het niet achter de ~40 headers van de andere velden
       // (koude PO-opname 2026-10-07: eerste regen-decode pas op 1,9 s, 0,85 s na de kaart).
-      if (firstRainEarly) {
-        const firstIndex = Math.floor(presetCursor ?? nowIndex)
-        for (const frame of frames.slice(firstIndex, firstIndex + 2)) void load(frame).catch(() => undefined)
-      }
+      // U89, PO 2026-10-17: Eerste regen blijft vast vroeg.
+      const firstIndex = Math.floor(presetCursor ?? nowIndex)
+      for (const frame of frames.slice(firstIndex, firstIndex + 2)) void load(frame).catch(() => undefined)
       setManifest(data)
       initialData = data
       startEagerHeaders()
@@ -1221,8 +1210,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         set.setCount(0)
       }
     })
-
-    createEffect(() => set.labels?.setFade(set.labelFade()))
 
     createEffect(() => {
       // Buiten de optional chain: ook zonder laag moet het effect het paletbereik volgen.
@@ -1619,19 +1606,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
 
   function applyRainFieldTuning(pair: RainPair): void {
     if (!layer) return
-    const tuning = untrack(rainFieldTuning)
     // De data-nu van het manifest, niet de klok: de straal van een frame blijft zo gelijk tot er nieuwe data is.
     const data = untrack(manifest)
     const now = data ? Date.parse(data.now) : pair.leftFrame.epoch
     const leftSource = pair.leftFrame.source, rightSource = pair.rightFrame.source
-    layer.setSampling(rainSampling(leftSource, pair.leftFrame.epoch - now, tuning), rainSampling(rightSource, pair.rightFrame.epoch - now, tuning))
+    layer.setSampling(rainSampling(leftSource, pair.leftFrame.epoch - now), rainSampling(rightSource, pair.rightFrame.epoch - now))
     layer.setWarpLimit(rainWarpLimit((pair.rightFrame.epoch - pair.leftFrame.epoch) / 60_000))
-    if (devMode) mapElement.dataset.rainSources = `${leftSource} ${rightSource}`
-  }
-
-  function changeRainFieldTuning(patch: Partial<RainFieldTuning>): void {
-    for (const [name, value] of Object.entries(patch)) localStorage.setItem(RAIN_FIELD_STORAGE_KEYS[name as keyof RainFieldTuning], value)
-    showRainFieldTuning({ ...rainFieldTuning(), ...patch })
   }
 
   function changeRainLookChoice(patch: Partial<RainLookChoice>): void {
@@ -1644,14 +1624,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     layer?.setColormap(rainColormap(look))
     layer?.setStraightAlpha(rainUsesStraightAlpha(look.blend))
     layer?.setOutlines(rainOutlines(look))
-    if (rainOverlay) rainOverlay.triggerRepaint()
-    else map?.triggerRepaint()
-  }
-
-  function showRainFieldTuning(tuning: RainFieldTuning): void {
-    setRainFieldTuning(tuning)
-    if (!rainPair) return
-    applyRainFieldTuning(rainPair)
     if (rainOverlay) rainOverlay.triggerRepaint()
     else map?.triggerRepaint()
   }
@@ -1781,11 +1753,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (!map) return
     layer = new RainLayer(grid)
     applyRainColours()
-    if (devMode && localStorage.getItem(RAIN_FILTER_MEASURE_STORAGE_KEY) === 'aan') {
-      const passes: RainFilterPass[] = []
-      ;(window as unknown as { __motregenRainFilterPasses: RainFilterPass[] }).__motregenRainFilterPasses = passes
-      layer.onFilterPass = (pass) => passes.push(pass)
-    }
     try {
       rainOverlay = new LayerOverlay(map, layer, windOverlay?.canvas ?? map.getCanvas(), () => WIND_MAX_FPS)
     } catch {
@@ -1944,22 +1911,16 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     set.labels?.setOpacity(visible)
   }
 
-  /** Labels vervagen mee met hun lijn. */
-  function labelFade(): [number, number] | undefined {
-    return isolineTuning().fade === 'gradiënt' ? ISOLINE_GRADIENT : undefined
-  }
-
   function isolineStyle(): IsolineStyle {
-    const { step, fillStyle, fade } = isolineTuning()
     const range = temperatureRange()
-    return { step, fill: ISOLINE_FILL_OPACITY, fillSmooth: fillStyle === 'verloop', palette: range && paletteStops(range), color: hexColor(isolineColor(mapSurfaceTheme())), gradientFade: fade === 'gradiënt', lineOpacity: TEMPERATURE_LINE_OPACITY }
+    return { step: TEMPERATURE_ISOLINE_STEP, fill: ISOLINE_FILL_OPACITY, fillSmooth: false, palette: range && paletteStops(range), color: hexColor(isolineColor(mapSurfaceTheme())), lineOpacity: TEMPERATURE_LINE_OPACITY }
   }
 
   /** Isobaren: één egale lijnkleur, geen vulling en geen vervaging, zoals op een weerkaart (PO U35). */
   function cloudVeilStyle(): IsolineStyle {
     const nightVeil = mapIsNight()
     const veil: [number, number, number] = nightVeil ? CLOUD_VEIL_NIGHT.color : [0.96, 0.97, 0.98]
-    return { step: CLOUD_VEIL_STEP, fill: nightVeil ? CLOUD_VEIL_NIGHT.opacity : CLOUD_VEIL_OPACITY, fillSmooth: true, palette: [[0, veil], [100, veil]], color: veil, gradientFade: false, lines: false, fillByValue: CLOUD_VEIL_RANGE,
+    return { step: CLOUD_VEIL_STEP, fill: nightVeil ? CLOUD_VEIL_NIGHT.opacity : CLOUD_VEIL_OPACITY, fillSmooth: true, palette: [[0, veil], [100, veil]], color: veil, lines: false, fillByValue: CLOUD_VEIL_RANGE,
       cloudMap: { enabled: cloudMapForms(), night: nightVeil, sample: cloudMapSample() } }
   }
 
@@ -2031,7 +1992,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   createEffect(() => { windFocus(); untrack(updatePressureMarks) })
 
   function isobarStyle(): IsolineStyle {
-    return { step: isobarStep(), fill: 0, color: hexColor(isolineColor(mapSurfaceTheme(), 'pressure')), gradientFade: false, lineOpacity: ISOBAR_LINE_OPACITY }
+    return { step: isobarStep(), fill: 0, color: hexColor(isolineColor(mapSurfaceTheme(), 'pressure')), lineOpacity: ISOBAR_LINE_OPACITY }
   }
 
   /** De gewogen uurframes achter het veld van `frame` (druk: met zijn buren, zie isolineFrameWeights). */
@@ -2211,7 +2172,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         set.labels?.clear()
         if (set.kind !== 'cloud') {
           set.labels = new IsolineLabels(renderedMap, grid, mapSurfaceTheme(), () => reducedMotion.matches, set.kind)
-          set.labels.setFade(set.labelFade())
         }
         set.key = ''
         // Labels schuiven mee op exact de snede die de lijnen net kregen (zelfde cadans).
@@ -3041,11 +3001,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
   }
 
-  function tuneWind(tuning: WindTuning): void {
-    setWindTuning(tuning)
-    storeWindTuning(tuning)
-  }
-
   let topInset: { size: string; top: number } | undefined
   function mapViewport(): Viewport {
     const width = mapElement.clientWidth
@@ -3094,13 +3049,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   function resetAllSettings(): void {
     clearTuningStorage()
     batch(() => {
-      setWindTuning({ ...DEFAULT_WIND_TUNING })
-      setIsolineTuning({ ...DEFAULT_ISOLINE_TUNING })
-      setFirstRainLate(false)
       setViewportDiagnose(false)
-      showRainFieldTuning(DEFAULT_RAIN_FIELD_TUNING)
       setRainLookChoice(DEFAULT_RAIN_LOOK)
-      setFocusRainVariant(DEFAULT_FOCUS_RAIN_VARIANT)
       setCloudMapForms(true)
       setCloudMapSample('live')
       focusMode.pin(DEFAULT_FOCUS_MODE)
@@ -3358,7 +3308,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   })
   const rainLook = createMemo(() => {
     const look = rainPresentation({
-      temperatureFocus: focus(), windFocus: windFocus(), airFocus: airFocus(), night: mapIsNight(), variant: focusRainVariant(),
+      temperatureFocus: focus(), windFocus: windFocus(), airFocus: airFocus(), night: mapIsNight(),
     })
     // MIP-31 geldt voor botfilms; de gewone Windmodus behoudt de regenpresentatie.
     if (stillMode && initialPresets.mode === 'wind') return { ...look, opacity: 0 }
@@ -3366,13 +3316,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }, undefined, { equals: sameFields })
   // Lucht-focus en dag/nacht lopen niet via applyFocus.
   createEffect(() => { rainLook(); if (map) { applyRainPresentation(); map.triggerRepaint() } })
-  // Palet, kaartthema en menging gelden in elke modus (PO 2026-10-11, U77). Alleen de vergelijkingsstand `huidig`
-  // van "Regen in Wind/Lucht" zet Wind en Lucht terug op de menging van vóór U77.
   const rainColourLook = createMemo((): RainLook => {
     const choice = rainLookChoice()
-    const weatherMode = windFocus() < 0.5 && airFocus() < 0.5
-    const weatherBlend = weatherMode || focusRainUsesWeatherBlend(focusRainVariant())
-    return { palette: choice.palette, blend: weatherBlend ? choice.blend : PRE_U77_RAIN_LOOK.blend, theme: mapSurfaceTheme(), contrast: choice.contrast, isolines: choice.isolines }
+    return { ...DEFAULT_RAIN_LOOK, ...choice, theme: mapSurfaceTheme() }
   }, undefined, { equals: sameFields })
   createEffect(() => { rainColourLook(); applyRainColours() })
   let basemapBlend: BlendTarget[] | undefined
@@ -3673,7 +3619,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       class="map-shell"
       classList={{ 'sky-day': chromeSky()?.daylight === true, 'sky-night': chromeSky()?.daylight === false }}
       style={chromeSky() ? { '--day-overcast': chromeSky()!.overcast.toFixed(2) } : undefined}
-      aria-label="Regenkaart van Nederland" data-rendering={mapRendering()} data-rain-opacity={rainLook().opacity.toFixed(2)} data-rain-blend={rainLook().multiply ? 'multiply' : 'normal'} data-rain-look={`${rainColourLook().palette}/${rainColourLook().blend}`} data-rain-contrast={rainColourLook().contrast} data-rain-focus-variant={focusRainVariant()} data-focus={focus().toFixed(2)} data-wind-focus={windFocus().toFixed(2)} data-wind-intensity={focusedWindTuning().intensity.toFixed(2)} data-isolines={isolineCount()} data-isobars={isobarCount()}>
+      aria-label="Regenkaart van Nederland" data-rendering={mapRendering()} data-rain-opacity={rainLook().opacity.toFixed(2)} data-rain-blend={rainLook().multiply ? 'multiply' : 'normal'} data-focus={focus().toFixed(2)} data-wind-focus={windFocus().toFixed(2)} data-wind-intensity={focusedWindTuning().intensity.toFixed(2)} data-isolines={isolineCount()} data-isobars={isobarCount()}>
       <div ref={mapElement} class="map" />
       <div ref={splashElement} class="map-splash" classList={{ ready: mapReady() && firstMapImageShown() }} aria-hidden={mapReady() && firstMapImageShown()}>
         <div class="map-splash-veil" />
@@ -3721,18 +3667,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
             onCloudMapForms={(enabled) => { setCloudMapForms(enabled); localStorage.setItem('motregen-cloud-map', enabled ? 'vormen' : 'sluier') }}
             cloudMapSample={cloudMapSample()}
             onCloudMapSample={setCloudMapSample}
-            isolineTuning={isolineTuning()}
-            onIsolineTuning={(patch) => setIsolineTuning((current) => ({ ...current, ...patch }))}
-            firstRainLate={firstRainLate()}
-            onFirstRainLate={(late) => { setFirstRainLate(late); localStorage.setItem(FIRST_RAIN_STORAGE_KEY, late ? 'laat' : 'vroeg') }}
-            windTuning={windTuning()}
-            onWindTuning={tuneWind}
-            rainFieldTuning={rainFieldTuning()}
-            onRainFieldTuning={changeRainFieldTuning}
             rainLook={rainLookChoice()}
             onRainLook={changeRainLookChoice}
-            focusRainVariant={focusRainVariant()}
-            onFocusRainVariant={(variant) => { setFocusRainVariant(variant); localStorage.setItem(FOCUS_RAIN_VARIANT_STORAGE_KEY, variant) }}
             viewportDiagnose={viewportDiagnose()}
             onViewportDiagnose={(enabled) => { setViewportDiagnose(enabled); localStorage.setItem(VIEWPORT_DIAGNOSE_STORAGE_KEY, enabled ? 'aan' : 'uit') }}
             perfVisible={perfVisible()}
@@ -3894,4 +3830,3 @@ function cancelIdle(handle: number): void {
 
 // Zoomgrens: nooit minder dan deze breedte in beeld (Min. breedte, T3g; knop weg in U30).
 const MINIMUM_MAP_WIDTH_KM = 20
-

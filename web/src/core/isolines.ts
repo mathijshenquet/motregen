@@ -1,23 +1,6 @@
 import type { MapTheme } from './map-theme.js'
 import type { Grid } from './contract.js'
 
-export const ISOLINE_STEPS = [1, 2, 5] as const
-export type IsolineStep = typeof ISOLINE_STEPS[number]
-
-export interface IsolineTuning {
-  step: IsolineStep
-  /** Vulling als vlakke banden (default) of continu verloop; PO-optie, eigenaar U25b/U30. */
-  fillStyle: IsolineFillStyle
-  /** Lijnen en vulling vervagen waar het veld vlak is (|∇T| klein). */
-  fade: IsolineFade
-}
-
-export const ISOLINE_FILL_STYLES = ['banden', 'verloop'] as const
-export type IsolineFillStyle = typeof ISOLINE_FILL_STYLES[number]
-
-export const ISOLINE_FADES = ['uit', 'gradiënt'] as const
-export type IsolineFade = typeof ISOLINE_FADES[number]
-
 // Gradiënt-fade uit (PO 2026-09-24: in vlak gebied verdwijnen hele lijnen); de lusjes gaan via ISOLINE_RING_KM.
 /** Temperatuur (gevoelstemperatuur, temperatuurfocus) of luchtdruk (isobaren, windfocus; U35). */
 // 'cloud' (U34): bewolkingssluier, alleen vulling; geen lijnen of labels.
@@ -114,7 +97,8 @@ export function fieldRangeInView(values: ArrayLike<number>, valid: ArrayLike<num
   return min <= max ? [min, max] : undefined
 }
 
-export const DEFAULT_ISOLINE_TUNING: IsolineTuning = { step: 1, fillStyle: 'banden', fade: 'uit' }
+// U89, PO 2026-10-17: temperatuur vast op stap 1 °C, banden en geen gradiëntvervaging.
+export const TEMPERATURE_ISOLINE_STEP = 1
 
 // Vaste waarden van weggesnoeide dev-knoppen (U30/MIP-12); herkomst per regel.
 /** Dekking van de vulling tussen de lijnen (Vulling; PO-keuze 2026-09-25 na U25b, main `5fcd35b`). */
@@ -145,8 +129,6 @@ export const ISOLINE_FILL_RESOLUTION = 0.5
 export const ISOLINE_RING_KM = 60
 /** Verdichting: maximale afwijking koorde ↔ lijn in CSS-px (U13). */
 export const ISOLINE_TOLERANCE_PX = 0.25
-/** smoothstep-grenzen voor |∇T| in °C/km bij Vervagen = gradiënt; U8c-kalibratie (lijnpixels p10/p50/p90 = 0,02/0,08/0,17). */
-export const ISOLINE_GRADIENT: [number, number] = [0.02, 0.06]
 
 /** Punten in roosterindex-coördinaten: (kolom, rij) van de celcentra. */
 export interface Isoline {
