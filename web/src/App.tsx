@@ -5,7 +5,7 @@ import maplibregl, { Marker, type GeoJSONSource } from 'maplibre-gl'
 import { registerSW } from 'virtual:pwa-register'
 import { applyUpdateWhenSafe, browserUpdatePage } from './core/pwa-update'
 import About, { type ThemeChoice } from './components/About'
-import HistogramScrubber, { CHART_HEIGHT_STORAGE_KEY, CHART_HEIGHTS, NOW_JUMP_STORAGE_KEY, NOW_JUMP_STYLES, type ChartHeight, type NowJumpStyle } from './components/HistogramScrubber'
+import HistogramScrubber from './components/HistogramScrubber'
 import { INLINE_ICON, Star, Sun } from './components/icons'
 import LocationSearch from './components/LocationSearch'
 import Freshness from './components/Freshness'
@@ -653,20 +653,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [windUnit, setWindUnit] = createSignal<WindUnit>(storedWindUnit())
   const [expressive, setExpressive] = createSignal(loadExpressive())
   const [usageLabel, setUsageLabel] = createSignal(storedUsageLabel(localStorage))
-  const storedDevChoice = <T,>(key: string, choices: readonly T[], fallback: T): T => {
-    try {
-      return choices.find((choice) => String(choice) === localStorage.getItem(key)) ?? fallback
-    } catch {
-      return fallback
-    }
-  }
-  const [nowJump, setNowJump] = createSignal<NowJumpStyle>(storedDevChoice(NOW_JUMP_STORAGE_KEY, NOW_JUMP_STYLES, 'uit'))
-  const [chartHeight, setChartHeight] = createSignal<ChartHeight>(storedDevChoice(CHART_HEIGHT_STORAGE_KEY, CHART_HEIGHTS, 'auto'))
-  createEffect(() => {
-    const height = chartHeight()
-    if (height === 'auto') document.documentElement.style.removeProperty('--scrub-desktop-height')
-    else document.documentElement.style.setProperty('--scrub-desktop-height', `${height}px`)
-  })
   const usage = createUsageTracker(browserUsageEnvironment(), theme(), windUnit(), usageLabel())
   const changeUsageLabel = (text: string) => {
     const label = sanitizeUsageLabel(text)
@@ -3702,10 +3688,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
             resetNotice={resetNotice()}
             usageBody={usageBody()}
             usageLabel={usageLabel()}
-            nowJump={nowJump()}
-            onNowJump={(style) => { setNowJump(style); localStorage.setItem(NOW_JUMP_STORAGE_KEY, style) }}
-            chartHeight={chartHeight()}
-            onChartHeight={(height) => { setChartHeight(height); localStorage.setItem(CHART_HEIGHT_STORAGE_KEY, String(height)) }}
             onUsageLabel={changeUsageLabel}
           />
         </Show>
@@ -3734,7 +3716,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           onCursor={scrub}
           onIntent={completeOnIntent}
           onPlaying={setPlayingFromScrubber}
-          nowJump={nowJump()}
           // Een compositor-glide loopt tijdens lange hoofddraadtaken door terwijl de regencanvas stilstaat.
           glideRate={0}
           onPlayPressed={() => usage.mark('play')}

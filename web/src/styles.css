@@ -620,13 +620,9 @@ button { color: inherit; cursor: pointer; }
    pil en het Nu-label buiten het vlak niet worden afgekapt. */
 .chart-plot::after { position: absolute; inset: 0; z-index: 1; border-block: 1px solid var(--line-strong); content: ''; pointer-events: none; }
 .chart-plot svg { position: absolute; top: 0; left: 0; overflow: visible; }
-/* Proef "naar nu" (?dev › Tijdlijn, PO 2026-10-17). */
-.now-jump { position: absolute; z-index: 6; border: 0; color: var(--accent); background: color-mix(in srgb, var(--surface-raised) 90%, transparent); cursor: pointer; }
-.now-jump-rand { top: 0; bottom: 0; left: 0; display: grid; place-items: center; width: 22px; border-right: 1px solid var(--line); font-size: 22px; line-height: 1; }
-.now-jump-rand.right { right: 0; left: auto; border-right: 0; border-left: 1px solid var(--line); }
-.now-jump-knop { bottom: 8px; left: 0; padding: 4px 10px 4px 8px; border-radius: 0 999px 999px 0; box-shadow: 0 1px 4px rgb(0 0 0 / .18); font-size: 12px; font-weight: 720; }
-.now-jump-knop.right, .now-jump-knop-hoog.right { right: 0; left: auto; padding: 4px 8px 4px 10px; border-radius: 999px 0 0 999px; }
-.now-jump-knop-hoog { bottom: calc(200% / 3); left: 0; padding: 4px 10px 4px 8px; border-radius: 0 999px 999px 0; box-shadow: 0 1px 4px rgb(0 0 0 / .18); font-size: 12px; font-weight: 720; transform: translateY(50%); }
+/* Terug naar nu (PO 2026-10-17): pil aan de zijkant, op 2/3 van de hoogte vanaf onder. */
+.now-jump { position: absolute; z-index: 6; bottom: calc(200% / 3); left: 0; padding: 4px 10px 4px 8px; border: 0; border-radius: 0 999px 999px 0; color: var(--accent); background: color-mix(in srgb, var(--surface-raised) 90%, transparent); box-shadow: 0 1px 4px rgb(0 0 0 / .18); font-size: 12px; font-weight: 720; cursor: pointer; transform: translateY(50%); }
+.now-jump.right { right: 0; left: auto; padding: 4px 8px 4px 10px; border-radius: 999px 0 0 999px; }
 .past-shade { position: absolute; top: 0; bottom: 0; left: 0; background: color-mix(in srgb, var(--text) 4%, transparent); pointer-events: none; }
 .rain-guide { stroke: color-mix(in srgb, var(--line-strong) 70%, transparent); stroke-dasharray: 2 4; stroke-width: 1; }
 .rain-baseline { stroke: var(--line-strong); stroke-width: 1; }
@@ -1021,7 +1017,7 @@ td small { color: var(--muted); font-size: 9px; }
      plafond: de grafiek zelf (zonder de urenbalk van 26 px) hooguit 2/3 van de breedte. cqw meet de inhoud van
      .scrubber, dus de 2 × 24 px padding komt erbij. */
   .scrubber { container-type: inline-size; }
-  .scrub-surface { height: var(--scrub-desktop-height, min(clamp(198px, 30vh, 320px), calc((100cqw + 48px) * 2 / 3 + 26px))); margin-inline: -24px; }
+  .scrub-surface { height: min(clamp(198px, 30vh, 320px), calc((100cqw + 48px) * 2 / 3 + 26px)); margin-inline: -24px; }
   .forecast-panel { padding: 0 0 36px; }
   .search { top: 18px; left: 18px; max-width: min(200px, calc(50% - var(--clock-half) - 26px)); }
   .search.open { width: min(560px, calc(100% - 90px)); }
