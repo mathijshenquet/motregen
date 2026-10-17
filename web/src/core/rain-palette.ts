@@ -15,11 +15,12 @@ export type RainBlendName = typeof RAIN_BLENDS[number]
 // Isolijnen binnen de regen (proef onder ?dev › Regen, PO 2026-10-16: "zullen we nog meer mm/h isolijnen
 // toevoegen?"). kleurgrenzen: lichte regen, matige regen (2 mm/u, PO 2026-10-16; was 4, waar blauw violet wordt), waar rood begint.
 // klassen volgt de WMO-indeling licht/matig/zwaar/zeer zwaar. stappen (PO 2026-10-17: "lijn 2 en 3 liggen vaak te
-// dicht op elkaar en het voelt alsof er een lijn 4 mist"): elke lijn ongeveer een factor 3 boven de vorige.
+// dicht op elkaar en het voelt alsof er een lijn 4 mist", daarna "0-1 1-5 5-10 20+"): motregen, regen, flinke bui,
+// stortbui, wolkbreuk; 5 en 10 vallen ongeveer samen met de wissels naar violet en rood in violet-laat.
 export const RAIN_ISOLINE_SETS = ['stappen', 'kleurgrenzen', 'klassen', 'dicht', 'geen'] as const
 export type RainIsolineSetName = typeof RAIN_ISOLINE_SETS[number]
 export const RAIN_ISOLINE_RATES: Record<RainIsolineSetName, readonly number[]> = {
-  stappen: [1, 3, 10, 30],
+  stappen: [1, 5, 10, 20],
   kleurgrenzen: [1, 2, 13],
   klassen: [2.5, 10, 50],
   dicht: [0.5, 1, 2, 5, 10, 20],
@@ -389,11 +390,15 @@ export interface RainOutline {
 const OUTLINE_SHIFT = 0.3
 const BOUNDARY_STRENGTH = 0.55
 // Binnenlijnen iets dunner dan de buitenrand maar minstens zo sterk: in violet en rood verdwenen ze tegen hun eigen
-// vulling (PO 2026-10-17: "te onopvallend vanaf isolijn 2"). Ze nemen de kleur van de klasse erboven, zodat ze
-// meekleuren met de schaal; RATE_ABOVE_LINE is het geometrische midden van een stap van een factor 3.
+// vulling (PO 2026-10-17: "te onopvallend vanaf isolijn 2"). Ze nemen de kleur van de klasse erboven (het
+// geometrische midden), zodat ze meekleuren met de schaal. Boven de laatste lijn: anderhalf keer die lijn.
 const ISOLINE_STRENGTH = 0.7
 const ISOLINE_SHIFT = 0.45
-const RATE_ABOVE_LINE = Math.sqrt(3)
+const TOP_CLASS_FACTOR = 1.5
+
+function classMiddle(from: number, to: number | undefined): number {
+  return to === undefined ? from * TOP_CLASS_FACTOR : Math.sqrt(from * to)
+}
 
 /** De contour om het regengebied: de beginkleur, nog een stap verder van de kaart af. */
 export function rainOutline(look: RainLook): RainOutline | undefined {
@@ -408,9 +413,11 @@ export function rainOutlines(look: RainLook): RainOutline[] {
   const boundary = rainOutline(look)
   if (!boundary) return []
   const colormap = buildRainColormap(look)
-  const isolines = RAIN_ISOLINE_RATES[look.isolines ?? 'geen'].map((rate): RainOutline => {
+  const rates = RAIN_ISOLINE_RATES[look.isolines ?? 'geen']
+  const isolines = rates.map((rate, position): RainOutline => {
     const index = Math.floor(rainRateIndex(rate)) + 0.5
-    return { index, colour: shiftedColour(colourOfRate(colormap, rate * RATE_ABOVE_LINE), look.theme, ISOLINE_SHIFT), strength: ISOLINE_STRENGTH, halfWidth: 1 }
+    const colour = colourOfRate(colormap, classMiddle(rate, rates[position + 1]))
+    return { index, colour: shiftedColour(colour, look.theme, ISOLINE_SHIFT), strength: ISOLINE_STRENGTH, halfWidth: 1 }
   })
   return [boundary, ...isolines]
 }
@@ -437,7 +444,7 @@ export function rainIsolineClasses(look: RainLook): RainIsolineClass[] {
   const lightest: RainIsolineClass = { to: rates[0], fill: colourOfRate(colormap, Math.sqrt(ONSET_RATE * rates[0]!)), line: boundary.colour }
   return [lightest, ...rates.map((from, position) => {
     const to = rates[position + 1]
-    return { from, to, fill: colourOfRate(colormap, to === undefined ? from * RATE_ABOVE_LINE : Math.sqrt(from * to)), line: outlines[position]!.colour }
+    return { from, to, fill: colourOfRate(colormap, classMiddle(from, to)), line: outlines[position]!.colour }
   })]
 }
 
