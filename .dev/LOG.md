@@ -1,5 +1,15 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-17 10:00 CEST — histogram hoger, naar-nu-knop, wolkvormen begrensd (Claude, w9)
+
+Live (main a379f9d, current-system 4vnqhdyx…; PO: "lock die er maar in, zonder changelog, dev opties kunnen weer weg"):
+1. Grafiekhoogte breed-modus (≥ 960): min(clamp(198px, 30vh, 320px), 2/3 × breedte + urenbalk 26 px); alleen de
+   schermhoogte telt (PO), telefoon blijft 236.
+2. Naar-nu-pil "← Nu"/"Nu →" aan de zijkant op 2/3 van de hoogte, zodra de nu-lijn uit beeld is; op prod geklikt.
+3. Wolkvormen in het histogram begrensd op de afgestelde plothoogte 172 px (PO: lage wolk werd een bult).
+Gate: web 621, bot 148, e2e desktop 33 (dev-panel, cloud-section, sky-window, table, presets, focus, usage,
+freshness), nixos-vm 0, toplevel 0 (exitwaarden letterlijk getest).
+
 ## 2026-10-17 09:00 CEST — meetlabel, regenlijnen 1·5·10·20, ?dev opgeschoond, automatische update (Claude, w9)
 
 Live (main b9819a3, current-system 53ax4lcg…; PO: "zonder changelog entity doorvoeren"):
