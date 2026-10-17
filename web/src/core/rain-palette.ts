@@ -89,27 +89,27 @@ const DAY_BLUE: Rgb = [34, 92, 216]
 const NIGHT_BLUE: Rgb = [66, 120, 214]
 
 /**
- * Het verloop lichtblauw → blauw → violet → rood → bordeaux, met de plek (mm/u) van vier kleuren als knoppen. Violet
+ * Het verloop lichtblauw → blauw → violet → rood → bordeaux. Violet
  * lijkt zonder rood- of groengevoelige kegeltjes op blauw, dus het verschilt ook in helderheid van het blauw:
  * overdag duidelijk donkerder, 's nachts duidelijk lichter.
  */
-function violetGradient(at: { blue: number; violet: number; purple: number; red: number }): Record<MapTheme, PaletteStop[]> {
+function violetGradient(): Record<MapTheme, PaletteStop[]> {
   return {
     light: [
       stopAt(0.1, DAY_LIGHT_BLUE),
-      stopAt(at.blue, DAY_BLUE),
-      stopAt(at.violet, [74, 28, 148]),
-      stopAt(at.purple, [110, 16, 110]),
-      stopAt(at.red, [214, 36, 52]),
+      stopAt(4, DAY_BLUE),
+      stopAt(7, [74, 28, 148]),
+      stopAt(9, [110, 16, 110]),
+      stopAt(13, [214, 36, 52]),
       stopAt(40, [140, 12, 40]),
       stopAt(120, [84, 4, 44]),
     ],
     dark: [
       stopAt(0.1, NIGHT_BLUE),
-      stopAt(at.blue, [84, 144, 236]),
-      stopAt(at.violet, [132, 56, 228]),
-      stopAt(at.purple, [204, 48, 196]),
-      stopAt(at.red, [250, 84, 88]),
+      stopAt(4, [84, 144, 236]),
+      stopAt(7, [132, 56, 228]),
+      stopAt(9, [204, 48, 196]),
+      stopAt(13, [250, 84, 88]),
       stopAt(40, [255, 144, 134]),
       stopAt(120, [255, 212, 204]),
     ],
@@ -122,7 +122,7 @@ const PALETTE_STOPS: Record<RainPaletteName, Record<MapTheme, PaletteStop[]>> = 
   'huidig': { light: CURRENT_STOPS, dark: CURRENT_STOPS },
   // Blauw tot ongeveer 5 mm/u, violet rond 7, rood vanaf ruim 10. De kleuren vallen dan niet meer op onze klassen
   // licht/matig/zwaar (2,5 en 7,5): het grootste deel van matig is nog blauw.
-  'violet-laat': violetGradient({ blue: 4, violet: 7, purple: 9, red: 13 }),
+  'violet-laat': violetGradient(),
 }
 
 interface BlendShape {
@@ -225,22 +225,22 @@ export function groundContrast(colour: Rgb, alpha: number, theme: MapTheme, grou
   return theme === 'light' ? -difference : difference
 }
 
-function hasGroundContrast(colour: Rgb, alpha: number, theme: MapTheme, minimum: number): boolean {
+function hasGroundContrast(colour: Rgb, alpha: number, theme: MapTheme): boolean {
   const grounds = Object.keys(GROUND_COLOURS[theme]) as Ground[]
-  return grounds.every((ground) => groundContrast(colour, alpha, theme, ground) >= minimum)
+  return grounds.every((ground) => groundContrast(colour, alpha, theme, ground) >= DEFAULT_RAIN_CONTRAST)
 }
 
 const CONTRAST_SHIFT_STEPS = 200
 
 /**
  * De contrastregel: hoe ver een kleur moet opschuiven (0–1; overdag naar zwart, 's nachts naar wit) tot hij met
- * dekking `alpha` op land, water én bebouwing minstens `minimum` L* verschilt. Regen maakt de kaart
+ * dekking `alpha` op land, water én bebouwing minstens de vaste contrastlat haalt. Regen maakt de kaart
  * daardoor overdag altijd donkerder en 's nachts altijd lichter.
  */
-export function contrastShiftFor(colour: Rgb, alpha: number, theme: MapTheme, minimum: number): number {
+function contrastShiftFor(colour: Rgb, alpha: number, theme: MapTheme): number {
   for (let step = 0; step < CONTRAST_SHIFT_STEPS; step++) {
     const shift = step / CONTRAST_SHIFT_STEPS
-    if (hasGroundContrast(shiftedColour(colour, theme, shift), alpha, theme, minimum)) return shift
+    if (hasGroundContrast(shiftedColour(colour, theme, shift), alpha, theme)) return shift
   }
   return 1
 }
@@ -255,17 +255,16 @@ function shiftedColour(colour: Rgb, theme: MapTheme, shift: number): Rgb {
 export function buildRainColormap(look: RainLook): Uint8Array {
   const stops = PALETTE_STOPS[look.palette][look.theme]
   const shape = BLEND_SHAPES[look.blend]
-  const minimum = DEFAULT_RAIN_CONTRAST
   // De inzetdekking zoals hij in de tabel komt (een byte): 0,55 wordt 140/255, en op dat verschil haalde de rand
   // een scherpe lat net niet. Zonder dekkende inzet loopt de dekking vanaf nul op en bestaat er geen "lichtste
   // zichtbare regen" om te borgen.
   const onsetAlpha = shape.onsetEdge ? Math.round(shape.onsetEdge.alpha * 255) / 255 : undefined
-  const onsetShift = onsetAlpha === undefined ? 0 : contrastShiftFor(colourAt(stops, ONSET_INDEX), onsetAlpha, look.theme, minimum)
+  const onsetShift = onsetAlpha === undefined ? 0 : contrastShiftFor(colourAt(stops, ONSET_INDEX), onsetAlpha, look.theme)
   const colormap = new Uint8Array(256 * 4)
   for (let index = 0; index <= LAST_RAIN_INDEX; index++) {
     const alpha = alphaAt(index, shape)
     const paletteColour = colourAt(stops, index)
-    const shift = onsetAlpha === undefined ? 0 : lightBandShift(paletteColour, index, alpha / 255, { alpha: onsetAlpha, shift: onsetShift }, look.theme, minimum)
+    const shift = onsetAlpha === undefined ? 0 : lightBandShift(paletteColour, index, alpha / 255, { alpha: onsetAlpha, shift: onsetShift }, look.theme)
     colormap.set(shiftedColour(paletteColour, look.theme, shift), index * 4)
     colormap[index * 4 + 3] = alpha
   }
@@ -279,9 +278,9 @@ export function buildRainColormap(look: RainLook): Uint8Array {
  * halen (het geel van `huidig` blijft licht) begrenst de uitloop, zodat matig en zwaar het palet houden en er geen
  * sprong ontstaat op 2,5 mm/u.
  */
-function lightBandShift(paletteColour: Rgb, index: number, alpha: number, onset: { alpha: number; shift: number }, theme: MapTheme, minimum: number): number {
+function lightBandShift(paletteColour: Rgb, index: number, alpha: number, onset: { alpha: number; shift: number }, theme: MapTheme): number {
   if (index >= LIGHT_BAND_END_INDEX) return 0
-  const needed = contrastShiftFor(paletteColour, Math.max(alpha, onset.alpha), theme, minimum)
+  const needed = contrastShiftFor(paletteColour, Math.max(alpha, onset.alpha), theme)
   if (index <= ONSET_INDEX) return needed
   const progress = (index - ONSET_INDEX) / (LIGHT_BAND_END_INDEX - ONSET_INDEX)
   // Kwadratisch: de begrenzing blijft lang ruim, zodat een palet dat de regel wél kan halen er niet tegenaan loopt.

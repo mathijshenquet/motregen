@@ -11,6 +11,7 @@ import { join } from 'node:path'
 //   zoom  — continue zoom 7→9 (100 stappen van 0,02, één per animatieframe) tegen één sprong 7→9,
 //           inkt per windframe
 //   profile — dichtheidsprofiel langs de wind (loef/lij), als de build `windProfile` heeft
+// SCENARIOS=ink,crop,zoom; THEMES; DPR.
 const [origin, outDir, label = 'run'] = process.argv.slice(2)
 if (!origin || !outDir) throw new Error('usage: pnpm exec tsx scripts/wind-quality.ts ORIGIN OUT_DIR [LABEL]')
 mkdirSync(outDir, { recursive: true })

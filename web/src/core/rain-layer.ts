@@ -176,9 +176,8 @@ void main() {
   ivec2 ownCell = ivec2(gl_FragCoord.xy);
   int lastCell = int(alongX ? u_grid_size.x : u_grid_size.y) - 1;
   float position = (alongX ? gl_FragCoord.x : gl_FragCoord.y) / u_source_cell - 0.5;
-  bool evenTaps = u_taps % 2 == 0;
-  float anchor = evenTaps ? floor(position) : floor(position + 0.5);
-  int firstOffset = evenTaps ? 1 - u_taps / 2 : -(u_taps - 1) / 2;
+  float anchor = floor(position + 0.5);
+  int firstOffset = -(u_taps - 1) / 2;
   float weightedValue = 0.0;
   float validWeight = 0.0;
   float totalWeight = 0.0;
