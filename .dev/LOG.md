@@ -18,9 +18,13 @@ Analyse 26/9–17/10: sessies vooral wij (pieken 676/527/415/310); touch-bakens 
 dagen. Cloudflare-token heeft nu alle rechten (PO); GraphQL `httpRequests1dGroups` werkt (Free-plan, geen botscore).
 PO-chat-id gevonden via de kanaalbeheerders; de bot kan hem DM'en (sendChatAction ok).
 
-In vlucht: U88 (gpt-6.1-sol, herdr w4D, branch track/u88-gebruiksrapport vanaf 8f02f2e): Telegram-tellingen in de
-bot, `tg`-veld in het baken (v3), dagrapport 08:00 naar de PO. Na oplevering zet ik op prod `MOTREGEN_REPORT_CHAT_ID`
-en een alleen-lezen `CLOUDFLARE_ANALYTICS_TOKEN` in de secrets (niet het token met alle rechten).
+U88 (gpt-6.1-sol, 9 min, PR #121) gemerged en live (main 281966d, current-system k205aqab…): Telegram-tellingen in
+de bot (`/var/lib/motregen-usage/telegram`), baken v3 met `tg`, dagrapport 08:00 naar de PO. Gate: bot 148 tests,
+web tsc + 605 unit (+ mrf na synthgen), e2e usage desktop, nixos-vm, toplevel: alle 0. Op prod in secrets.env:
+`MOTREGEN_REPORT_CHAT_ID` (PO-id via kanaalbeheerders) en `CLOUDFLARE_ANALYTICS_TOKEN` (account-token
+"motregen-prod-analytics-read", alleen Analytics Read op de zone). Eerste rapport 08:00:05 verstuurd (exit 0).
+De worker haalde de PO-debughaak `MOTREGEN_DEBUG_CHAT_ID` en `messageId` in `chat-still` weg (privacy); gemeld.
+Open: regen-van-gisteren in het rapport (voorstel aan de PO); analyse in `.dev/research/gebruik-2026-10-17.md`.
 
 ## 2026-10-16 17:06 CEST — v0.2.0 uitgerold en in @motregen_updates (Claude, w9)
 
