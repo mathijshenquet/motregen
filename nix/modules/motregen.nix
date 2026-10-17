@@ -496,7 +496,7 @@ in
           }
           log_skip @nonusage
           # MIP-35: crawlers en headless rigs tellen niet mee. De User-Agent wordt alleen vergeleken, nooit gelogd.
-          @automated header_regexp User-Agent (?i)(bot\b|crawl|spider|slurp|headless|lighthouse)
+          @automated header_regexp User-Agent (?i)(bot/|\bbot\b|crawl|spider|slurp|headless|lighthouse)
           log_skip @automated
 
           handle /hit {
