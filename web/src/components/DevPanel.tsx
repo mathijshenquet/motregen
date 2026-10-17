@@ -86,7 +86,7 @@ export default function DevPanel(props: Props) {
       </Control>
     </Group>
     <Group title="Tijdlijn">
-      <Control label="Naar nu" output={props.nowJump} hint="Proef: een knop terug naar nu zodra de nu-lijn uit de grafiek geschoven is. Rand: een smalle strook over de hele hoogte aan de kant van nu, alleen een pijl. Knop: een pil &quot;← Nu&quot; onderaan, vast aan de zijkant.">
+      <Control label="Naar nu" output={props.nowJump} hint="Proef: een knop terug naar nu zodra de nu-lijn uit de grafiek geschoven is. Rand: een smalle strook over de hele hoogte aan de kant van nu, alleen een pijl. Knop: een pil &quot;← Nu&quot; onderaan, vast aan de zijkant. Knop-hoog: dezelfde pil op 2/3 van de hoogte, gemeten vanaf onder.">
         <select aria-label="Naar nu" value={props.nowJump} onChange={(event) => props.onNowJump(event.currentTarget.value as NowJumpStyle)}>
           <For each={NOW_JUMP_STYLES}>{(style) => <option value={style}>{style}</option>}</For>
         </select>

@@ -625,7 +625,8 @@ button { color: inherit; cursor: pointer; }
 .now-jump-rand { top: 0; bottom: 0; left: 0; display: grid; place-items: center; width: 22px; border-right: 1px solid var(--line); font-size: 22px; line-height: 1; }
 .now-jump-rand.right { right: 0; left: auto; border-right: 0; border-left: 1px solid var(--line); }
 .now-jump-knop { bottom: 8px; left: 0; padding: 4px 10px 4px 8px; border-radius: 0 999px 999px 0; box-shadow: 0 1px 4px rgb(0 0 0 / .18); font-size: 12px; font-weight: 720; }
-.now-jump-knop.right { right: 0; left: auto; padding: 4px 8px 4px 10px; border-radius: 999px 0 0 999px; }
+.now-jump-knop.right, .now-jump-knop-hoog.right { right: 0; left: auto; padding: 4px 8px 4px 10px; border-radius: 999px 0 0 999px; }
+.now-jump-knop-hoog { bottom: calc(200% / 3); left: 0; padding: 4px 10px 4px 8px; border-radius: 0 999px 999px 0; box-shadow: 0 1px 4px rgb(0 0 0 / .18); font-size: 12px; font-weight: 720; transform: translateY(50%); }
 .past-shade { position: absolute; top: 0; bottom: 0; left: 0; background: color-mix(in srgb, var(--text) 4%, transparent); pointer-events: none; }
 .rain-guide { stroke: color-mix(in srgb, var(--line-strong) 70%, transparent); stroke-dasharray: 2 4; stroke-width: 1; }
 .rain-baseline { stroke: var(--line-strong); stroke-width: 1; }
@@ -1016,10 +1017,11 @@ td small { color: var(--muted); font-size: 9px; }
   .reading strong { font-size: 49px; }
   .scrubber { padding: 0 24px; }
   .forecast-table { --panel-inset: 24px; }
-  /* De schermhoogte bepaalt de grafiekhoogte (PO 2026-10-17); de breedte geeft alleen een plafond: hooguit 2/3 van
-     de breedte. cqw meet de inhoud van .scrubber, dus de 2 × 24 px padding komt erbij. Urenbalk inbegrepen. */
+  /* De schermhoogte bepaalt de grafiekhoogte (PO 2026-10-17), urenbalk inbegrepen; de breedte geeft alleen een
+     plafond: de grafiek zelf (zonder de urenbalk van 26 px) hooguit 2/3 van de breedte. cqw meet de inhoud van
+     .scrubber, dus de 2 × 24 px padding komt erbij. */
   .scrubber { container-type: inline-size; }
-  .scrub-surface { height: var(--scrub-desktop-height, min(clamp(198px, 30vh, 320px), calc((100cqw + 48px) * 2 / 3))); margin-inline: -24px; }
+  .scrub-surface { height: var(--scrub-desktop-height, min(clamp(198px, 30vh, 320px), calc((100cqw + 48px) * 2 / 3 + 26px))); margin-inline: -24px; }
   .forecast-panel { padding: 0 0 36px; }
   .search { top: 18px; left: 18px; max-width: min(200px, calc(50% - var(--clock-half) - 26px)); }
   .search.open { width: min(560px, calc(100% - 90px)); }

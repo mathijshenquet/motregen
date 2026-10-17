@@ -16,7 +16,7 @@ Hooguit 3–4 knoppen per groep (PO 2026-09-25); de eerste groep start open.
 | Regen | Regenisolijnen | lijnen binnen de regen op vaste intensiteiten, alleen bij menging rand: kleurgrenzen 1 · 2 · 13 mm/u (standaard in de proef) / klassen 2,5 · 10 · 50 mm/u / dicht 0,5 · 1 · 2 · 5 · 10 · 20 mm/u / geen (alleen de buitenrand) | U86 | 2026-10-23 |
 | Wolkenkaart | Wolkenbeeld | vormen / oude sluier op dezelfde live modeldata | PM / MIP-34 | na PO-keuze, uiterlijk 2026-10-19 |
 | Wolkenkaart | Voorbeeldlucht | live / gaten / sluier / dicht / overgang; laatste vier gefingeerde conceptgevallen, niet bewaard tussen bezoeken | PM / MIP-34 | idem |
-| Tijdlijn | Naar nu | proef: knop terug naar nu als de nu-lijn uit de grafiek is (uit / rand: strook met pijl over de hele hoogte / knop: pil "← Nu" aan de zijkant) | PO-spike 2026-10-17 | na PO-keuze |
+| Tijdlijn | Naar nu | proef: knop terug naar nu als de nu-lijn uit de grafiek is (uit / rand: strook met pijl over de hele hoogte / knop: pil "← Nu" onderaan aan de zijkant / knop-hoog: dezelfde pil op 2/3 hoogte vanaf onder) | PO-spike 2026-10-17 | na PO-keuze |
 | Tijdlijn | Grafiekhoogte | proef: hoogte van de grafiek op desktop (auto = standaard, 30 % van de schermhoogte tussen 198 en 320 px; 198 = oud; 280 px; incl. urenbalk) | PO-spike 2026-10-17 | na PO-keuze |
 | Lucht nu | strakblauw · mooie wolkenlucht · melkachtig · grijs · Mordor | tijd, klasse en gekozen locatie op 0,1° als menselijk anker voor de wolkenanalyse | U46 | na de analyse |
 | Lucht nu | Kopieer dagboek | alle lokale luchtmetingen als JSON naar het klembord | U46 | na de analyse |

@@ -12,7 +12,7 @@ import type { PaletteStops } from '../core/temperature-palette'
 import { measurePerfPhase } from '../core/perf'
 import { formatNumber, formatTime, formatWeekdayLong, formatWeekdayShort } from '../core/locale'
 
-export const NOW_JUMP_STYLES = ['uit', 'rand', 'knop'] as const
+export const NOW_JUMP_STYLES = ['uit', 'rand', 'knop', 'knop-hoog'] as const
 export type NowJumpStyle = typeof NOW_JUMP_STYLES[number]
 /** Hoogte van de grafiek op desktop, inclusief de urenbalk van 26 px (proef, PO 2026-10-17). `auto` volgt de schermhoogte. */
 export const CHART_HEIGHTS = ['auto', 198, 280] as const
@@ -794,7 +794,7 @@ export default function HistogramScrubber(props: Props) {
         <Show when={(props.nowJump ?? 'uit') !== 'uit' && nowSide()}>{(side) =>
           <button type="button" class={`now-jump now-jump-${props.nowJump}`} classList={{ right: side() === 'right' }} aria-label="Naar nu"
             onPointerDown={(event) => event.stopPropagation()} onClick={() => scrollToEpoch(nowEpoch())}>
-            {props.nowJump === 'knop' ? (side() === 'left' ? '← Nu' : 'Nu →') : <span aria-hidden="true">{side() === 'left' ? '‹' : '›'}</span>}
+            {props.nowJump !== 'rand' ? (side() === 'left' ? '← Nu' : 'Nu →') : <span aria-hidden="true">{side() === 'left' ? '‹' : '›'}</span>}
           </button>
         }</Show>
         <div class="day-labels" aria-hidden="true"><For each={daySegments()}>{(segment, index) =>
