@@ -17,7 +17,7 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   const groups = panel.locator('.dev-group')
   await expect(groups.locator('> summary')).toHaveText(['Temperatuur', 'Wolkenkaart', 'Wind', 'Regen', 'Kaart', 'Laden', 'Lucht nu', 'Meting', 'Diagnose'])
   // Alleen de eerste groep start open.
-  await expect.poll(() => groups.evaluateAll((elements) => elements.map((element) => (element as HTMLDetailsElement).open))).toEqual([true, false, false, false, false, false, false, false])
+  await expect.poll(() => groups.evaluateAll((elements) => elements.map((element) => (element as HTMLDetailsElement).open))).toEqual([true, false, false, false, false, false, false, false, false])
   await expect(panel).not.toContainText('Wolkrand')
 
   const controls = panel.locator('.dev-control')
