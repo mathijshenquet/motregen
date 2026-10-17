@@ -1,0 +1,14 @@
+query($zone: String!, $day: Date!) {
+  viewer {
+    zones(filter: {zoneTag: $zone}) {
+      httpRequests1dGroups(limit: 1, filter: {date: $day}) {
+        uniq { uniques }
+        sum {
+          pageViews
+          requests
+          countryMap { clientCountryName requests }
+        }
+      }
+    }
+  }
+}

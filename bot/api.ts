@@ -12,6 +12,7 @@ export interface TelegramMessage {
   message_id: number
   chat: { id: number; type: string }
   text?: string
+  from?: { id: number }
   photo?: Array<{ file_id: string }>
   animation?: { file_id: string }
   document?: { file_id: string; file_name?: string }

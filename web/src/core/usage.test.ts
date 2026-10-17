@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
-  createUsageTracker, durationBucket, installUsageBeacon, sessionManifestUrls, USAGE_DURATIONS, USAGE_ENDPOINT, USAGE_FEATURES, USAGE_FIELDS,
+  browserUsageEnvironment, createUsageTracker, durationBucket, installUsageBeacon, sessionManifestUrls, USAGE_DURATIONS, USAGE_ENDPOINT, USAGE_FEATURES, USAGE_FIELDS,
   USAGE_RANGES, USAGE_THEMES, USAGE_UNITS, USAGE_WIDTHS, widthClass, type UsageEnvironment,
 } from './usage'
 
@@ -36,7 +36,7 @@ function install(tracker: ReturnType<typeof createUsageTracker>) {
 }
 
 const allowedValues: Record<string, ReadonlyArray<unknown>> = {
-  v: [2],
+  v: [3],
   range: [null, ...USAGE_RANGES],
   theme: USAGE_THEMES,
   unit: USAGE_UNITS,
@@ -70,7 +70,7 @@ describe('usage beacon body', () => {
     const body = tracker.sessionBody()
     expectWhitelisted(body)
     expect(Object.keys(body).sort()).toEqual([...USAGE_FIELDS].sort())
-    expect(JSON.stringify(body).length).toBeLessThan(300)
+    expect(JSON.stringify(body).length).toBeLessThan(320)
     for (const feature of USAGE_FEATURES) expect(body[feature]).toBe(true)
     expect(body.range).toBe('24')
     expect(body.theme).toBe('dark')
@@ -90,6 +90,28 @@ describe('usage beacon body', () => {
     expect(sent).toMatchObject({ geo: true, search: true, range: 'all', coarse: true, width: '<430', dur: '5-30', theme: 'system', unit: 'bft' })
     expect(beacons[0]!.body).not.toMatch(/\d{4,}|\d\.\d/)
     expect(beacons[0]!.body.length).toBeLessThan(200)
+  })
+
+  it('marks only Telegram webviews and never includes initData', () => {
+    const { env } = environment({ telegramWebView: () => true })
+    expect(createUsageTracker(env, 'light').sessionBody()).toMatchObject({ v: 3, tg: true })
+    const outside = environment({ telegramWebView: () => false })
+    expect(createUsageTracker(outside.env, 'light').sessionBody()).not.toHaveProperty('tg')
+  })
+
+  it('detects nonempty initData in the browser without serializing it', () => {
+    const webApp = { initData: 'user=987654321&auth_date=secret' }
+    vi.stubGlobal('window', { Telegram: { WebApp: webApp }, innerWidth: 390 })
+    vi.stubGlobal('matchMedia', () => ({ matches: true }))
+    try {
+      const tracker = createUsageTracker(browserUsageEnvironment(), 'light')
+      expect(tracker.sessionBody().tg).toBe(true)
+      expect(JSON.stringify(tracker.sessionBody())).not.toMatch(/987654321|auth_date|secret|user=/)
+      webApp.initData = ''
+      expect(tracker.sessionBody()).not.toHaveProperty('tg')
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 
   it('buckets width and session duration', () => {

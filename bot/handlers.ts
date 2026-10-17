@@ -22,22 +22,7 @@ export interface BotRuntime {
   availableStill(selection: MediaSelection): RenderedMedia | undefined
 }
 
-/** Alleen voor een poke-test door de PO: logt wat één opgegeven chat doet. Nooit in productie gezet. */
-const debugChatId = process.env.MOTREGEN_DEBUG_CHAT_ID?.trim()
-
-function logDebugChat(update: TelegramUpdate): void {
-  if (!debugChatId) return
-  const chatId = update.message?.chat.id ?? update.callback_query?.message?.chat.id ?? update.callback_query?.from?.id ?? update.inline_query?.from?.id
-  if (String(chatId) !== debugChatId) return
-  const action = update.message?.text !== undefined ? { kind: 'message', text: update.message.text }
-    : update.callback_query ? { kind: 'callback', data: update.callback_query.data }
-    : update.inline_query ? { kind: 'inline', query: update.inline_query.query }
-    : { kind: 'other' }
-  console.info(JSON.stringify({ event: 'debug-chat', ...action }))
-}
-
 export async function handleUpdate(update: TelegramUpdate, runtime: BotRuntime): Promise<void> {
-  logDebugChat(update)
   try {
     await dispatchUpdate(update, runtime)
   } catch (error) {
@@ -118,7 +103,7 @@ async function handleCommand(message: TelegramMessage, runtime: BotRuntime): Pro
     reply_markup: keyboard(selection, still.epoch, still.generated),
   })
   runtime.selections.remember(`chat:${message.chat.id}:${reply.message_id}`, still.key)
-  console.info(JSON.stringify({ event: 'chat-still', messageId: reply.message_id, milliseconds: still.milliseconds, cached: still.cached }))
+  console.info(JSON.stringify({ event: 'chat-still', milliseconds: still.milliseconds, cached: still.cached }))
 }
 
 async function handleInline(query: NonNullable<TelegramUpdate['inline_query']>, runtime: BotRuntime): Promise<void> {

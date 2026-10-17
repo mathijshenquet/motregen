@@ -1,6 +1,7 @@
 import { telegramPresetSearch } from './telegram-presets'
 
 export interface TelegramWebApp {
+  initData?: string
   colorScheme: 'light' | 'dark'
   themeParams: Record<string, string | undefined>
   initDataUnsafe?: { start_param?: string }

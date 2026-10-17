@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -14,13 +14,13 @@ vi.mock('./render.js', () => { throw new Error('Poller must never load the rende
 const directories: string[] = []
 afterEach(async () => { vi.unstubAllEnvs(); await Promise.all(directories.splice(0).map((directory) => rm(directory, { recursive: true, force: true }))) })
 
-async function setup(withRegister = true) {
+async function setup(withRegister = true, stopMethod = 'signal') {
   const directory = await mkdtemp(join(tmpdir(), 'motregen-poller-'))
   directories.push(directory)
   const path = join(directory, 'register.json')
   const register: MediaRegister = { version: 1, botId: 42, generated: new Date().toISOString(), now: '2026-10-08T12:00:00Z', entries: registerSelections().map((selection, index) => ({ selection, fileId: `file-${index}` })) }
   if (withRegister) await writeRegister(path, register)
-  const config = readConfig({ TG_BOT_KEY: 'test', MOTREGEN_BOT_ROLE: 'poller', MOTREGEN_REGISTER_PATH: path, MOTREGEN_RENDER_CACHE: directory })
+  const config = readConfig({ TG_BOT_KEY: 'test', MOTREGEN_BOT_ROLE: 'poller', MOTREGEN_REGISTER_PATH: path, MOTREGEN_RENDER_CACHE: directory, MOTREGEN_USAGE_DIR: join(directory, 'usage') })
   const methods: Array<{ method: string; fields: Record<string, unknown> }> = []
   const controller = new AbortController()
   const request = vi.fn(async (url: string | URL | Request, options?: RequestInit) => {
@@ -31,8 +31,9 @@ async function setup(withRegister = true) {
     if (method === 'getMe') return Response.json({ ok: true, result: { id: 42, username: 'motregen_bot' } })
     if (method === 'getWebhookInfo') return Response.json({ ok: true, result: { url: '' } })
     if (method === 'getUpdates') {
-      if (methods.filter((entry) => entry.method === 'getUpdates').length === 1) return Response.json({ ok: true, result: [{ update_id: 1, message: { message_id: 1, chat: { id: 99, type: 'private' }, text: '/regen' } }] })
-      controller.abort()
+      if (methods.filter((entry) => entry.method === 'getUpdates').length === 1) return Response.json({ ok: true, result: [{ update_id: 1, message: { message_id: 1, from: { id: 987654321 }, chat: { id: 99, type: 'private' }, text: '/regen' } }] })
+      if (stopMethod === 'SIGTERM') process.emit('SIGTERM')
+      else controller.abort()
       return Response.json({ ok: true, result: [] })
     }
     return Response.json({ ok: true, result: { message_id: 10 } })
@@ -43,13 +44,17 @@ async function setup(withRegister = true) {
 }
 
 describe('renderer-free poller', () => {
-  it('starts without Chromium or Playwright and answers a command from the register', async () => {
+  it.each(['signal', 'SIGTERM'])('starts without Chromium or Playwright, answers and flushes on %s', async (stopMethod) => {
     vi.stubEnv('MOTREGEN_CHROMIUM_PATH', '/does-not-exist')
     vi.stubEnv('PLAYWRIGHT_BROWSERS_PATH', '/does-not-exist')
-    const { config, api, methods, controller } = await setup()
+    const { config, api, methods, controller } = await setup(true, stopMethod)
     await runBot(config, api, controller.signal)
     expect(methods.map((entry) => entry.method)).toEqual(['getMe', 'getWebhookInfo', 'setChatMenuButton', 'setMyCommands', 'getUpdates', 'sendAnimation', 'getUpdates'])
     expect(methods.find((entry) => entry.method === 'sendAnimation')?.fields.animation).toBe('file-0')
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Amsterdam' }).format(new Date())
+    const json = await readFile(join(config.usageDirectory!, `${today}.json`), 'utf8')
+    expect(JSON.parse(json)).toMatchObject({ commands: { regen: 1 }, users: 1 })
+    expect(json).not.toContain('987654321')
   })
 
   it('serves every still, inline file ids, and a newer generation for an expired callback', async () => {

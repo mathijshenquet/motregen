@@ -18,6 +18,7 @@ export interface BotConfig {
   cacheDirectory: string
   cacheChatId?: string
   registerPath?: string
+  usageDirectory?: string
 }
 
 export async function validateCacheChat(api: TelegramApi, chatId: string | undefined, botId: number, requirePin = false): Promise<void> {
@@ -46,5 +47,6 @@ export function readConfig(environment: NodeJS.ProcessEnv = process.env, argumen
     cacheDirectory: resolve(environment.MOTREGEN_RENDER_CACHE ?? 'tmp/telegram-stills'),
     cacheChatId,
     registerPath,
+    usageDirectory: resolve(environment.MOTREGEN_USAGE_DIR ?? 'tmp/telegram-usage'),
   }
 }
