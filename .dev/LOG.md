@@ -1,5 +1,23 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-17 09:00 CEST — meetlabel, regenlijnen 1·5·10·20, ?dev opgeschoond, automatische update (Claude, w9)
+
+Live (main b9819a3, current-system 53ax4lcg…; PO: "zonder changelog entity doorvoeren"):
+1. Meetlabel (MIP-35-aanvulling): `?dev` › Meting; baken v4 `label`, sessie `&l=`; rapport "waarvan <label>".
+2. Regenlijnen op 1 · 5 · 10 · 20 mm/u (PO), kleur uit het midden van de klasse erboven, sterker; legenda als bereiken
+   <1 · 1–5 · 5–10 · 10–20 · 20+. Rust-constanten opnieuw gegenereerd, dus de Telegram-film volgt.
+3. U89 (gpt-6.1-sol, PR #122): ?dev-knoppen C1–C8 weg (975 regels), stills pixel-gelijk.
+4. PWA: nieuwe versie gaat vanzelf in (verse onaangeraakte pagina meteen, anders bij naar-achtergrond); knop blijft.
+Gate: web 621 unit, bot 148, render-core, e2e dev-panel/usage/focus desktop, nixos-vm 0 (na fixture-fix), toplevel 0.
+
+Fout van mij: de meetlabel-uitrol (81eb0a1) ging live met een ROOD nixos-vm (fixture had `v:4` als "onbekende
+versie"); ik las de exitregel verkeerd en meldde groen. Geen prod-schade; fixture nu v99. Les: VM-EXIT-regel letterlijk
+lezen vóór uitrol.
+
+U87 bleek door de PO afgewezen (memory u87-afgewezen); per ongeluk opnieuw toegepast en weer verwijderd.
+Open: isobars.spec faalt 2× ook op main (bestaand); spike ?dev › Tijdlijn (naar-nu rand/knop, grafiekhoogte
+198/240/280) op int/eval-2026-10-17 en preview 4300, wacht op PO-keuze; zonneminuten-kalibratie (voorstel aan PO).
+
 ## 2026-10-17 07:49 CEST — MIP-35: meting zonder ons en bots live; U88 dagrapport loopt (Claude, w9)
 
 PO: "laten we dev traffic eruit filteren als mogelijk, dat kan ook een nieuwe update zijn (zonder changelog), maak
