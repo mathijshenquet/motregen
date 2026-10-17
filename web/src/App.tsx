@@ -3,6 +3,7 @@ import { TEMPERATURE_LINE_OPACITY, ISOBAR_LINE_OPACITY } from './core/map-presen
 import { batch, createEffect, createMemo, createSignal, For, lazy, onCleanup, onMount, Show, untrack, type Accessor, type Setter } from 'solid-js'
 import maplibregl, { Marker, type GeoJSONSource } from 'maplibre-gl'
 import { registerSW } from 'virtual:pwa-register'
+import { applyUpdateWhenSafe, browserUpdatePage } from './core/pwa-update'
 import About, { type ThemeChoice } from './components/About'
 import HistogramScrubber from './components/HistogramScrubber'
 import { INLINE_ICON, Star, Sun } from './components/icons'
@@ -764,6 +765,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let resetNoticeTimer: number | undefined
   const [updateReady, setUpdateReady] = createSignal(false)
   let updateServiceWorker: (() => Promise<void>) | undefined
+  const updatePage = stillMode ? undefined : browserUpdatePage()
   const [shareNotice, setShareNotice] = createSignal<string>()
   let shareNoticeTimer: number | undefined
   const [perfVisible, setPerfVisible] = createSignal(profileMode)
@@ -899,7 +901,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       return
     }
     updateServiceWorker = registerSW({
-      onNeedRefresh: () => setUpdateReady(true),
+      onNeedRefresh: () => {
+        setUpdateReady(true)
+        if (updatePage) applyUpdateWhenSafe(() => void updateServiceWorker?.(), updatePage)
+      },
     })
   })
 
