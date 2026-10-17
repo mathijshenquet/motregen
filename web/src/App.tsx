@@ -54,7 +54,7 @@ import { DEFAULT_RAIN_FIELD_TUNING, loadRainFieldTuning, RAIN_FIELD_STORAGE_KEYS
 import { LayerOverlay } from './core/overlay-canvas'
 import { rainColormap } from './core/rain-chart'
 import { DEFAULT_FOCUS_RAIN_VARIANT, FOCUS_RAIN_VARIANT_STORAGE_KEY, focusRainUsesWeatherBlend, loadFocusRainVariant } from './core/rain-presentation'
-import { DEFAULT_RAIN_LOOK, loadRainLookChoice, PRE_U77_RAIN_LOOK, RAIN_ISOLINE_RATES, RAIN_LOOK_STORAGE_KEYS, rainOutlines, rainUsesStraightAlpha, type RainLook, type RainLookChoice } from './core/rain-palette'
+import { DEFAULT_RAIN_LOOK, loadRainLookChoice, PRE_U77_RAIN_LOOK, RAIN_LOOK_STORAGE_KEYS, rainIsolineClasses, rainOutlines, rainUsesStraightAlpha, type RainLook, type RainLookChoice } from './core/rain-palette'
 import { grantedStartFix, loadLastLocation, loadLastSavedPlaceId, loadMapView, resolveStartLocation, storeLastLocation, storeLastSavedPlaceId, storeMapView, type StartLocation } from './core/location-memory'
 import { attachPinNavigation, PAN_ZOOM_ONLY, PIN_EDGE_MARGIN, restrictMapGestures } from './core/pin-navigation'
 import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedPlace } from './core/saved-places'
@@ -3439,11 +3439,13 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }).catch(() => undefined)
   })
   // Legenda van de isolijnen binnen de regen (U86): alleen als die lijnen echt op de kaart staan.
-  const rainIsolineLegend = createMemo(() => {
-    const look = rainColourLook()
-    const rates = RAIN_ISOLINE_RATES[look.isolines ?? 'geen']
-    return rainOutlines(look).slice(1).map((outline, index) => ({ rate: rates[index]!, colour: `rgb(${outline.colour.join(' ')})` }))
-  })
+  const rainIsolineLegend = createMemo(() => rainIsolineClasses(rainColourLook()).map((band) => ({
+    label: band.from === undefined ? `<${band.to!.toLocaleString('nl-NL')}`
+      : band.to === undefined ? `${band.from.toLocaleString('nl-NL')}+`
+      : `${band.from.toLocaleString('nl-NL')}–${band.to.toLocaleString('nl-NL')}`,
+    fill: `rgb(${band.fill.join(' ')})`,
+    line: `rgb(${band.line.join(' ')})`,
+  })))
   const cloudTimelines = createMemo(() => Object.fromEntries(CLOUD_LAYERS.map((layer) =>
     [layer, manifest() ? buildTimeline(manifest()!, `cloud_${layer}`) : []])) as Record<CloudLayer, TimelineFrame[]>)
   const [cloudValues, setCloudValues] = createSignal<Record<CloudLayer, Array<number | null>>>({ high: [], mid: [], low: [] })
@@ -3701,7 +3703,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       </Show>
       <Show when={!stillMode && rainIsolineLegend().length > 0}>
         <aside class="rain-isoline-legend" aria-label="Isolijnen in de regen">
-          <For each={rainIsolineLegend()}>{(line) => <span><i style={{ 'border-top-color': line.colour }} />{line.rate.toLocaleString('nl-NL')}</span>}</For>
+          <For each={rainIsolineLegend()}>{(band) => <span><i style={{ background: band.fill, 'border-left-color': band.line }} />{band.label}</span>}</For>
           <small>mm/u</small>
         </aside>
       </Show>

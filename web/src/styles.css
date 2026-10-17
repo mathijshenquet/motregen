@@ -170,7 +170,7 @@ button { color: inherit; cursor: pointer; }
   pointer-events: none;
 }
 .rain-isoline-legend span { display: inline-flex; align-items: center; gap: 4px; }
-.rain-isoline-legend i { display: inline-block; width: 14px; border-top: 2px solid; }
+.rain-isoline-legend i { display: inline-block; width: 12px; height: 9px; border-left: 2px solid; border-radius: 1px; }
 .rain-isoline-legend small { color: var(--muted); font-size: 11px; }
 
 .uv-chip {

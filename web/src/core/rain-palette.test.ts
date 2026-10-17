@@ -31,7 +31,7 @@ describe('the product rain table', () => {
   }
 
   it('is the look the PO chose: violet-laat, rand (2026-10-16, was drempel-zacht), contrast floor 0', () => {
-    expect(DEFAULT_RAIN_LOOK).toEqual({ palette: 'violet-laat', blend: 'rand', theme: 'light', contrast: 0, isolines: 'kleurgrenzen' })
+    expect(DEFAULT_RAIN_LOOK).toEqual({ palette: 'violet-laat', blend: 'rand', theme: 'light', contrast: 0, isolines: 'stappen' })
     expect(rainUsesStraightAlpha(DEFAULT_RAIN_LOOK.blend)).toBe(true)
     expect(rainOutline(DEFAULT_RAIN_LOOK)).toBeDefined()
     // De tabel van drempel-zacht blijft vastgepind: die staat onder ?dev nog ter vergelijking.
@@ -195,11 +195,11 @@ describe('blend shapes', () => {
     }
   })
 
-  it('draws the boundary first, then one thinner, lighter line per isoline rate, each on half a byte', () => {
-    const outlines = rainOutlines({ ...DEFAULT_RAIN_LOOK, isolines: 'kleurgrenzen' })
-    expect(outlines).toHaveLength(1 + RAIN_ISOLINE_RATES.kleurgrenzen.length)
+  it('draws the boundary first, then one thinner but at least as strong line per isoline rate, each on half a byte', () => {
+    const outlines = rainOutlines({ ...DEFAULT_RAIN_LOOK, isolines: 'stappen' })
+    expect(outlines).toHaveLength(1 + RAIN_ISOLINE_RATES.stappen.length)
     expect(outlines.every((outline) => outline.index % 1 === 0.5)).toBe(true)
-    expect(outlines.slice(1).every((outline) => outline.strength < outlines[0]!.strength && outline.halfWidth < outlines[0]!.halfWidth)).toBe(true)
+    expect(outlines.slice(1).every((outline) => outline.strength >= outlines[0]!.strength && outline.halfWidth < outlines[0]!.halfWidth)).toBe(true)
     expect(outlines.slice(1).map((outline) => outline.index)).toEqual([...outlines.slice(1).map((outline) => outline.index)].sort((a, b) => a - b))
     expect(rainOutlines({ ...DEFAULT_RAIN_LOOK, isolines: 'geen' })).toHaveLength(1)
     expect(rainOutlines({ ...DEFAULT_RAIN_LOOK, blend: 'drempel-zacht' })).toEqual([])
@@ -286,8 +286,8 @@ describe('stored choice', () => {
   const storage = (values: Record<string, string>) => ({ getItem: (key: string) => values[key] ?? null })
 
   it('falls back to the product on a missing or unknown value', () => {
-    expect(loadRainLookChoice(storage({}))).toEqual({ palette: 'violet-laat', blend: 'rand', contrast: 0, isolines: 'kleurgrenzen' })
-    expect(loadRainLookChoice(storage({ [RAIN_LOOK_STORAGE_KEYS.palette]: 'regenboog', [RAIN_LOOK_STORAGE_KEYS.blend]: 'oplossen', [RAIN_LOOK_STORAGE_KEYS.contrast]: 'veel' }))).toEqual({ palette: 'violet-laat', blend: 'rand', contrast: 0, isolines: 'kleurgrenzen' })
+    expect(loadRainLookChoice(storage({}))).toEqual({ palette: 'violet-laat', blend: 'rand', contrast: 0, isolines: 'stappen' })
+    expect(loadRainLookChoice(storage({ [RAIN_LOOK_STORAGE_KEYS.palette]: 'regenboog', [RAIN_LOOK_STORAGE_KEYS.blend]: 'oplossen', [RAIN_LOOK_STORAGE_KEYS.contrast]: 'veel' }))).toEqual({ palette: 'violet-laat', blend: 'rand', contrast: 0, isolines: 'stappen' })
     expect(loadRainLookChoice(storage({ [RAIN_LOOK_STORAGE_KEYS.contrast]: '' })).contrast).toBe(0)
   })
 

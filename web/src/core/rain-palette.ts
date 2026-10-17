@@ -14,10 +14,12 @@ export type RainBlendName = typeof RAIN_BLENDS[number]
 
 // Isolijnen binnen de regen (proef onder ?dev › Regen, PO 2026-10-16: "zullen we nog meer mm/h isolijnen
 // toevoegen?"). kleurgrenzen: lichte regen, matige regen (2 mm/u, PO 2026-10-16; was 4, waar blauw violet wordt), waar rood begint.
-// klassen volgt de WMO-indeling licht/matig/zwaar/zeer zwaar.
-export const RAIN_ISOLINE_SETS = ['kleurgrenzen', 'klassen', 'dicht', 'geen'] as const
+// klassen volgt de WMO-indeling licht/matig/zwaar/zeer zwaar. stappen (PO 2026-10-17: "lijn 2 en 3 liggen vaak te
+// dicht op elkaar en het voelt alsof er een lijn 4 mist"): elke lijn ongeveer een factor 3 boven de vorige.
+export const RAIN_ISOLINE_SETS = ['stappen', 'kleurgrenzen', 'klassen', 'dicht', 'geen'] as const
 export type RainIsolineSetName = typeof RAIN_ISOLINE_SETS[number]
 export const RAIN_ISOLINE_RATES: Record<RainIsolineSetName, readonly number[]> = {
+  stappen: [1, 3, 10, 30],
   kleurgrenzen: [1, 2, 13],
   klassen: [2.5, 10, 50],
   dicht: [0.5, 1, 2, 5, 10, 20],
@@ -51,7 +53,7 @@ export interface RainLook {
 /** Wat de knoppen kiezen; het thema volgt de kaart. */
 export type RainLookChoice = Pick<RainLook, 'palette' | 'blend' | 'contrast' | 'isolines'>
 
-export const DEFAULT_RAIN_LOOK: RainLook = { palette: 'violet-laat', blend: 'rand', theme: 'light', contrast: DEFAULT_RAIN_CONTRAST, isolines: 'kleurgrenzen' }
+export const DEFAULT_RAIN_LOOK: RainLook = { palette: 'violet-laat', blend: 'rand', theme: 'light', contrast: DEFAULT_RAIN_CONTRAST, isolines: 'stappen' }
 
 /**
  * Het regenbeeld van vóór U77. De bot rendert hier nog mee: zijn compositor bootst de oude canvas na (α² als alfa)
@@ -386,9 +388,12 @@ export interface RainOutline {
 
 const OUTLINE_SHIFT = 0.3
 const BOUNDARY_STRENGTH = 0.55
-// Binnenlijnen lichter en dunner dan de buitenrand: ze tekenen de vorm van een bui zonder het beeld druk te maken.
-const ISOLINE_STRENGTH = 0.32
-const ISOLINE_SHIFT = 0.35
+// Binnenlijnen iets dunner dan de buitenrand maar minstens zo sterk: in violet en rood verdwenen ze tegen hun eigen
+// vulling (PO 2026-10-17: "te onopvallend vanaf isolijn 2"). Ze nemen de kleur van de klasse erboven, zodat ze
+// meekleuren met de schaal; RATE_ABOVE_LINE is het geometrische midden van een stap van een factor 3.
+const ISOLINE_STRENGTH = 0.7
+const ISOLINE_SHIFT = 0.45
+const RATE_ABOVE_LINE = Math.sqrt(3)
 
 /** De contour om het regengebied: de beginkleur, nog een stap verder van de kaart af. */
 export function rainOutline(look: RainLook): RainOutline | undefined {
@@ -405,11 +410,35 @@ export function rainOutlines(look: RainLook): RainOutline[] {
   const colormap = buildRainColormap(look)
   const isolines = RAIN_ISOLINE_RATES[look.isolines ?? 'geen'].map((rate): RainOutline => {
     const index = Math.floor(rainRateIndex(rate)) + 0.5
-    const byte = Math.round(index)
-    const colour: Rgb = [colormap[byte * 4]!, colormap[byte * 4 + 1]!, colormap[byte * 4 + 2]!]
-    return { index, colour: shiftedColour(colour, look.theme, ISOLINE_SHIFT), strength: ISOLINE_STRENGTH, halfWidth: 0.9 }
+    return { index, colour: shiftedColour(colourOfRate(colormap, rate * RATE_ABOVE_LINE), look.theme, ISOLINE_SHIFT), strength: ISOLINE_STRENGTH, halfWidth: 1 }
   })
   return [boundary, ...isolines]
+}
+
+function colourOfRate(colormap: Uint8Array, rate: number): Rgb {
+  const byte = Math.min(LAST_RAIN_INDEX, Math.round(rainRateIndex(rate)))
+  return [colormap[byte * 4]!, colormap[byte * 4 + 1]!, colormap[byte * 4 + 2]!]
+}
+
+/** De legenda als bereiken tussen de lijnen (PO 2026-10-17: "eigenlijk moeten het ranges zijn"). */
+export interface RainIsolineClass {
+  /** Ontbreekt bij de lichtste klasse: van de buitenrand tot de eerste lijn. */
+  from?: number
+  to?: number
+  fill: Rgb
+  line: Rgb
+}
+
+export function rainIsolineClasses(look: RainLook): RainIsolineClass[] {
+  const [boundary, ...outlines] = rainOutlines(look)
+  const rates = RAIN_ISOLINE_RATES[look.isolines ?? 'geen']
+  if (!boundary || rates.length === 0) return []
+  const colormap = buildRainColormap(look)
+  const lightest: RainIsolineClass = { to: rates[0], fill: colourOfRate(colormap, Math.sqrt(ONSET_RATE * rates[0]!)), line: boundary.colour }
+  return [lightest, ...rates.map((from, position) => {
+    const to = rates[position + 1]
+    return { from, to, fill: colourOfRate(colormap, to === undefined ? from * RATE_ABOVE_LINE : Math.sqrt(from * to)), line: outlines[position]!.colour }
+  })]
 }
 
 type LookStorage = Pick<Storage, 'getItem'>
