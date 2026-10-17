@@ -9,7 +9,7 @@ const shutdown = new AbortController()
 process.once('SIGTERM', () => shutdown.abort())
 globalThis.fetch = async () => { throw new Error('Unexpected network request in Rust hardening test') }
 const { StillRenderer } = await import(pathToFileURL(join(botPackage, 'lib/motregen-bot/dist/bot/render.js')))
-const { LOOP_MODES, STILL_HOURS } = await import(pathToFileURL(join(botPackage, 'lib/motregen-bot/dist/bot/stills.js')))
+const { enabledLoopModes, STILL_HOURS } = await import(pathToFileURL(join(botPackage, 'lib/motregen-bot/dist/bot/stills.js')))
 const { sequencePlan, holdFrames } = await import(pathToFileURL(join(botPackage, 'lib/motregen-bot/dist/bot/sequences.js')))
 assert.equal(process.env.MOTREGEN_RUST_RENDERER, 'weather,feels,wind')
 assert.ok(process.env.MOTREGEN_RENDER_BIN.startsWith('/nix/store/'))
@@ -30,9 +30,12 @@ console.info = (line) => { events.push(JSON.parse(line)); output(line) }
 const renderer = new StillRenderer('http://fixture.invalid', process.env.MOTREGEN_RENDER_CACHE)
 try {
   const manifest = await renderer.manifest()
-  const loops = await Promise.all(LOOP_MODES.map(({ mode }) => renderer.render({ mode, hour: 'loop' }, manifest)))
+  // Lucht (air) bestaat alleen met air in MOTREGEN_RUST_RENDERER; deze proef draait de standaardmodi.
+  const modes = enabledLoopModes()
+  assert.deepEqual(modes.map(({ mode }) => mode), ['weather', 'feels', 'wind'])
+  const loops = await Promise.all(modes.map(({ mode }) => renderer.render({ mode, hour: 'loop' }, manifest)))
   for (const [index, loop] of loops.entries()) {
-    const mode = LOOP_MODES[index].mode
+    const mode = modes[index].mode
     assert.equal(loop.backend, 'rust')
     assert.equal(loop.cached, false)
     const plan = sequencePlan(mode, manifest)
