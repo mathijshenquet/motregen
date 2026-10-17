@@ -17,7 +17,7 @@ beschrijft wat er precies wordt opgeslagen, hoe lang, en waar het rapport staat.
 
 | veld | waarden | betekenis |
 | --- | --- | --- |
-| `v` | `3` | contractversie; het rapport accepteert v2 én v3 |
+| `v` | `4` | contractversie; het rapport accepteert v2, v3 en v4 |
 | `pinFeel` | `true` of afwezig | modus gevoel vastgezet |
 | `pinWind` | `true` of afwezig | modus wind vastgezet |
 | `pinAir` | `true` of afwezig | modus lucht vastgezet |
@@ -34,6 +34,7 @@ beschrijft wat er precies wordt opgeslagen, hoe lang, en waar het rapport staat.
 | `about` | `true` of afwezig | About geopend |
 | `share` | `true` of afwezig | deel-link gedeeld of naar het klembord gekopieerd |
 | `tg` | `true` of afwezig | Telegram-webview: `window.Telegram.WebApp.initData` is niet leeg; de inhoud zelf gaat nooit mee |
+| `label` | `a–z0–9-`, 1–16 tekens, of afwezig | zelfgekozen meetlabel, alleen als iemand dat in `?dev` → Meting heeft ingesteld (MIP-35) |
 | `range` | `"3"`, `"8"`, `"24"`, `"all"`, `null` | laatst gekozen bereik; `null` = knop niet gebruikt |
 | `theme` | `"light"`, `"system"`, `"dark"` | thema |
 | `unit` | `"bft"`, `"kn"`, `"kmh"`, `"ms"` | windeenheid (U36; ontbreekt in bakens van vóór 2026-09-25) |
@@ -41,7 +42,9 @@ beschrijft wat er precies wordt opgeslagen, hoe lang, en waar het rapport staat.
 | `width` | `"<430"`, `"<960"`, `">=960"` | breedteklasse in CSS-pixels |
 | `dur` | `"<1"`, `"1-5"`, `"5-30"`, `">30"` | sessieduur in minuten, gebakken |
 
-Er zitten geen tijdstempels, coördinaten, plaatsnamen, IDs of browsergegevens in.
+Er zitten geen tijdstempels, coördinaten, plaatsnamen, IDs of browsergegevens in. De enige uitzondering is het
+opt-in meetlabel (MIP-35): wie in `?dev` → Meting een label invult, stuurt dat mee in het baken en als `&l=` in de
+sessie-aanvraag, zodat de PO zijn eigen gebruik in het dagrapport herkent. Gelabeld gebruik telt gewoon mee.
 Een nieuw veld vraagt een aanpassing hier, in `USAGE_FIELDS`, in
 `nix/usage/contract.jq` en zo nodig in de About-tekst; een veld dat iets over de
 persoon zegt, vraagt een nieuwe MIP.
@@ -62,7 +65,9 @@ Een logregel bevat uitsluitend deze velden:
 
 - `ts` is lokale tijd op de minuut afgekapt;
 - `uri` is alleen het pad, zonder querystring;
-- `hit` is de ontvangen body als tekst; alleen `/hit`-regels hebben dit veld.
+- `hit` is de ontvangen body als tekst; alleen `/hit`-regels hebben dit veld;
+- `label` is het opt-in meetlabel van een sessieregel, alleen als `l` aan `^[a-z0-9-]{1,16}$` voldoet.
+  Het dagaggregaat telt per label sessies, bakens en touch (`labels`); het dagrapport toont dat als "waarvan …".
 
 Het volledige Caddy-`request`-object (met `remote_ip`, `client_ip`, headers,
 `CF-Connecting-IP` en user-agent) wordt in de logconfig als geheel verwijderd,

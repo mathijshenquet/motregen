@@ -5,7 +5,7 @@ import { MrfClient } from './core/mrf'
 import { configurePerfMode, consumeColdProfile, installPerfMonitor } from './core/perf'
 import { cursorForPresetEpoch, parsePresets } from './core/presets'
 import { buildTimeline } from './core/time-model'
-import { sessionManifestUrls } from './core/usage'
+import { sessionManifestUrls, storedUsageLabel } from './core/usage'
 
 export const manifestUrl = new URL('/data/manifest.json', location.href)
 export const profileMode = configurePerfMode(new URL(location.href), localStorage)
@@ -13,7 +13,7 @@ export const coldProfileRequested = consumeColdProfile(localStorage)
 export const perf = installPerfMonitor()
 perf.setDetailedEnabled(profileMode)
 export const decode = decodeBudget(browserDeviceHints())
-const nextManifestUrl = sessionManifestUrls(manifestUrl)
+const nextManifestUrl = sessionManifestUrls(manifestUrl, storedUsageLabel(localStorage))
 const params = new URLSearchParams(location.search)
 const stillMode = params.get('still') === '1'
 export const initialClient = params.has('skywatch-render') ? undefined : new MrfClient(manifestUrl, perf.loads, decode)

@@ -23,6 +23,7 @@ def web_text($current; $previous; $all):
       "  sessies \($web.sessions) (7d gem. \(mean($previous; .sessions) | decimal)\(coverage($previous)))",
       "  bakens \($web.beacons) (7d gem. \(mean($previous; .beacons) | decimal))",
       "  touch \($web.dimensions.coarse.true.n // 0) · desktop \($web.dimensions.coarse.false.n // 0) (7d \(percent_text(([$previous[].dimensions.coarse.true.n // 0] | total); $previous_beacons)) touch)",
+      ($web.labels // {} | to_entries[] | "  waarvan \(.key | @html): \(.value.sessions) sessies · \(.value.beacons) bakens (touch \(.value.touch) · desktop \(.value.beacons - .value.touch))"),
       "  " + ($web.features | to_entries | map(select(.key != "tg" and .value.n > 0)) | sort_by(-.value.n, .key) | .[:3]
         | map(.key as $feature | "\($feature | feature_name | @html) \(percent_text(.value.n; $web.beacons)) (7d \(percent_text(([$previous[].features[$feature].n // 0] | total); $previous_beacons)))")
         | if length == 0 then "geen features gebruikt" else join(" · ") end),

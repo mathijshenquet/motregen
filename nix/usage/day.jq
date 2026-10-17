@@ -8,7 +8,8 @@ def dimension_value($key):
   else .[$key] end;
 
 [inputs | fromjson? | select(type == "object")] as $lines
-| ([$lines[] | select(.uri == "/data/manifest.json")] | length) as $sessions
+| [$lines[] | select(.uri == "/data/manifest.json")] as $session_lines
+| ($session_lines | length) as $sessions
 | [$lines[] | select(.uri == "/hit")] as $hits
 | [$hits[] | .hit | strings | fromjson? | select(type == "object" and usage_valid_version)] as $bodies
 | ($bodies | length) as $beacons
@@ -17,6 +18,15 @@ def dimension_value($key):
     sessions: $sessions,
     beacons: $beacons,
     rejected: (($hits | length) - $beacons),
+    # MIP-35: opt-in meetlabels; gelabeld gebruik zit ook in alle tellingen hierboven.
+    labels: ([$session_lines[].label, $bodies[].label | usage_label] | unique | map(
+      . as $label | [$bodies[] | select(.label == $label)] as $labelled
+      | {key: $label, value: {
+          sessions: ([$session_lines[] | select(.label == $label)] | length),
+          beacons: ($labelled | length),
+          touch: ([$labelled[] | select(.coarse == true)] | length)
+        }}
+    ) | from_entries),
     features: (usage_features | map(
       . as $f | ([$bodies[] | select(.[$f] == true)] | length) as $n
       | {key: $f, value: {n: $n, pct: pct($n; $beacons)}}

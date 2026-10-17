@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
-  browserUsageEnvironment, createUsageTracker, durationBucket, installUsageBeacon, sessionManifestUrls, USAGE_DURATIONS, USAGE_ENDPOINT, USAGE_FEATURES, USAGE_FIELDS,
+  browserUsageEnvironment, createUsageTracker, durationBucket, installUsageBeacon, sanitizeUsageLabel, sessionManifestUrls, storedUsageLabel, USAGE_DURATIONS, USAGE_ENDPOINT, USAGE_FEATURES, USAGE_FIELDS,
   USAGE_RANGES, USAGE_THEMES, USAGE_UNITS, USAGE_WIDTHS, widthClass, type UsageEnvironment,
 } from './usage'
 
@@ -36,7 +36,7 @@ function install(tracker: ReturnType<typeof createUsageTracker>) {
 }
 
 const allowedValues: Record<string, ReadonlyArray<unknown>> = {
-  v: [3],
+  v: [4],
   range: [null, ...USAGE_RANGES],
   theme: USAGE_THEMES,
   unit: USAGE_UNITS,
@@ -52,6 +52,7 @@ function expectWhitelisted(body: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(body)) {
     if (key in allowedValues) expect(allowedValues[key]).toContain(value)
     else if (key === 'coarse') expect(typeof value).toBe('boolean')
+    else if (key === 'label') expect(value).toMatch(/^[a-z0-9-]{1,16}$/)
     else expect(value).toBe(true)
   }
 }
@@ -67,10 +68,11 @@ describe('usage beacon body', () => {
     tracker.setRange(24)
     tracker.setTheme('dark')
     tracker.setUnit('kmh')
+    tracker.setLabel('abcdefghijklmnop')
     const body = tracker.sessionBody()
     expectWhitelisted(body)
     expect(Object.keys(body).sort()).toEqual([...USAGE_FIELDS].sort())
-    expect(JSON.stringify(body).length).toBeLessThan(320)
+    expect(JSON.stringify(body).length).toBeLessThan(360)
     for (const feature of USAGE_FEATURES) expect(body[feature]).toBe(true)
     expect(body.range).toBe('24')
     expect(body.theme).toBe('dark')
@@ -94,7 +96,7 @@ describe('usage beacon body', () => {
 
   it('marks only Telegram webviews and never includes initData', () => {
     const { env } = environment({ telegramWebView: () => true })
-    expect(createUsageTracker(env, 'light').sessionBody()).toMatchObject({ v: 3, tg: true })
+    expect(createUsageTracker(env, 'light').sessionBody()).toMatchObject({ v: 4, tg: true })
     const outside = environment({ telegramWebView: () => false })
     expect(createUsageTracker(outside.env, 'light').sessionBody()).not.toHaveProperty('tg')
   })
@@ -174,5 +176,36 @@ describe('session manifest flag', () => {
     expect(next().href).toBe(base.href)
     expect(next().href).toBe(base.href)
     expect(base.search).toBe('')
+  })
+
+  it('adds the opt-in label exactly as the early manifest request in index.html does', () => {
+    const base = new URL('https://motregen.nl/data/manifest.json')
+    expect(sessionManifestUrls(base, 'mathijs')().href).toBe('https://motregen.nl/data/manifest.json?s=1&l=mathijs')
+  })
+})
+
+describe('usage label', () => {
+  it('accepts only a short lowercase label and normalises what the user types', () => {
+    expect(sanitizeUsageLabel(' Mathijs ')).toBe('mathijs')
+    expect(sanitizeUsageLabel('ff-android')).toBe('ff-android')
+    expect(sanitizeUsageLabel('')).toBeNull()
+    expect(sanitizeUsageLabel('met spatie')).toBeNull()
+    expect(sanitizeUsageLabel('a'.repeat(17))).toBeNull()
+  })
+
+  it('reads a stored label without normalising it, so both session requests agree', () => {
+    const storage = (value: string | null) => ({ getItem: () => value })
+    expect(storedUsageLabel(storage('mathijs'))).toBe('mathijs')
+    expect(storedUsageLabel(storage('Mathijs'))).toBeNull()
+    expect(storedUsageLabel(storage(null))).toBeNull()
+    expect(storedUsageLabel({ getItem: () => { throw new Error('geblokkeerd') } })).toBeNull()
+  })
+
+  it('carries the label in the beacon only when one is set', () => {
+    const { env } = environment()
+    const tracker = createUsageTracker(env, 'light', 'bft', 'mathijs')
+    expect(tracker.sessionBody().label).toBe('mathijs')
+    tracker.setLabel(null)
+    expect(tracker.sessionBody()).not.toHaveProperty('label')
   })
 })

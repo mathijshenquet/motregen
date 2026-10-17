@@ -39,6 +39,8 @@ interface Props {
   resetNotice: boolean
   /** Exacte body van het gebruiksbaken (MIP-13): het privacycontract zichtbaar gemaakt. */
   usageBody: string
+  usageLabel: string | null
+  onUsageLabel: (text: string) => void
 }
 
 const WIND_HINTS: Record<keyof WindTuning, string> = {
@@ -189,6 +191,13 @@ export default function DevPanel(props: Props) {
       <Action label="Kopieer dagboek" hint="Zet alle luchtmetingen als JSON op het klembord." onClick={() => void copySkyDiary()} />
       <p class="dev-notice" role="status">{skyNotice()}</p>
     </Group>
+    <Group title="Meting">
+      <Control label="Meetlabel" output={props.usageLabel ?? 'geen'} hint="Optioneel label voor dit apparaat (a–z, 0–9 en -, hooguit 16 tekens), zodat je je eigen gebruik in het dagrapport herkent. Je telt gewoon mee. Leeg is geen label. De sessie telt het label vanaf het volgende bezoek; het baken meteen.">
+        <input type="text" aria-label="Meetlabel" maxLength={16} placeholder="geen" autocapitalize="off" spellcheck={false} value={props.usageLabel ?? ''}
+          onChange={(event) => props.onUsageLabel(event.currentTarget.value)} />
+      </Control>
+      <p class="dev-usage">Gebruiksbaken: <code>{props.usageBody}</code></p>
+    </Group>
     <Group title="Diagnose">
       <Control label="Perf-HUD" output={props.perfVisible ? 'Aan' : 'Uit'} toggle hint="Meetpaneel met laadtijd, fps en netwerk; ook drie tikken op het logo.">
         <input type="checkbox" checked={props.perfVisible} onChange={(event) => props.onPerfVisible(event.currentTarget.checked)} />
@@ -200,7 +209,6 @@ export default function DevPanel(props: Props) {
       <Action label="Koude start" hint="Herlaadt en neemt de eerste dertig seconden vanaf de start op." onClick={props.onColdProfile} disabled={props.profileRecording} />
       <Action label="Herhaal splash" hint="Speelt het openingslogo opnieuw af." onClick={props.onReplaySplash} />
       <Action label="Reset alle instellingen" hint="Zet alle knoppen terug; favorieten, locatie, kaartbeeld en thema blijven." onClick={props.onReset} />
-      <p class="dev-usage">Gebruiksbaken: <code>{props.usageBody}</code></p>
       <p class="dev-notice" role="status">{props.resetNotice ? 'Standaardwaarden hersteld' : ''}</p>
     </Group>
   </details>

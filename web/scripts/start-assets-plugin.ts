@@ -22,7 +22,10 @@ export function startAssets(mode: string | undefined): Plugin {
             children: `
               const startupParams = new URLSearchParams(location.search);
               if (!startupParams.has('skywatch-render') && startupParams.get('still') !== '1') {
-                const url = new URL('/data/manifest.json?s=1', location.href).href;
+                let usageLabel = null;
+                try { usageLabel = localStorage.getItem('motregen-meetlabel'); } catch {}
+                const session = /^[a-z0-9-]{1,16}$/.test(usageLabel ?? '') ? '?s=1&l=' + usageLabel : '?s=1';
+                const url = new URL('/data/manifest.json' + session, location.href).href;
                 const response = fetch(url);
                 response.catch(() => undefined);
                 window.__motregenInitialManifest = { url, response };

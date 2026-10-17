@@ -34,6 +34,7 @@ Hooguit 3–4 knoppen per groep (PO 2026-09-25); de eerste groep start open.
 | Lucht nu | strakblauw · mooie wolkenlucht · melkachtig · grijs · Mordor | tijd, klasse en gekozen locatie op 0,1° als menselijk anker voor de wolkenanalyse | U46 | na de analyse |
 | Lucht nu | Kopieer dagboek | alle lokale luchtmetingen als JSON naar het klembord | U46 | na de analyse |
 | Diagnose | Scherm en scroll | overlay met live schermhoogtes (innerHeight, visualViewport, 100dvh/svh/lvh), scrollstand, snappunt en plek van het tabelpaneel, voor een schermbeeld in een bugtoestand | U62 | zodra de adresbalkbug op Firefox Android is opgelost |
+| Meting | Meetlabel | opt-in label voor dit apparaat; sessies en bakens tellen mee en verschijnen als "waarvan …" in het dagrapport | MIP-35 | blijft (meting); "Reset alle instellingen" houdt het label |
 | Diagnose | Perf-HUD | meetpaneel aan/uit (ook: drie tikken op het logo) | T5 / U30 | blijft (diagnose) |
 | Diagnose | Opname 30 s | stacks, fasen en lange frames als Chrome Trace opnemen | U43 | blijft (diagnose) |
 | Diagnose | Koude start | herlaadt en neemt de eerste 30 s vanaf `timeOrigin` op | U43 | blijft (diagnose) |

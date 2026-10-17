@@ -139,3 +139,6 @@ bestaande Cloudflare-token alle rechten.
 
 - 2026-10-17: draft.
 - 2026-10-17: accepted; A in uitvoering, B en C als track U88.
+- 2026-10-17: aanvulling (PO: "ik wil mezelf vooral niet negeren maar wel interessant om te kunnen onderscheiden",
+  "liever op een menutje"): opt-in meetlabel in `?dev` → Meting. Baken v4 met `label`, sessie-aanvraag met `&l=`;
+  gelabeld gebruik telt mee en het dagrapport toont "waarvan <label>".

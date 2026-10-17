@@ -349,6 +349,14 @@
     session_line = json.loads(machine.succeed(f"tail -n 1 {usage_today}"))
     assert session_line["uri"] == "/data/manifest.json" and "hit" not in session_line, session_line
 
+    # MIP-35: een geldig meetlabel komt mee in de sessieregel, een ongeldig niet.
+    machine.succeed("curl --silent --fail --output /dev/null 'http://localhost/data/manifest.json?s=1&l=mathijs'")
+    machine.succeed("curl --silent --fail --output /dev/null 'http://localhost/data/manifest.json?s=1&l=Niet%20geldig'")
+    machine.wait_until_succeeds(f"test \"$(wc -l < {usage_today})\" = 4", timeout=30)
+    labelled, unlabelled = [json.loads(entry) for entry in machine.succeed(f"tail -n 2 {usage_today}").splitlines()]
+    assert labelled.get("label") == "mathijs" and set(labelled) <= {"level", "ts", "logger", "msg", "uri", "label"}, labelled
+    assert unlabelled["uri"] == "/data/manifest.json" and "label" not in unlabelled, unlabelled
+
     machine.succeed("head -c 1500 /dev/zero | tr '\\0' a > /tmp/big")
     for method_and_url, expected in [
       ("--request GET http://localhost/hit", "405"),
@@ -364,14 +372,14 @@
       )
       assert status == expected, (method_and_url, status)
     machine.succeed("sleep 2")
-    machine.succeed(f"test \"$(wc -l < {usage_today})\" = 2")
+    machine.succeed(f"test \"$(wc -l < {usage_today})\" = 4")
 
     # Een herstart van de ingest (DynamicUser, StateDirectory) mag usage/ niet overnemen.
     machine.succeed("systemctl restart motregen-ingest.service caddy.service")
     machine.wait_for_unit("caddy.service")
     machine.succeed("test \"$(stat -c %U /var/lib/motregen-usage/usage /var/lib/motregen-usage/stats | sort -u)\" = motregen-usage")
     machine.succeed(f"curl --silent --fail --data '{body}' http://localhost/hit")
-    machine.wait_until_succeeds(f"test \"$(wc -l < {usage_today})\" = 3", timeout=30)
+    machine.wait_until_succeeds(f"test \"$(wc -l < {usage_today})\" = 5", timeout=30)
 
     # Rapport: een complete fixture-dag, een verlopen dag, en vandaag (nog niet rapporteren).
     machine.succeed(

@@ -543,6 +543,9 @@ in
           @manifest path /data/manifest.json
           handle @manifest {
             log_append uri {http.request.orig_uri.path}
+            # MIP-35: een zelfgekozen meetlabel (opt-in via ?dev) gaat alleen mee als het aan het patroon voldoet.
+            @labelled expression `{http.request.uri.query.l}.matches("^[a-z0-9-]+$") && size({http.request.uri.query.l}) <= 16`
+            log_append @labelled label {http.request.uri.query.l}
             root * ${caddyDataDir}
             uri strip_prefix /data
             ${dataHeaders}

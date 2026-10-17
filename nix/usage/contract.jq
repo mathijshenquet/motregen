@@ -1,7 +1,8 @@
 # Het MIP-13-privacycontract zoals de server het leest; moet gelijk lopen met
 # USAGE_FIELDS in web/src/core/usage.ts en de veldenlijst in docs/analytics.md.
-def usage_version: 3;
-def usage_valid_version: .v == 2 or .v == usage_version;
+def usage_version: 4;
+def usage_valid_version: .v == 2 or .v == 3 or .v == usage_version;
+def usage_label: strings | select(test("^[a-z0-9-]{1,16}$"));
 def usage_features:
   ["pinFeel", "pinWind", "pinAir", "hover", "search", "geo", "fav", "pin", "play", "scrub", "clockScrub", "history", "fresh", "about", "share", "tg"];
 def usage_dimensions: {

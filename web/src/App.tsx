@@ -70,7 +70,7 @@ import { DEFAULT_WIND_TUNING, loadWindTuning, MOBILE_WIND, storeWindTuning, WIND
 import { clearTuningStorage } from './core/dev-settings'
 import { watchIdle } from './core/activity'
 import { CLOUD_LAYERS, type CloudLayer } from './core/cloud-section'
-import { browserUsageEnvironment, createUsageTracker, installUsageBeacon } from './core/usage'
+import { browserUsageEnvironment, createUsageTracker, installUsageBeacon, sanitizeUsageLabel, storedUsageLabel, USAGE_LABEL_STORAGE_KEY } from './core/usage'
 import { copyText } from './core/clipboard'
 import { resolveLocation, suggestLocations } from './core/geocoder'
 import { applyPresetUrl, cursorForPresetEpoch, modeForActiveFocus, modeForFocus, parsePresets, sharePlace, shareUrl } from './core/presets'
@@ -659,7 +659,15 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [theme, setTheme] = createSignal<ThemeChoice>(stillMode ? 'light' : props.telegram?.colorScheme ?? storedTheme())
   const [windUnit, setWindUnit] = createSignal<WindUnit>(storedWindUnit())
   const [expressive, setExpressive] = createSignal(loadExpressive())
-  const usage = createUsageTracker(browserUsageEnvironment(), theme(), windUnit())
+  const [usageLabel, setUsageLabel] = createSignal(storedUsageLabel(localStorage))
+  const usage = createUsageTracker(browserUsageEnvironment(), theme(), windUnit(), usageLabel())
+  const changeUsageLabel = (text: string) => {
+    const label = sanitizeUsageLabel(text)
+    if (label) localStorage.setItem(USAGE_LABEL_STORAGE_KEY, label)
+    else localStorage.removeItem(USAGE_LABEL_STORAGE_KEY)
+    setUsageLabel(label)
+    usage.setLabel(label)
+  }
   if (!stillMode) onCleanup(installUsageBeacon(usage, document, window))
   const [usageBody, setUsageBody] = createSignal(JSON.stringify(usage.sessionBody()))
   if (devMode) {
@@ -3736,6 +3744,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
             onReset={resetAllSettings}
             resetNotice={resetNotice()}
             usageBody={usageBody()}
+            usageLabel={usageLabel()}
+            onUsageLabel={changeUsageLabel}
           />
         </Show>
         <Freshness open={freshnessOpen()} mapEpoch={cursorMinute()} mapFrame={timeline()[cursorFrame()]} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} onOpen={pauseForFreshness} onClose={resumeAfterFreshness} onShare={shareCurrentState} shareNotice={shareNotice()}

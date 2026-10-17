@@ -38,12 +38,35 @@ export type UsageTheme = typeof USAGE_THEMES[number]
 export type UsageWidth = typeof USAGE_WIDTHS[number]
 export type UsageDuration = typeof USAGE_DURATIONS[number]
 
-/** Alleen gebruikte features staan erin (als true): een ontbrekend veld is "niet gebruikt"; ook de worst case blijft < 320 B. */
-export const USAGE_SCHEMA_VERSION = 3
+/** Alleen gebruikte features staan erin (als true): een ontbrekend veld is "niet gebruikt"; ook de worst case blijft < 360 B. */
+export const USAGE_SCHEMA_VERSION = 4
+
+/**
+ * Zelfgekozen meetlabel (MIP-35): opt-in via `?dev`, zodat de PO zijn eigen gebruik in het dagrapport herkent.
+ * Gelabeld gebruik telt gewoon mee. Het label gaat ook mee in de sessie-aanvraag (`&l=`, zie start-assets-plugin).
+ */
+export const USAGE_LABEL_STORAGE_KEY = 'motregen-meetlabel'
+const USAGE_LABEL_PATTERN = /^[a-z0-9-]{1,16}$/
+
+export function sanitizeUsageLabel(text: string): string | null {
+  const label = text.trim().toLowerCase()
+  return USAGE_LABEL_PATTERN.test(label) ? label : null
+}
+
+/** Geen normalisatie hier: de vroege manifestaanvraag in index.html moet exact dezelfde URL maken. */
+export function storedUsageLabel(storage: Pick<Storage, 'getItem'>): string | null {
+  try {
+    const label = storage.getItem(USAGE_LABEL_STORAGE_KEY)
+    return label !== null && USAGE_LABEL_PATTERN.test(label) ? label : null
+  } catch {
+    return null
+  }
+}
 
 export type UsageBody = Partial<Record<UsageFeature, true>> & {
   /** Schemaversie: ophogen bij elke wijziging van deze velden, zodat het aggregaat oude en nieuwe regels onderscheidt. */
   v: typeof USAGE_SCHEMA_VERSION
+  label?: string
   /** Laatst gekozen bereik via de bereikknop; null als die knop niet gebruikt is. */
   range: UsageRange | null
   theme: UsageTheme
@@ -54,7 +77,7 @@ export type UsageBody = Partial<Record<UsageFeature, true>> & {
   dur: UsageDuration
 }
 
-export const USAGE_FIELDS = ['v', ...USAGE_FEATURES, 'range', 'theme', 'unit', 'coarse', 'width', 'dur'] as const
+export const USAGE_FIELDS = ['v', ...USAGE_FEATURES, 'label', 'range', 'theme', 'unit', 'coarse', 'width', 'dur'] as const
 
 export interface UsageEnvironment {
   /** Milliseconden sinds het begin van het pagina-leven (performance.now). */
@@ -70,6 +93,7 @@ export interface UsageTracker {
   setRange: (hours: number | null) => void
   setTheme: (theme: UsageTheme) => void
   setUnit: (unit: WindUnit) => void
+  setLabel: (label: string | null) => void
   sessionBody: () => UsageBody
   /** Verstuurt het baken hooguit één keer per pagina-leven; true als het nu verstuurd is. */
   sendUsage: () => boolean
@@ -79,11 +103,12 @@ export interface UsageTracker {
 
 export const USAGE_ENDPOINT = '/hit'
 
-export function createUsageTracker(environment: UsageEnvironment, theme: UsageTheme, unit: WindUnit = 'bft'): UsageTracker {
+export function createUsageTracker(environment: UsageEnvironment, theme: UsageTheme, unit: WindUnit = 'bft', label: string | null = null): UsageTracker {
   const features = new Set<UsageFeature>()
   let range: UsageRange | null = null
   let currentTheme = theme
   let currentUnit = unit
+  let currentLabel = label
   let sent = false
   const tracker: UsageTracker = {
     mark(feature) {
@@ -103,12 +128,17 @@ export function createUsageTracker(environment: UsageEnvironment, theme: UsageTh
       currentUnit = next
       tracker.onChange?.()
     },
+    setLabel(next) {
+      currentLabel = next
+      tracker.onChange?.()
+    },
     sessionBody() {
       const body = Object.fromEntries(USAGE_FEATURES.filter((feature) => features.has(feature)).map((feature) => [feature, true]))
       return {
         v: USAGE_SCHEMA_VERSION,
         ...body,
         ...(environment.telegramWebView?.() ? { tg: true as const } : {}),
+        ...(currentLabel ? { label: currentLabel } : {}),
         range,
         theme: currentTheme,
         unit: currentUnit,
@@ -160,13 +190,14 @@ export function installUsageBeacon(tracker: UsageTracker, target: Pick<Document,
 }
 
 /** Sessies worden in het serverlog geteld als manifestverzoeken met `?s=1`: alleen het eerste. */
-export function sessionManifestUrls(manifestUrl: URL): () => URL {
+export function sessionManifestUrls(manifestUrl: URL, label: string | null = null): () => URL {
   let first = true
   return () => {
     if (!first) return manifestUrl
     first = false
     const url = new URL(manifestUrl)
     url.searchParams.set('s', '1')
+    if (label) url.searchParams.set('l', label)
     return url
   }
 }

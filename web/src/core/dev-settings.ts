@@ -7,6 +7,7 @@ export const PRESERVED_STORAGE_KEYS: readonly string[] = [
   'motregen-map-view',
   'motregen-expressive',
   'motregen-sky-diary',
+  'motregen-meetlabel',
 ]
 
 export const SKY_DIARY_STORAGE_KEY = 'motregen-sky-diary'
