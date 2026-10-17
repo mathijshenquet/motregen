@@ -107,8 +107,21 @@ impl OpenDataClient {
         self.downloaded.load(Ordering::Relaxed)
     }
 
-    pub fn prune_cache(&self) -> Result<()> {
-        crate::pipeline::prune_download_cache(&self.cache, Wait::from_secs(72 * 3600))
+    pub fn prune_cache(&self, published_run: DateTime<Utc>) -> Result<()> {
+        let published_directory = self.directory(published_run);
+        ensure!(
+            published_directory.is_dir(),
+            "published ECMWF run has no cache directory"
+        );
+        for entry in fs::read_dir(&self.cache)? {
+            let entry = entry?;
+            if entry.file_type()?.is_dir() && entry.path() != published_directory {
+                fs::remove_dir_all(entry.path()).with_context(|| {
+                    format!("removing ECMWF run cache {}", entry.path().display())
+                })?;
+            }
+        }
+        Ok(())
     }
 
     fn prefix(&self, run: DateTime<Utc>, probability: bool, step: u32) -> String {
@@ -458,6 +471,33 @@ pub fn decode_message(path: &Path) -> Result<Message> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cache_cleanup_keeps_only_the_published_run() {
+        let directory = tempfile::tempdir().unwrap();
+        let client = OpenDataClient::new(directory.path(), None).unwrap();
+        let run = "2026-10-17T00:00:00Z".parse().unwrap();
+        let published_directory = client.directory(run);
+        let previous_directories = [
+            client.directory(run - Duration::hours(12)),
+            client.directory(run - Duration::hours(24)),
+        ];
+        for path in previous_directories.iter().chain([&published_directory]) {
+            fs::create_dir_all(path.join("nested")).unwrap();
+            fs::write(path.join("nested/message.grib2"), b"cached message").unwrap();
+        }
+
+        assert!(client.prune_cache(run + Duration::hours(12)).is_err());
+        assert!(previous_directories.iter().all(|path| path.exists()));
+        client.prune_cache(run).unwrap();
+
+        assert_eq!(fs::read_dir(&client.cache).unwrap().count(), 1);
+        assert!(previous_directories.iter().all(|path| !path.exists()));
+        assert_eq!(
+            fs::read(published_directory.join("nested/message.grib2")).unwrap(),
+            b"cached message"
+        );
+    }
 
     #[test]
     fn rust_binding_decodes_real_ccsds_and_crops_wrapped_longitudes() {

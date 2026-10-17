@@ -22,7 +22,10 @@ GRIB2-berichten op met HTTP Range. Zowel HTTP 206, Content-Range, berichtlengte 
 GRIB2-magic/eindmarkering worden gecontroleerd. Er lopen maximaal vier verzoeken tegelijk;
 fouten krijgen vier pogingen, met 1, 2 en 4 seconden tussenruimte. Ruwe berichten en indices
 staan in `<data>/.ecmwf-cache/<YYYYMMDDTHH>/`; geldige berichten worden bij herstart hergebruikt.
-Na succesvolle publicatie worden cachebestanden ouder dan 72 uur opgeruimd. Deze cache staat
+Pas na succesvolle publicatie blijft alleen de cachemap van de net gepubliceerde run staan;
+alle andere runmappen worden meteen verwijderd. Een herstart vóór publicatie hergebruikt de
+al opgehaalde berichten. De blijvende cache kost zo ongeveer één run (circa 387 MB gemeten);
+tijdens het ophalen van de volgende run bestaan tijdelijk beide runmappen. Deze cache staat
 los van de twaalfuurscache van de KNMI-ingest.
 
 HRES: 64 stappen, elke drie uur van +3 tot +144, daarna elke zes uur van +150 tot +240.

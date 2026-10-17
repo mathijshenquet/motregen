@@ -43,7 +43,7 @@ fn main() -> Result<()> {
     let daily = ecmwf::aggregate(&client.fetch(run)?)?;
     let chunks = ecmwf::build_chunks(&daily)?;
     ecmwf::write_publication(&config.data_dir, &daily, &chunks)?;
-    if let Err(error) = client.prune_cache() {
+    if let Err(error) = client.prune_cache(run) {
         warn!(%error, "ECMWF cache pruning failed");
     }
     info!(%run, days = daily.days.len(), chunks = chunks.len(), downloaded_bytes = client.downloaded_bytes(),
