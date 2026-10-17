@@ -316,8 +316,8 @@ pub fn flow_phase(epoch: f64) -> f64 {
     (hours % lifetime + lifetime) % lifetime
 }
 
-/// Het uurvolume rond één kaarttijd: de vier lagen voor de B-spline in de tijd. `time` is de fractionele index in de
-/// wolkentijdlijn; lagen buiten de tijdlijn vallen op de rand, zoals CLAMP_TO_EDGE.
+/// Het uurvolume: per index van de wolkentijdlijn een voorbereide laag; alleen de lagen rond de getekende kaarttijden
+/// zijn gevuld. Indexen buiten de tijdlijn vallen op de rand, zoals CLAMP_TO_EDGE.
 pub struct CloudVolume<'a> {
     pub grid: &'a Grid,
     pub hours: &'a [Option<std::sync::Arc<CloudHour>>],
@@ -847,21 +847,10 @@ pub fn render_fill(
     let night = if frame.night { 1.0 } else { 0.0 };
     let uv_of = |position: f64, size: usize| ((position + 0.5) / size as f64) as f32;
     let cached = travel.map(|travel| {
-        let mut offsets = Vec::with_capacity(travel.width * travel.height);
-        for &row in &travel.rows {
-            for &column in &travel.columns {
-                let uv = [uv_of(column, grid.width), uv_of(row, grid.height)];
-                let foot_a = backtrace(volume, uv, frame_time, age_a);
-                let foot_b = backtrace(volume, uv, frame_time, age_b);
-                offsets.push([
-                    foot_a[0] - uv[0],
-                    foot_a[1] - uv[1],
-                    foot_b[0] - uv[0],
-                    foot_b[1] - uv[1],
-                ]);
-            }
-        }
-        (travel, offsets)
+        (
+            travel,
+            travel_offsets(volume, travel, frame_time, [age_a, age_b]),
+        )
     });
     let horizontal: Vec<_> = fill
         .columns
@@ -873,7 +862,7 @@ pub fn render_fill(
         .iter()
         .map(|&position| spline_taps(position, grid.height))
         .collect();
-    // Randpixels kunnen buiten het grove raster vallen: die tracet de shader direct (8 pixels marge).
+    // Randpixels kunnen buiten het grove raster vallen: die tracet de shader direct.
     let border = quality.border_pixels;
     let margin_u =
         ((fill.columns[1] - fill.columns[0]).abs() / grid.width as f64 * border as f64) as f32;
@@ -944,6 +933,45 @@ pub fn render_fill(
             });
         }
     }
+    shade(&samples, fill, quality, night)
+}
+
+/// De terugtrace van beide banken op het grove raster, als verschuiving ten opzichte van elk rasterpunt (de
+/// travel-target van de app).
+fn travel_offsets(
+    volume: &CloudVolume<'_>,
+    travel: &CloudTarget,
+    frame_time: f32,
+    ages: [f32; 2],
+) -> Vec<[f32; 4]> {
+    let grid = volume.grid;
+    let mut offsets = Vec::with_capacity(travel.width * travel.height);
+    for &row in &travel.rows {
+        for &column in &travel.columns {
+            let uv = [
+                ((column + 0.5) / grid.width as f64) as f32,
+                ((row + 0.5) / grid.height as f64) as f32,
+            ];
+            let foot_a = backtrace(volume, uv, frame_time, ages[0]);
+            let foot_b = backtrace(volume, uv, frame_time, ages[1]);
+            offsets.push([
+                foot_a[0] - uv[0],
+                foot_a[1] - uv[1],
+                foot_b[0] - uv[0],
+                foot_b[1] - uv[1],
+            ]);
+        }
+    }
+    offsets
+}
+
+/// Tweede pas: reliëf, kleur, dekking en schaduw per vulpixel, voorvermenigvuldigd naar RGBA8.
+fn shade(
+    samples: &[Option<FillSample>],
+    fill: &CloudTarget,
+    quality: CloudQuality,
+    night: f32,
+) -> Vec<u8> {
     let mut output = vec![0u8; fill.width * fill.height * 4];
     for row in 0..fill.height {
         for column in 0..fill.width {
@@ -951,7 +979,7 @@ pub fn render_fill(
                 continue;
             };
             let relief = if quality.neighbour_relief {
-                neighbour_relief(&samples, fill.width, fill.height, column, row)
+                neighbour_relief(samples, fill.width, fill.height, column, row)
             } else {
                 None
             }
