@@ -174,9 +174,10 @@ const CITY_TEMPERATURE_STEP_MS = 10 * 60_000
 
 // Temperatuurlijnen half zo zichtbaar als ISOLINE_LINE_OPACITY (0,8) (PO 2026-09-25 live, U34).
 
-// Terugglijden aan het eind van een afspeelrondje (PO 2026-09-25 live, U34).
+// Terugglijden naar het begin bij opnieuw afspelen (PO 2026-09-25 live, U34).
 const PLAYBACK_REWIND_MS = 700
-const PLAYBACK_END_HOLD_MS = 2_000
+// Binnen deze marge van het eind staat de opnieuw-knop in de grafiek.
+const PLAYBACK_END_MARGIN_MS = 60_000
 const PLAYBACK_TEMPO_HOURS = 8
 const TABLE_JUMP_RESUME_MS = 4_000
 // Zoveel px van de tabelrijen moet in beeld zijn voordat hun reeksen laden (U49): in het mobiele
@@ -1248,6 +1249,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
     if (pressureIsolines.active()) updatePressureMarks()
   }
+  const playbackAtEnd = createMemo(() => {
+    const frames = timeline()
+    if (stillMode || playing() || frames.length < 2) return false
+    const nowEpoch = manifest() ? Date.parse(manifest()!.now) : frames[0]!.epoch
+    return selectedEpoch() >= timelineHorizonEnd(frames, nowEpoch, timeHorizonHours()) - PLAYBACK_END_MARGIN_MS
+  })
   createEffect(() => {
     // Speelregel (MIP-19 §De lat): spelen zodra het cursorframe en het volgende er zijn. De oude
     // regel wachtte op laadfase "window" van de puntreeks.
@@ -1262,11 +1269,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const playbackRate = timelinePlaybackRate(frames, nowEpoch, PLAYBACK_TEMPO_HOURS)
     let previous = performance.now()
     let firstPlaybackTick = true
-    // Aan het eind van een rondje glijdt de tijdlijn terug naar het begin i.p.v. in één frame te springen:
+    // Opnieuw afspelen vanaf het eind glijdt de tijdlijn terug naar het begin i.p.v. in één frame te springen:
     // in de schuivende scrubber (U34) oogde die sprong als "de tijdlijn springt telkens terug".
     let rewind: { from: number; startedAt: number } | undefined
-    // Aan het eind even stilstaan voordat het terugglijdt (PO 2026-09-25 live).
-    let holdUntil: number | undefined
     let waiting: { frame: number; since: number } | undefined
     const framePresent = (index: number) => client.hasFrame(frames[index]!.chunk, frames[index]!.frameIndex)
     let active = true
@@ -1302,11 +1307,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       // Vier ms speling voor de vsync-fase: op 60 Hz precies elke tweede vsync.
       if (elapsed < 1_000 / PLAYBACK_MAX_FPS - 4) return
       previous = now
-      if (holdUntil !== undefined) {
-        if (now < holdUntil) return
-        holdUntil = undefined
-        rewind = { from: timelineEpochAtCursor(frames, cursor()), startedAt: now }
-      }
       if (rewind) {
         const progress = Math.min(1, (now - rewind.startedAt) / PLAYBACK_REWIND_MS)
         const eased = progress < 0.5 ? 2 * progress ** 2 : 1 - (2 - 2 * progress) ** 2 / 2
@@ -1315,14 +1315,14 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         return
       }
       const epoch = timelineEpochAtCursor(frames, cursor())
-      // Voorbij de afspeelhorizon (daar neergezet en daarna hervat): terugglijden naar het begin en
-      // verder spelen, nooit voorgoed stilstaan — er is geen afspeelknop (PO 2026-09-25 live).
+      // Afspelen vanaf het eind (de opnieuw-knop, of daar neergezet en hervat): eerst terug naar het begin.
       if (!(epoch < lastEpoch)) { rewind = { from: epoch, startedAt: now }; return }
       // De eerste tik haalt tijd besteed aan kaartopzet niet in als een cursorsprong.
       const playbackElapsed = firstPlaybackTick ? Math.min(elapsed, 1_000 / PLAYBACK_MAX_FPS) : elapsed
       const nextEpoch = epoch + playbackElapsed * playbackRate
       if (!Number.isFinite(nextEpoch) || nextEpoch >= lastEpoch) {
-        renderPlaybackCursor(timelineCursorAtEpoch(frames, lastEpoch), () => { holdUntil = performance.now() + PLAYBACK_END_HOLD_MS })
+        // Aan het eind stoppen in plaats van terugspoelen; de grafiek toont dan een opnieuw-knop (PO 2026-10-17).
+        renderPlaybackCursor(timelineCursorAtEpoch(frames, lastEpoch), () => setPlaying(false))
         return
       }
       let nextCursor = timelineCursorAtEpoch(frames, nextEpoch)
@@ -3716,6 +3716,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           onCursor={scrub}
           onIntent={completeOnIntent}
           onPlaying={setPlayingFromScrubber}
+          onReplay={playbackAtEnd() ? () => setPlaying(true) : undefined}
           // Een compositor-glide loopt tijdens lange hoofddraadtaken door terwijl de regencanvas stilstaat.
           glideRate={0}
           onPlayPressed={() => usage.mark('play')}

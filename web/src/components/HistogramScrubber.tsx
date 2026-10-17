@@ -27,6 +27,8 @@ interface Props {
   loadStage?: 'initial' | 'direct' | 'window' | 'complete'
   locationLabel: string
   onCursor: (cursor: number) => void
+  /** Afspelen stond aan het eind stil: de grafiek toont een opnieuw-knop (PO 2026-10-17). */
+  onReplay?: () => void
   onIntent?: () => void
   onPlaying: (playing: boolean) => void
   /** Alleen een expliciete afspeelkeuze, niet het hervatten na slepen. */
@@ -788,6 +790,11 @@ export default function HistogramScrubber(props: Props) {
           </div>
         </div>
         {/* Terug naar nu zodra de nu-lijn uit beeld is, op 2/3 van de hoogte: in de lucht, boven de balken (PO 2026-10-17). */}
+        <Show when={props.onReplay}>{(replay) =>
+          <button type="button" class="replay" aria-label="Opnieuw afspelen" onPointerDown={(event) => event.stopPropagation()} onClick={() => replay()()}>
+            <span aria-hidden="true">↻</span> Opnieuw
+          </button>
+        }</Show>
         <Show when={nowSide()}>{(side) =>
           <button type="button" class="now-jump" classList={{ right: side() === 'right' }} aria-label="Naar nu"
             onPointerDown={(event) => event.stopPropagation()} onClick={() => scrollToEpoch(nowEpoch())}>

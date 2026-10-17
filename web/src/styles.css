@@ -621,8 +621,11 @@ button { color: inherit; cursor: pointer; }
 .chart-plot::after { position: absolute; inset: 0; z-index: 1; border-block: 1px solid var(--line-strong); content: ''; pointer-events: none; }
 .chart-plot svg { position: absolute; top: 0; left: 0; overflow: visible; }
 /* Terug naar nu (PO 2026-10-17): pil aan de zijkant, op 2/3 van de hoogte vanaf onder. */
-.now-jump { position: absolute; z-index: 6; bottom: calc(200% / 3); left: 0; padding: 4px 10px 4px 8px; border: 0; border-radius: 0 999px 999px 0; color: var(--accent); background: color-mix(in srgb, var(--surface-raised) 90%, transparent); box-shadow: 0 1px 4px rgb(0 0 0 / .18); font-size: 12px; font-weight: 720; cursor: pointer; transform: translateY(50%); }
+/* In de kleuren van de cursorlabels: volgt dag en nacht in de grafiek (PO 2026-10-17). */
+.now-jump { position: absolute; z-index: 6; bottom: calc(200% / 3); left: 0; padding: 4px 10px 4px 8px; border: 0; border-radius: 0 999px 999px 0; color: var(--cursor-ink); background: color-mix(in srgb, var(--cursor-surface) 88%, transparent); box-shadow: 0 1px 4px rgb(0 0 0 / .18); font-size: 12px; font-weight: 720; cursor: pointer; transform: translateY(50%); }
 .now-jump.right { right: 0; left: auto; padding: 4px 8px 4px 10px; border-radius: 999px 0 0 999px; }
+.replay { position: absolute; z-index: 6; top: 50%; left: 50%; display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border: 0; border-radius: 999px; color: var(--cursor-ink); background: color-mix(in srgb, var(--cursor-surface) 90%, transparent); box-shadow: 0 1px 6px rgb(0 0 0 / .22); font-size: 13px; font-weight: 720; cursor: pointer; transform: translate(-50%, -50%); }
+.replay span { font-size: 16px; line-height: 1; }
 .past-shade { position: absolute; top: 0; bottom: 0; left: 0; background: color-mix(in srgb, var(--text) 4%, transparent); pointer-events: none; }
 .rain-guide { stroke: color-mix(in srgb, var(--line-strong) 70%, transparent); stroke-dasharray: 2 4; stroke-width: 1; }
 .rain-baseline { stroke: var(--line-strong); stroke-width: 1; }
