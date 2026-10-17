@@ -967,6 +967,45 @@ td small { color: var(--muted); font-size: 9px; }
 .wind-reading small { margin-left: 1px; }
 .wind-arrow { flex: none; color: var(--accent); }
 
+/* Komende dagen (U91): één regel per dag onder de urentabel, met dezelfde kolomtaal; overdag-hemel per dag naar
+   de bewolking, zoals de dagrijen van de tabel. */
+.day-list { padding-top: 22px; }
+.day-list-title { margin: 0; padding: 0 var(--panel-inset, 16px) 8px; box-shadow: inset 0 -1px 0 var(--line-strong); color: var(--muted); font-size: 12px; font-weight: 700; }
+.day-list ol { margin: 0; padding: 0; list-style: none; font-variant-numeric: tabular-nums; }
+.day-row {
+  display: grid;
+  grid-template-columns: 58px 44px 34px minmax(0, 1fr) 56px;
+  align-items: center;
+  column-gap: 8px;
+  min-height: 52px;
+  padding: 4px 8px 4px var(--panel-inset, 16px);
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.day-name { font-weight: 700; white-space: nowrap; text-transform: capitalize; }
+.day-weather { display: flex; flex-direction: column; align-items: center; }
+.day-icon-placeholder { color: var(--muted); }
+.day-chance { color: var(--muted); font-size: 11px; font-weight: 650; text-align: center; }
+.day-chance.likely { color: var(--accent); font-weight: 720; }
+.day-temperatures { display: grid; grid-template-columns: 28px minmax(0, 1fr) 30px; align-items: center; column-gap: 6px; }
+.day-min { color: var(--muted); font-size: 12px; font-weight: 600; text-align: right; }
+.day-max { font-size: 16px; font-weight: 720; letter-spacing: -.03em; }
+.day-bar { position: relative; height: 5px; border-radius: 999px; background: color-mix(in srgb, var(--muted) 22%, transparent); }
+.day-bar i { position: absolute; top: 0; bottom: 0; min-width: 5px; border-radius: inherit; }
+.day-wind { font-size: 11px; justify-self: end; }
+.pending-day { color: var(--muted); }
+.day-list.day-night-list .day-row {
+  --surface: #fff; --text: #102630; --muted: #637b85; --accent: #1688ad; --accent-soft: #d9f1f8;
+  --row-ground: color-mix(in oklab, color-mix(in oklab, var(--table-day-dull) calc(var(--day-overcast) * 74%), var(--table-day-bright)) 44%, var(--surface));
+  --line: color-mix(in oklab, #000 6%, var(--row-ground));
+  color: var(--text);
+  background: var(--row-ground);
+}
+:root[data-theme="dark"] .day-list.day-night-list .day-row .weather-icon .weather-cloud { fill: #e7eef1; stroke: #8399a3; }
+@media (max-width: 430px) {
+  .day-row { grid-template-columns: 62px 38px 30px minmax(0, 1fr) 48px; column-gap: 5px; padding-right: 6px; }
+}
+
 /* Aanraakdoel ≥ 44 px: kleine knoppen krijgen een onzichtbare rand i.p.v. een groter uiterlijk. */
 @media (pointer: coarse) {
   .round-action { height: 44px; min-width: 44px; }

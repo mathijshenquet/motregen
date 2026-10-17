@@ -15,12 +15,13 @@ import type { IsolineCounters } from './core/perf'
 import UvBar, { uvBarLabel } from './components/UvBar'
 import { loadBasemapStyle, temperatureLayerBeforeId, type MapTheme } from './core/basemap'
 import { createMapStart, mapStartSource } from './core/map-start'
-import { chunkField, type Grid, type Manifest, type ManifestChunk, type MrfHeader, type TimelineFrame } from './core/contract'
+import { chunkField, type EcmwfDayField, type Grid, type Manifest, type ManifestChunk, type MrfHeader, type TimelineFrame } from './core/contract'
 import { DayNightLayer } from './core/day-night-layer'
 
 const PerfHud = lazy(() => import('./components/PerfHud'))
 const ViewportDiagnose = lazy(() => import('./components/ViewportDiagnose'))
 const ForecastTable = lazy(() => import('./components/ForecastTable'))
+const DayList = lazy(() => import('./components/DayList'))
 const DevPanel = lazy(() => import('./components/DevPanel'))
 
 const DAY_NIGHT_ENABLED = false
@@ -40,7 +41,8 @@ import { constrainView, containView, containZoom, MAP_CONTAIN_BOUNDS, type Viewp
 import { mapFrameFromGrid, NETHERLANDS_FLANDERS_BOUNDS } from './core/map-frame'
 import { basemapBlendTargets, blendedPaintValue, mapNightStep, nightShare, type BlendTarget } from './core/basemap-blend'
 import { MrfClient, type MotionField } from './core/mrf'
-import { pointValue, projectPoint as project } from './core/point-value'
+import { pointValue, pointValueBilinear, projectPoint as project } from './core/point-value'
+import { buildDayList, ecmwfDayChunks, type EcmwfPointValues, type Sample } from './core/days'
 import { rainBetween, rainPatch, type RainPatch } from './core/rain-point-detail'
 import { selectPairMotion } from './core/motion-selection'
 import { findCataloguePlace, isInPlaceZone, loadPlaces, namedCataloguePlace, nearestPlace, places, rememberPlace, rememberSearchedPlace } from './core/places'
@@ -139,7 +141,8 @@ function isolineSet(config: IsolineSetConfig): IsolineSet {
 
 /** Luchtdruk laadt pas bij de eerste windfocus (U35): ook zijn headers horen niet in de cold start. */
 function eagerHeader(chunk: ManifestChunk): boolean {
-  return chunkField(chunk) !== 'pressure_hpa'
+  // De dagenlijst laadt zijn ECMWF-chunks pas als hij in beeld komt (U91).
+  return chunkField(chunk) !== 'pressure_hpa' && chunk.source !== 'ecmwf'
 }
 
 interface PointLoadState {
@@ -3187,6 +3190,54 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
 
   const manifestNow = () => manifest() ? Date.parse(manifest()!.now) : 0
+
+  // Komende dagen (U91, MIP-36): vandaag en morgen uit de HARMONIE-puntreeksen, daarna de ECMWF-dagvelden.
+  // Beide laden pas als de lijst bijna in beeld is, buiten het kritieke pad.
+  const [dayListNear, setDayListNear] = createSignal(false)
+  const [ecmwfPoint, setEcmwfPoint] = createSignal<{ key: string; values: EcmwfPointValues }>()
+  const ecmwfChunks = createMemo(() => manifest() ? ecmwfDayChunks(manifest()!) : new Map<EcmwfDayField, ManifestChunk>())
+  const ecmwfKey = () => {
+    const section = manifest()?.ecmwf
+    return section && ecmwfChunks().size ? `${section.run} ${location().lng} ${location().lat}` : undefined
+  }
+  createEffect(() => {
+    const key = ecmwfKey()
+    if (!dayListNear() || !key || untrack(ecmwfPoint)?.key === key) return
+    const chunks = ecmwfChunks()
+    const [x, y] = project(location().lng, location().lat)
+    void Promise.all([...chunks].map(async ([field, chunk]) => {
+      try {
+        const header = await client.getHeader(chunk)
+        const frames = await client.getFrames(chunk, chunk.times.map((_, index) => index), 'low', undefined, 'L2')
+        // Richting in graden mengt niet: 359° en 1° zouden 180° worden.
+        const sample = field === 'day_wind_dir' ? pointValue : pointValueBilinear
+        return [field, frames.map((decoded) => sample(header, decoded, x, y))] as const
+      } catch {
+        return [field, []] as const
+      }
+    })).then((entries) => {
+      if (ecmwfKey() === key) setEcmwfPoint({ key, values: Object.fromEntries(entries) })
+    })
+  })
+  createEffect(() => {
+    if (dayListNear() && pointLoadStage() !== 'complete') untrack(() => { void completePointSeries(pointLoad, 'low', 'L2', 'dagenlijst') })
+  })
+  const dayRows = createMemo(() => {
+    const section = manifest()?.ecmwf
+    const point = ecmwfPoint()
+    const samples = (frames: Array<{ epoch: number }>, values: Array<number | null>): Sample[] =>
+      frames.map((frame, index) => ({ epoch: frame.epoch, value: values[index] ?? null }))
+    const hourly = pointLoadStage() === 'complete' ? {
+      temperature: samples(tempTimeline(), temperatureSeries()),
+      rain: samples(timeline(), rainSeries()),
+      cloud: samples(cloudTimeline(), cloudSeries()),
+      windU: samples(windUFrames(), windUSeries()),
+      windV: samples(windVFrames(), windVSeries()),
+      gust: samples(gustTimeline(), gustSeries()),
+    } : undefined
+    const ecmwf = section && ecmwfChunks().size ? { section, values: point && point.key === ecmwfKey() ? point.values : undefined } : undefined
+    return buildDayList(manifestNow(), hourly, ecmwf)
+  })
   const forecast = createMemo(() => measurePerfPhase('table-render', () => buildHourlyForecast({
     rain: timeline(),
     uv: uvTimeline(),
@@ -3768,6 +3819,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
                 focusMode.set(mode, source, active)
               } }}
             />
+            <Show when={manifest()}>
+              <DayList rows={dayRows()} windUnit={windUnit()} dayNight={expressive()} onNear={() => setDayListNear(true)} />
+            </Show>
           </div>
         </section>
       </aside>

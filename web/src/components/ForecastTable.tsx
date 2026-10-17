@@ -4,10 +4,11 @@ import { hourDarkness, type HourSky, type HourlyForecastRow } from '../core/fore
 import { moonHorizonAngle, moonLitPath, moonPhase } from '../core/moon'
 import { isSunUp, solarElevationSin, sunEvents, type SunEvent } from '../core/solar'
 import { dailyClearSkyUvMax, uvReading } from '../core/uv'
-import { deriveWeatherIcon, summarizeWind, WIND_UNIT_LABELS, type WindSummary, type WindUnit } from '../core/weather'
-import { ArrowUp, BUTTON_ICON, Clock, CloudRain, CloudSun, Table2, Thermometer, Wind } from './icons'
+import { deriveWeatherIcon, summarizeWind, type WindUnit } from '../core/weather'
+import { BUTTON_ICON, Clock, CloudRain, CloudSun, Table2, Thermometer, Wind } from './icons'
 import UvBar from './UvBar'
 import WeatherIcon from './WeatherIcon'
+import WindReading from './WindReading'
 import { measurePerfPhase } from '../core/perf'
 import { formatTime, formatWeekdayShort } from '../core/locale'
 import { sameFields } from '../core/stable'
@@ -424,22 +425,6 @@ export default function ForecastTable(props: Props) {
     }}</For>
     </tbody>
   </table>
-}
-
-// De pijl wijst waar de wind heen waait, zoals de deeltjes op de kaart; de letters blijven in de titel.
-function WindReading(props: { summary: WindSummary }) {
-  const unit = () => WIND_UNIT_LABELS[props.summary.unit]
-  const label = () => `Wind uit ${props.summary.direction}, ${props.summary.value} ${unit()}` +
-    (props.summary.gust == null ? '' : `, windstoten tot ${props.summary.gust} ${unit()}`)
-  // Pijl en hoofdwaarde, daaronder kleiner en lichter de vlaag met windicoon (PO 2026-09-25 live).
-  return <span class="wind-reading" role="img" aria-label={label()} title={label()}>
-    <ArrowUp class="wind-arrow" size={15} strokeWidth={2.25} style={{ transform: `rotate(${(props.summary.fromDegrees + 180) % 360}deg)` }} aria-hidden="true" />
-    <span class="wind-main"><b>{props.summary.value}</b><small class="wind-unit">{unit()}</small></span>
-    <Show when={props.summary.gust}>{(gust) => <>
-      <Wind class="wind-gust-icon" size={12} strokeWidth={2.25} aria-hidden="true" />
-      <small class="wind-gust">{gust()} {unit()}</small>
-    </>}</Show>
-  </span>
 }
 
 function MoonReading(props: { epoch: number; longitude: number; latitude: number }) {

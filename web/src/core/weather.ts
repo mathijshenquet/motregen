@@ -21,6 +21,25 @@ export function deriveWeatherIcon(rainRate: number | null, cloudFraction: number
   return { condition: 'overcast', period, label: 'Zwaar bewolkt', dense: true }
 }
 
+// Dagicoon (U91): regen vanaf 0,5 mm per dag, de grens waarop de lijst ook een hoeveelheid toont; zware regen
+// vanaf 10 mm. Altijd het dagicoon.
+const DAY_RAIN_MM = 0.5
+const DAY_HEAVY_RAIN_MM = 10
+
+export function deriveDayIcon(precipMm: number | null, cloudFraction: number | null): WeatherIconModel | null {
+  if (precipMm == null || cloudFraction == null) return null
+  if (precipMm >= DAY_HEAVY_RAIN_MM) return { condition: 'heavy-rain', period: 'day', label: 'Veel regen' }
+  if (precipMm >= DAY_RAIN_MM) return { condition: 'rain', period: 'day', label: 'Regen' }
+  return deriveWeatherIcon(0, cloudFraction, true)
+}
+
+/** Windsamenvatting uit snelheid en meteorologische richting, zoals `summarizeWind` die uit u/v maakt. */
+export function summarizeWindFrom(speed: number | null, fromDegrees: number | null, gust: number | null = null, unit: WindUnit = 'bft'): WindSummary | null {
+  if (speed == null || fromDegrees == null) return null
+  const radians = fromDegrees * Math.PI / 180
+  return summarizeWind(-speed * Math.sin(radians), -speed * Math.cos(radians), gust, unit)
+}
+
 const beaufortLimits = [0.3, 1.6, 3.4, 5.5, 8, 10.8, 13.9, 17.2, 20.8, 24.5, 28.5, 32.7]
 const directions = ['N', 'NO', 'O', 'ZO', 'Z', 'ZW', 'W', 'NW'] as const
 
