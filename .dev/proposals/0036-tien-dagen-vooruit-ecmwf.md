@@ -1,6 +1,6 @@
 # MIP-36 — Tien dagen vooruit met ECMWF open data
 
-Status: draft · auteur: Claude (orkestrator), 2026-10-17 · PO-opdracht: "bouw maar met die open eu bron dan"
+Status: accepted (PO 2026-10-17) · auteur: Claude (orkestrator), 2026-10-17 · PO-opdracht: "bouw maar met die open eu bron dan"
 
 ## 1. Het probleem
 
@@ -100,4 +100,21 @@ open data (CC BY 4.0), door motregen omgerekend naar dagwaarden."
 
 ## Besluit
 
-(open: A1, B1 en het werkplan wachten op de PO)
+PO, 17 oktober 2026, aangenomen met een andere weergave dan A1:
+
+1. **Bron en server (C) zoals voorgesteld**, met één aanvulling (U90b): ECMWF wordt behalve als dagwaarden ook per
+   tijdstap gepubliceerd (`step_*` plus `ecmwf.steps`, 3-uurlijks tot +144 u, daarna 6-uurlijks), zodat de client
+   willekeurige vensters kan aggregeren.
+2. **Weergave: geen aparte lijst, maar een glijdende urentabel** (PO: "die tabel naadloos laten overgaan in de
+   langetermijnvoorspelling … progressief meer uren aggregeren … tot je alleen dag+nacht overhoudt"). Eerst uren, dan
+   blokken van 3 uur, dan dagdelen, dan dag (06–18) en nacht (18–06) tot dag 10. De urentabel wordt daardoor korter.
+   De lijst "Komende dagen" (A1) blijft tot 2026-11-01 als `?dev`-optie.
+3. **Bron per rij (B1)**: HARMONIE als die het venster volledig dekt, anders ECMWF. Regenkans alleen op dagrijen.
+4. **Vorm**:
+   - de dag staat in de rij, zonder losse dagkoppen;
+   - bij een nachtrij staat de laagste temperatuur groot, bij een dagrij de hoogste;
+   - neerslag wordt gedempt bij minder dan 30 % kans;
+   - geen gloed per rij, wel precies één zonsondergang- en één zonsopgangmarkering per nacht;
+   - het dag/nacht-contrast is zachter, met een smalle en een brede variant ter keuze achter `?dev`.
+5. ECMWF komt in het versheidspaneel.
+6. **Uitrol** (de vlag `ecmwfInManifest` op prod en twee downloads per dag) bespreken we later apart.
