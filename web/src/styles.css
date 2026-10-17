@@ -805,17 +805,17 @@ button.column-mode { width: 100%; cursor: pointer; }
 .rain-amount { color: var(--accent); font-size: 11px; font-weight: 720; line-height: 1.1; }
 .rain-amount small { font-size: 8.5px; font-weight: 600; }
 .time-label span { color: var(--muted); font-size: 10px; text-transform: capitalize; }
-.forecast-table.day-night-table tr.night-hour { --surface: #0a1820; --surface-soft: #112832; --text: #edf8fc; --muted: #91aab5; --row-ground: var(--surface); --line-strong: var(--line-strong-on-dark); --accent: #48c4e9; --accent-soft: #123b49; color: var(--text); }
+.forecast-table.day-night-table tr.night-hour { --surface: var(--table-night, #0a1820); --surface-soft: var(--table-night-soft, #112832); --text: #edf8fc; --muted: var(--table-night-muted, #91aab5); --row-ground: var(--surface); --line-strong: var(--line-strong-on-dark); --accent: var(--table-night-accent, #48c4e9); --accent-soft: var(--table-night-accent-soft, #123b49); color: var(--text); }
 .forecast-table.day-night-table tr.night-hour td { background: var(--surface); }
-.forecast-table.day-night-table tr.night-hour .weather-icon .weather-cloud { fill: #607780; stroke: #adc2ca; }
+.forecast-table.day-night-table tr.night-hour .weather-icon .weather-cloud { fill: var(--table-night-cloud, #607780); stroke: var(--table-night-cloud-edge, #adc2ca); }
 .forecast-table.day-night-table tr.night-hour .weather-moon { fill: #cbddeb; }
 .forecast-table.day-night-table tr.night-hour .moon-night-core { stop-color: #2c3a41; }
 .forecast-table.day-night-table tr.night-hour .moon-night-edge { stop-color: #1b262c; }
 .forecast-table.day-night-table tr.night-hour .moon-earthshine { opacity: .25; }
 :root[data-theme="dark"] .forecast-table.day-night-table tr.day-hour { --surface: #fff; --surface-soft: #f2f7f8; --text: #102630; --muted: #637b85; --line-strong: var(--line-strong-on-light); --accent: #1688ad; --accent-soft: #d9f1f8; color: var(--text); }
 .forecast-table.day-night-table tr.day-hour {
-  --day-sky-start: color-mix(in oklab, color-mix(in oklab, var(--table-day-dull) calc(var(--day-overcast) * 74%), var(--table-day-bright)) 44%, var(--surface));
-  --day-sky-end: color-mix(in oklab, color-mix(in oklab, var(--table-day-dull) calc(var(--day-overcast-next) * 74%), var(--table-day-bright)) 44%, var(--surface));
+  --day-sky-start: color-mix(in oklab, color-mix(in oklab, var(--table-day-dull) calc(var(--day-overcast) * 74%), var(--table-day-bright)) var(--table-day-mix, 44%), var(--surface));
+  --day-sky-end: color-mix(in oklab, color-mix(in oklab, var(--table-day-dull) calc(var(--day-overcast-next) * 74%), var(--table-day-bright)) var(--table-day-mix, 44%), var(--surface));
   background:
     radial-gradient(ellipse 82% 95% at 76% 115%, color-mix(in srgb, #fff8df 12%, transparent), transparent 72%),
     linear-gradient(180deg, var(--day-sky-start), var(--day-sky-end));
@@ -906,7 +906,7 @@ td small { color: var(--muted); font-size: 9px; }
   background:
     radial-gradient(ellipse 48% 95% at 48% 118%, rgba(255, 171, 82, .58), transparent 66%),
     radial-gradient(ellipse 72% 78% at 94% 116%, rgba(226, 64, 105, .38), transparent 70%),
-    linear-gradient(180deg, var(--surface) 18%, #31182c 100%);
+    linear-gradient(180deg, var(--surface) 18%, var(--twilight-dawn, #31182c) 100%);
 }
 .forecast-table.day-night-table tr:is(.before-sunset, .before-sunrise) td { background: transparent; }
 /* Geen eigen randen: de kleurstrook is zelf de scheiding. Een (doorschijnende) rand op deze cel wordt over
@@ -930,7 +930,7 @@ td small { color: var(--muted); font-size: 9px; }
   background:
     radial-gradient(ellipse 54% 105% at 48% -15%, rgba(237, 91, 83, .56), rgba(119, 43, 92, .28) 40%, transparent 74%),
     radial-gradient(ellipse 72% 95% at 96% -18%, rgba(91, 47, 120, .32), transparent 67%),
-    linear-gradient(180deg, #1c1725 0%, var(--surface) 82%);
+    linear-gradient(180deg, var(--twilight-dusk, #1c1725) 0%, var(--surface) 82%);
 }
 .forecast-table.day-night-table tr.sunrise-row + tr.day-hour {
   background:
@@ -969,6 +969,137 @@ td small { color: var(--muted); font-size: 9px; }
 .wind-reading b { font-size: 13px; font-weight: 700; }
 .wind-reading small { margin-left: 1px; }
 .wind-arrow { flex: none; color: var(--accent); }
+
+/* Dag/nacht-contrast (U91b, PO 2026-10-17 "te veel contrast"): zachter voor de grove dagdelen en dag/nacht-rijen
+   (smal) of voor de hele tabel (breed). Licht thema: de nacht wordt schemerblauw, de dag minder verzadigd. Donker
+   thema: de tabel blijft donker; de dag wordt donker hemelblauw in plaats van licht. Tekstcontrast nagerekend:
+   licht-nacht #3d5868 met tekst 6,9:1, gedempt 4,9:1, accent 4,9:1; donker-dag ≥ 8:1, gedempt ≥ 5:1. */
+.forecast-panel[data-contrast="breed"],
+.forecast-panel[data-contrast="smal"] .forecast-table tr.span-row:not([data-grain="3h"]) {
+  --table-night: #3d5868;
+  --table-night-soft: #46636f;
+  --table-night-muted: #c3d4dc;
+  --table-night-accent: #8fdcf5;
+  --table-night-accent-soft: #2f5262;
+  --table-night-cloud: #8aa1ad;
+  --table-night-cloud-edge: #d6e2e7;
+  --table-night-seam: 30%;
+  --table-day-mix: 30%;
+  --twilight-dusk: color-mix(in oklab, #a05578 38%, #3d5868);
+  --twilight-dawn: color-mix(in oklab, #a8607a 40%, #3d5868);
+}
+:root[data-theme="dark"] .forecast-panel[data-contrast="breed"],
+:root[data-theme="dark"] .forecast-panel[data-contrast="smal"] .forecast-table tr.span-row:not([data-grain="3h"]) {
+  --table-night: #0a1820;
+  --table-night-soft: #112832;
+  --table-night-muted: #91aab5;
+  --table-night-accent: #48c4e9;
+  --table-night-accent-soft: #123b49;
+  --table-night-cloud: #607780;
+  --table-night-cloud-edge: #adc2ca;
+  --table-night-seam: 55%;
+  --table-day-mix: 24%;
+  --table-day-base: #14303d;
+  --twilight-dusk: #1c1725;
+  --twilight-dawn: #31182c;
+}
+:root[data-theme="dark"] .forecast-panel[data-contrast="breed"] .forecast-table.day-night-table tr.day-hour,
+:root[data-theme="dark"] .forecast-panel[data-contrast="smal"] .forecast-table.day-night-table tr.span-row.day-hour:not([data-grain="3h"]) {
+  --surface: #14303d; --surface-soft: #1b3a48; --text: #edf8fc; --muted: #a9bfca; --line-strong: var(--line-strong-on-dark); --accent: #8fdcf5; --accent-soft: #1d4656; color: var(--text);
+}
+:root[data-theme="dark"] .forecast-panel[data-contrast="breed"] .forecast-table.day-night-table tr.day-hour .weather-icon .weather-cloud,
+:root[data-theme="dark"] .forecast-panel[data-contrast="smal"] .forecast-table.day-night-table tr.span-row.day-hour:not([data-grain="3h"]) .weather-icon .weather-cloud { fill: #9fb4be; stroke: #d6e2e7; }
+
+/* Nacht zonder donkere rijen (U91b, PO 2026-10-17): de rijen blijven neutraal, zoals met Expressief uit, en één
+   aanvullend teken zegt dag of nacht. */
+/* Rail: een strook in de luchtkleur van het moment in de linkergoot, doorlopend over alle rijen en zonbanden. */
+.forecast-table[data-night-cue="rail"] :is(td.time-cell, tr.sun-row > td) { position: relative; }
+.forecast-table[data-night-cue="rail"] :is(td.time-cell, tr.sun-row > td)::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: -1px;
+  left: calc(var(--panel-inset, 16px) - 11px);
+  width: 5px;
+  background: var(--rail);
+}
+.forecast-table[data-night-cue="rail"] tr.day-start > td.time-cell::before { top: -2px; }
+/* Symbool: een maantje voor de weekdag en een nauwelijks koelere nachtrij. */
+.night-mark { display: inline-block; margin-right: 3px; vertical-align: -1px; color: var(--accent); }
+.forecast-table[data-night-cue="symbool"] tr.night-hour:not(.sun-row) > td { background: color-mix(in srgb, #5b74a8 6%, var(--surface)); }
+/* Sterren: spaarzame puntjes in nachtrijen, zonder dat de rij donkerder wordt. Twee tegels van ongelijke maat
+   (onderling ondeelbaar) zodat er geen zichtbaar raster ontstaat. */
+.forecast-table[data-night-cue="sterren"] { --star: rgba(70, 92, 140, .34); }
+:root[data-theme="dark"] .forecast-table[data-night-cue="sterren"] { --star: rgba(214, 230, 255, .42); }
+.forecast-table[data-night-cue="sterren"] tr.night-hour:not(.sun-row) {
+  background-image:
+    radial-gradient(circle at 23px 9px, var(--star) 0 .7px, transparent 1.3px),
+    radial-gradient(circle at 151px 41px, var(--star) 0 .6px, transparent 1.2px),
+    radial-gradient(circle at 88px 17px, var(--star) 0 .8px, transparent 1.4px);
+  background-size: 233px 61px, 233px 61px, 307px 47px;
+}
+
+/* Glijdende tabel (U91b): grove rijen dragen hun dag zelf; een dagwissel krijgt een iets donkerdere lijn in de
+   kleur van de rij zelf, nooit een strook in paneelkleur (PO 2026-10-17). */
+.forecast-table tr.day-start > td { border-top: 2px solid var(--line-strong); }
+.forecast-table.day-night-table tr.day-hour.day-start > td { border-top-color: color-mix(in oklab, #000 16%, var(--day-sky-start)); }
+/* Na een zonband is de band zelf de scheiding; een lijn zou er dubbel onder liggen. */
+.forecast-table tr.sun-row + tr.day-start > td { border-top-width: 0; }
+.forecast-table.day-night-table tr.night-hour.day-start > td { border-top-color: color-mix(in oklab, #000 var(--table-night-seam, 55%), var(--surface)); }
+.forecast-table tr.beyond-timeline { cursor: default; }
+.forecast-table tr.span-row .time-label:not(button) { cursor: default; }
+.rain-chance { color: var(--accent); font-size: 10px; font-weight: 650; line-height: 1.1; }
+.rain-amount.unlikely { color: var(--muted); font-weight: 600; }
+/* Het balkje staat onder het grote getal; het kleine getal aan zijn kant van de schaal: minimum links, maximum rechts. */
+.span-temperature-range { display: grid; grid-template-columns: 1fr 32px 1fr; align-items: center; column-gap: 4px; margin-top: 2px; }
+.span-temperature-range .span-temperature-bar { grid-column: 2; grid-row: 1; }
+.span-temperature-range .span-other { display: inline; grid-column: 3; grid-row: 1; justify-self: start; }
+.span-temperature-range.other-is-low .span-other { grid-column: 1; justify-self: end; }
+.span-temperature-bar { position: relative; width: 32px; height: 4px; border-radius: 999px; background: color-mix(in srgb, var(--muted) 22%, transparent); }
+.span-temperature-bar i { position: absolute; top: 0; bottom: 0; min-width: 4px; border-radius: inherit; }
+.cloud-reading { display: inline-flex; align-items: center; gap: 5px; }
+.cloud-reading-track { position: relative; width: 34px; height: 5px; border-radius: 999px; background: color-mix(in srgb, var(--muted) 18%, transparent); }
+.cloud-reading-fill { position: absolute; top: 0; bottom: 0; left: 0; min-width: 5px; border-radius: inherit; background: color-mix(in srgb, var(--muted) 70%, transparent); }
+.cloud-reading-value { color: var(--muted); font-size: 11px; font-weight: 650; }
+
+/* Komende dagen (U91): één regel per dag onder de urentabel, met dezelfde kolomtaal; overdag-hemel per dag naar
+   de bewolking, zoals de dagrijen van de tabel. */
+.day-list { padding-top: 22px; }
+.day-list-title { margin: 0; padding: 0 var(--panel-inset, 16px) 8px; box-shadow: inset 0 -1px 0 var(--line-strong); color: var(--muted); font-size: 12px; font-weight: 700; }
+.day-list ol { margin: 0; padding: 0; list-style: none; font-variant-numeric: tabular-nums; }
+.day-row {
+  display: grid;
+  grid-template-columns: 58px 44px 34px minmax(0, 1fr) 56px;
+  align-items: center;
+  column-gap: 8px;
+  min-height: 52px;
+  padding: 4px 8px 4px var(--panel-inset, 16px);
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.day-name { font-weight: 700; white-space: nowrap; text-transform: capitalize; }
+.day-weather { display: flex; flex-direction: column; align-items: center; }
+.day-icon-placeholder { color: var(--muted); }
+.day-chance { color: var(--muted); font-size: 11px; font-weight: 650; text-align: center; }
+.day-chance.likely { color: var(--accent); font-weight: 720; }
+.day-temperatures { display: grid; grid-template-columns: 28px minmax(0, 1fr) 30px; align-items: center; column-gap: 6px; }
+.day-min { color: var(--muted); font-size: 12px; font-weight: 600; text-align: right; }
+.day-max { font-size: 16px; font-weight: 720; letter-spacing: -.03em; }
+.day-bar { position: relative; height: 5px; border-radius: 999px; background: color-mix(in srgb, var(--muted) 22%, transparent); }
+.day-bar i { position: absolute; top: 0; bottom: 0; min-width: 5px; border-radius: inherit; }
+.day-wind { font-size: 11px; justify-self: end; }
+.pending-day { color: var(--muted); }
+.day-list.day-night-list .day-row {
+  --surface: #fff; --text: #102630; --muted: #637b85; --accent: #1688ad; --accent-soft: #d9f1f8;
+  --row-ground: color-mix(in oklab, color-mix(in oklab, var(--table-day-dull) calc(var(--day-overcast) * 74%), var(--table-day-bright)) var(--table-day-mix, 44%), var(--surface));
+  --line: color-mix(in oklab, #000 6%, var(--row-ground));
+  color: var(--text);
+  background: var(--row-ground);
+}
+:root[data-theme="dark"] .day-list.day-night-list .day-row .weather-icon .weather-cloud { fill: #e7eef1; stroke: #8399a3; }
+@media (max-width: 430px) {
+  .day-row { grid-template-columns: 62px 38px 30px minmax(0, 1fr) 48px; column-gap: 5px; padding-right: 6px; }
+}
 
 /* Aanraakdoel ≥ 44 px: kleine knoppen krijgen een onzichtbare rand i.p.v. een groter uiterlijk. */
 @media (pointer: coarse) {
@@ -1081,7 +1212,7 @@ td small { color: var(--muted); font-size: 9px; }
   color: var(--text);
 }
 .map-shell.sky-day :is(.map-clock, .search, .map-brand) {
-  --day-sky: color-mix(in oklab, color-mix(in oklab, var(--table-day-dull) calc(var(--day-overcast) * 74%), var(--table-day-bright)) 44%, #fff);
+  --day-sky: color-mix(in oklab, color-mix(in oklab, var(--table-day-dull) calc(var(--day-overcast) * 74%), var(--table-day-bright)) var(--table-day-mix, 44%), #fff);
   --surface: var(--day-sky); --surface-soft: color-mix(in oklab, var(--day-sky) 82%, #fff); --surface-raised: var(--day-sky);
   --text: #102630; --muted: #3a525c; --accent: #0b607e; --accent-soft: #d9f1f8; --line: var(--line-on-light); --line-strong: var(--line-strong-on-light);
   color: var(--text);
@@ -1271,12 +1402,12 @@ td small { color: var(--muted); font-size: 9px; }
      terug), dan staat daar de kleur van de koppenrij en niet de onderkant van de scrubber. Alleen zolang het
      paneel het scherm dekt; bij het terugscrollen naar de kaart mag de scrubber niet afgedekt blijven. */
   .table-covers-viewport .forecast-panel::before { position: absolute; top: -120px; right: 0; left: 0; z-index: 6; height: 120px; background: var(--surface); content: ''; pointer-events: none; }
-  .table-covers-viewport .forecast-panel.head-night::before { background: #0a1820; }
-  .table-covers-viewport .forecast-panel.head-day::before { background: color-mix(in oklab, var(--table-day-bright) 44%, #fff); }
+  .table-covers-viewport .forecast-panel.head-night::before { background: var(--table-night, #0a1820); }
+  .table-covers-viewport .forecast-panel.head-day::before { background: color-mix(in oklab, var(--table-day-bright) var(--table-day-mix, 44%), var(--table-day-base, #fff)); }
   /* Tabelachtergrond volgt de bovenste zichtbare rij: een subpixel-naad tussen koppenrij en eerste rij toont dan
      rijkleur in plaats van wit (PO 2026-10-09). */
-  .forecast-panel.head-night .forecast-table { background: #0a1820; }
-  .forecast-panel.head-day .forecast-table { background: color-mix(in oklab, var(--table-day-bright) 44%, #fff); }
+  .forecast-panel.head-night .forecast-table { background: var(--table-night, #0a1820); }
+  .forecast-panel.head-day .forecast-table { background: color-mix(in oklab, var(--table-day-bright) var(--table-day-mix, 44%), var(--table-day-base, #fff)); }
   /* Het verlengde stuk van het paneel valt achter de adresbalk: de laatste rijen moeten erboven uit kunnen komen. */
   .forecast-panel .table-scroll { scroll-padding-bottom: var(--table-panel-shortfall, 0px); padding-bottom: var(--table-panel-shortfall, 0px); }
 }

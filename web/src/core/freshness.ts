@@ -38,6 +38,8 @@ const SOURCE_ROWS: Array<Omit<SourceFreshness, 'epoch'>> = [
   { source: 'seamless', label: 'Blend', kind: 'run', cadence: 'elk kwartier', provider: 'KNMI seamless', explanation: 'Nowcast die overloopt in het weermodel, 6 uur vooruit', cadenceMs: 15 * MINUTE, delayMs: 15 * MINUTE },
   { source: 'harmonie', label: 'HARMONIE', kind: 'run', cadence: 'elke 3 uur', provider: 'KNMI HARMONIE-AROME', explanation: 'Weermodel voor regen, wind en temperatuur, 60 uur vooruit', cadenceMs: 180 * MINUTE, delayMs: 120 * MINUTE },
   { source: 'uv', label: 'UV', kind: 'run', cadence: 'elk kwartier', provider: 'KNMI UV-index', explanation: 'Zonkracht met en zonder wolken', cadenceMs: 15 * MINUTE, delayMs: 0 },
+  // Runs 00 en 12 UTC; de ingest-timer draait om 08:15/20:15 UTC, ruim na de ENS-kansen van 08:01/20:01 (docs/ecmwf.md).
+  { source: 'ecmwf', label: 'ECMWF', kind: 'run', cadence: 'elke 12 uur', provider: 'ECMWF IFS (open data)', explanation: 'Europees weermodel voor de dagen na HARMONIE, tien dagen vooruit', cadenceMs: 720 * MINUTE, delayMs: 500 * MINUTE },
 ]
 
 /** Wanneer de volgende meting/run ongeveer binnenkomt. */

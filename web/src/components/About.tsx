@@ -57,7 +57,7 @@ export default function About(props: AboutProps) {
     <button ref={trigger} type="button" class="map-brand round-action" aria-haspopup="dialog" aria-label={aboutLabel} title={aboutLabel} onClick={tapBrand}>
       <img src="/droplet.svg" alt="" />
     </button>
-    <div class="source">{props.sourcePrefix}<span>Bron: KNMI · © OpenStreetMap</span></div>
+    <div class="source">{props.sourcePrefix}<span>Bron: KNMI · ECMWF · © OpenStreetMap</span></div>
     <Show when={opened()}><AboutDialog {...props} onClose={() => { setOpened(false); trigger.focus() }} /></Show>
   </>
 }

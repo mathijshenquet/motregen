@@ -1,5 +1,7 @@
-export type Source = 'rtcor' | 'nowcast' | 'seamless' | 'harmonie' | 'uv'
-export type Field = 'rain_rate' | 'radiation' | 'temp_c' | 'feels_like_c' | 'wind_u_ms' | 'wind_v_ms' | 'uv' | 'uv_clear' | 'rel_humidity' | 'cloud_frac' | 'pressure_hpa' | 'gust_ms' | 'cloud_low' | 'cloud_mid' | 'cloud_high'
+export type Source = 'rtcor' | 'nowcast' | 'seamless' | 'harmonie' | 'uv' | 'ecmwf'
+export type Field = 'rain_rate' | 'radiation' | 'temp_c' | 'feels_like_c' | 'wind_u_ms' | 'wind_v_ms' | 'uv' | 'uv_clear' | 'rel_humidity' | 'cloud_frac' | 'pressure_hpa' | 'gust_ms' | 'cloud_low' | 'cloud_mid' | 'cloud_high' | EcmwfDayField | EcmwfStepField
+export type EcmwfStepField = 'step_tmax_c' | 'step_tmin_c' | 'step_precip_mm' | 'step_gust_ms' | 'step_temp_c' | 'step_wind_u_ms' | 'step_wind_v_ms' | 'step_cloud'
+export type EcmwfDayField = 'day_tmax_c' | 'day_tmin_c' | 'day_precip_mm' | 'day_precip_prob' | 'day_precip_prob5' | 'day_wind_ms' | 'day_wind_dir' | 'day_gust_ms' | 'day_cloud'
 
 export interface Grid {
   crs: 'EPSG:3857'
@@ -25,6 +27,31 @@ export interface Manifest {
   generated: string
   now: string
   chunks: ManifestChunk[]
+  ecmwf?: EcmwfSection
+}
+
+/**
+ * Dagverwachting (MIP-36): frame i van elke `day_*`-chunk hoort bij `days[i]`, frame i van elke `step_*`-chunk
+ * bij `steps[i]` (U90b; de frametijd is het einde van de stap).
+ */
+export interface EcmwfSection {
+  run: string
+  license: string
+  days: EcmwfDay[]
+  steps?: EcmwfStep[]
+}
+
+/** UTC-interval van één modelstap: begin inclusief, einde exclusief. */
+export interface EcmwfStep {
+  start: string
+  end: string
+}
+
+/** Lokale kalenderdag (Europe/Amsterdam) als ISO-datum, met UTC-grenzen: begin inclusief, einde exclusief. */
+export interface EcmwfDay {
+  date: string
+  start: string
+  end: string
 }
 
 export interface FrameIndex {

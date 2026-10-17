@@ -2,4 +2,4 @@
 title: Tien dagen vooruit
 kind: nieuw
 ---
-Bij je gekozen plaats zie je het weer voor de komende tien dagen, met minimum- en maximumtemperatuur, neerslag, regenkans en wind. De dagen verder vooruit komen uit de Europese ECMWF-verwachting.
+De tabel bij je plek loopt nu tien dagen vooruit. Eerst per uur, daarna per drie uur, per dagdeel en ten slotte per dag en nacht, met temperatuur, neerslag en wind. De eerste dagen komen uit de KNMI-verwachting, de dagen daarna uit de Europese ECMWF-verwachting.

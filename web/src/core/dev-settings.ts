@@ -10,6 +10,17 @@ export const PRESERVED_STORAGE_KEYS: readonly string[] = [
   'motregen-meetlabel',
 ]
 
+/** ?dev-keuze Dag/nacht-contrast van de tabel (U91b, vervalt 2026-11-01). */
+export const TABLE_CONTRASTS = ['rail', 'symbool', 'sterren', 'breed', 'smal', 'sterk'] as const
+export type TableContrast = typeof TABLE_CONTRASTS[number]
+/** Waarden die nacht niet met donkere rijen tonen maar met één aanvullend teken; de rijen blijven neutraal. */
+export const NIGHT_CUES = ['rail', 'symbool', 'sterren'] as const
+export type NightCue = typeof NIGHT_CUES[number]
+
+export function nightCue(contrast: TableContrast): NightCue | undefined {
+  return NIGHT_CUES.find((cue) => cue === contrast)
+}
+
 export const SKY_DIARY_STORAGE_KEY = 'motregen-sky-diary'
 export const SKY_DIARY_CLASSES = ['strakblauw', 'mooie wolkenlucht', 'melkachtig', 'grijs', 'Mordor'] as const
 export type SkyDiaryClass = typeof SKY_DIARY_CLASSES[number]

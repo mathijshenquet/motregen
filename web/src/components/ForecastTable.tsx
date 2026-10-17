@@ -4,12 +4,18 @@ import { hourDarkness, type HourSky, type HourlyForecastRow } from '../core/fore
 import { moonHorizonAngle, moonLitPath, moonPhase } from '../core/moon'
 import { isSunUp, solarElevationSin, sunEvents, type SunEvent } from '../core/solar'
 import { dailyClearSkyUvMax, uvReading } from '../core/uv'
-import { deriveWeatherIcon, summarizeWind, WIND_UNIT_LABELS, type WindSummary, type WindUnit } from '../core/weather'
-import { ArrowUp, BUTTON_ICON, Clock, CloudRain, CloudSun, Table2, Thermometer, Wind } from './icons'
+import { deriveSpanIcon, deriveWeatherIcon, summarizeWind, summarizeWindFrom, UNLIKELY_RAIN_PERCENT, type WindUnit } from '../core/weather'
+import type { SlotRow } from '../core/ladder'
+import { BUTTON_ICON, Clock, CloudRain, CloudSun, Moon, Table2, Thermometer, Wind } from './icons'
 import UvBar from './UvBar'
+import { skyRailGradient } from '../core/sky-rail'
+import type { NightCue } from '../core/dev-settings'
+import { CALM_BAR_STOPS, cssRgb, paletteColor } from '../core/temperature-palette'
 import WeatherIcon from './WeatherIcon'
+import WindReading from './WindReading'
 import { measurePerfPhase } from '../core/perf'
-import { formatTime, formatWeekdayShort } from '../core/locale'
+import { formatNumber, formatTime, formatWeekdayDay, formatWeekdayShort } from '../core/locale'
+import { localMinutes, localTime } from '../core/days'
 import { sameFields } from '../core/stable'
 
 export interface ForecastSeries {
@@ -28,6 +34,14 @@ export interface ForecastSeries {
 interface Props {
   onMountTable?: (element: HTMLTableElement) => void
   rows: HourlyForecastRow[]
+  /** Grove rijen na het uurdeel (U91b): 3 u, dagdeel, dag/nacht. */
+  longRange?: SlotRow[]
+  /** Rijen die later beginnen liggen voorbij de tijdlijn: klikken laat de cursor dan niet springen. */
+  timelineEnd?: number
+  /** Zonband bij elke zonsop- en ondergang (de oude uurtabel); anders alleen de eerstvolgende van elk (U91b). */
+  allSunEvents?: boolean
+  /** Nacht zonder donkere rijen (U91b): lucht-rail links, maantje bij het label, of sterretjes in de nachtrijen. */
+  nightCue?: NightCue
   series: ForecastSeries
   location: { lng: number; lat: number }
   columns: { weather: boolean; air: boolean; temperature: boolean; wind: boolean }
@@ -66,6 +80,8 @@ const HOVER_LEAVE_MS = 80
 // De piep volgt de cursor met een vloeiende scroll; rijen die daarbij alleen langsschuiven tellen niet als
 // zichtbaar en worden dus niet gedecodeerd.
 const SHOWN_ROWS_REST_MS = 200
+// sunEvents verfijnt tot op een seconde; twee aanroepen met een ander begin vinden hetzelfde moment.
+const SUN_MATCH_MS = 60_000
 
 export default function ForecastTable(props: Props) {
   const tableMemo = <T,>(name: string, compute: () => T) => createMemo(() => measurePerfPhase('table-render', compute, { memo: name }))
@@ -116,11 +132,20 @@ export default function ForecastTable(props: Props) {
     onFocus={(event) => { if (event.currentTarget.matches(':focus-visible')) props.focus.onFocus(heading.mode, 'keyboard', true) }}
     onBlur={() => props.focus.onFocus(heading.mode, 'keyboard', false)}
   ><ColumnLabel icon={heading.icon} text={heading.label} /></button>
+  // In de glijdende tabel precies één "Zon op" en één "Zon onder": de eerstvolgende vanaf het nu-uur (PO 2026-10-17).
+  const nextSun = tableMemo('volgende-zon', () => {
+    const now = props.rows.find((row) => row.kind === 'now')?.epoch
+    if (now === undefined) return []
+    const events = sunEvents(now, now + 48 * hour, props.location.lng, props.location.lat)
+    return (['rise', 'set'] as const).flatMap((kind) => events.find((event) => event.kind === kind) ?? [])
+  })
+  const shownSun = (event: SunEvent) => props.allSunEvents === true ||
+    nextSun().some((next) => next.kind === event.kind && Math.abs(next.epoch - event.epoch) < SUN_MATCH_MS)
   const sun = tableMemo('zonmomenten', () => {
     const first = props.rows[0]
     const last = props.rows.at(-1)
     if (!first || !last) return new Map<number, SunEvent>()
-    const events = sunEvents(first.epoch, last.epoch + hour, props.location.lng, props.location.lat)
+    const events = sunEvents(first.epoch, last.epoch + hour, props.location.lng, props.location.lat).filter(shownSun)
     return new Map(events.map((event) => [Math.floor(event.epoch / hour) * hour, event]))
   })
   const elevation = (epoch: number) => solarElevationSin(epoch, props.location.lng, props.location.lat)
@@ -181,11 +206,15 @@ export default function ForecastTable(props: Props) {
   const observer = typeof IntersectionObserver === 'undefined' ? undefined : new IntersectionObserver((entries) => {
     if (entries.some((entry) => entry.isIntersecting)) props.onNeedRows()
   }, { rootMargin: '0px 0px 320px 0px' })
+  // Grove rijen hebben de volledige puntreeks en de ECMWF-velden nodig: in de buurt komen vraagt erom.
+  const spanElements = new Map<number, HTMLTableRowElement>()
   createEffect(() => {
     const until = props.loadedUntil
     void props.rows
+    void props.longRange
     observer?.disconnect()
     for (const [epoch, element] of rowElements) if (epoch > until) observer?.observe(element)
+    for (const element of spanElements.values()) observer?.observe(element)
   })
   const rowEpochs = new WeakMap<Element, number>()
   const shownEpochs = new Set<number>()
@@ -260,9 +289,38 @@ export default function ForecastTable(props: Props) {
     window.clearTimeout(shownTimer)
   })
 
+  // Dag of nacht van een grove rij volgt het midden van zijn venster. Zonbanden alleen tussen 3-uursrijen, waar
+  // de rijen kloktijden zijn; dagdelen en dag/nacht dragen hun naam al.
+  const spans = tableMemo('grove-rijen', () => {
+    const rows = props.longRange ?? []
+    const daylight = rows.map((row) => isSunUp((row.slot.start + row.slot.end) / 2, props.location.lng, props.location.lat))
+    // De zonband staat waar de rijkleur wisselt, met het echte moment uit de twee rijen eromheen. Het venster van twee
+    // rijen kan beide bevatten; de wissel kiest welke.
+    return rows.map((row, index) => {
+      const previous = rows[index - 1]
+      const sunBefore = previous && daylight[index - 1] !== daylight[index]
+        ? sunEvents(previous.slot.start, row.slot.end, props.location.lng, props.location.lat).find((event) => event.kind === (daylight[index] ? 'rise' : 'set') && shownSun(event))
+        : undefined
+      return { row, daylight: daylight[index]!, sunBefore }
+    })
+  })
+  // Eén temperatuurschaal over alle grove rijen, zodat de balkjes het verloop over de dagen laten zien.
+  const spanScale = tableMemo('grove-schaal', () => {
+    const shown = (props.longRange ?? []).flatMap((row) => {
+      const values = row.values
+      const high = values?.feelsMax ?? values?.tmax
+      const low = values?.feelsMin ?? values?.tmin
+      return high == null || low == null ? [] : [low, high]
+    })
+    if (!shown.length) return undefined
+    const low = Math.floor(Math.min(...shown))
+    return { low, span: Math.max(1, Math.ceil(Math.max(...shown)) - low) }
+  })
   const columnCount = () => 1 + Number(props.columns.weather) + Number(props.columns.air) + Number(props.columns.temperature) + Number(props.columns.wind)
 
-  return <table ref={tableElement} class="forecast-table" classList={{ 'day-night-table': props.dayNight !== false }} data-mode={props.focus.pinned} data-hover={hovered()}>
+  const rail = (start: number, end: number) => props.nightCue === 'rail' ? skyRailGradient(start, end, props.location.lng, props.location.lat) : undefined
+  const NightMark = (mark: { night: boolean }) => <Show when={props.nightCue === 'symbool' && mark.night}><Moon class="night-mark" size={10} strokeWidth={2.4} aria-label="nacht" /></Show>
+  return <table ref={tableElement} class="forecast-table" classList={{ 'day-night-table': props.dayNight !== false }} data-mode={props.focus.pinned} data-hover={hovered()} data-night-cue={props.nightCue}>
     <thead><tr
       classList={{ 'sky-head': !!headSky(), 'day-hour': headSky()?.daylight === true, 'night-hour': headSky()?.daylight === false }}
       style={headSky() ? { '--day-overcast': headSky()!.overcast.toFixed(2), '--day-overcast-next': headSky()!.overcast.toFixed(2) } : undefined}
@@ -342,6 +400,7 @@ export default function ForecastTable(props: Props) {
           style={{
             '--day-overcast': dayDarkness().toFixed(3),
             '--day-overcast-next': nextDayDarkness().toFixed(3),
+            '--rail': rail(row.epoch, row.epoch + hour),
           }}
           ref={(element) => {
             rowElements.set(row.epoch, element)
@@ -361,6 +420,7 @@ export default function ForecastTable(props: Props) {
             'day-hour': daylight(),
             'night-hour': !daylight(),
             'current-hour': row.kind === 'now',
+            'day-start': localMinutes(row.epoch) === 0,
             'past-hour': row.kind === 'past',
             'pending-hour': pending(),
             'before-sun-row': !!sunEvent(),
@@ -381,7 +441,7 @@ export default function ForecastTable(props: Props) {
               }}
             >
               <strong>{time(row.epoch)}</strong>
-              <span classList={{ 'now-label': row.kind === 'now' }}>{row.kind === 'now' ? 'Nu' : formatWeekdayShort(row.epoch)}</span>
+              <span classList={{ 'now-label': row.kind === 'now' }}><NightMark night={!daylight()} />{row.kind === 'now' ? 'Nu' : formatWeekdayShort(row.epoch)}</span>
             </button>
           </td>
           <Show when={props.columns.weather}>
@@ -416,29 +476,147 @@ export default function ForecastTable(props: Props) {
           </tr>
         </Show>
         <Show when={sunEvent()}>{(event) =>
-          <tr class="sun-row" classList={{ 'past-hour': row.kind === 'past', 'sunrise-row': event().kind === 'rise', 'sunset-row': event().kind === 'set' }}>
+          <tr class="sun-row" classList={{ 'past-hour': row.kind === 'past', 'sunrise-row': event().kind === 'rise', 'sunset-row': event().kind === 'set' }} style={{ '--rail': rail(row.epoch + hour, row.epoch + hour) }}>
             <td colSpan={columnCount()}><SunGlyph />{sunLabel(event())}</td>
           </tr>
         }</Show>
+      </>
+    }}</For>
+    <For each={spans()}>{(span) => {
+      const row = span.row
+      const values = () => row.values
+      const placeholder = () => values() ? '—' : '…'
+      const hours = (row.slot.end - row.slot.start) / hour
+      const icon = createMemo(() => deriveSpanIcon(values()?.precipMm ?? null, values()?.cloud ?? null, span.daylight, hours))
+      const rainAmount = () => {
+        const amount = values()?.precipMm
+        return amount == null || amount < 0.1 ? undefined : formatNumber(amount, amount < 10 ? 1 : 0)
+      }
+      const chance = () => {
+        const probability = values()?.precipProb
+        return probability == null ? undefined : Math.round(probability / 10) * 10 || undefined
+      }
+      // Weinig kans (< 30 %) bij een hoeveelheid uit de hoofdrun: de mm gedempt (PO 2026-10-17).
+      const unlikely = () => (values()?.precipProb ?? 100) < UNLIKELY_RAIN_PERCENT
+      const wind = createMemo(() => summarizeWindFrom(values()?.windMs ?? null, values()?.windFromDegrees ?? null, values()?.gustMs ?? null, props.windUnit), undefined, { equals: sameFields })
+      const degrees = (reading: number | null | undefined) => reading == null ? placeholder() : `${Math.round(reading)}°`
+      // De kolom heet Gevoel: waar HARMONIE de gevoelstemperatuur heeft, die; daarna de luchttemperatuur van ECMWF.
+      // Een nacht toont de laagste groot, de rest de hoogste (PO 2026-10-17).
+      const feels = () => values()?.feelsMax != null
+      const high = () => feels() ? values()!.feelsMax : values()?.tmax
+      const low = () => feels() ? values()!.feelsMin : values()?.tmin
+      const night = row.slot.label === 'Nacht'
+      const main = () => night ? low() : high()
+      const other = () => night ? high() : low()
+      // Een venster van één temperatuur, of zonder waarden, krijgt geen tweede regel.
+      const showOther = () => other() != null && Math.round(other()!) !== Math.round(main() ?? Number.NaN)
+      const bar = () => {
+        const scale = spanScale()
+        const top = high()
+        const bottom = low()
+        if (!scale || top == null || bottom == null) return undefined
+        return {
+          left: `${(bottom - scale.low) / scale.span * 100}%`,
+          width: `${Math.max(0, top - bottom) / scale.span * 100}%`,
+          'background-image': `linear-gradient(90deg, ${cssRgb(paletteColor(bottom, CALM_BAR_STOPS))}, ${cssRgb(paletteColor(top, CALM_BAR_STOPS))})`,
+        }
+      }
+      // De dag waarop het venster begint: een nacht 18–06 hoort bij die avond, net als de dagwissellijn.
+      const weekday = (row.slot.grain === '3h' ? formatWeekdayShort : formatWeekdayDay)(localTime(row.slot.date, 12))
+      const selectable = row.slot.start <= (props.timelineEnd ?? Number.NEGATIVE_INFINITY)
+      const overcast = () => ((values()?.cloud ?? 50) / 100 * 0.75).toFixed(3)
+      rowSkies.set(row.slot.start, () => ({ daylight: span.daylight, overcast: 0 }))
+      setRowSkiesVersion((version) => version + 1)
+      onCleanup(() => rowSkies.delete(row.slot.start))
+      const selectSpan = () => { if (selectable) props.onSelectTime?.(row.slot.start) }
+      return <>
+        <Show when={span.sunBefore}>{(event) =>
+          <tr class="sun-row" classList={{ 'sunrise-row': event().kind === 'rise', 'sunset-row': event().kind === 'set' }} style={{ '--rail': rail(row.slot.start, row.slot.start) }}>
+            <td colSpan={columnCount()}><SunGlyph />{`${event().kind === 'rise' ? 'Zon op' : 'Zon onder'} ${formatTime(event().epoch)}`}</td>
+          </tr>
+        }</Show>
+        <tr
+          data-epoch={row.slot.start}
+          data-end={row.slot.end}
+          data-grain={row.slot.grain}
+          data-source={row.source}
+          style={{ '--day-overcast': overcast(), '--day-overcast-next': overcast(), '--rail': rail(row.slot.start, row.slot.end) }}
+          ref={(element) => {
+            spanElements.set(row.slot.start, element)
+            rowEpochs.set(element, row.slot.start)
+            headObserver?.observe(element)
+            observer?.observe(element)
+            onCleanup(() => {
+              spanElements.delete(row.slot.start)
+              headObserver?.unobserve(element)
+              observer?.unobserve(element)
+              rowShares.delete(row.slot.start)
+            })
+          }}
+          classList={{
+            'span-row': true,
+            'day-hour': span.daylight,
+            'night-hour': !span.daylight,
+            'pending-hour': !values(),
+            'beyond-timeline': !selectable,
+            'day-start': row.dayStart === true,
+          }}
+          onClick={selectSpan}
+        >
+          <td class="time-cell">
+            <Show when={selectable} fallback={<span class="time-label" title={row.slot.range || undefined}><strong>{row.slot.label}</strong><span><NightMark night={!span.daylight} />{weekday}</span></span>}>
+              <button
+                type="button"
+                class="time-label"
+                title={props.mobileTableOpen ? 'Toon dit moment op de kaart' : 'Naar dit moment in de grafiek'}
+                onClick={(event) => {
+                  event.stopPropagation()
+                  selectSpan()
+                  if (props.mobileTableOpen) props.onSelectMobileMode?.()
+                }}
+              ><strong>{row.slot.label}</strong><span><NightMark night={!span.daylight} />{weekday}</span></button>
+            </Show>
+          </td>
+          <Show when={props.columns.weather}>
+            <td class="weather-cell" {...columnHover('weather')}>
+              <div class="weather-glyph">
+                <Show when={icon()} fallback={<span class="air-uv-placeholder">{placeholder()}</span>}>{(model) => <WeatherIcon model={model()} />}</Show>
+                <Show when={rainAmount()}>{(amount) => <span class="rain-amount" classList={{ unlikely: unlikely() }}>{amount()}<small> mm</small></span>}</Show>
+                <Show when={chance()}>{(percent) => <span class="rain-chance" title="Kans op meer dan 1 mm (ECMWF)">{percent()}%</span>}</Show>
+              </div>
+            </td>
+          </Show>
+          <Show when={props.columns.air}>
+            <td class="air-cell" {...columnHover('air')}>
+              <Show when={values()?.cloud != null} fallback={<span class="air-uv-placeholder">{placeholder()}</span>}>
+                <CloudReading cover={values()!.cloud!} />
+              </Show>
+            </td>
+          </Show>
+          <Show when={props.columns.temperature}><td class="temperature-cell" {...columnHover('temperature')}
+            title={high() == null ? undefined : `${feels() ? 'Gevoelstemperatuur' : 'Luchttemperatuur'}, hoogste ${degrees(high())} en laagste ${degrees(low())}`}>
+            {degrees(main())}
+            <span class="span-temperature-range" classList={{ 'other-is-low': !night }}>
+              <span class="span-temperature-bar" aria-hidden="true"><Show when={bar()}>{(style) => <i style={style()} />}</Show></span>
+              <Show when={showOther()}><small class="air-temperature span-other">{degrees(other())}</small></Show>
+            </span>
+          </td></Show>
+          <Show when={props.columns.wind}><td class="wind-cell" {...columnHover('wind')}><Show when={wind()} fallback={placeholder()}>{(summary) =>
+            <WindReading summary={summary()} />
+          }</Show></td></Show>
+        </tr>
       </>
     }}</For>
     </tbody>
   </table>
 }
 
-// De pijl wijst waar de wind heen waait, zoals de deeltjes op de kaart; de letters blijven in de titel.
-function WindReading(props: { summary: WindSummary }) {
-  const unit = () => WIND_UNIT_LABELS[props.summary.unit]
-  const label = () => `Wind uit ${props.summary.direction}, ${props.summary.value} ${unit()}` +
-    (props.summary.gust == null ? '' : `, windstoten tot ${props.summary.gust} ${unit()}`)
-  // Pijl en hoofdwaarde, daaronder kleiner en lichter de vlaag met windicoon (PO 2026-09-25 live).
-  return <span class="wind-reading" role="img" aria-label={label()} title={label()}>
-    <ArrowUp class="wind-arrow" size={15} strokeWidth={2.25} style={{ transform: `rotate(${(props.summary.fromDegrees + 180) % 360}deg)` }} aria-hidden="true" />
-    <span class="wind-main"><b>{props.summary.value}</b><small class="wind-unit">{unit()}</small></span>
-    <Show when={props.summary.gust}>{(gust) => <>
-      <Wind class="wind-gust-icon" size={12} strokeWidth={2.25} aria-hidden="true" />
-      <small class="wind-gust">{gust()} {unit()}</small>
-    </>}</Show>
+/** Gemiddelde bewolking van een grove rij: een dun balkje met het percentage; het icoon zegt al hoe het oogt. */
+function CloudReading(props: { cover: number }) {
+  const percent = () => Math.round(Math.max(0, Math.min(100, props.cover)))
+  return <span class="cloud-reading" role="img" aria-label={`Bewolking ${percent()} %`} title={`Gemiddelde bewolking ${percent()} %`}>
+    <span class="cloud-reading-track" aria-hidden="true"><span class="cloud-reading-fill" style={{ width: `${percent()}%` }} /></span>
+    <span class="cloud-reading-value" aria-hidden="true">{percent()}%</span>
   </span>
 }
 

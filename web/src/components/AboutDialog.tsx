@@ -69,6 +69,7 @@ export default function AboutDialog(props: Props) {
         <dl>
           <dt>Observatie</dt><dd>KNMI-radar, elke 5 min · NL en Vlaanderen</dd>
           <dt>Voorspelling</dt><dd>KNMI-nowcast (2 uur), dan HARMONIE-AROME</dd>
+          <dt>Dagen</dt><dd>Verwachting na morgen: <a href="https://www.ecmwf.int/en/forecasts/datasets/open-data" target="_blank" rel="noopener">ECMWF IFS open data</a> (CC BY 4.0), door motregen omgerekend naar dagwaarden.</dd>
           <dt>UV</dt><dd>UV-index van het KNMI, met bewolking</dd>
           <dt>Maan</dt><dd>Textuur: <a href="https://svs.gsfc.nasa.gov/5587/" target="_blank" rel="noopener">NASA Scientific Visualization Studio</a></dd>
           <dt>Kaart</dt><dd>© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a></dd>
