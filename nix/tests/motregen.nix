@@ -48,12 +48,22 @@
     { lib, pkgs, ... }:
     let
       botPackage = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-bot;
+      dailyReportFixture = pkgs.runCommand "motregen-daily-report-fixture" {
+        nativeBuildInputs = [ pkgs.nodejs ];
+      } ''
+        node ${../fixtures/daily-report/generate.mjs} "$out"
+      '';
       botTestProgram = pkgs.writeText "motregen-bot-test.mjs" ''
         import { setTimeout as delay } from 'node:timers/promises';
         import { execFileSync } from 'node:child_process';
         import { readConfig } from '${botPackage}/lib/motregen-bot/dist/bot/config.js';
+        import { UsageCounts } from '${botPackage}/lib/motregen-bot/dist/bot/usage-counts.js';
         import { chromium } from '${botPackage}/lib/motregen-bot/node_modules/playwright/index.mjs';
-        readConfig();
+        const config = readConfig();
+        const usage = await UsageCounts.open(config.usageDirectory, 'motregen_bot');
+        await usage.record({ update_id: 123456789, message: { message_id: 7654321, from: { id: 987654321 }, chat: { id: -123456789, type: 'private' }, text: '/weer U88-geheime-plaatsnaam' } });
+        await usage.record({ update_id: 123456790, inline_query: { id: 'U88-inline-id', query: 'U88-geheime-zoektekst', from: { id: 987654321 } } });
+        await usage.flush();
         const browser = await chromium.launch({ executablePath: process.env.MOTREGEN_CHROMIUM_PATH, args: ['--use-angle=swiftshader'] });
         await browser.close();
         execFileSync('ffmpeg', ['-hide_banner', '-loglevel', 'error', '-f', 'lavfi', '-i', 'color=size=32x48:rate=4:duration=1', '-c:v', 'libx264', '-threads', '1', '-pix_fmt', 'yuv420p', '-an', '-y', '/var/cache/motregen-bot/probe.mp4']);
@@ -96,10 +106,15 @@
           package = fakeBot;
           rustModes = [ ];
         };
+        dailyReport.dryRun = true;
       };
 
       # Chromium draait onder de productiehardening, zonder Telegram-netwerk.
       systemd.services.motregen-bot.environment.TG_BOT_KEY = "test-token";
+      systemd.services.motregen-daily-report.environment = {
+        MOTREGEN_REPORT_DAY = "2026-10-17";
+        MOTREGEN_REPORT_OFFLINE = "true";
+      };
 
       # Geen netwerk in de VM: de CAMS-job decodeert de opgenomen ADS-fixture.
       systemd.services.motregen-cams.environment.MOTREGEN_CAMS_GRIB =
@@ -109,6 +124,7 @@
       nix.gc.automatic = lib.mkForce false;
       users.users.root.openssh.authorizedKeys.keys = lib.mkForce [ ];
       environment.etc."motregen-test/usage-day.jsonl".source = ../fixtures/usage-day.jsonl;
+      environment.etc."motregen-test/daily-report".source = dailyReportFixture;
       environment.systemPackages = [
         pkgs.curl
         pkgs.jq
@@ -378,6 +394,7 @@
     assert day["dimensions"]["range"]["none"] == {"n": 2, "pct": 50}, day
     assert day["dimensions"]["coarse"]["true"]["n"] == 2, day
     assert day["dimensions"]["unit"]["kmh"] == {"n": 1, "pct": 25}, day
+    assert day["features"]["tg"] == {"n": 1, "pct": 25}, day
 
     # /stats/ staat niet op internet (PO 2026-09-25): het rapport blijft op de box en gaat per rsync naar ageq-mthq.
     # De SPA-fallback beantwoordt /stats/ met de app, nooit met het rapport.
@@ -385,5 +402,32 @@
     assert "Laatste 30 dagen" not in stats_public, stats_public
     html = machine.succeed("cat /var/lib/motregen-usage/stats/stats.html")
     assert "Laatste 30 dagen" in html and "<td>search</td><td>2</td><td>50 %</td>" in html, html
+
+    telegram_raw = machine.succeed("cat /var/lib/motregen-usage/telegram/$(TZ=Europe/Amsterdam date +%F).json")
+    telegram_day = json.loads(telegram_raw)
+    assert telegram_day["commands"]["weer"] == 1 and telegram_day["inline"] == 1 and telegram_day["users"] == 1, telegram_day
+    assert set(telegram_day) <= {"day", "commands", "inline", "timeButtons", "placeButtons", "chats", "users", "usersLowerBound"}, telegram_day
+    bot_journal = machine.succeed("journalctl -u motregen-bot -o cat --no-pager")
+    for forbidden in ["987654321", "123456789", "7654321", "U88-geheime", "U88-inline-id", "userId", "chatId", "salt", "hash"]:
+      assert forbidden not in telegram_raw and forbidden not in bot_journal, forbidden
+    machine.succeed("test \"$(stat -c %U:%G:%a /var/lib/motregen-usage/telegram)\" = motregen-bot:motregen-usage:2750")
+    machine.succeed("runuser -u motregen-usage -- cat /var/lib/motregen-usage/telegram/$(TZ=Europe/Amsterdam date +%F).json")
+    machine.fail("runuser -u motregen-usage -- touch /var/lib/motregen-usage/telegram/forbidden")
+    machine.fail("runuser -u motregen-bot -- ls /var/lib/motregen-usage/usage")
+    machine.fail("runuser -u caddy -- ls /var/lib/motregen-usage/telegram")
+
+    machine.succeed("cp -r /etc/motregen-test/daily-report/stats/. /var/lib/motregen-usage/stats/; cp -r /etc/motregen-test/daily-report/report/. /var/lib/motregen-usage/report/")
+    machine.succeed("cp -r /etc/motregen-test/daily-report/telegram/. /var/lib/motregen-usage/telegram/")
+    machine.succeed("chown -R motregen-usage:motregen-usage /var/lib/motregen-usage/stats /var/lib/motregen-usage/report")
+    machine.succeed("chown -R motregen-bot:motregen-usage /var/lib/motregen-usage/telegram; chmod 0640 /var/lib/motregen-usage/telegram/*.json")
+    machine.succeed("systemctl list-timers --all | grep -F motregen-daily-report.timer")
+    timer = machine.succeed("systemctl cat motregen-daily-report.timer")
+    assert "08:00:00 Europe/Amsterdam" in timer and "Persistent=true" in timer, timer
+    machine.succeed("systemctl start motregen-daily-report.service")
+    report = machine.succeed("journalctl -u motregen-daily-report -o cat --no-pager")
+    for expected in ["sessies 41 (7d gem. 28)", "bakens 34 (7d gem. 20)", "touch 25 · desktop 9", "tijd verschoven 70,6 %", "Telegram-webview 14,7 %", "gebruikers ≥6", "/weer 9, /regen 3, /wind 2", "inline 3 (7d 1)", "tijdknoppen 11", "kanaal nu 23 leden (+2)", "90 unieke IP’s", "FR 75 %", "filters sinds 2026-10-17"]:
+      assert expected in report, (expected, report)
+    for forbidden in ["987654321", "123456789", "U88-geheime", "test-token", "chat_id", "initData"]:
+      assert forbidden not in report, (forbidden, report)
   '';
 }

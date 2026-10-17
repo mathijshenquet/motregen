@@ -12,6 +12,7 @@ import { PREWARM_HOURS, STILL_HOURS, LOOP_MODES, type StillManifest, type MediaS
 import { createPoller } from './poller.js'
 import { createPlaceWeather } from './place-weather.js'
 import { createRegister, REGISTER_FILENAME, TelegramRegister, writeRegister } from './register.js'
+import { UsageCounts } from './usage-counts.js'
 
 export async function runBot(config: BotConfig, api = new TelegramApi(config.token), signal?: AbortSignal): Promise<void> {
   const identity = await api.call<{ id: number; username: string }>('getMe')
@@ -27,14 +28,22 @@ export async function runBot(config: BotConfig, api = new TelegramApi(config.tok
   process.once('SIGTERM', stop)
   process.once('SIGINT', stop)
   let renderer: StillRenderer | undefined
+  let usage: UsageCounts | undefined
+  let usageTimer: ReturnType<typeof setInterval> | undefined
   const tasks: Promise<void>[] = []
   try {
+    if (config.role !== 'renderer' && config.usageDirectory) {
+      usage = await UsageCounts.open(config.usageDirectory, identity.username)
+      await usage.flush()
+      usageTimer = setInterval(() => { void usage!.flush().catch((error) => reportFailure('usage', error)) }, 10 * 60_000)
+      usageTimer.unref()
+    }
     console.info(JSON.stringify({ event: 'bot-started', role: config.role, username: identity.username }))
     if (config.role === 'poller') {
       const poller = await createPoller(config, api, identity)
       await poller.refresh().catch((error) => reportFailure('register', error))
       await configureBot(poller.runtime)
-      tasks.push(pollUpdates(poller.runtime, controller.signal), refreshRegister(poller.refresh, controller.signal))
+      tasks.push(pollUpdates(poller.runtime, controller.signal, usage), refreshRegister(poller.refresh, controller.signal))
       await Promise.all(tasks)
       return
     }
@@ -53,11 +62,13 @@ export async function runBot(config: BotConfig, api = new TelegramApi(config.tok
     }
     const runtime = combinedRuntime(config, api, identity, renderer)
     await configureBot(runtime.bot)
-    tasks.push(pollUpdates(runtime.bot, controller.signal), refreshRendered(renderer, runtime.photos, runtime.available, runtime.publish, controller.signal))
+    tasks.push(pollUpdates(runtime.bot, controller.signal, usage), refreshRendered(renderer, runtime.photos, runtime.available, runtime.publish, controller.signal))
     await Promise.all(tasks)
   } finally {
     controller.abort()
     await Promise.allSettled(tasks)
+    clearInterval(usageTimer)
+    await usage?.flush().catch((error) => reportFailure('usage', error))
     await renderer?.close()
     signal?.removeEventListener('abort', stop)
     process.removeListener('SIGTERM', stop)
@@ -109,7 +120,7 @@ async function refreshRegister(refresh: () => Promise<void>, signal: AbortSignal
   }
 }
 
-async function pollUpdates(runtime: BotRuntime, signal: AbortSignal): Promise<void> {
+async function pollUpdates(runtime: BotRuntime, signal: AbortSignal, usage?: UsageCounts): Promise<void> {
   let offset = 0
   while (!signal.aborted) {
     try {
@@ -118,6 +129,7 @@ async function pollUpdates(runtime: BotRuntime, signal: AbortSignal): Promise<vo
       }, signal)
       for (const update of updates) {
         if (signal.aborted) return
+        await usage?.record(update).catch((error) => reportFailure('usage', error))
         try {
           await handleUpdate(update, runtime)
         } catch (error) {

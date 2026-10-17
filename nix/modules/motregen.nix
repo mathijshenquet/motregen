@@ -61,6 +61,8 @@ let
   usageRoot = "/var/lib/motregen-usage";
   usageDir = "${usageRoot}/usage";
   statsDir = "${usageRoot}/stats";
+  telegramUsageDir = "${usageRoot}/telegram";
+  dailyReportDir = "${usageRoot}/report";
   usageSocket = "/run/motregen-usage.sock";
   usageUser = "motregen-usage";
 
@@ -112,6 +114,13 @@ let
         > "$stats/.stats.html.tmp"
       mv -- "$stats/.stats.html.tmp" "$stats/stats.html"
     '';
+  };
+
+  dailyUsageReport = pkgs.writeShellApplication {
+    name = "motregen-daily-report";
+    runtimeInputs = [ pkgs.coreutils pkgs.jq pkgs.curl ];
+    runtimeEnv.MOTREGEN_USAGE_LIB = "${../usage}";
+    text = builtins.readFile ../usage/daily-report.sh;
   };
 
   wwwRedirectHost = domain: {
@@ -223,6 +232,24 @@ in
       description = "Per-domain Vite dist trees: each bundle carries its own name and canonical origin. /data is shared.";
     };
 
+    dailyReport = {
+      enable = lib.mkOption {
+        type = lib.types.bool;
+        default = cfg.bot.enable;
+        description = "Send yesterday's usage totals to MOTREGEN_REPORT_CHAT_ID at 08:00 Europe/Amsterdam.";
+      };
+      cloudflareZone = lib.mkOption {
+        type = lib.types.str;
+        default = "eceaddc3898b93f295b87ba56ac24078";
+        description = "Cloudflare zone for read-only daily GraphQL analytics.";
+      };
+      dryRun = lib.mkOption {
+        type = lib.types.bool;
+        default = false;
+        description = "Print the daily report without sending a Telegram message.";
+      };
+    };
+
     bot = {
       enable = lib.mkEnableOption "Telegram bot role (also independent of ingest and Caddy)";
       role = lib.mkOption {
@@ -262,19 +289,12 @@ in
     systemd.tmpfiles.rules = [
       "d ${cfg.dataDir}/basemap 0755 root root -"
       "d ${cfg.dataDir} 0755 root root -"
-      "d ${usageRoot} 0755 root root -"
       "d ${usageDir} 0750 ${usageUser} ${usageUser} -"
       "d ${statsDir} 0755 ${usageUser} ${usageUser} -"
     ];
 
     # ageq-mthq haalt stats/ nachtelijks op met rsync over SSH (docs/analytics.md).
     environment.systemPackages = [ pkgs.rsync ];
-
-    users.users.${usageUser} = {
-      isSystemUser = true;
-      group = usageUser;
-    };
-    users.groups.${usageUser} = { };
 
     systemd.sockets.motregen-usage = {
       description = "MIP-13 usage log socket for Caddy";
@@ -603,6 +623,43 @@ in
       };
     };
 
+  }) (lib.mkIf (cfg.enable || (cfg.bot.enable && cfg.bot.role != "renderer")) {
+    systemd.tmpfiles.rules = [ "d ${usageRoot} 0755 root root -" ];
+    users.users.${usageUser} = {
+      isSystemUser = true;
+      group = usageUser;
+    };
+    users.groups.${usageUser} = { };
+  }) (lib.mkIf (cfg.enable && cfg.dailyReport.enable) {
+    systemd.tmpfiles.rules = [ "d ${dailyReportDir} 0750 ${usageUser} ${usageUser} -" ];
+    environment.systemPackages = [ dailyUsageReport ];
+    systemd.services.motregen-daily-report = {
+      description = "MIP-35 daily usage report to the product owner";
+      wants = [ "network-online.target" "motregen-usage-report.service" ];
+      after = [ "network-online.target" "motregen-usage-report.service" ];
+      environment = {
+        MOTREGEN_USAGE_ROOT = usageRoot;
+        MOTREGEN_CLOUDFLARE_ZONE = cfg.dailyReport.cloudflareZone;
+      };
+      serviceConfig = hardening // {
+        Type = "oneshot";
+        ExecStart = "${lib.getExe dailyUsageReport}${lib.optionalString cfg.dailyReport.dryRun " --dry-run"}";
+        EnvironmentFile = cfg.bot.secretsFile;
+        User = usageUser;
+        Group = usageUser;
+        UMask = "0027";
+        ReadWritePaths = [ dailyReportDir ];
+        PrivateNetwork = false;
+        RestrictAddressFamilies = [ "AF_UNIX" "AF_INET" "AF_INET6" ];
+      };
+    };
+    systemd.timers.motregen-daily-report = {
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnCalendar = "*-*-* 08:00:00 Europe/Amsterdam";
+        Persistent = true;
+      };
+    };
   }) (lib.mkIf cfg.enable {
     services.caddy.virtualHosts = builtins.listToAttrs (map wwwRedirectHost cfg.domains ++ lib.optional cfg.enableTls plainHttpRedirect);
   }) (lib.mkIf cfg.bot.enable {
@@ -616,6 +673,10 @@ in
     };
     users.groups.motregen-bot = { };
 
+    systemd.tmpfiles.rules = lib.optionals (cfg.bot.role != "renderer") [
+      "d ${telegramUsageDir} 2750 motregen-bot ${usageUser} -"
+    ];
+
     systemd.services.motregen-bot = {
       path = lib.optionals (cfg.bot.role != "poller") [ pkgs.ffmpeg ];
       description = "motregen.nl Telegram ${cfg.bot.role}";
@@ -628,6 +689,8 @@ in
         MOTREGEN_RENDER_CACHE = "/var/cache/motregen-bot/stills";
         # Fontconfig (sharp/librsvg voor /weer, MIP-27) wil een schrijfbare cache; anders "No writable cache directories".
         XDG_CACHE_HOME = "/var/cache/motregen-bot";
+      } // lib.optionalAttrs (cfg.bot.role != "renderer") {
+        MOTREGEN_USAGE_DIR = telegramUsageDir;
       } // lib.optionalAttrs botUsesLocalData {
         # Rust leest ook bij een zelfstandige renderer lokale chunks; de bind mount maakt ze alleen leesbaar.
         MOTREGEN_DATA_DIR = caddyDataDir;
@@ -647,6 +710,7 @@ in
         Group = "motregen-bot";
         CacheDirectory = "motregen-bot";
         CacheDirectoryMode = "0755";
+        ReadWritePaths = lib.optional (cfg.bot.role != "renderer") telegramUsageDir;
         UMask = "0022";
         Restart = "always";
         RestartSec = "15s";

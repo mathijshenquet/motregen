@@ -22,6 +22,7 @@ export const USAGE_FEATURES = [
   'fresh', // versheidspaneel geopend
   'about', // About geopend
   'share', // deel-link gedeeld of naar het klembord gekopieerd
+  'tg',
 ] as const
 export type UsageFeature = typeof USAGE_FEATURES[number]
 
@@ -37,8 +38,8 @@ export type UsageTheme = typeof USAGE_THEMES[number]
 export type UsageWidth = typeof USAGE_WIDTHS[number]
 export type UsageDuration = typeof USAGE_DURATIONS[number]
 
-/** Alleen gebruikte features staan erin (als true): een ontbrekend veld is "niet gebruikt"; ook de worst case blijft < 300 B. */
-export const USAGE_SCHEMA_VERSION = 2
+/** Alleen gebruikte features staan erin (als true): een ontbrekend veld is "niet gebruikt"; ook de worst case blijft < 320 B. */
+export const USAGE_SCHEMA_VERSION = 3
 
 export type UsageBody = Partial<Record<UsageFeature, true>> & {
   /** Schemaversie: ophogen bij elke wijziging van deze velden, zodat het aggregaat oude en nieuwe regels onderscheidt. */
@@ -58,6 +59,7 @@ export const USAGE_FIELDS = ['v', ...USAGE_FEATURES, 'range', 'theme', 'unit', '
 export interface UsageEnvironment {
   /** Milliseconden sinds het begin van het pagina-leven (performance.now). */
   now: () => number
+  telegramWebView?: () => boolean
   coarsePointer: () => boolean
   viewportWidth: () => number
   sendBeacon: (url: string, body: string) => boolean
@@ -106,6 +108,7 @@ export function createUsageTracker(environment: UsageEnvironment, theme: UsageTh
       return {
         v: USAGE_SCHEMA_VERSION,
         ...body,
+        ...(environment.telegramWebView?.() ? { tg: true as const } : {}),
         range,
         theme: currentTheme,
         unit: currentUnit,
@@ -172,6 +175,7 @@ export function browserUsageEnvironment(): UsageEnvironment {
   const coarse = matchMedia('(pointer: coarse)')
   return {
     now: () => performance.now(),
+    telegramWebView: () => Boolean(window.Telegram?.WebApp?.initData?.trim()),
     coarsePointer: () => coarse.matches,
     viewportWidth: () => window.innerWidth,
     sendBeacon: (url, body) => navigator.sendBeacon(url, body),

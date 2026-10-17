@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises'
+import { access, mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -66,12 +66,13 @@ describe('renderer role isolation', () => {
       }
       return Response.json({ ok: true, result: { message_id: 10 } })
     }) as typeof fetch)
-    const config = readConfig({ TG_BOT_KEY: 'test', MOTREGEN_BOT_ROLE: 'renderer', MOTREGEN_CACHE_CHAT_ID: '-100123', MOTREGEN_RENDER_CACHE: directory })
+    const config = readConfig({ TG_BOT_KEY: 'test', MOTREGEN_BOT_ROLE: 'renderer', MOTREGEN_CACHE_CHAT_ID: '-100123', MOTREGEN_RENDER_CACHE: directory, MOTREGEN_USAGE_DIR: join(directory, 'usage') })
     await runBot(config, api, state.controller.signal)
     expect(state.selections).toHaveLength(173)
     expect(new Set(state.selections.map((selection) => JSON.stringify(selection)))).toEqual(new Set(registerSelections().map((selection) => JSON.stringify(selection))))
     expect(state.operations).toEqual(failPrime ? ['prime'] : ['prime', 'publish', 'retain'])
     expect(methods).toEqual(failPrime ? ['getMe', 'getChat', 'getChatMember'] : ['getMe', 'getChat', 'getChatMember', 'getChat', 'sendDocument', 'pinChatMessage'])
     expect(state.closed).toBe(true)
+    await expect(access(config.usageDirectory!)).rejects.toThrow()
   })
 })

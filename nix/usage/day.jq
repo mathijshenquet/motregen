@@ -10,7 +10,7 @@ def dimension_value($key):
 [inputs | fromjson? | select(type == "object")] as $lines
 | ([$lines[] | select(.uri == "/data/manifest.json")] | length) as $sessions
 | [$lines[] | select(.uri == "/hit")] as $hits
-| [$hits[] | .hit | strings | fromjson? | select(type == "object" and .v == usage_version)] as $bodies
+| [$hits[] | .hit | strings | fromjson? | select(type == "object" and usage_valid_version)] as $bodies
 | ($bodies | length) as $beacons
 | {
     day: $day,
