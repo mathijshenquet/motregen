@@ -2,4 +2,4 @@
 title: Tien dagen vooruit
 kind: nieuw
 ---
-Bij je gekozen plaats zie je het weer voor de komende tien dagen, met minimum- en maximumtemperatuur, neerslag, regenkans en wind. De dagen verder vooruit komen uit de Europese ECMWF-verwachting.
+Onder de urentabel zie je nu de komende tien dagen voor je plek: per dag de hoogste en laagste temperatuur, neerslag met regenkans en de wind. Vandaag en morgen komen uit dezelfde KNMI-verwachting als de urentabel, de dagen daarna uit de Europese ECMWF-verwachting.

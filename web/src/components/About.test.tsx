@@ -31,11 +31,12 @@ describe('about dialog', () => {
     expect(dialog.open).toBe(true)
     expect(document.querySelector('.about-lead')!.textContent).toBe('Regenradar en weersverwachting')
     // Alles in één tabel, ook privacy en broncode; geen losse alinea's of knop meer.
-    expect([...dialog.querySelectorAll('dt')].map((term) => term.textContent)).toEqual(['Observatie', 'Voorspelling', 'UV', 'Maan', 'Kaart', 'Zoeken', 'Privacy', 'Telegram', 'Broncode'])
+    expect([...dialog.querySelectorAll('dt')].map((term) => term.textContent)).toEqual(['Observatie', 'Voorspelling', 'Dagen', 'UV', 'Maan', 'Kaart', 'Zoeken', 'Privacy', 'Telegram', 'Broncode'])
     // Naast de ondertitel alleen de versielink naar de changelog (U85).
     expect(dialog.querySelectorAll('.about-body > p')).toHaveLength(2)
     expect(dialog.querySelector<HTMLAnchorElement>('.about-body > p a[href="/changelog"]')?.textContent).toMatch(/^Versie \d+\.\d+\.\d+ · Wat is er nieuw\?$/)
     expect(screen.getByText(/HARMONIE-AROME/)).toBeTruthy()
+    expect(screen.getByRole('link', { name: 'ECMWF IFS open data' })).toBeTruthy()
     expect(screen.getByText(/NL en Vlaanderen/)).toBeTruthy()
     expect(screen.getByRole('link', { name: 'NASA Scientific Visualization Studio' })).toBeTruthy()
     expect(screen.getByRole('link', { name: /GitHub/ }).getAttribute('href')).toBe(REPOSITORY_URL)
