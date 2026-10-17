@@ -123,6 +123,17 @@ let
       extraConfig = "redir ${publicScheme}://${domain}{uri} 308";
     };
   };
+
+  # Caddy's automatische http→https-server neemt het usage-log over, maar niet de log_skip-regels van de site:
+  # elke scanner op poort 80 werd een lege regel (MIP-35). Een eigen http-site heeft geen logger.
+  plainHttpRedirect = {
+    name = "http://${canonicalDomain}";
+    value = {
+      serverAliases = map (domain: "http://${domain}") aliasDomains;
+      logFormat = null;
+      extraConfig = "redir https://{host}{uri} 308";
+    };
+  };
 in
 {
   imports = [
@@ -484,6 +495,9 @@ in
             }
           }
           log_skip @nonusage
+          # MIP-35: crawlers en headless rigs tellen niet mee. De User-Agent wordt alleen vergeleken, nooit gelogd.
+          @automated header_regexp User-Agent (?i)(bot\b|crawl|spider|slurp|headless|lighthouse)
+          log_skip @automated
 
           handle /hit {
             @notpost not method POST
@@ -590,7 +604,7 @@ in
     };
 
   }) (lib.mkIf cfg.enable {
-    services.caddy.virtualHosts = builtins.listToAttrs (map wwwRedirectHost cfg.domains);
+    services.caddy.virtualHosts = builtins.listToAttrs (map wwwRedirectHost cfg.domains ++ lib.optional cfg.enableTls plainHttpRedirect);
   }) (lib.mkIf cfg.bot.enable {
     assertions = [ {
       assertion = lib.unique cfg.bot.rustModes == cfg.bot.rustModes;

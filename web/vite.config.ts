@@ -21,7 +21,13 @@ const allowedHosts = ['ageq-mthq', 'ageq-dev2']
 // MOTREGEN_SYNTH=1 valt terug op de synthetische dataset in public/data
 const brand = brandFromEnvironment(process.env)
 const dataOrigin = process.env.MOTREGEN_DATA_ORIGIN
-const dataProxy = (target: string) => ({ '/data': { target, changeOrigin: true, rewrite: (path: string) => path.replace(/^\/data/, '') } })
+// Previews en rigs proxyen vaak naar prod; zonder sessiemerk tellen ze daar niet als bezoek (MIP-35).
+function proxiedDataPath(path: string): string {
+  const url = new URL(path.replace(/^\/data/, ''), 'http://proxy')
+  url.searchParams.delete('s')
+  return url.pathname + url.search
+}
+const dataProxy = (target: string) => ({ '/data': { target, changeOrigin: true, rewrite: proxiedDataPath } })
 const profileProxy = { '/prof': { target: process.env.MOTREGEN_PROF_ORIGIN ?? 'http://127.0.0.1:4331', changeOrigin: true } }
 const proxy = { ...process.env.MOTREGEN_SYNTH ? {} : dataProxy(dataOrigin ?? 'http://localhost:8080'), ...profileProxy }
 const previewProxy = { ...dataOrigin ? dataProxy(dataOrigin) : {}, ...profileProxy }

@@ -339,6 +339,9 @@
       ("--data @/tmp/big http://localhost/hit", "413"),
       ("'http://localhost/data/manifest.json?s=2'", "200"),
       ("http://localhost/", "200"),
+      # MIP-35: crawlers en headless browsers tellen niet als sessie of baken.
+      ("--user-agent 'Mozilla/5.0 (compatible; Googlebot/2.1)' 'http://localhost/data/manifest.json?s=1'", "200"),
+      (f"--user-agent 'Mozilla/5.0 HeadlessChrome/131.0' --data '{body}' http://localhost/hit", "204"),
     ]:
       status = machine.succeed(
         f"curl --silent --output /dev/null --write-out '%{{http_code}}' {method_and_url}"
