@@ -2,4 +2,4 @@
 title: Tien dagen vooruit
 kind: nieuw
 ---
-Onder de urentabel zie je nu de komende tien dagen voor je plek: per dag de hoogste en laagste temperatuur, neerslag met regenkans en de wind. Vandaag en morgen komen uit dezelfde KNMI-verwachting als de urentabel, de dagen daarna uit de Europese ECMWF-verwachting.
+De tabel bij je plek loopt nu tien dagen vooruit. Eerst per uur, daarna per drie uur, per dagdeel en ten slotte per dag en nacht, met temperatuur, neerslag en wind. De eerste dagen komen uit de KNMI-verwachting, de dagen daarna uit de Europese ECMWF-verwachting.

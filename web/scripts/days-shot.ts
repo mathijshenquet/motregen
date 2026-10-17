@@ -19,6 +19,8 @@ for (const theme of (process.env.SHOT_THEMES ?? 'light,dark').split(',')) {
     page.on('requestfailed', (request) => problems.push(`${theme}/${name} requestfailed: ${request.url()} ${request.failure()?.errorText}`))
     page.on('response', (response) => { if (response.status() >= 400) problems.push(`${theme}/${name} HTTP ${response.status()}: ${response.url()}`) })
     await page.addInitScript((choice) => localStorage.setItem('motregen-theme', choice), theme)
+    // SHOT_CONTRAST=breed|smal|sterk (met SHOT_QUERY=dev): de ?dev-keuze Dag/nacht-contrast.
+    if (process.env.SHOT_CONTRAST) await page.addInitScript((choice) => localStorage.setItem('motregen-dagnacht-contrast', choice), process.env.SHOT_CONTRAST)
     // SHOT_NOW (ISO): manifest-"nu" en browserklok verschoven, bijv. naar de avond, om de tabel 's nachts te zien.
     if (process.env.SHOT_NOW) {
       const shifted = process.env.SHOT_NOW

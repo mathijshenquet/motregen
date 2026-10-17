@@ -10,6 +10,10 @@ export const PRESERVED_STORAGE_KEYS: readonly string[] = [
   'motregen-meetlabel',
 ]
 
+/** ?dev-keuze Dag/nacht-contrast van de tabel (U91b, vervalt 2026-11-01). */
+export const TABLE_CONTRASTS = ['breed', 'smal', 'sterk'] as const
+export type TableContrast = typeof TABLE_CONTRASTS[number]
+
 export const SKY_DIARY_STORAGE_KEY = 'motregen-sky-diary'
 export const SKY_DIARY_CLASSES = ['strakblauw', 'mooie wolkenlucht', 'melkachtig', 'grijs', 'Mordor'] as const
 export type SkyDiaryClass = typeof SKY_DIARY_CLASSES[number]

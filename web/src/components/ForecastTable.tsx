@@ -36,6 +36,8 @@ interface Props {
   longRange?: SlotRow[]
   /** Rijen die later beginnen liggen voorbij de tijdlijn: klikken laat de cursor dan niet springen. */
   timelineEnd?: number
+  /** Zonband bij elke zonsop- en ondergang (de oude uurtabel); anders alleen de eerstvolgende van elk (U91b). */
+  allSunEvents?: boolean
   series: ForecastSeries
   location: { lng: number; lat: number }
   columns: { weather: boolean; air: boolean; temperature: boolean; wind: boolean }
@@ -74,6 +76,8 @@ const HOVER_LEAVE_MS = 80
 // De piep volgt de cursor met een vloeiende scroll; rijen die daarbij alleen langsschuiven tellen niet als
 // zichtbaar en worden dus niet gedecodeerd.
 const SHOWN_ROWS_REST_MS = 200
+// sunEvents verfijnt tot op een seconde; twee aanroepen met een ander begin vinden hetzelfde moment.
+const SUN_MATCH_MS = 60_000
 
 export default function ForecastTable(props: Props) {
   const tableMemo = <T,>(name: string, compute: () => T) => createMemo(() => measurePerfPhase('table-render', compute, { memo: name }))
@@ -124,11 +128,20 @@ export default function ForecastTable(props: Props) {
     onFocus={(event) => { if (event.currentTarget.matches(':focus-visible')) props.focus.onFocus(heading.mode, 'keyboard', true) }}
     onBlur={() => props.focus.onFocus(heading.mode, 'keyboard', false)}
   ><ColumnLabel icon={heading.icon} text={heading.label} /></button>
+  // In de glijdende tabel precies één "Zon op" en één "Zon onder": de eerstvolgende vanaf het nu-uur (PO 2026-10-17).
+  const nextSun = tableMemo('volgende-zon', () => {
+    const now = props.rows.find((row) => row.kind === 'now')?.epoch
+    if (now === undefined) return []
+    const events = sunEvents(now, now + 48 * hour, props.location.lng, props.location.lat)
+    return (['rise', 'set'] as const).flatMap((kind) => events.find((event) => event.kind === kind) ?? [])
+  })
+  const shownSun = (event: SunEvent) => props.allSunEvents === true ||
+    nextSun().some((next) => next.kind === event.kind && Math.abs(next.epoch - event.epoch) < SUN_MATCH_MS)
   const sun = tableMemo('zonmomenten', () => {
     const first = props.rows[0]
     const last = props.rows.at(-1)
     if (!first || !last) return new Map<number, SunEvent>()
-    const events = sunEvents(first.epoch, last.epoch + hour, props.location.lng, props.location.lat)
+    const events = sunEvents(first.epoch, last.epoch + hour, props.location.lng, props.location.lat).filter(shownSun)
     return new Map(events.map((event) => [Math.floor(event.epoch / hour) * hour, event]))
   })
   const elevation = (epoch: number) => solarElevationSin(epoch, props.location.lng, props.location.lat)
@@ -277,17 +290,14 @@ export default function ForecastTable(props: Props) {
   const spans = tableMemo('grove-rijen', () => {
     const rows = props.longRange ?? []
     const daylight = rows.map((row) => isSunUp((row.slot.start + row.slot.end) / 2, props.location.lng, props.location.lat))
-    // Tussen twee 3-uursrijen staat een zonband; elders loopt de schemering over de rand van de twee rijen.
-    const banded = (index: number) => rows[index - 1]?.slot.grain === '3h' && rows[index]?.slot.grain === '3h'
-    const flips = (index: number) => index > 0 && index < rows.length && daylight[index - 1] !== daylight[index]
+    // De zonband staat waar de rijkleur wisselt, met het echte moment uit de twee rijen eromheen. Het venster van twee
+    // rijen kan beide bevatten; de wissel kiest welke.
     return rows.map((row, index) => {
       const previous = rows[index - 1]
-      const sunBefore = banded(index) && flips(index)
-        ? sunEvents(previous!.slot.start, row.slot.end, props.location.lng, props.location.lat)[0]
+      const sunBefore = previous && daylight[index - 1] !== daylight[index]
+        ? sunEvents(previous.slot.start, row.slot.end, props.location.lng, props.location.lat).find((event) => event.kind === (daylight[index] ? 'rise' : 'set') && shownSun(event))
         : undefined
-      const twilightAfter = flips(index + 1) && !banded(index + 1)
-      const twilightBefore = flips(index) && !banded(index)
-      return { row, daylight: daylight[index]!, sunBefore, twilightAfter, twilightBefore }
+      return { row, daylight: daylight[index]!, sunBefore }
     })
   })
   // Eén temperatuurschaal over alle grove rijen, zodat de balkjes het verloop over de dagen laten zien.
@@ -543,10 +553,6 @@ export default function ForecastTable(props: Props) {
             'pending-hour': !values(),
             'beyond-timeline': !selectable,
             'day-start': row.dayStart === true,
-            'dusk-before': span.twilightAfter && span.daylight,
-            'dawn-before': span.twilightAfter && !span.daylight,
-            'dusk-after': span.twilightBefore && !span.daylight,
-            'dawn-after': span.twilightBefore && span.daylight,
           }}
           onClick={selectSpan}
         >

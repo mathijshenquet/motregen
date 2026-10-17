@@ -70,7 +70,7 @@ import { formatUv, uvChipLabel, uvLevel, uvReading } from './core/uv'
 import { WIND_UNITS, type WindUnit } from './core/weather'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
 import { DEFAULT_WIND_TUNING, MOBILE_WIND, WIND_MAX_FPS, WIND_PARAMETERS, WIND_SIMULATION_FPS, WindLayer } from './core/wind-layer'
-import { clearTuningStorage } from './core/dev-settings'
+import { clearTuningStorage, TABLE_CONTRASTS, type TableContrast } from './core/dev-settings'
 import { watchIdle } from './core/activity'
 import { CLOUD_LAYERS, type CloudLayer } from './core/cloud-section'
 import { browserUsageEnvironment, createUsageTracker, installUsageBeacon, sanitizeUsageLabel, storedUsageLabel, USAGE_LABEL_STORAGE_KEY } from './core/usage'
@@ -3063,6 +3063,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       setCloudMapForms(true)
       setCloudMapSample('live')
       setDayListMode(false)
+      setTableContrast(DEFAULT_TABLE_CONTRAST)
       focusMode.pin(DEFAULT_FOCUS_MODE)
       setFocusPinned(DEFAULT_FOCUS_MODE)
     })
@@ -3197,6 +3198,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   // kan de oude uurtabel met de lijst "Komende dagen" terug. HARMONIE-aggregaten en ECMWF-punten laden pas als die
   // rijen of de lijst bijna in beeld zijn, buiten het kritieke pad.
   const [dayListMode, setDayListMode] = createSignal(devMode && localStorage.getItem(DAY_LIST_STORAGE_KEY) === 'lijst')
+  const [tableContrast, setTableContrast] = createSignal<TableContrast>(storedTableContrast(devMode))
   const [longRangeNear, setLongRangeNear] = createSignal(false)
   const ecmwfDayValues = ecmwfPointValues(createMemo(() => manifest() ? ecmwfDayChunks(manifest()!) : new Map<EcmwfDayField, ManifestChunk>()))
   const stepChunks = createMemo(() => manifest() ? ecmwfStepChunks(manifest()!) : new Map<EcmwfStepField, ManifestChunk>())
@@ -3753,6 +3755,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         />
         <Show when={devMode}>
           <DevPanel
+            tableContrast={tableContrast()}
+            onTableContrast={(contrast) => { setTableContrast(contrast); localStorage.setItem(TABLE_CONTRAST_STORAGE_KEY, contrast) }}
             dayList={dayListMode()}
             onDayList={(enabled) => { setDayListMode(enabled); localStorage.setItem(DAY_LIST_STORAGE_KEY, enabled ? 'lijst' : 'glijdend') }}
             cloudMapForms={cloudMapForms()}
@@ -3815,6 +3819,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         <section
           ref={forecastPanelElement}
           id="forecast-table-view"
+          data-contrast={tableContrast()}
           class="forecast-panel"
           classList={{ 'head-day': tableHeadSky()?.daylight === true, 'head-night': tableHeadSky()?.daylight === false }}
           onClick={openTableFromPeek}
@@ -3825,6 +3830,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
               rows={tableRows()}
               longRange={slotRows()}
               timelineEnd={timeline().at(-1)?.epoch}
+              allSunEvents={dayListMode()}
               series={{
                 rain: rainSeries(), uv: uvSeries(), uvClear: uvClearSeries(), radiation: radiationSeries(), temperature: temperatureSeries(),
                 feelsLike: feelsLikeSeries(), cloud: cloudSeries(), windU: windUSeries(), windV: windVSeries(), gust: gustSeries(),
@@ -3937,6 +3943,15 @@ function rowContains(start: number, end: number, epoch: number): boolean {
 // ?dev-knop "Dagen: lijst onder tabel" (U91b, eigenaar orkestrator, vervalt 2026-11-01): de oude uurtabel tot het
 // einde van HARMONIE met de lijst "Komende dagen" eronder, in plaats van de glijdende tabel.
 const DAY_LIST_STORAGE_KEY = 'motregen-dagenlijst'
+// ?dev-keuze "Dag/nacht-contrast" (U91b, eigenaar orkestrator, vervalt 2026-11-01): breed is de standaard, omdat
+// uur- en grove rijen dan dezelfde nacht en dag dragen; smal verzacht alleen dagdelen en dag/nacht, sterk is het oude.
+const TABLE_CONTRAST_STORAGE_KEY = 'motregen-dagnacht-contrast'
+const DEFAULT_TABLE_CONTRAST: TableContrast = 'breed'
+
+function storedTableContrast(devMode: boolean): TableContrast {
+  const stored = devMode ? localStorage.getItem(TABLE_CONTRAST_STORAGE_KEY) : null
+  return TABLE_CONTRASTS.find((contrast) => contrast === stored) ?? DEFAULT_TABLE_CONTRAST
+}
 
 // Zoomgrens: nooit minder dan deze breedte in beeld (Min. breedte, T3g; knop weg in U30).
 const MINIMUM_MAP_WIDTH_KM = 20

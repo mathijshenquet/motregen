@@ -1,12 +1,14 @@
 import { createSignal, For, type JSX } from 'solid-js'
 import { copyText } from '../core/clipboard'
-import { appendSkyDiaryEntry, SKY_DIARY_CLASSES, skyDiaryJson, type SkyDiaryClass } from '../core/dev-settings'
+import { appendSkyDiaryEntry, SKY_DIARY_CLASSES, skyDiaryJson, TABLE_CONTRASTS, type SkyDiaryClass, type TableContrast } from '../core/dev-settings'
 import { RAIN_ISOLINE_RATES, RAIN_ISOLINE_SETS, type RainIsolineSetName, type RainLookChoice } from '../core/rain-palette'
 import { CLOUD_MAP_SAMPLES, type CloudMapSample } from '../core/cloud-map'
 
 // Alleen via ?dev; hooguit 3–4 knoppen per groep (PO 2026-09-25). Elke knop staat in
 // docs/dev-opties.md met eigenaar en vervaldatum (MIP-12).
 interface Props {
+  tableContrast: TableContrast
+  onTableContrast: (contrast: TableContrast) => void
   dayList: boolean
   onDayList: (enabled: boolean) => void
   cloudMapForms: boolean
@@ -64,6 +66,11 @@ export default function DevPanel(props: Props) {
   return <details class="dev-panel" open data-testid="dev-panel">
     <summary>Dev-opties</summary>
     <Group title="Tabel" open>
+      <Control label="Dag/nacht-contrast" output={props.tableContrast} hint="Breed (standaard): de hele tabel zachter, nacht schemerblauw en dag minder fel; in donker thema een donkere dag. Smal: alleen de dagdelen en dag/nacht-rijen. Sterk: het oude contrast. U91b, vervalt 2026-11-01.">
+        <select aria-label="Dag/nacht-contrast" value={props.tableContrast} onChange={(event) => props.onTableContrast(event.currentTarget.value as TableContrast)}>
+          <For each={TABLE_CONTRASTS}>{(contrast) => <option value={contrast}>{contrast}</option>}</For>
+        </select>
+      </Control>
       <Control label="Dagen: lijst onder tabel" output={props.dayList ? 'Aan' : 'Uit'} toggle hint="Uit (standaard): de urentabel wordt naar achteren grover, tot dag en nacht. Aan: de uurtabel tot het eind van HARMONIE met de lijst Komende dagen eronder. U91b, vervalt 2026-11-01.">
         <input type="checkbox" checked={props.dayList} onChange={(event) => props.onDayList(event.currentTarget.checked)} />
       </Control>
