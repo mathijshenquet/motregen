@@ -290,7 +290,7 @@ export default function HistogramScrubber(props: Props) {
       return { x: left + gap / 2, width: Math.max(0.8, xAt(quarter.epoch + QUARTER) - left - gap), top: sunTop(quarter.fraction * 60) }
     })
   })
-  // Vloeiend vlak zoals de temperatuur (PO 2026-10-18: "minder knikkig"): per daglichtperiode een Catmull-Rom-curve
+  // Vloeiend vlak zoals de temperatuur (PO 2026-10-18: "minder knikkig"): per daglichtperiode een monotone curve
   // door de uurwaarden op het midden van hun uur, vanaf nul bij zon op tot nul bij zon onder.
   const sunArea = createMemo(() => {
     const inputs = props.sky
@@ -316,8 +316,8 @@ export default function HistogramScrubber(props: Props) {
     const base = plotHeight()
     const shaped = runs.filter((points) => points.length > 1)
     return {
-      fill: shaped.map((points) => `${smoothPath(points)}L${points.at(-1)![0].toFixed(1)} ${base}L${points[0]![0].toFixed(1)} ${base}Z`),
-      line: shaped.map(smoothPath),
+      fill: shaped.map((points) => `${monotonePath(points)}L${points.at(-1)![0].toFixed(1)} ${base}L${points[0]![0].toFixed(1)} ${base}Z`),
+      line: shaped.map(monotonePath),
     }
   })
   const sunGradientId = createUniqueId()
@@ -1050,6 +1050,28 @@ function bandRuns(xs: number[], lower: Array<number | null>, upper: Array<number
 }
 
 /** Catmull-Rom door de punten als kubische Bézier (vloeiende windlijn). */
+/**
+ * Smooth like smoothPath, but monotone between points (harmonic-mean tangents, Fritsch–Butland): never above or
+ * below its neighbours, so a plateau of 60 min sunshine does not bulge up before a steep drop (PO 2026-10-18).
+ */
+function monotonePath(points: Array<[number, number]>): string {
+  if (points.length < 3) return smoothPath(points)
+  const slopes = points.slice(0, -1).map((point, index) => (points[index + 1]![1] - point[1]) / (points[index + 1]![0] - point[0]))
+  const tangents = points.map((_, index) => {
+    if (index === 0) return slopes[0]!
+    if (index === points.length - 1) return slopes.at(-1)!
+    const before = slopes[index - 1]!, after = slopes[index]!
+    return before * after <= 0 ? 0 : 2 * before * after / (before + after)
+  })
+  let path = `M${points[0]![0].toFixed(1)} ${points[0]![1].toFixed(1)}`
+  for (let index = 0; index < points.length - 1; index++) {
+    const [x1, y1] = points[index]!, [x2, y2] = points[index + 1]!
+    const third = (x2 - x1) / 3
+    path += `C${(x1 + third).toFixed(1)} ${(y1 + tangents[index]! * third).toFixed(1)} ${(x2 - third).toFixed(1)} ${(y2 - tangents[index + 1]! * third).toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`
+  }
+  return path
+}
+
 function smoothPath(points: Array<[number, number]>): string {
   if (points.length === 1) return `M${points[0]![0]} ${points[0]![1]}h0.01`
   let path = `M${points[0]![0].toFixed(1)} ${points[0]![1].toFixed(1)}`
