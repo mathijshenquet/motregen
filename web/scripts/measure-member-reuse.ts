@@ -119,7 +119,8 @@ try {
   const switched = Date.now()
   let refreshedAt: number | undefined
   openContext.on('requestfinished', (request) => { if (request.url().endsWith('/data/manifest.json') && Date.now() >= switched) refreshedAt ??= Date.now() })
-  await settle(openTransfers, switched, () => refreshedAt !== undefined)
+  // Pas tellen als de client na de poll radar heeft opgevraagd; settle rekent de stilte vanaf de laatste radarrequest.
+  await settle(openTransfers, switched, () => refreshedAt !== undefined && radarSeen(openTransfers, refreshedAt)())
   results.refresh = { ...summary(openTransfers, refreshedAt!), secondsUntilPoll: Math.round((refreshedAt! - switched) / 1000) }
   await openPage.close()
   await openContext.close()
