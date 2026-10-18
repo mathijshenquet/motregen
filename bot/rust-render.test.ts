@@ -5,7 +5,7 @@ import { afterEach, expect, it, vi } from 'vitest'
 import * as rust from './rust-render.js'
 import { FRAME_PIXELS } from './config.js'
 import { holdFrames, sequencePlan } from './sequences.js'
-import { cacheKey, LOOP_MODES, STILL_HOURS, stillEpoch, type LoopMode, type StillManifest } from './stills.js'
+import { cacheKey, enabledLoopModes, STILL_HOURS, stillEpoch, type LoopMode, type StillManifest } from './stills.js'
 import { rustRenderer } from './native-settings.js'
 import { NativeWeatherRenderer } from './native-render.js'
 import { NativeModesRenderer } from './native-modes-render.js'
@@ -28,8 +28,8 @@ async function media(directory: string, mode: LoopMode = 'weather'): Promise<rus
 }
 
 async function generation(directory: string): Promise<rust.RustGeneration> {
-  const modes = {} as Record<LoopMode, rust.RustMedia>
-  for (const { mode } of LOOP_MODES) modes[mode] = await media(directory, mode)
+  const modes: Partial<Record<LoopMode, rust.RustMedia>> = {}
+  for (const { mode } of enabledLoopModes()) modes[mode] = await media(directory, mode)
   return { version: 1, mode: 'all', generated: manifest.generated, now: manifest.now, ...FRAME_PIXELS, total_ms: 12, shared_raster_hits: 8, modes }
 }
 
@@ -42,7 +42,7 @@ it('shares one complete Rust generation across concurrent modes and persists all
   const weatherPrepare = vi.spyOn(NativeWeatherRenderer.prototype, 'prepareAssets').mockRejectedValue(new Error('Unexpected browser preparation'))
   const modesPrepare = vi.spyOn(NativeModesRenderer.prototype, 'prepareAssets').mockRejectedValue(new Error('Unexpected browser preparation'))
   try {
-    const loops = await Promise.all(LOOP_MODES.map(({ mode }) => renderer.render({ mode, hour: 'loop' }, manifest)))
+    const loops = await Promise.all(enabledLoopModes().map(({ mode }) => renderer.render({ mode, hour: 'loop' }, manifest)))
     expect(loops).toHaveLength(3)
     for (const loop of loops) expect(loop).toMatchObject({ backend: 'rust', cached: false })
     expect(all).toHaveBeenCalledOnce()
@@ -51,7 +51,7 @@ it('shares one complete Rust generation across concurrent modes and persists all
     expect(modesPrepare).not.toHaveBeenCalled()
     const second = new StillRenderer('https://fixture.test', directory)
     try {
-      for (const { mode } of LOOP_MODES) {
+      for (const { mode } of enabledLoopModes()) {
         expect(await second.render({ mode, hour: 'loop' }, manifest)).toMatchObject({ backend: 'rust', cached: true })
         if (mode !== 'wind') for (const hour of STILL_HOURS) expect(await second.render({ mode, hour }, manifest)).toMatchObject({ kind: 'photo', cached: true })
       }
@@ -66,12 +66,27 @@ it('retries a failed shared generation without publishing incomplete sequence re
   const renderer = new StillRenderer('https://fixture.test', directory)
   const all = vi.spyOn(rust, 'runRustGeneration').mockRejectedValueOnce(new Error('Incomplete matrix')).mockImplementation((_manifest, directory) => generation(directory))
   try {
-    const failed = await Promise.allSettled(LOOP_MODES.map(({ mode }) => renderer.render({ mode, hour: 'loop' }, manifest)))
+    const failed = await Promise.allSettled(enabledLoopModes().map(({ mode }) => renderer.render({ mode, hour: 'loop' }, manifest)))
     expect(failed.every((result) => result.status === 'rejected')).toBe(true)
     expect(await readdir(directory)).toEqual([])
-    for (const loop of await Promise.all(LOOP_MODES.map(({ mode }) => renderer.render({ mode, hour: 'loop' }, manifest)))) expect(loop.backend).toBe('rust')
+    for (const loop of await Promise.all(enabledLoopModes().map(({ mode }) => renderer.render({ mode, hour: 'loop' }, manifest)))) expect(loop.backend).toBe('rust')
     expect(all).toHaveBeenCalledTimes(2)
   } finally { await renderer.close(); await rm(directory, { recursive: true, force: true }) }
+})
+
+it('includes Lucht in the shared generation only when air is a Rust mode', async () => {
+  vi.stubEnv('MOTREGEN_RUST_RENDERER', 'weather,feels,wind')
+  const directory = await mkdtemp(join(tmpdir(), 'motregen-rust-air-'))
+  try {
+    const withoutAir = await generation(directory)
+    expect(Object.keys(withoutAir.modes)).toEqual(['weather', 'feels', 'wind'])
+    vi.stubEnv('MOTREGEN_RUST_RENDERER', 'weather,feels,wind,air')
+    await expect(rust.validateRustGeneration(withoutAir, manifest, directory)).rejects.toThrow()
+    const withAir = await generation(directory)
+    expect(Object.keys(withAir.modes)).toEqual(['weather', 'air', 'feels', 'wind'])
+    await rust.validateRustGeneration(withAir, manifest, directory)
+    expect(withAir.modes.air!.files[0]!.file).toBe('air-loop.mp4')
+  } finally { await rm(directory, { recursive: true, force: true }) }
 })
 
 it('validates every mode before accepting a shared Rust generation', async () => {
@@ -152,7 +167,7 @@ it.each(['feels', 'wind'] as const)('imports the %s matrix and reuses its cache 
   const render = vi.spyOn(rust, 'runRustRenderer').mockImplementation((_manifest, directory, mode) => media(directory, mode))
   try {
     const first = await renderer.render({ mode, hour: 'loop' }, manifest)
-    expect(first).toMatchObject({ backend: 'rust', cached: false, frames: mode === 'wind' ? 289 : 217, fps: mode === 'wind' ? 7.5 : 5.6 })
+    expect(first).toMatchObject({ backend: 'rust', cached: false, frames: mode === 'wind' ? 193 : 217, fps: mode === 'wind' ? 7.5 : 5.6 })
     expect(await readFile(first.path, 'utf8')).toBe('data')
     expect(await renderer.render({ mode, hour: 'loop' }, manifest)).toMatchObject({ cached: true })
     if (mode === 'feels') expect(await renderer.render({ mode, hour: 6 }, manifest)).toMatchObject({ cached: true, kind: 'photo' })

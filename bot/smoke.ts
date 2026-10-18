@@ -5,7 +5,7 @@ import { FileIdCache } from './file-ids.js'
 import { StillPhotos } from './photos.js'
 import { startText } from './handlers.js'
 import { StillRenderer, StillRenderError, type RenderedMedia } from './render.js'
-import { keyboard, PREWARM_HOURS, STILL_HOURS, LOOP_MODES, validateManifest, type StillManifest } from './stills.js'
+import { enabledLoopModes, keyboard, PREWARM_HOURS, STILL_HOURS, validateManifest, type StillManifest } from './stills.js'
 import { readFile } from 'node:fs/promises'
 import { dryRunPrime } from './dry-run.js'
 
@@ -26,7 +26,7 @@ async function smoke(): Promise<void> {
       const modeFilter = process.argv.find((argument) => argument.startsWith('--mode='))?.slice(7)
       const dryRunPath = process.argv.find((argument) => argument.startsWith('--dry-run-prime='))?.slice('--dry-run-prime='.length)
       if (dryRunPath && modeFilter) throw new Error('Dry-run-prime vereist de volledige matrix')
-      const definitions = LOOP_MODES.filter((definition) => !modeFilter || modeFilter === definition.mode)
+      const definitions = enabledLoopModes().filter((definition) => !modeFilter || modeFilter === definition.mode)
       const matrixStarted = performance.now()
       const renders = await Promise.allSettled(definitions.map(async (definition) => {
         const loop = await renderer.render({ mode: definition.mode, hour: 'loop' }, manifest)
@@ -67,7 +67,7 @@ async function smoke(): Promise<void> {
     if (!chatId) throw new Error('Geen rooktestchat: stuur /start of zet MOTREGEN_SMOKE_CHAT_ID')
     if (!config.cacheChatId) throw new Error('MOTREGEN_CACHE_CHAT_ID ontbreekt voor de matrixrooktest')
     const matrixStarted = performance.now()
-    const batches = await Promise.all(LOOP_MODES.map(async (definition) => {
+    const batches = await Promise.all(enabledLoopModes().map(async (definition) => {
       const media: RenderedMedia[] = [await renderer.render({ mode: definition.mode, hour: 'loop' }, manifest)]
       if (definition.mode !== 'wind') for (const hour of PREWARM_HOURS) media.push(await renderer.render({ mode: definition.mode, hour }, manifest))
       return media
@@ -122,7 +122,7 @@ async function smoke(): Promise<void> {
     await photos.edit(lazy, { chat_id: chatId, message_id: message.message_id, reply_markup: keyboard({ mode: 'feels', hour: 1 / 3 }, lazy.epoch, lazy.generated) })
     if (await photos.fileIds.get(lazy) !== lazyId) throw new Error('Luie selectie is opnieuw geüpload')
     console.info(JSON.stringify({ event: 'lazy-still-smoke', hour: 1 / 3, encodeMs: lazy.milliseconds, firstEditMs: lazyMs, cachedMs: Math.round(performance.now() - repeatStarted) }))
-    for (const definition of LOOP_MODES) {
+    for (const definition of enabledLoopModes()) {
       const selection = { mode: definition.mode, hour: 'loop' } as const
       const loop = await renderer.render(selection, manifest)
       await delay(1100)

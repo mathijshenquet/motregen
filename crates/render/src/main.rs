@@ -1,3 +1,4 @@
+mod air;
 mod all;
 mod data;
 mod encode;
@@ -16,6 +17,7 @@ enum Mode {
     Weather,
     Wind,
     Feels,
+    Air,
     All,
 }
 
@@ -36,6 +38,13 @@ struct Arguments {
     out_dir: PathBuf,
     #[arg(long, help = "Snapshot manifest; defaults to DATA_DIR/manifest.json")]
     manifest: Option<PathBuf>,
+    #[arg(
+        long,
+        value_delimiter = ',',
+        default_value = "weather,wind,feels",
+        help = "Modes rendered by --mode all"
+    )]
+    modes: Vec<String>,
     #[arg(long, help = "PO clock prototype: schuif or klap")]
     clock_variant: Option<render_core::clock::ClockTransition>,
     #[arg(
@@ -83,6 +92,7 @@ fn main() -> Result<()> {
             &arguments.basemap_dir,
             &arguments.out_dir,
             &manifest,
+            &arguments.modes,
             options,
         )?;
         println!("{}", serde_json::to_string(&media)?);
@@ -102,6 +112,13 @@ fn main() -> Result<()> {
             &arguments.out_dir,
             &manifest,
             matches!(arguments.mode, Mode::Wind),
+            options,
+        )?,
+        Mode::Air => air::render(
+            &arguments.data_dir,
+            &arguments.basemap_dir,
+            &arguments.out_dir,
+            &manifest,
             options,
         )?,
         Mode::All => unreachable!(),

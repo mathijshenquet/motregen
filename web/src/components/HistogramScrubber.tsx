@@ -6,6 +6,9 @@ import { classifyRain, RAIN_BANDS, rainChartMaximum, rainChartPosition, rainColo
 import type { RainLook } from '../core/rain-palette'
 import { SCRUBBER_CURSOR_FRACTION, SCRUBBER_VIEW_HOURS, seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor, timelineZones } from '../core/time-model'
 import { cloudModification } from '../core/uv'
+import { sunEventsAlong } from '../core/solar'
+import { SUNSHINE_SUN_ELEVATION_DEGREES, sunshineFraction, sunshineLabel, sunshineMinutes } from '../core/sunshine'
+import SunGlyph from './SunGlyph'
 import { summarizeWind, WIND_UNIT_LABELS, type WindUnit } from '../core/weather'
 import { BEAUFORT_STOPS, windColor } from '../core/wind-layer'
 import type { PaletteStops } from '../core/temperature-palette'
@@ -67,6 +70,24 @@ interface Props {
   temperature?: { timeline: TimelineFrame[]; values: Array<number | null>; airTimeline?: TimelineFrame[]; air?: Array<number | null>; stops?: PaletteStops }
 }
 
+// Zonneschijnduur in Lucht (MIP-38, U96): de knoppen om te tunen bij elkaar.
+const SUN_BAR_FILL = '#ffd84a'
+const SUN_BAR_STROKE = 'rgba(158, 98, 0, .55)'
+// Deel van de plothoogte voor een vol uur zon (60 min): lager dan vol, zodat de lucht erboven zichtbaar blijft.
+const SUN_CHART_HEIGHT_SHARE = 0.55
+// Afronding van de cursorwaarde: met een MAE van 10 min/u suggereert een fijner getal precisie die er niet is.
+const SUN_LABEL_STEP_MINUTES = 10
+// Proef PO 2026-10-18: weergave van de zonneschijnduur, tijdelijk te kiezen met ?dev&zon=uur|kwartier|vlak|vlak-lijn
+// (vervalt 2026-10-25). Kwartier en vlak rekenen per 15 minuten met sunshineFraction.
+type SunStyle = 'uur' | 'kwartier' | 'vlak' | 'vlak-lijn'
+const SUN_STYLE: SunStyle = (() => {
+  // Standaard het vloeiende vlak met lijn (PO 2026-10-18: "A4 is redelijk episch").
+  if (typeof location === 'undefined') return 'vlak-lijn'
+  const query = new URLSearchParams(location.search)
+  const chosen = query.has('dev') ? query.get('zon') : null
+  return chosen === 'uur' || chosen === 'kwartier' || chosen === 'vlak' ? chosen : 'vlak-lijn'
+})()
+const QUARTER = 15 * 60_000
 const CLOUD_LAYER_LABELS = { high: 'hoge wolken', mid: 'midden wolken', low: 'lage wolken' } as const
 // Middens van de wolkenlagen als deel van de plothoogte: hoog op 1/6, dan steeds 1/4 lager, zodat de lage wolken
 // hoger staan dan bij drie gelijke stroken en er onderin ruimte blijft (PO 2026-10-16).
@@ -127,6 +148,10 @@ const SLIDE_DURATION_MS = 120_000
 const RULER_HEIGHT_PX = 26
 // Breedte die het tijdlabel links van de cursorlijn nodig heeft ("23:59" op 11 px plus marge).
 const CURSOR_TIME_ROOM_PX = 56
+// Ruimte links van de cursor voor een wolkenlabel ("midden wolken 100%"); anders blijft het rechts.
+const CLOUD_TAG_ROOM_PX = 118
+// Ruimte rechts van de cursor voor "60 min zon per uur"; daarvoor wijkt het zonlabel naar links uit.
+const SUN_READOUT_ROOM_PX = 150
 // Onder dit daglicht krijgt de liniaal lichte inkt op een donkere sluier (U62).
 const RULER_NIGHT_DAYLIGHT = 0.5
 
@@ -193,6 +218,10 @@ export default function HistogramScrubber(props: Props) {
   const cloudsFrontOpacity = () => baseOpacity() * Math.min(1, 2 * airMix())
   const coverOpacity = () => props.cloudCover ? Math.min(baseOpacity(), 1 - (props.mix?.temperature ?? 0)) : 0
   const baseVisible = createMemo(() => baseOpacity() > 0)
+  // In Lucht vervangen de zonstaven de regen (MIP-38); bij het wisselen vloeien ze in elkaar over.
+  const rainOpacity = () => baseOpacity() * (1 - airMix())
+  const sunOpacity = () => props.sky ? baseOpacity() * airMix() : 0
+  const sunVisible = createMemo(() => sunOpacity() > 0)
   const view = () => airMix() >= 0.5 ? 'air' : windMix() >= 0.5 ? 'wind' : temperatureMix() >= 0.5 ? 'temperature' : coverOpacity() >= 0.5 ? 'cover' : 'rain'
   // Binnenkomende weergave schuift een paar px omhoog terwijl hij invloeit.
   const layerStyle = (opacity: number) => ({ opacity, transform: `translateY(${((1 - opacity) * VIEW_SHIFT_PX).toFixed(2)}px)` })
@@ -226,6 +255,81 @@ export default function HistogramScrubber(props: Props) {
       const barWidth = Math.max(1.2, right - x - gap)
       return { x: (x + right - barWidth) / 2, width: barWidth, top: barTop(value), value: value ?? 0, pending: sample.pending, past: sample.epoch < props.now, epoch: sample.epoch }
     })
+  })
+  const sunTop = (minutes: number) => plotHeight() * (1 - SUN_CHART_HEIGHT_SHARE * Math.min(1, minutes / 60))
+  // Eén staaf per uurvak [T − 1 u, T] met het stralingsuurgemiddelde dat op T eindigt; geen staaf waar de zon onder is.
+  const sunBars = scrubMemo('zonstaven', () => {
+    const inputs = props.sky
+    if (!inputs || !sunVisible()) return []
+    const radiationByEpoch = new Map(inputs.radiation.timeline.map((frame, index) => [frame.epoch, inputs.radiation.values[index]]))
+    const gap = HOUR * pxPerMs() > 6 ? 1.5 : 1
+    const result: Array<{ x: number; width: number; top: number; minutes: number; past: boolean; end: number }> = []
+    for (let end = Math.ceil(timelineStart() / HOUR) * HOUR + HOUR; end <= timelineEnd(); end += HOUR) {
+      const minutes = sunshineMinutes(end, radiationByEpoch.get(end), inputs.sinElevation)
+      if (minutes == null || minutes <= 0) continue
+      const left = xAt(end - HOUR)
+      const width = Math.max(1.2, xAt(end) - left - gap)
+      result.push({ x: left + gap / 2, width, top: sunTop(minutes), minutes, past: end <= props.now, end })
+    }
+    return result
+  })
+  // Per kwartier: het deel van de tijd met zon (0–1), voor de proefweergaven kwartier/vlak.
+  const sunQuarters = scrubMemo('zonkwartieren', () => {
+    const inputs = props.sky
+    if (!inputs || !sunVisible() || SUN_STYLE === 'uur') return []
+    const radiationByEpoch = new Map(inputs.radiation.timeline.map((frame, index) => [frame.epoch, inputs.radiation.values[index]]))
+    const result: Array<{ epoch: number; x: number; fraction: number }> = []
+    for (let start = Math.ceil(timelineStart() / QUARTER) * QUARTER; start + QUARTER <= timelineEnd(); start += QUARTER) {
+      const middle = start + QUARTER / 2
+      const fraction = sunshineFraction(middle, (end) => radiationByEpoch.get(end), inputs.sinElevation)
+      if (fraction == null) continue
+      result.push({ epoch: start, x: xAt(middle), fraction })
+    }
+    return result
+  })
+  const sunQuarterBars = createMemo(() => {
+    const gap = QUARTER * pxPerMs() > 6 ? 1 : 0.5
+    return sunQuarters().filter((quarter) => quarter.fraction > 0).map((quarter) => {
+      const left = xAt(quarter.epoch)
+      return { x: left + gap / 2, width: Math.max(0.8, xAt(quarter.epoch + QUARTER) - left - gap), top: sunTop(quarter.fraction * 60) }
+    })
+  })
+  // Vloeiend vlak zoals de temperatuur (PO 2026-10-18: "minder knikkig"): per daglichtperiode een monotone curve
+  // door de uurwaarden op het midden van hun uur, vanaf nul bij zon op tot nul bij zon onder.
+  const sunArea = createMemo(() => {
+    const inputs = props.sky
+    if (!inputs || !sunVisible() || SUN_STYLE === 'uur' || SUN_STYLE === 'kwartier') return { runs: [] as Array<Array<[number, number]>>, fill: [] as string[], line: [] as string[] }
+    const radiationByEpoch = new Map(inputs.radiation.timeline.map((frame, index) => [frame.epoch, inputs.radiation.values[index]]))
+    const runs: Array<Array<[number, number]>> = []
+    let run: Array<[number, number]> = []
+    for (let start = Math.floor(timelineStart() / QUARTER) * QUARTER; start <= timelineEnd(); start += QUARTER) {
+      const daylight = inputs.sinElevation(start) > Math.sin(SUNSHINE_SUN_ELEVATION_DEGREES * Math.PI / 180)
+      if (!daylight) {
+        if (run.length) { run.push([xAt(start), plotHeight()]); runs.push(run); run = [] }
+        continue
+      }
+      if (!run.length) run.push([xAt(start), plotHeight()])
+      // Uurwaarden op het midden van hun uur: het kwartier dat op :15 begint ligt op :30 na zijn middenpunt.
+      if (new Date(start).getUTCMinutes() === 15) {
+        const end = start + 45 * 60_000
+        const minutes = sunshineMinutes(end, radiationByEpoch.get(end), inputs.sinElevation)
+        if (minutes != null) run.push([xAt(start + QUARTER), sunTop(minutes)])
+      }
+    }
+    if (run.length > 1) runs.push(run)
+    const base = plotHeight()
+    const shaped = runs.filter((points) => points.length > 1)
+    return {
+      runs: shaped,
+      fill: shaped.map((points) => `${monotonePath(points)}L${points.at(-1)![0].toFixed(1)} ${base}L${points[0]![0].toFixed(1)} ${base}Z`),
+      line: shaped.map(monotonePath),
+    }
+  })
+  const sunGradientId = createUniqueId()
+  const sunMarkers = createMemo(() => {
+    const inputs = props.sky
+    if (!inputs || !sunVisible()) return []
+    return sunEventsAlong(timelineStart(), timelineEnd(), inputs.sinElevation).map((event) => ({ ...event, x: xAt(event.epoch) }))
   })
   // Geen y-as (PO 2026-09-25 live): de waarde staat bij de cursor, niet op hulplijnen.
   const cloudId = createUniqueId()
@@ -410,6 +514,30 @@ export default function HistogramScrubber(props: Props) {
     for (const sample of samples) if (Math.abs(sample.epoch - epoch) < Math.abs(nearest.epoch - epoch)) nearest = sample
     return nearest.value
   })
+  const cursorSun = createMemo(() => {
+    if (SUN_STYLE === 'vlak' || SUN_STYLE === 'vlak-lijn') {
+      // Punt en waarde lezen de getekende curve zelf, anders staat het puntje naast de lijn (PO 2026-10-18).
+      // De curve staat in baancoördinaten; cursorX() is de positie in beeld.
+      const x = xAt(cursorEpoch())
+      for (const run of sunArea().runs) {
+        const y = monotoneAt(run, x)
+        if (y === undefined) continue
+        const minutes = Math.max(0, Math.min(60, 60 * (plotHeight() - y) / (plotHeight() * SUN_CHART_HEIGHT_SHARE)))
+        return minutes >= SUN_LABEL_STEP_MINUTES / 2 ? { y: sunTop(minutes), text: sunshineLabel(minutes, SUN_LABEL_STEP_MINUTES).replace('min zon', 'min zon per uur') } : undefined
+      }
+      return undefined
+    }
+    if (SUN_STYLE !== 'uur') {
+      const start = Math.floor(cursorEpoch() / QUARTER) * QUARTER
+      const quarter = sunQuarters().find((candidate) => candidate.epoch === start)
+      return quarter && quarter.fraction > 0 ? { y: sunTop(quarter.fraction * 60), text: sunshineLabel(quarter.fraction * 60, SUN_LABEL_STEP_MINUTES).replace('min zon', 'min zon per uur') } : undefined
+    }
+    const end = Math.ceil(cursorEpoch() / HOUR) * HOUR
+    const bar = sunBars().find((candidate) => candidate.end === end)
+    return bar && { y: bar.top, text: sunshineLabel(bar.minutes, SUN_LABEL_STEP_MINUTES) }
+  })
+  // In Lucht staat het zonlabel rechts van de cursor; de wolkenlabels wijken dan naar links uit (PO 2026-10-18).
+  const cloudTagsLeft = () => view() === 'air' && !!cursorSun() && cursorX() > CLOUD_TAG_ROOM_PX
   const cursorLayers = createMemo(() => {
     const clouds = props.clouds
     if (!clouds) return []
@@ -467,7 +595,9 @@ export default function HistogramScrubber(props: Props) {
     const epoch = cursorMinute()
     const time = formatTime(epoch)
     const value = cursorValue()
-    const rain = value == null ? 'geen data' : value < 0.05 ? 'droog' : `${formatRate(value)}, ${RAIN_BANDS.find((band) => band.key === classifyRain(value))!.label.toLowerCase()}`
+    const sun = cursorSun()
+    const rain = view() === 'air' ? sun?.text ?? 'geen zon'
+      : value == null ? 'geen data' : value < 0.05 ? 'droog' : `${formatRate(value)}, ${RAIN_BANDS.find((band) => band.key === classifyRain(value))!.label.toLowerCase()}`
     const source = cursorZone()?.label.toLowerCase()
     return `${(dayLabel(epoch, props.now) || 'vandaag').toLowerCase()} ${time}, ${rain}, ${source}`
   })
@@ -750,10 +880,29 @@ export default function HistogramScrubber(props: Props) {
               </g>
               <Show when={props.cloudCover}><line class="cloud-divider" style={{ opacity: coverOpacity() }} x1="0" x2={trackWidth()} y1={cloudHeight() + 1.5} y2={cloudHeight() + 1.5} /></Show>
             </Show>
-            <g class="rain-bars scrub-view" style={layerStyle(baseOpacity())}><Index each={bars()}>{(bar) => <Show
+            <g class="rain-bars scrub-view" style={layerStyle(rainOpacity())}><Index each={bars()}>{(bar) => <Show
               when={!bar().pending}
               fallback={<rect class="rain-bar pending" x={bar().x} y={plotHeight() - 2} width={bar().width} height="2" rx="1" />}
             ><rect class="rain-bar" classList={{ past: bar().past }} x={bar().x} y={bar().top} width={bar().width} height={plotHeight() - bar().top + 3} rx={Math.min(3, bar().width / 2)} fill={rainColor(bar().value, barRainLook(bar().epoch))} /></Show>}</Index></g>
+            <Show when={sunVisible()}>
+              <g class="sun-bars scrub-view" data-testid="sun-bars" data-style={SUN_STYLE} style={layerStyle(sunOpacity())}>
+                <Show when={SUN_STYLE === 'uur'}><Index each={sunBars()}>{(bar) =>
+                  <rect class="sun-bar" classList={{ past: bar().past }} x={bar().x} y={bar().top} width={bar().width} height={plotHeight() - bar().top + 3} rx={Math.min(3, bar().width / 2)} fill={SUN_BAR_FILL} stroke={SUN_BAR_STROKE} />
+                }</Index></Show>
+                <Show when={SUN_STYLE === 'kwartier'}><Index each={sunQuarterBars()}>{(bar) =>
+                  <rect class="sun-bar" x={bar().x} y={bar().top} width={bar().width} height={plotHeight() - bar().top + 3} rx={Math.min(1.5, bar().width / 2)} fill={SUN_BAR_FILL} />
+                }</Index></Show>
+                <Show when={SUN_STYLE === 'vlak' || SUN_STYLE === 'vlak-lijn'}>
+                  <defs><linearGradient id={sunGradientId} x1="0" y1={plotHeight() * (1 - SUN_CHART_HEIGHT_SHARE)} x2="0" y2={plotHeight()} gradientUnits="userSpaceOnUse">
+                    <stop offset="0" stop-color="#ffd23f" stop-opacity=".95" />
+                    <stop offset=".6" stop-color="#ffdf6e" stop-opacity=".55" />
+                    <stop offset="1" stop-color="#fff1b0" stop-opacity=".12" />
+                  </linearGradient></defs>
+                  <For each={sunArea().fill}>{(path) => <path d={path} fill={`url(#${sunGradientId})`} />}</For>
+                  <Show when={SUN_STYLE === 'vlak-lijn'}><For each={sunArea().line}>{(path) => <path d={path} fill="none" stroke="#f2b100" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" />}</For></Show>
+                </Show>
+              </g>
+            </Show>
             <Show when={layerBands().length && cloudsFrontOpacity() > 0}>
               <g class="cloud-section cloud-front" filter={`url(#${cloudId}-soft)`} style={{ opacity: cloudsFrontOpacity() }}><use href={`#${cloudId}-layers`} /></g>
             </Show>
@@ -784,6 +933,13 @@ export default function HistogramScrubber(props: Props) {
           {/* Korrel over lucht, wolken en regen: breekt de gladde verlopen (PO 2026-10-07 live). */}
           <Show when={skyVisible()}><div class="sky-grain" style={{ width: `${cloudWidth()}px`, opacity: skyStrength() }} /></Show>
           <div class="now-line" style={{ left: `${nowX()}px` }} />
+          <Show when={sunVisible()}>
+            <div class="sun-markers" classList={{ "on-sky": skyVisible() }} style={{ opacity: sunOpacity() }}><For each={sunMarkers()}>{(marker) =>
+              <div class="sun-marker" classList={{ rise: marker.kind === 'rise', set: marker.kind === 'set' }} style={{ left: `${marker.x}px` }}>
+                <SunGlyph /><span>{formatTime(marker.epoch)}</span>
+              </div>
+            }</For></div>
+          </Show>
           {/* "Nu" staat in de urenbalk (PO 2026-09-25 live); het uurlabel eronder wijkt. */}
           <div class="x-axis">
             {/* Middernacht krijgt geen uurlabel: het (sticky) daglabel markeert de dagwissel. */}
@@ -809,7 +965,7 @@ export default function HistogramScrubber(props: Props) {
         {/* Waarden bij de cursor i.p.v. een y-as (PO 2026-09-25 live). */}
         <Show when={!props.loading && airMix() > 0 && baseOpacity() > 0}>
           <div class="cursor-tags" style={{ opacity: Math.min(airMix(), baseOpacity()) }} aria-hidden="true"><For each={cursorLayers()}>{(tag) =>
-            <span style={{ left: `${cursorX()}px`, top: `${tag.y}px` }}>{tag.text}</span>
+            <span classList={{ 'left-of-cursor': cloudTagsLeft() }} style={{ left: `${cursorX()}px`, top: `${tag.y}px` }}>{tag.text}</span>
           }</For></div>
         </Show>
         <Show when={!props.loading && coverOpacity() > 0 && cursorCover()}>{(tag) =>
@@ -833,6 +989,11 @@ export default function HistogramScrubber(props: Props) {
             <span>{formatRate(cursorValue()!)}</span>
           </div>
         </Show>
+        <Show when={!props.loading && view() === 'air' && cursorSun()}>{(sun) =>
+          <div class="cursor-readout sun-readout" classList={{ tween: tween(), 'left-of-cursor': cursorX() > plotWidth() - SUN_READOUT_ROOM_PX }} style={{ left: `${cursorX()}px`, top: `${sun().y}px` }} aria-hidden="true">
+            <span>{sun().text}</span>
+          </div>
+        }</Show>
         <Show when={!props.loading && view() === 'temperature'}>
           <For each={cursorTemperature() ?? []}>{(reading) =>
             <div class="cursor-readout" classList={{ tween: tween(), 'gust-readout': reading.air, below: reading.below }} style={{ left: `${cursorX()}px`, top: `${reading.y}px` }} aria-hidden="true">
@@ -908,6 +1069,44 @@ function bandRuns(xs: number[], lower: Array<number | null>, upper: Array<number
 }
 
 /** Catmull-Rom door de punten als kubische Bézier (vloeiende windlijn). */
+/**
+ * Smooth like smoothPath, but monotone between points (harmonic-mean tangents, Fritsch–Butland): never above or
+ * below its neighbours, so a plateau of 60 min sunshine does not bulge up before a steep drop (PO 2026-10-18).
+ */
+function monotoneTangents(points: Array<[number, number]>): number[] {
+  const slopes = points.slice(0, -1).map((point, index) => (points[index + 1]![1] - point[1]) / (points[index + 1]![0] - point[0]))
+  return points.map((_, index) => {
+    if (index === 0) return slopes[0]!
+    if (index === points.length - 1) return slopes.at(-1)!
+    const before = slopes[index - 1]!, after = slopes[index]!
+    return before * after <= 0 ? 0 : 2 * before * after / (before + after)
+  })
+}
+
+/** The y of monotonePath at `x` (cubic Hermite with the same tangents), or undefined outside the points. */
+function monotoneAt(points: Array<[number, number]>, x: number): number | undefined {
+  if (points.length < 2 || x < points[0]![0] || x > points.at(-1)![0]) return undefined
+  const tangents = points.length < 3 ? points.map(() => (points[1]![1] - points[0]![1]) / (points[1]![0] - points[0]![0])) : monotoneTangents(points)
+  let index = 0
+  while (index < points.length - 2 && x > points[index + 1]![0]) index++
+  const [x1, y1] = points[index]!, [x2, y2] = points[index + 1]!
+  const width = x2 - x1, t = (x - x1) / width
+  const h00 = 2 * t ** 3 - 3 * t ** 2 + 1, h10 = t ** 3 - 2 * t ** 2 + t, h01 = -2 * t ** 3 + 3 * t ** 2, h11 = t ** 3 - t ** 2
+  return h00 * y1 + h10 * width * tangents[index]! + h01 * y2 + h11 * width * tangents[index + 1]!
+}
+
+function monotonePath(points: Array<[number, number]>): string {
+  if (points.length < 3) return smoothPath(points)
+  const tangents = monotoneTangents(points)
+  let path = `M${points[0]![0].toFixed(1)} ${points[0]![1].toFixed(1)}`
+  for (let index = 0; index < points.length - 1; index++) {
+    const [x1, y1] = points[index]!, [x2, y2] = points[index + 1]!
+    const third = (x2 - x1) / 3
+    path += `C${(x1 + third).toFixed(1)} ${(y1 + tangents[index]! * third).toFixed(1)} ${(x2 - third).toFixed(1)} ${(y2 - tangents[index + 1]! * third).toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`
+  }
+  return path
+}
+
 function smoothPath(points: Array<[number, number]>): string {
   if (points.length === 1) return `M${points[0]![0]} ${points[0]![1]}h0.01`
   let path = `M${points[0]![0].toFixed(1)} ${points[0]![1].toFixed(1)}`

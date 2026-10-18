@@ -21,7 +21,8 @@ test('air shows the cloud layers under the rain and adds the map veil', async ({
   await clouds.blur()
   await page.mouse.move(5, 5)
   await expect(surface).toHaveAttribute('data-scrubber-view', 'air')
-  await expect(page.locator('.rain-bar:not(.pending)').first()).toBeAttached()
+  // In Lucht maakt de regen plaats voor de zonneschijnduur (MIP-38).
+  await expect(page.locator('.rain-bars')).toHaveCSS('opacity', '0')
   await expect(page.locator('.map-overlay-motregen-cloud-veil')).toBeAttached()
   // In Lucht liggen dezelfde lagen vóór de regen; de kopie erachter is dan uit.
   await expect(page.locator('.cloud-front')).toHaveCSS('opacity', '1')

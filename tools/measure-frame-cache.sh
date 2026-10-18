@@ -24,7 +24,7 @@ render() { # naam snapshot [cachemap]
   local started ended executable="$binary" cache=()
   if [[ -n ${3:-} ]]; then cache=(--frame-cache "$3"); else executable="$MOTREGEN_BASELINE_BIN"; fi
   started=$(date +%s%N)
-  taskset -c 0,1 "$executable" --mode all --data-dir "$2" --basemap-dir "$basemaps" \
+  taskset -c 0,1 "$executable" --mode all --modes "${MOTREGEN_MODES:-weather,wind,feels,air}" --data-dir "$2" --basemap-dir "$basemaps" \
     --out-dir "$work/$1" "${cache[@]}" > "$work/$1.json"
   ended=$(date +%s%N)
   echo "$1 $(( (ended - started) / 1000000 ))" >> "$work/wall.txt"

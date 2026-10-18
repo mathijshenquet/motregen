@@ -1,9 +1,9 @@
 use crate::{
-    modes,
+    air, modes,
     renderer::{self, Media, Options},
     shared,
 };
-use anyhow::{Result, ensure};
+use anyhow::{Context, Result, ensure};
 use render_core::{constants::constants, time::Manifest};
 use serde::Serialize;
 use std::{collections::BTreeMap, fs, path::Path, sync::atomic::Ordering, thread, time::Instant};
@@ -26,9 +26,20 @@ pub fn render(
     basemap_directory: &Path,
     out_directory: &Path,
     manifest: &Manifest,
+    requested: &[String],
     options: Options,
 ) -> Result<AllMedia> {
     let started = Instant::now();
+    let mut selected: Vec<&'static str> = Vec::new();
+    for name in requested {
+        let mode = ["weather", "wind", "feels", "air"]
+            .into_iter()
+            .find(|mode| mode == name)
+            .with_context(|| format!("Unknown weather mode: {name}"))?;
+        ensure!(!selected.contains(&mode), "Duplicate weather mode: {mode}");
+        selected.push(mode);
+    }
+    ensure!(!selected.is_empty(), "No weather modes selected");
     let inputs = shared::enable();
     fs::create_dir_all(out_directory)?;
     let receipt = out_directory.join("media.json");
@@ -37,13 +48,21 @@ pub fn render(
     }
     let temporary = tempfile::tempdir_in(out_directory)?;
     let outputs = thread::scope(|scope| {
-        let tasks: Vec<_> = ["weather", "wind", "feels"]
-            .into_iter()
-            .map(|mode| {
+        let tasks: Vec<_> = selected
+            .iter()
+            .map(|&mode| {
                 let destination = temporary.path().join(mode);
                 scope.spawn(move || -> Result<Media> {
                     if mode == "weather" {
                         renderer::render(
+                            data_directory,
+                            basemap_directory,
+                            &destination,
+                            manifest,
+                            options,
+                        )
+                    } else if mode == "air" {
+                        air::render(
                             data_directory,
                             basemap_directory,
                             &destination,
@@ -84,7 +103,7 @@ pub fn render(
             "Duplicate weather mode"
         );
     }
-    ensure!(modes.len() == 3, "Incomplete weather matrix");
+    ensure!(modes.len() == selected.len(), "Incomplete weather matrix");
     let size = &constants().size;
     let media = AllMedia {
         version: 1,

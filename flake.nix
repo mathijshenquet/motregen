@@ -107,7 +107,7 @@
           assert combined.environment.MOTREGEN_BOT_ROLE == "combined";
           assert !(combined.environment ? MOTREGEN_CHROMIUM_PATH);
           assert !(combined.environment ? PLAYWRIGHT_BROWSERS_PATH);
-          assert combined.environment.MOTREGEN_RUST_RENDERER == "weather,feels,wind";
+          assert combined.environment.MOTREGEN_RUST_RENDERER == "weather,feels,wind,air";
           assert combined.environment.MOTREGEN_FRAME_CACHE == "/var/cache/motregen-bot/frames";
           assert !(poller.environment ? MOTREGEN_FRAME_CACHE);
           assert combined.environment.MOTREGEN_RUST_BASEMAP_DIR == "${self.packages.${system}.motregen-render}/share/motregen-render/basemaps";
@@ -120,7 +120,7 @@
           assert combined.serviceConfig.Restart == "always";
           assert combined.serviceConfig.MemorySwapMax == "0";
           assert !(renderer.systemd.services.motregen-bot.environment ? MOTREGEN_CHROMIUM_PATH);
-          assert renderer.systemd.services.motregen-bot.environment.MOTREGEN_RUST_RENDERER == "weather,feels,wind";
+          assert renderer.systemd.services.motregen-bot.environment.MOTREGEN_RUST_RENDERER == "weather,feels,wind,air";
           assert renderer.systemd.services.motregen-bot.environment.MOTREGEN_DATA_DIR == "/run/motregen-data";
           assert builtins.elem "/var/lib/motregen:/run/motregen-data" renderer.systemd.services.motregen-bot.serviceConfig.BindReadOnlyPaths;
           assert renderer.systemd.services.motregen-bot.environment.MOTREGEN_ORIGIN == "https://motregen.nl";

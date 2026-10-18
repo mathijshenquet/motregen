@@ -739,12 +739,26 @@ button { color: inherit; cursor: pointer; }
 .cursor-readout.below span { top: 5px; bottom: auto; }
 .cursor-tags { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
 .cursor-tags span { position: absolute; padding: 1px 5px; border-radius: 6px; color: var(--cursor-ink); background: color-mix(in srgb, var(--cursor-surface) 85%, transparent); font-size: 10px; font-weight: 700; white-space: nowrap; transform: translate(6px, -50%); }
+.cursor-tags span.left-of-cursor { transform: translate(calc(-100% - 6px), -50%); }
 .cloud-labels span { position: absolute; left: 6px; transform: translateY(-50%); color: color-mix(in srgb, var(--muted) 80%, transparent); font-size: 9px; font-weight: 700; letter-spacing: .04em; }
 :root:not([data-theme="dark"]) .rain-bars { filter: brightness(.86) saturate(1.35); }
 .rain-bar { animation: rain-bar-in .45s ease-out both; }
 .rain-bar.past { opacity: .72; }
 .rain-bar.pending { fill: color-mix(in srgb, var(--muted) 45%, transparent); animation: scrubber-pulse 1.4s ease-in-out infinite alternate; }
 @keyframes rain-bar-in { from { opacity: 0; } }
+/* Zonneschijnduur in Lucht (MIP-38); kleur en hoogte staan als constanten in HistogramScrubber.tsx. */
+.sun-bar { stroke-width: 1; paint-order: stroke; animation: rain-bar-in .45s ease-out both; }
+.sun-bar.past { opacity: .72; }
+.sun-markers { position: absolute; inset: 0; pointer-events: none; }
+/* Zon op en onder op de basislijn; de tijd staat aan de nachtkant, weg van de staven. */
+.sun-marker { position: absolute; bottom: 1px; display: flex; align-items: flex-end; gap: 2px; transform: translateX(-11px); color: rgba(255, 246, 228, .92); font-size: 10px; font-weight: 700; line-height: 1; text-shadow: 0 1px 3px rgba(20, 12, 30, .55); }
+.sun-marker.rise { flex-direction: row-reverse; transform: translateX(calc(-100% + 11px)); }
+.chart-plot .sun-marker .sun-glyph { position: static; margin: 0; flex: none; }
+.sun-marker .sun-glyph-horizon { stroke: rgba(255, 246, 228, .8); }
+.sun-marker span { padding-bottom: 1px; }
+.sun-markers:not(.on-sky) .sun-marker { color: var(--muted); text-shadow: none; }
+.sun-markers:not(.on-sky) .sun-glyph-horizon { stroke: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .sun-bar { animation: none; } }
 .hour-grid { position: absolute; inset: 0; pointer-events: none; }
 .hour-grid i { position: absolute; top: 0; bottom: 0; width: 1px; background: color-mix(in srgb, var(--line) 55%, transparent); }
 .day-grid { position: absolute; inset: 0; pointer-events: none; }
@@ -776,6 +790,7 @@ button { color: inherit; cursor: pointer; }
 .cursor-readout::before { position: absolute; top: -4px; left: -4px; width: 8px; height: 8px; border: 2px solid var(--cursor-surface); border-radius: 50%; background: var(--cursor-ink); content: ''; }
 .cursor-readout span { position: absolute; bottom: 5px; left: 7px; padding: 2px 6px; border-radius: 6px; color: var(--cursor-ink); background: color-mix(in srgb, var(--cursor-surface) 88%, transparent); font-size: 11px; font-weight: 700; white-space: nowrap; }
 .cursor-readout.tween { transition: top .14s ease-out; }
+.cursor-readout.left-of-cursor span { right: 7px; left: auto; }
 .x-axis { position: absolute; bottom: calc(100% + 7px); right: 0; left: 0; white-space: nowrap; color: var(--muted); font-size: 11px; pointer-events: none; }
 .x-axis span { position: absolute; bottom: 0; line-height: 1; transform: translateX(-50%); }
 .x-axis span.midnight { color: var(--text); font-weight: 700; }

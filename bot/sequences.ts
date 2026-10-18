@@ -4,8 +4,10 @@ import { STILL_HOURS, stillEpoch, type LoopMode, type StillHour, type StillManif
 // op 2026-10-11. MIP-31: Wind 75 s/7,5 fps; regen en temperatuur 100 s/5,6 fps (beide circa 9,35 min/s).
 export const LOOP_TIMING = {
   weather: { stepSeconds: 100, fps: 5.6, startMinutes: -60, endMinutes: 120 },
-  wind: { stepSeconds: 75, fps: 7.5, startMinutes: -60, endMinutes: 300 },
+  wind: { stepSeconds: 75, fps: 7.5, startMinutes: -60, endMinutes: 180 },
   feels: { stepSeconds: 100, fps: 5.6, startMinutes: -60, endMinutes: 300 },
+  // U92: tempo als Gevoelstemperatuur; Lucht en Wind tot +3 uur zodat Lucht in de generatie past (PO 2026-10-18).
+  air: { stepSeconds: 100, fps: 5.6, startMinutes: -60, endMinutes: 180 },
 } satisfies Record<LoopMode, { stepSeconds: number; fps: number; startMinutes: number; endMinutes: number }>
 
 export interface SequencePlan {

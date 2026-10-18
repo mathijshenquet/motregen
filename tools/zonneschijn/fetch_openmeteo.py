@@ -3,6 +3,8 @@
 Bron: https://historical-forecast-api.open-meteo.com (gratis, niet-commercieel). Dat archief plakt per model
 de eerste uren van opeenvolgende runs aan elkaar: het is dus een korte-termijnverwachting, vergelijkbaar
 met onze leads +1…+6, niet met +21. `sunshine_duration` geldt voor het voorafgaande uur (seconden).
+icon_eu, icon_global en ecmwf_ifs (9 km) zijn de kandidaten voor wat de MeteoSwiss-app buiten het ICON-CH-gebied
+toont (U95b); meteoswiss_icon_ch1/ch2 geven voor Nederland "No data is available for this location".
 
 Gebruik: fetch_openmeteo.py <eerste dag> <laatste dag>. Schrijft data/openmeteo.csv.
 """
@@ -15,7 +17,7 @@ from pathlib import Path
 import requests
 
 ENDPOINT = "https://historical-forecast-api.open-meteo.com/v1/forecast"
-MODELS = ["knmi_seamless", "icon_d2", "ecmwf_ifs025"]
+MODELS = ["knmi_seamless", "icon_d2", "icon_eu", "icon_global", "ecmwf_ifs", "ecmwf_ifs025"]
 DATA = Path(__file__).parent / "data"
 
 

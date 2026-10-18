@@ -103,6 +103,9 @@ Zonder modelfout: wat er overblijft is de omrekening van een uurgemiddelde naar 
 | B1 klimatologie | 20.0 | -3.1 | +0.00 | 3.64 | -0.74 |
 | Open-Meteo knmi_seamless | 12.8 | +6.2 | +0.36 | 1.80 | +1.49 |
 | Open-Meteo icon_d2 | 10.7 | +5.9 | +0.46 | 1.70 | +1.42 |
+| Open-Meteo icon_eu | 12.4 | +6.8 | +0.38 | 2.05 | +1.63 |
+| Open-Meteo icon_global | 12.9 | +7.8 | +0.36 | 2.22 | +1.88 |
+| Open-Meteo ecmwf_ifs | 14.9 | +12.7 | +0.26 | 3.14 | +3.06 |
 | Open-Meteo ecmwf_ifs025 | 15.0 | +13.2 | +0.25 | 3.25 | +3.19 |
 
 Per seizoen (MAE / bias, min/u):
@@ -115,7 +118,25 @@ Per seizoen (MAE / bias, min/u):
 | B1 klimatologie | 18.9 / +0.4 | 20.7 / -5.4 | 19.8 / -2.2 | 19.8 / -2.9 |
 | Open-Meteo knmi_seamless | 10.6 / +5.8 | 11.1 / +4.8 | 13.8 / +7.7 | 16.0 / +5.5 |
 | Open-Meteo icon_d2 | 7.2 / +1.2 | 9.0 / +4.2 | 12.4 / +8.2 | 13.7 / +8.0 |
+| Open-Meteo icon_eu | 7.5 / +0.4 | 10.5 / +4.9 | 14.5 / +9.1 | 16.0 / +10.6 |
+| Open-Meteo icon_global | 8.1 / +1.3 | 10.9 / +5.9 | 15.1 / +10.3 | 16.3 / +11.6 |
+| Open-Meteo ecmwf_ifs | 8.5 / +5.3 | 12.4 / +10.0 | 18.0 / +16.4 | 18.0 / +15.7 |
 | Open-Meteo ecmwf_ifs025 | 9.3 / +7.0 | 12.9 / +11.0 | 17.6 / +15.9 | 18.5 / +16.9 |
+
+Kandidaten voor de MeteoSwiss-app buiten het ICON-CH-gebied: hun eigen zonneschijnduur (Open-Meteo) naast S1 op hun eigen uurstraling, met dezelfde parameters als op HARMONIE.
+
+| schatter | MAE (min/u) | bias (min/u) | vaardigheid t.o.v. B1 | MAE dagsom (u) | bias dagsom (u) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| S1 k-overgang (gefit) | 10.5 | +1.8 | +0.48 | 1.31 | +0.44 |
+| B1 klimatologie | 20.0 | -3.1 | +0.00 | 3.64 | -0.74 |
+| Open-Meteo icon_eu | 12.4 | +6.8 | +0.38 | 2.05 | +1.63 |
+| S1 op straling icon_eu | 9.8 | +0.2 | +0.51 | 1.06 | +0.05 |
+| Open-Meteo icon_global | 12.9 | +7.8 | +0.36 | 2.22 | +1.88 |
+| S1 op straling icon_global | 10.0 | +0.8 | +0.50 | 1.11 | +0.20 |
+| Open-Meteo ecmwf_ifs | 14.9 | +12.7 | +0.26 | 3.14 | +3.06 |
+| S1 op straling ecmwf_ifs | 10.9 | +6.7 | +0.45 | 1.82 | +1.63 |
+| Open-Meteo ecmwf_ifs025 | 15.0 | +13.2 | +0.25 | 3.25 | +3.19 |
+| S1 op straling ecmwf_ifs025 | 11.0 | +7.2 | +0.45 | 1.90 | +1.74 |
 
 ### 00 UTC-runs, leads +4…+21, alle dagen (fit + test)
 
@@ -129,6 +150,9 @@ Per seizoen (MAE / bias, min/u):
 | B1 klimatologie | 19.9 | -1.2 | +0.00 | 3.55 | -0.29 |
 | Open-Meteo knmi_seamless | 12.7 | +6.3 | +0.36 | 1.87 | +1.51 |
 | Open-Meteo icon_d2 | 10.7 | +5.3 | +0.46 | 1.65 | +1.27 |
+| Open-Meteo icon_eu | 12.4 | +6.7 | +0.38 | 2.08 | +1.62 |
+| Open-Meteo icon_global | 12.9 | +7.7 | +0.35 | 2.23 | +1.86 |
+| Open-Meteo ecmwf_ifs | 15.5 | +13.4 | +0.22 | 3.30 | +3.23 |
 | Open-Meteo ecmwf_ifs025 | 15.9 | +14.1 | +0.20 | 3.45 | +3.39 |
 
 Per seizoen (MAE / bias, min/u):
@@ -141,7 +165,25 @@ Per seizoen (MAE / bias, min/u):
 | B1 klimatologie | 17.8 / +3.6 | 20.4 / -3.6 | 20.0 / -0.5 | 19.9 / -1.4 |
 | Open-Meteo knmi_seamless | 11.8 / +7.4 | 12.1 / +6.2 | 13.0 / +6.4 | 14.4 / +4.9 |
 | Open-Meteo icon_d2 | 7.6 / +0.6 | 9.9 / +4.7 | 11.8 / +7.0 | 12.4 / +6.0 |
+| Open-Meteo icon_eu | 8.7 / +1.1 | 10.9 / +4.9 | 14.3 / +9.4 | 14.2 / +9.2 |
+| Open-Meteo icon_global | 9.5 / +2.4 | 11.2 / +5.8 | 14.9 / +10.3 | 14.6 / +10.3 |
+| Open-Meteo ecmwf_ifs | 12.4 / +9.2 | 13.4 / +11.0 | 17.8 / +16.3 | 17.4 / +15.7 |
 | Open-Meteo ecmwf_ifs025 | 13.0 / +10.7 | 14.2 / +12.3 | 17.7 / +16.0 | 17.8 / +16.4 |
+
+Kandidaten voor de MeteoSwiss-app buiten het ICON-CH-gebied: hun eigen zonneschijnduur (Open-Meteo) naast S1 op hun eigen uurstraling, met dezelfde parameters als op HARMONIE.
+
+| schatter | MAE (min/u) | bias (min/u) | vaardigheid t.o.v. B1 | MAE dagsom (u) | bias dagsom (u) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| S1 k-overgang (gefit) | 10.4 | +0.7 | +0.48 | 1.35 | +0.16 |
+| B1 klimatologie | 19.9 | -1.2 | +0.00 | 3.55 | -0.29 |
+| Open-Meteo icon_eu | 12.4 | +6.7 | +0.38 | 2.08 | +1.62 |
+| S1 op straling icon_eu | 9.8 | +0.5 | +0.51 | 1.14 | +0.11 |
+| Open-Meteo icon_global | 12.9 | +7.7 | +0.35 | 2.23 | +1.86 |
+| S1 op straling icon_global | 10.1 | +1.0 | +0.49 | 1.20 | +0.25 |
+| Open-Meteo ecmwf_ifs | 15.5 | +13.4 | +0.22 | 3.30 | +3.23 |
+| S1 op straling ecmwf_ifs | 11.6 | +7.6 | +0.42 | 1.99 | +1.82 |
+| Open-Meteo ecmwf_ifs025 | 15.9 | +14.1 | +0.20 | 3.45 | +3.39 |
+| S1 op straling ecmwf_ifs025 | 11.6 | +8.0 | +0.42 | 2.06 | +1.92 |
 
 Open-Meteo-cijfers gelden voor hun eigen korte-termijnreeks; bij de 00 UTC-rij hebben zij dus een kortere lead dan HARMONIE. Fit-dagen tellen in deze sectie mee; de parameters hebben 1–2 vrijheidsgraden per schatter.
 

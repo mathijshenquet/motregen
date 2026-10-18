@@ -1,4 +1,5 @@
 pub mod clock;
+pub mod cloud;
 pub mod composition;
 pub mod constants;
 pub mod contours;
@@ -16,6 +17,7 @@ pub mod projection;
 pub mod rain;
 pub mod rotated_text;
 pub mod sampling;
+pub mod sky_light;
 pub mod strokes;
 pub mod temperature;
 pub mod text;

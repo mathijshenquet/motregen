@@ -7,7 +7,7 @@ import { MediaUnavailableError, REGISTER_NOTICE } from './register.js'
 import type { PlaceWeather } from './place-weather.js'
 import type { SearchPlace } from '../web/src/core/place-search.js'
 import type { MessageSelections } from './selections.js'
-import { cacheKey, keyboard, matchingModes, modeForCommand, parseCallback, LOOP_MODES, STILL_MINUTES, type MediaSelection, type StillManifest } from './stills.js'
+import { cacheKey, enabledLoopModes, keyboard, matchingModes, modeForCommand, parseCallback, LOOP_MODES, STILL_MINUTES, type MediaSelection, type StillManifest } from './stills.js'
 
 export interface BotRuntime {
   api: TelegramApi
@@ -54,7 +54,9 @@ async function dispatchUpdate(update: TelegramUpdate, runtime: BotRuntime): Prom
 }
 
 export function startText(username: string): string {
-  return 'motregen.nl -- Regenradar en Weersverwachting\n/weer amsterdam toont wolken en regen voor die plek; /regen ams werkt ook. /regen, /temperatuur (of /hitte) en /wind geven een bewegende kaart; met de knoppen eronder kies je een stilstaand moment. Inline: @' + username + ' regen.'
+  const films = enabledLoopModes().map((entry) => entry.listed.length ? `/${entry.command} (of ${entry.listed.map((alias) => `/${alias}`).join(', ')})` : `/${entry.command}`)
+  const filmList = `${films.slice(0, -1).join(', ')} en ${films.at(-1)}`
+  return `motregen.nl -- Regenradar en Weersverwachting\n/weer amsterdam toont wolken en regen voor die plek; /regen ams werkt ook. ${filmList} geven een bewegende kaart; met de knoppen eronder kies je een stilstaand moment. Inline: @${username} regen.`
 }
 
 async function handleCommand(message: TelegramMessage, runtime: BotRuntime): Promise<void> {
@@ -240,7 +242,7 @@ export async function configureBot(runtime: BotRuntime): Promise<void> {
     commands: [
       { command: 'start', description: 'Open de motregen Mini App' },
       { command: 'weer', description: 'Wolken en regen voor een plaats: /weer ams' },
-      ...LOOP_MODES.flatMap((entry) => [
+      ...enabledLoopModes().flatMap((entry) => [
         { command: entry.command, description: `${entry.label} als bewegende kaart` },
         ...entry.listed.map((alias) => ({ command: alias, description: `Zelfde als /${entry.command}` })),
       ]),

@@ -1,13 +1,21 @@
 export type NativeMode = 'weather' | 'feels' | 'wind'
+/** Lucht (U92) bestaat alleen in de Rust-renderer. */
+export type RustMode = NativeMode | 'air'
 
-export function rustRenderer(mode: NativeMode, environment: NodeJS.ProcessEnv = process.env): boolean {
+export function rustRenderer(mode: RustMode, environment: NodeJS.ProcessEnv = process.env): boolean {
   const value = environment.MOTREGEN_RUST_RENDERER
   if (value === undefined || value === '') return false
   const modes = value.split(',')
-  if (modes.some((candidate) => !['weather', 'feels', 'wind'].includes(candidate)) || new Set(modes).size !== modes.length) {
-    throw new Error('MOTREGEN_RUST_RENDERER moet een lijst van weather,feels,wind zijn of ontbreken')
+  if (modes.some((candidate) => !['weather', 'feels', 'wind', 'air'].includes(candidate)) || new Set(modes).size !== modes.length) {
+    throw new Error('MOTREGEN_RUST_RENDERER moet een lijst van weather,feels,wind,air zijn of ontbreken')
   }
   return modes.includes(mode)
+}
+
+export function rendererBackend(mode: RustMode, environment: NodeJS.ProcessEnv = process.env): 'rust' | 'native' | 'playwright' {
+  if (rustRenderer(mode, environment)) return 'rust'
+  if (mode === 'air') throw new Error('Lucht vereist de Rust-renderer (MOTREGEN_RUST_RENDERER met air)')
+  return nativeRenderer(mode, environment)
 }
 
 export function nativeRenderer(mode: NativeMode, environment: NodeJS.ProcessEnv = process.env): 'native' | 'playwright' {

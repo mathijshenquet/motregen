@@ -1,5 +1,5 @@
-import { solarPosition } from './solar'
-import { formatNumber } from './locale'
+import { solarPosition } from './solar.js'
+import { formatNumber } from './locale.js'
 
 export type UvLevel = 'laag' | 'matig' | 'hoog' | 'zeer hoog' | 'extreem'
 
@@ -72,6 +72,20 @@ export function clearSkyRadiation(mu: number): number {
   return mu > 0.01 ? 1_098 * mu * Math.exp(-0.057 / mu) : 0
 }
 
+export const HOUR_SUBSTEPS = 6
+
+/** Midpoints of the ten-minute steps of the hour that ends at `end`. */
+export function hourSubstepEpochs(end: number): number[] {
+  return Array.from({ length: HOUR_SUBSTEPS }, (_, step) => end - (step + 0.5) * 3_600_000 / HOUR_SUBSTEPS)
+}
+
+/** Clear-sky irradiance as the mean over the hour that ends at `end`, like the HARMONIE hour means. */
+export function clearSkyHourMean(end: number, sinElevation: (epoch: number) => number): number {
+  let clear = 0
+  for (const epoch of hourSubstepEpochs(end)) clear += clearSkyRadiation(sinElevation(epoch)) / HOUR_SUBSTEPS
+  return clear
+}
+
 /**
  * Cloud modification factor G/G_c at `epoch`: the share of the clear-sky irradiance that reaches the
  * ground, from the HARMONIE hour means that end at `epoch` and one hour later. Null at night and
@@ -86,8 +100,7 @@ export function cloudModification(
   const ratios: number[] = []
   for (const [radiation, end] of [[radiationBefore, epoch], [radiationAfter, epoch + 3_600_000]] as const) {
     if (radiation == null || !Number.isFinite(radiation)) continue
-    let clear = 0
-    for (let step = 0; step < 6; step++) clear += clearSkyRadiation(sinElevation(end - (step + 0.5) * 600_000)) / 6
+    const clear = clearSkyHourMean(end, sinElevation)
     if (clear > 20) ratios.push(Math.max(0, Math.min(1, radiation / clear)))
   }
   return ratios.length ? ratios.reduce((sum, ratio) => sum + ratio, 0) / ratios.length : null

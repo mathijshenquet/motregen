@@ -1,6 +1,6 @@
 import { setTimeout as delay } from 'node:timers/promises'
 import { StillRenderer } from './render.js'
-import { LOOP_MODES, PREWARM_HOURS, type StillManifest } from './stills.js'
+import { enabledLoopModes, PREWARM_HOURS, type StillManifest } from './stills.js'
 
 // Duurtest: rendert meerdere generaties in één proces en logt na elke ronde het Node-geheugen. Een lek over
 // generaties is in een meting van één generatie per proces niet te zien (prod 2026-10-10).
@@ -21,7 +21,7 @@ try {
     }
     const started = performance.now()
     await renderer.prune()
-    await Promise.all(LOOP_MODES.map(async (definition) => {
+    await Promise.all(enabledLoopModes().map(async (definition) => {
       await renderer.render({ mode: definition.mode, hour: 'loop' }, manifest)
       if (definition.mode === 'wind') return
       for (const hour of PREWARM_HOURS) await renderer.render({ mode: definition.mode, hour }, manifest)

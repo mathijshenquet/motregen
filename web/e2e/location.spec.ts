@@ -92,7 +92,7 @@ test('start location remembers saved places and the last map view', async ({ pag
   await page.goto('/')
   await expect(scrubber).toHaveAttribute('aria-label', /voor De Bilt$/)
 
-  await setStorage(page, {
+  await storeBeforeNextLoad(page, {
     'motregen-saved-places': JSON.stringify([home, work]),
     'motregen-map-view': JSON.stringify({ lng: 6.57, lat: 53.21, zoom: 7 }),
   })
@@ -116,7 +116,7 @@ test('start location remembers saved places and the last map view', async ({ pag
   await expect(scrubber).toHaveAttribute('aria-label', /voor Werk$/)
   await expect(page).toHaveURL(/\/weer\/maastricht$/)
 
-  await setStorage(page, { 'motregen-last-saved-place': 'removed', 'motregen-map-view': '{', 'motregen-last-location': '{' })
+  await storeBeforeNextLoad(page, { 'motregen-last-saved-place': 'removed', 'motregen-map-view': '{', 'motregen-last-location': '{' })
   await page.goto('/') // verse navigatie: de live permalink (?plaats=) hoort bij de vorige pagina, de onthouden plaats wint
   await expect(scrubber).toHaveAttribute('aria-label', /voor De Bilt$/)
 })
@@ -135,7 +135,7 @@ test('removing a favorite asks inline and keeps the list open', async ({ page },
   // Echte klik/tik: Chromium meldt de focus van de verdwijnende prullenbak synchroon af (U17).
   const press = (locator: Locator) => testInfo.project.use.hasTouch ? locator.tap() : locator.click()
   await page.goto('/')
-  await setStorage(page, { 'motregen-saved-places': JSON.stringify([home, work]) })
+  await storeBeforeNextLoad(page, { 'motregen-saved-places': JSON.stringify([home, work]) })
   await page.reload()
   await press(page.getByRole('textbox', { name: 'Zoek plaats' }))
   const trash = page.getByRole('button', { name: 'Werk verwijderen uit opgeslagen plaatsen' })
@@ -167,8 +167,11 @@ test('a click on the about backdrop closes it without touching the map', async (
   await expect(dialog).toBeVisible()
   const map = (await page.locator('.map').boundingBox())!
   const body = (await dialog.boundingBox())!
-  const x = map.x + map.width * 0.3
-  const y = body.y > map.y + 60 ? (map.y + body.y) / 2 : body.y + body.height + 20
+  // Links naast de dialog: het Over-scherm is zo hoog als het venster (max-height), dus erboven of
+  // eronder ligt geen backdrop meer; de zijmarge is er op elk scherm (breedte ≤ 100vw − 32 px).
+  expect(body.x).toBeGreaterThan(map.x + 8)
+  const x = (map.x + body.x) / 2
+  const y = map.y + map.height / 2
   if (testInfo.project.use.hasTouch) await page.touchscreen.tap(x, y)
   else await page.mouse.click(x, y)
   await expect(dialog).toBeHidden()
@@ -249,8 +252,16 @@ test('the search panel is one element; a tap outside closes it without touching 
   await expect(page.locator('.search-clear')).toHaveCount(0)
 })
 
-async function setStorage(page: Page, values: Record<string, string>): Promise<void> {
-  await page.evaluate((entries) => {
+/**
+ * Zet localStorage vóór het app-script van de eerstvolgende navigatie, één keer. Direct schrijven in de
+ * draaiende pagina lekt: die schrijft na het laden van de plaatsencatalogus haar gekozen plaats opnieuw
+ * naar `motregen-last-location`, soms ná de testwaarde (gezien 2026-10-18: "voor Werk" i.p.v. De Bilt).
+ */
+async function storeBeforeNextLoad(page: Page, values: Record<string, string>): Promise<void> {
+  const token = `e2e-storage-${crypto.randomUUID()}`
+  await page.addInitScript(({ token, entries }) => {
+    if (sessionStorage.getItem(token)) return
+    sessionStorage.setItem(token, 'applied')
     for (const [key, value] of Object.entries(entries)) localStorage.setItem(key, value)
-  }, values)
+  }, { token, entries: values })
 }

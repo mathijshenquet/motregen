@@ -8,7 +8,7 @@ import { join } from 'node:path'
 import { performance } from 'node:perf_hooks'
 import { FRAME_RETENTION, STILL_CACHE_TTL } from './file-ids.js'
 import { encodeLoop, encodeStill, framePath } from './encode.js'
-import { nativeRenderer, rustRenderer } from './native-settings.js'
+import { nativeRenderer, rendererBackend, rustRenderer } from './native-settings.js'
 import { runRustGeneration, runRustRenderer, type RustMedia } from './rust-render.js'
 import { NativeModesRenderer } from './native-modes-render.js'
 import { NativeWeatherRenderer, nativeFramePath } from './native-render.js'
@@ -16,7 +16,7 @@ import { sequencePlan } from './sequences.js'
 import { openRenderPage } from './render-open.js'
 import { StillRenderError } from './render-error.js'
 export { StillRenderError } from './render-error.js'
-import { cacheKey, caption, stillEpoch, STILL_HOURS, LOOP_MODES, validateManifest, type LoopMode, type LoopSelection, type MediaSelection, type StillManifest, type StillSelection } from './stills.js'
+import { cacheKey, caption, enabledLoopModes, stillEpoch, STILL_HOURS, validateManifest, type LoopMode, type LoopSelection, type MediaSelection, type StillManifest, type StillSelection } from './stills.js'
 
 interface RenderedBase {
   key: string
@@ -61,7 +61,7 @@ export class StillRenderer {
   private opening?: Promise<BrowserContext>
   private pending = new Map<string, Promise<RenderedSequence>>()
   private pendingStills = new Map<string, Promise<RenderedStill>>()
-  private pendingRustGenerations = new Map<string, Promise<Record<LoopMode, RenderedSequence>>>()
+  private pendingRustGenerations = new Map<string, Promise<Partial<Record<LoopMode, RenderedSequence>>>>()
 
   constructor(private readonly origin: string, private readonly cacheDirectory: string) {
     const context: NativeAssetContext = () => this.browserContext()
@@ -104,8 +104,8 @@ export class StillRenderer {
     // Cache-hits hoeven niet achter een nieuwe Chromium-render te wachten.
     const task = this.readCachedSequence(mode, manifest, key).then((cached) => {
       if (cached) return cached
-      if (LOOP_MODES.every(({ mode }) => rustRenderer(mode))) return this.rustGeneration(manifest).then((sequences) => sequences[mode])
-      if (rustRenderer(mode) || nativeRenderer(mode) === 'native') {
+      if (enabledLoopModes().every(({ mode }) => rustRenderer(mode))) return this.rustGeneration(manifest).then((sequences) => sequences[mode]!)
+      if (rendererBackend(mode) !== 'playwright') {
         const render = this.nativeQueue.then(() => this.renderSequence(mode, manifest, key))
         this.nativeQueue = render.catch(() => undefined)
         return render
@@ -197,7 +197,7 @@ export class StillRenderer {
   }
 
   private async releaseAssetBrowser(): Promise<void> {
-    if (LOOP_MODES.some(({ mode }) => nativeRenderer(mode) === 'playwright')) return
+    if (enabledLoopModes().some(({ mode }) => rendererBackend(mode) === 'playwright')) return
     await this.browser?.close()
     this.browser = undefined
     this.context = undefined
@@ -269,12 +269,12 @@ export class StillRenderer {
   }
 
   private prepareNativeGeneration(manifest: StillManifest): Promise<void> {
-    if (LOOP_MODES.some(({ mode }) => nativeRenderer(mode) === 'playwright')) return Promise.resolve()
+    if (enabledLoopModes().some(({ mode }) => rendererBackend(mode) === 'playwright')) return Promise.resolve()
     if (this.nativeAssetGeneration?.generated === manifest.generated) return this.nativeAssetGeneration.ready
     const ready = (async () => {
       const started = performance.now()
-      for (const { mode } of LOOP_MODES) {
-        if (rustRenderer(mode)) continue
+      for (const { mode } of enabledLoopModes()) {
+        if (mode === 'air' || rustRenderer(mode)) continue
         const plan = sequencePlan(mode, manifest)
         if (mode === 'weather') await this.native.prepareAssets(manifest, plan)
         else await this.nativeModes.prepareAssets(mode, manifest, plan)
@@ -292,8 +292,9 @@ export class StillRenderer {
   }
 
   private async renderSequence(mode: LoopMode, manifest: StillManifest, key: string): Promise<RenderedSequence> {
-    if (rustRenderer(mode)) return this.renderRustSequence(mode, manifest, key)
-    if (nativeRenderer(mode) === 'native') return this.renderNativeSequence(mode, manifest, key)
+    const backend = rendererBackend(mode)
+    if (backend === 'rust') return this.renderRustSequence(mode, manifest, key)
+    if (backend === 'native') return this.renderNativeSequence(mode, manifest, key)
     // SwiftShader deelt de twee VM-kernen; laat de korte native loop eerst afmaken.
     await this.nativeLoops.get(cacheKey({ mode: 'weather', hour: 'loop' }, manifest))?.ready
     const started = performance.now()
@@ -366,7 +367,7 @@ export class StillRenderer {
     } finally { await rm(directory, { recursive: true, force: true }) }
   }
 
-  private rustGeneration(manifest: StillManifest): Promise<Record<LoopMode, RenderedSequence>> {
+  private rustGeneration(manifest: StillManifest): Promise<Partial<Record<LoopMode, RenderedSequence>>> {
     const key = cacheKey({ mode: 'weather', hour: 'loop' }, manifest)
     const existing = this.pendingRustGenerations.get(key)
     if (existing) return existing
@@ -377,15 +378,15 @@ export class StillRenderer {
     return task
   }
 
-  private async renderRustGeneration(manifest: StillManifest, key: string): Promise<Record<LoopMode, RenderedSequence>> {
+  private async renderRustGeneration(manifest: StillManifest, key: string): Promise<Partial<Record<LoopMode, RenderedSequence>>> {
     await mkdir(this.cacheDirectory, { recursive: true })
     const directory = await mkdtemp(join(this.cacheDirectory, `.frames-${key}-`))
     try {
       const generation = await runRustGeneration(manifest, directory)
-      const sequences = {} as Record<LoopMode, RenderedSequence>
-      for (const { mode } of LOOP_MODES) sequences[mode] = await this.importRustSequence(mode, manifest, directory, generation.modes[mode])
-      const frameCache = Object.fromEntries(LOOP_MODES.flatMap(({ mode }) => {
-        const report = generation.modes[mode].cache
+      const sequences: Partial<Record<LoopMode, RenderedSequence>> = {}
+      for (const { mode } of enabledLoopModes()) sequences[mode] = await this.importRustSequence(mode, manifest, directory, generation.modes[mode]!)
+      const frameCache = Object.fromEntries(enabledLoopModes().flatMap(({ mode }) => {
+        const report = generation.modes[mode]?.cache
         return report ? [[mode, { reused: report.reused_frames, rendered: report.rendered_frames, writtenBytes: report.written_bytes }]] : []
       }))
       console.info(JSON.stringify({ event: 'rust-generation-render', generated: manifest.generated, totalMs: generation.total_ms, sharedRasterHits: generation.shared_raster_hits, frameCache }))

@@ -1,23 +1,28 @@
 import { describe, expect, it } from 'vitest'
 import { fpsFraction, holdFrames, LOOP_TIMING, sequencePlan } from './sequences.js'
-import { cacheKey, LOOP_MODES, PREWARM_HOURS, type StillManifest } from './stills.js'
+import { cacheKey, enabledLoopModes, LOOP_MODES, PREWARM_HOURS, type StillManifest } from './stills.js'
 
 const manifest: StillManifest = { version: 0, generated: '2026-10-07T12:00:00Z', now: '2026-10-07T12:00:00Z', chunks: [] }
 const now = Date.parse(manifest.now)
 
 describe('one frame sequence per mode', () => {
-  it('uses one app tempo from one hour ago through two hours ahead for rain and five for temperature and wind', () => {
+  it('uses one app tempo for rain, temperature and air, and the shorter wind and air windows', () => {
+    const expected = {
+      weather: { fps: 5.6, stepSeconds: 100, loopFrames: 109, epochs: 175, startHours: -1, endHours: 2 },
+      wind: { fps: 7.5, stepSeconds: 75, loopFrames: 193, epochs: 193, startHours: -1, endHours: 3 },
+      feels: { fps: 5.6, stepSeconds: 100, loopFrames: 217, epochs: 265, startHours: -1, endHours: 5 },
+      air: { fps: 5.6, stepSeconds: 100, loopFrames: 145, epochs: 205, startHours: -1, endHours: 3 },
+    }
     for (const definition of LOOP_MODES) {
       const plan = sequencePlan(definition.mode, manifest)
-      const rain = definition.mode === 'weather'
-      const wind = definition.mode === 'wind'
-      expect(plan).toMatchObject({ fps: wind ? 7.5 : 5.6, loopFrames: rain ? 109 : wind ? 289 : 217 })
-      expect(plan.epochs).toHaveLength(rain ? 175 : wind ? 289 : 265)
+      const mode = expected[definition.mode]
+      expect(plan).toMatchObject({ fps: mode.fps, loopFrames: mode.loopFrames })
+      expect(plan.epochs).toHaveLength(mode.epochs)
       const loopEpochs = plan.epochs.slice(0, plan.loopFrames)
-      expect(loopEpochs[0]).toBe(now - 3_600_000)
-      expect(loopEpochs.at(-1)).toBe(now + (rain ? 2 : 5) * 3_600_000)
+      expect(loopEpochs[0]).toBe(now + mode.startHours * 3_600_000)
+      expect(loopEpochs.at(-1)).toBe(now + mode.endHours * 3_600_000)
       for (const [index, epoch] of loopEpochs.entries()) {
-        expect(epoch).toBe(now + (-3600 + index * (wind ? 75 : 100)) * 1000)
+        expect(epoch).toBe(now + (mode.startHours * 3600 + index * mode.stepSeconds) * 1000)
       }
       expect(new Set(plan.epochs).size).toBe(plan.epochs.length)
     }
@@ -75,7 +80,7 @@ describe('one frame sequence per mode', () => {
 
   it('isolates loop ids from still ids and all 173 artifacts from a new generation', () => {
     const keys = new Set<string>()
-    for (const definition of LOOP_MODES) {
+    for (const definition of enabledLoopModes()) {
       const plan = sequencePlan(definition.mode, manifest)
       const selections = definition.mode === 'wind' ? [{ mode: definition.mode, hour: 'loop' } as const] : [
         { mode: definition.mode, hour: 'loop' } as const,
@@ -92,7 +97,7 @@ describe('one frame sequence per mode', () => {
 
   it('prewarms 13 media while retaining all delta frames for lazy stills', () => {
     const keys = new Set<string>()
-    for (const definition of LOOP_MODES) {
+    for (const definition of enabledLoopModes()) {
       keys.add(cacheKey({ mode: definition.mode, hour: 'loop' }, manifest))
       if (definition.mode === 'wind') continue
       const plan = sequencePlan(definition.mode, manifest)
