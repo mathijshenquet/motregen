@@ -61,8 +61,8 @@ export function hourlyEnd(now: number, location: LadderLocation): number {
 
 /**
  * De grove rijen na het uurdeel: dagdelen tot en met de nacht na `partsThroughDay`, dan dagen tot en met `lastDay`.
- * Een nacht 00–06 volgt zijn avond en hoort bij die dag, zoals "de nacht van maandag op dinsdag"; de eerste dagrij
- * begint daarom om 06 uur, de rest loopt van middernacht tot middernacht.
+ * Een nacht 00–06 volgt zijn avond en hoort bij die dag, zoals "de nacht van maandag op dinsdag". Een dagrij is
+ * daarom 06–06: de dag met de nacht erna. Zo zijn er precies twee overgangen (PO 2026-10-18).
  */
 export function buildLadder(now: number, location: LadderLocation, ladder: Ladder = TABLE_LADDER): LadderSlot[] {
   const today = localDate(now)
@@ -80,9 +80,7 @@ export function buildLadder(now: number, location: LadderLocation, ladder: Ladde
     cursor = localTime(calendarDate, partEnd)
   }
   for (let date = localDate(cursor); date <= addDays(today, ladder.lastDay); date = addDays(date, 1)) {
-    const start = Math.max(cursor, localTime(date, 0))
-    const clock = Math.round(localMinutes(start) / 60)
-    slots.push({ start, end: localTime(date, 24), grain: 'day', date, label: 'Dag', range: `${pad(clock)}–24` })
+    slots.push({ start: localTime(date, PART_HOURS), end: localTime(date, 24 + PART_HOURS), grain: 'day', date, label: 'Dag', range: '06–06' })
   }
   return slots
 }

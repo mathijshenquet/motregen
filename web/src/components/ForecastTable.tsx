@@ -292,11 +292,12 @@ export default function ForecastTable(props: Props) {
     window.clearTimeout(shownTimer)
   })
 
-  // Dag of nacht van een grove rij volgt het midden van zijn venster. Zonbanden alleen tussen 3-uursrijen, waar
+  // Dag of nacht van een dagdeel volgt het midden van zijn venster. Zonbanden alleen tussen 3-uursrijen, waar
   // de rijen kloktijden zijn; dagdelen en dag/nacht dragen hun naam al.
   const spans = tableMemo('grove-rijen', () => {
     const rows = props.longRange ?? []
-    const daylight = rows.map((row) => isSunUp((row.slot.start + row.slot.end) / 2, props.location.lng, props.location.lat))
+    // Een dagrij (06–06) is een dag, ook al valt het midden van zijn venster na zonsondergang.
+    const daylight = rows.map((row) => row.slot.grain === 'day' || isSunUp((row.slot.start + row.slot.end) / 2, props.location.lng, props.location.lat))
     // De zonband staat waar de rijkleur wisselt, met het echte moment uit de twee rijen eromheen. Het venster van twee
     // rijen kan beide bevatten; de wissel kiest welke.
     return rows.map((row, index) => {

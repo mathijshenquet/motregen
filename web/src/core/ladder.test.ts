@@ -22,9 +22,9 @@ describe('table ladder', () => {
     const slots = buildLadder(now, utrecht)
     expect(summary(slots).slice(0, 6)).toEqual([
       '2026-10-18 part Ochtend 09–12', '2026-10-18 part Middag 12–18', '2026-10-18 part Avond 18–24', '2026-10-18 part Nacht 00–06',
-      '2026-10-19 day Dag 06–24', '2026-10-20 day Dag 00–24',
+      '2026-10-19 day Dag 06–06', '2026-10-20 day Dag 06–06',
     ])
-    expect(summary(slots).at(-1)).toBe('2026-10-26 day Dag 00–24')
+    expect(summary(slots).at(-1)).toBe('2026-10-26 day Dag 06–06')
     // Aaneengesloten: geen gat en geen overlap tussen de rijen.
     for (let index = 1; index < slots.length; index++) expect(slots[index]!.start).toBe(slots[index - 1]!.end)
   })
@@ -35,7 +35,7 @@ describe('table ladder', () => {
     const slots = buildLadder(now, utrecht)
     expect(summary(slots).slice(0, 7)).toEqual([
       '2026-10-17 part Avond 19–24', '2026-10-17 part Nacht 00–06', '2026-10-18 part Ochtend 06–12', '2026-10-18 part Middag 12–18',
-      '2026-10-18 part Avond 18–24', '2026-10-18 part Nacht 00–06', '2026-10-19 day Dag 06–24',
+      '2026-10-18 part Avond 18–24', '2026-10-18 part Nacht 00–06', '2026-10-19 day Dag 06–06',
     ])
     expect(slots[1]).toMatchObject({ start: localTime('2026-10-18', 0), end: localTime('2026-10-18', 6) })
   })
@@ -47,11 +47,11 @@ describe('table ladder', () => {
     expect(hourlyEnd(sameHour, utrecht)).toBe(localTime('2026-10-17', 19))
   })
 
-  it('keeps calendar days across the clock changes: 25 hours in autumn, 23 in spring', () => {
-    const autumn = buildLadder(at('2026-10-22T10:00:00Z'), utrecht).find((slot) => slot.date === '2026-10-25')!
-    expect(autumn).toMatchObject({ grain: 'day', start: at('2026-10-24T22:00:00Z'), end: at('2026-10-25T23:00:00Z') })
+  it('keeps 06–06 on the local clock across the clock changes: 25 hours in autumn, 23 in spring', () => {
+    const autumn = buildLadder(at('2026-10-22T10:00:00Z'), utrecht).find((slot) => slot.date === '2026-10-24')!
+    expect(autumn).toMatchObject({ grain: 'day', start: at('2026-10-24T04:00:00Z'), end: at('2026-10-25T05:00:00Z') })
     expect(hours(autumn)).toBe(25)
-    const spring = buildLadder(at('2026-03-26T10:00:00Z'), utrecht).find((slot) => slot.date === '2026-03-29')!
+    const spring = buildLadder(at('2026-03-26T10:00:00Z'), utrecht).find((slot) => slot.date === '2026-03-28')!
     expect(hours(spring)).toBe(23)
   })
 
@@ -79,7 +79,7 @@ describe('slot sources', () => {
     expect(rows.map((row) => row.dayStart === true)).toEqual([false, false, true, false, false, false])
   })
 
-  it('aggregates loaded steps over a whole calendar day and puts the chance of rain on it', () => {
+  it('aggregates loaded steps over a whole day and puts the chance of rain on it', () => {
     const slots = buildLadder(now, utrecht).filter((slot) => slot.date === '2026-10-21')
     const rows = buildSlotRows(now, slots, {
       harmonieEpochs,

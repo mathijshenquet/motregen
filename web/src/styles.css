@@ -1034,7 +1034,6 @@ td small { color: var(--muted); font-size: 9px; }
   width: 5px;
   background: var(--rail);
 }
-.forecast-table[data-night-cue="rail"] tr.day-start > td.time-cell::before { top: -2px; }
 /* Symbool: een maantje voor de weekdag en een nauwelijks koelere nachtrij. */
 .night-mark { display: inline-block; margin-right: 3px; vertical-align: -1px; color: var(--accent); }
 .forecast-table[data-night-cue="symbool"] tr.night-hour:not(.sun-row) > td { background: color-mix(in srgb, #5b74a8 6%, var(--surface)); }
@@ -1050,13 +1049,7 @@ td small { color: var(--muted); font-size: 9px; }
   background-size: 233px 61px, 233px 61px, 307px 47px;
 }
 
-/* Glijdende tabel (U91b): grove rijen dragen hun dag zelf; een dagwissel krijgt een iets donkerdere lijn in de
-   kleur van de rij zelf, nooit een strook in paneelkleur (PO 2026-10-17). */
-.forecast-table tr.day-start > td { border-top: 2px solid var(--line-strong); }
-.forecast-table.day-night-table tr.day-hour.day-start > td { border-top-color: color-mix(in oklab, #000 16%, var(--day-sky-start)); }
-/* Na een zonband is de band zelf de scheiding; een lijn zou er dubbel onder liggen. */
-.forecast-table tr.sun-row + tr.day-start > td { border-top-width: 0; }
-.forecast-table.day-night-table tr.night-hour.day-start > td { border-top-color: color-mix(in oklab, #000 var(--table-night-seam, 55%), var(--surface)); }
+/* Geen aparte lijn bij een dagwissel: de rijen dragen hun dag zelf (PO 2026-10-18). */
 .forecast-table tr.beyond-timeline { cursor: default; }
 .forecast-table tr.span-row .time-label:not(button) { cursor: default; }
 .rain-chance { color: var(--accent); font-size: 10px; font-weight: 650; line-height: 1.1; }
