@@ -182,6 +182,8 @@ impl FillTap {
 
 impl FillRaster {
     /// Premultiplied RGBA in 0..=255 at an output pixel.
+    // With two callers the compiler stops inlining this; the per-pixel call made the Feels film ~12 % slower (U94).
+    #[inline(always)]
     fn sample(&self, column: usize, row: usize) -> [f32; 4] {
         let horizontal = self.horizontal[column];
         let vertical = self.vertical[row];
