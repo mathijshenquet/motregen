@@ -69,8 +69,8 @@ export default function AboutDialog(props: Props) {
         <dl>
           <dt>Observatie</dt><dd>KNMI-radar, elke 5 min · NL en Vlaanderen</dd>
           <dt>Voorspelling</dt><dd>KNMI-nowcast (2 uur), dan HARMONIE-AROME</dd>
-          <dt>KNMI</dt><dd>Data van het <a href="https://dataplatform.knmi.nl" target="_blank" rel="noopener">KNMI Data Platform</a> onder <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>, door motregen bewerkt tot kaarten, tijdreeksen en uurwaarden.</dd>
-          <dt>Dagen</dt><dd>Verwachting na morgen: <a href="https://www.ecmwf.int/en/forecasts/datasets/open-data" target="_blank" rel="noopener">ECMWF IFS open data</a>, door motregen omgerekend naar dagwaarden.
+          <dt>KNMI</dt><dd>Data van het <a href="https://dataplatform.knmi.nl" target="_blank" rel="noopener">KNMI Data Platform</a> onder <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>, door motregen.nl bewerkt tot kaarten, tijdreeksen en uurwaarden.</dd>
+          <dt>Dagen</dt><dd>Verwachting na morgen: <a href="https://www.ecmwf.int/en/forecasts/datasets/open-data" target="_blank" rel="noopener">ECMWF IFS open data</a>, door motregen.nl omgerekend naar dagwaarden.
             <span class="about-legal">Deze dienst is gebaseerd op data en producten van het European Centre for Medium-Range Weather Forecasts (ECMWF). Bron: <a href="https://www.ecmwf.int" target="_blank" rel="noopener">www.ecmwf.int</a>. De ECMWF-data is gepubliceerd onder <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>. ECMWF aanvaardt geen enkele aansprakelijkheid voor fouten of omissies in de data, voor de beschikbaarheid ervan, of voor verlies of schade door het gebruik ervan.</span></dd>
           <dt>UV</dt><dd>UV-index van het KNMI, met bewolking</dd>
           <dt>Maan</dt><dd>Textuur: <a href="https://svs.gsfc.nasa.gov/5587/" target="_blank" rel="noopener">NASA Scientific Visualization Studio</a></dd>

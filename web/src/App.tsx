@@ -3165,21 +3165,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const section = manifest()?.ecmwf
     return buildDayList(manifestNow(), hourlyInputs(), section?.days.length ? { section, values: ecmwfDayValues() } : undefined)
   })
-  const ladderHourlyEnd = createMemo(() => hourlyEnd(manifestNow(), location()))
-  const slotRows = createMemo(() => {
-    if (dayListMode() || !manifest()) return []
-    const now = manifestNow()
-    const section = manifest()!.ecmwf
-    const steps = section?.steps?.length && stepChunks().size
-      ? { intervals: section.steps.map((step) => ({ start: Date.parse(step.start), end: Date.parse(step.end) })), values: ecmwfStepValues() }
-      : undefined
-    return buildSlotRows(now, buildLadder(now, location()), {
-      harmonieEpochs: tempTimeline().map((frame) => frame.epoch),
-      hourly: hourlyInputs(),
-      steps,
-      days: section?.days.length ? { dates: section.days.map((day) => day.date), values: ecmwfDayValues() } : undefined,
-    }, localDate(ladderHourlyEnd() - 3_600_000))
-  })
   const forecast = createMemo(() => measurePerfPhase('table-render', () => buildHourlyForecast({
     rain: timeline(),
     uv: uvTimeline(),
@@ -3192,6 +3177,26 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     windV: windVFrames(),
     gust: gustTimeline(),
   }, manifest() ? Date.parse(manifest()!.now) : 0), { memo: 'uurindeling' }))
+  // De bovenste uurrij zoals de tabel hem toont (ForecastTable: visibleRows); de zonmomenten tellen vanaf daar.
+  const tableFirstRow = createMemo(() => {
+    const showsHistory = historyInline() || historyOpen() || tableViewAvailable()
+    return (showsHistory ? forecast()[0] : forecast().find((row) => row.kind !== 'past'))?.epoch ?? manifestNow()
+  })
+  const ladderHourlyEnd = createMemo(() => hourlyEnd(manifestNow(), tableFirstRow(), location()))
+  const slotRows = createMemo(() => {
+    if (dayListMode() || !manifest()) return []
+    const now = manifestNow()
+    const section = manifest()!.ecmwf
+    const steps = section?.steps?.length && stepChunks().size
+      ? { intervals: section.steps.map((step) => ({ start: Date.parse(step.start), end: Date.parse(step.end) })), values: ecmwfStepValues() }
+      : undefined
+    return buildSlotRows(now, buildLadder(now, tableFirstRow(), location()), {
+      harmonieEpochs: tempTimeline().map((frame) => frame.epoch),
+      hourly: hourlyInputs(),
+      steps,
+      days: section?.days.length ? { dates: section.days.map((day) => day.date), values: ecmwfDayValues() } : undefined,
+    }, localDate(ladderHourlyEnd() - 3_600_000))
+  })
   // Glijdende tabel: het uurdeel stopt waar de ladder begint (U91b).
   const tableRows = createMemo(() => dayListMode() ? forecast() : forecast().filter((row) => row.epoch < ladderHourlyEnd()))
   // De straling voedt de tabel (weericoon, UV-schatting) en de hemel achter de scrubber. Gelezen waarden
@@ -3780,7 +3785,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
             />
             <p class="table-source">
               Waarnemingen en de verwachting tot en met morgen zijn gebaseerd op data van het <a href="https://dataplatform.knmi.nl" target="_blank" rel="noopener">KNMI</a><Show when={manifest()?.ecmwf?.days.length} fallback=".">, de verwachting vanaf overmorgen op data en producten van het <a href="https://www.ecmwf.int" target="_blank" rel="noopener">ECMWF</a>.</Show>
-              {' '}Licentie: <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>, bewerkt door motregen.
+              {' '}Licentie: <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>, bewerkt door motregen.nl.
             </p>
             {/* Pas na de eerste regen-draw: de lijst en zijn chunk horen niet bij het kritieke pad. */}
             <Show when={dayListMode() && manifest() && pointLoadsStarted()}>

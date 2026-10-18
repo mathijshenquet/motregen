@@ -5,7 +5,7 @@ import { moonHorizonAngle, moonLitPath, moonPhase } from '../core/moon'
 import { isSunUp, solarElevationSin, sunEvents, type SunEvent } from '../core/solar'
 import { dailyClearSkyUvMax, uvReading } from '../core/uv'
 import { deriveSpanIcon, deriveWeatherIcon, summarizeWind, summarizeWindFrom, UNLIKELY_RAIN_PERCENT, type WindUnit } from '../core/weather'
-import type { SlotRow } from '../core/ladder'
+import { tableSunEvents, type SlotRow } from '../core/ladder'
 import { BUTTON_ICON, Clock, CloudRain, CloudSun, Moon, Table2, Thermometer, Wind } from './icons'
 import UvBar from './UvBar'
 import { skyRailGradient } from '../core/sky-rail'
@@ -132,17 +132,14 @@ export default function ForecastTable(props: Props) {
     onFocus={(event) => { if (event.currentTarget.matches(':focus-visible')) props.focus.onFocus(heading.mode, 'keyboard', true) }}
     onBlur={() => props.focus.onFocus(heading.mode, 'keyboard', false)}
   ><ColumnLabel icon={heading.icon} text={heading.label} /></button>
-  // In de glijdende tabel precies één "Zon op" en één "Zon onder": de eerstvolgende vanaf het nu-uur (PO 2026-10-17).
+  // In de glijdende tabel precies één "Zon op" en één "Zon onder", de geschiedenis meegeteld (PO 2026-10-18).
   const nextSun = tableMemo('volgende-zon', () => {
-    const now = props.rows.find((row) => row.kind === 'now')?.epoch
-    if (now === undefined) return []
-    const events = sunEvents(now, now + 48 * hour, props.location.lng, props.location.lat)
-    return (['rise', 'set'] as const).flatMap((kind) => events.find((event) => event.kind === kind) ?? [])
+    // De bovenste getoonde uurrij, zoals visibleRows hieronder (die staat later in de component).
+    const showsHistory = props.historyInline || props.historyOpen || props.onOpenMobileTable
+    const first = (showsHistory ? props.rows[0] : props.rows.find((row) => row.kind !== 'past'))?.epoch
+    return first === undefined ? [] : tableSunEvents(first, props.location)
   })
-  const nowRowEpoch = tableMemo('nu-uur', () => props.rows.find((row) => row.kind === 'now')?.epoch)
-  // In de geschiedenis (boven het nu-uur) staan de zonmomenten waar ze vielen (PO 2026-10-18).
   const shownSun = (event: SunEvent) => props.allSunEvents === true ||
-    (nowRowEpoch() !== undefined && event.epoch < nowRowEpoch()!) ||
     nextSun().some((next) => next.kind === event.kind && Math.abs(next.epoch - event.epoch) < SUN_MATCH_MS)
   const sun = tableMemo('zonmomenten', () => {
     const first = props.rows[0]

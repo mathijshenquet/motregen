@@ -1,6 +1,6 @@
 import { chunkField, type EcmwfStepField, type Manifest, type ManifestChunk } from './contract'
 import { addDays, aggregateHourlyWindow, localDate, localMinutes, localTime, type DayValues, type EcmwfPointValues, type HourlyDayInputs } from './days'
-import { sunEvents } from './solar'
+import { sunEvents, type SunEvent } from './solar'
 
 const hour = 3_600_000
 
@@ -45,18 +45,21 @@ const PART_HOURS = 6
 const pad = (value: number) => String(value).padStart(2, '0')
 
 /**
- * Het eerste moment dat niet meer per uur is: het uur na de laatste van de eerstvolgende zonsopkomst en
- * zonsondergang, gerekend vanaf het nu-uur, zoals de tabel zijn zonrijen kiest. Zo staan er precies één "Zon op"
- * en één "Zon onder" tussen de uurrijen.
+ * De zonsopkomst en zonsondergang die de urentabel toont (PO 2026-10-18): de eerste van elk vanaf de bovenste getoonde
+ * uurrij, de geschiedenis meegeteld. Zo staan er precies één "Zon op" en één "Zon onder" in het uurdeel.
  */
-export function hourlyEnd(now: number, location: LadderLocation): number {
+export function tableSunEvents(firstRow: number, location: LadderLocation): SunEvent[] {
+  const events = sunEvents(firstRow, firstRow + 48 * hour, location.lng, location.lat)
+  return (['rise', 'set'] as const).flatMap((kind) => events.find((event) => event.kind === kind) ?? [])
+}
+
+/** Het eerste moment dat niet meer per uur is: het uur na de laatste van de twee zonmomenten uit `tableSunEvents`. */
+export function hourlyEnd(now: number, firstRow: number, location: LadderLocation): number {
   const nowHour = Math.floor(now / hour) * hour
-  const events = sunEvents(nowHour, nowHour + 48 * hour, location.lng, location.lat)
-  const rise = events.find((event) => event.kind === 'rise')
-  const set = events.find((event) => event.kind === 'set')
+  const events = tableSunEvents(firstRow, location)
   // Zonder beide binnen twee etmalen (poolzomer of -nacht) een etmaal per uur.
-  if (!rise || !set) return nowHour + 24 * hour
-  return Math.floor(Math.max(rise.epoch, set.epoch) / hour) * hour + hour
+  if (events.length < 2) return nowHour + 24 * hour
+  return Math.max(nowHour + hour, Math.floor(Math.max(...events.map((event) => event.epoch)) / hour) * hour + hour)
 }
 
 /**
@@ -64,11 +67,11 @@ export function hourlyEnd(now: number, location: LadderLocation): number {
  * Een nacht 00–06 volgt zijn avond en hoort bij die dag, zoals "de nacht van maandag op dinsdag". Een dagrij is
  * daarom 06–06: de dag met de nacht erna. Zo zijn er precies twee overgangen (PO 2026-10-18).
  */
-export function buildLadder(now: number, location: LadderLocation, ladder: Ladder = TABLE_LADDER): LadderSlot[] {
+export function buildLadder(now: number, firstRow: number, location: LadderLocation, ladder: Ladder = TABLE_LADDER): LadderSlot[] {
   const today = localDate(now)
   const slots: LadderSlot[] = []
   const partsEnd = localTime(addDays(today, ladder.partsThroughDay + 1), PART_HOURS)
-  let cursor = hourlyEnd(now, location)
+  let cursor = hourlyEnd(now, firstRow, location)
   while (cursor < partsEnd) {
     const calendarDate = localDate(cursor)
     const clock = Math.round(localMinutes(cursor) / 60)
