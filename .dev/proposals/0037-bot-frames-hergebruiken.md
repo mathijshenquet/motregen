@@ -163,6 +163,30 @@ Wat er tijdens de bouw bijkwam ten opzichte van sectie 3:
 5. **Bewaking.** Elke miss controleert dat de renderer alleen bronnen las die in de sleutel zitten (bij Lucht per
    wolkenuur); in alle metingen nul afwijkingen.
 
+## 7. Meting (U97, 2026-10-18, head 6d22615)
+Devhost, `taskset -c 0,1`, onder `web/scripts/perf-lock.sh`, live snapshots van motregen.nl. De Gevoel-referentie is
+ingevoegd (5…14 °C), omdat prod `feels_reference` nog niet publiceert. Nowcast- en seamless-frames worden niet bewaard
+(orkestrator, 2026-10-18).
+
+Keten van drie opeenvolgende generaties met één cache (12:10, 12:15, 12:20Z):
+
+| generatie | CPU | wand | geschreven | Regen | Wind | Gevoel | Lucht |
+|---|---|---|---|---|---|---|---|
+| 1 (koud) | 39,1 s | 20,2 s | 242 MB | 0/175 | 0/193 | 0/265 | 0/205 |
+| 2 | 31,7 s | 18,1 s | 58 MB | 28/175 | 185/193 | 176/265 | 0/205 |
+| 3 | 25,6 s | 13,6 s | 17 MB | 71/175 | 185/193 | 258/265 | 4/205 |
+
+De cache is daarna 320 MB. Vanaf de derde generatie liggen de stills van twee generaties terug ook in de cache.
+
+Paar A→B (11:20 → 11:25Z), mediaan van 3: koud 40,5 s CPU, warm 32,5 s CPU, basislijn zonder cache (int
+645e1e3) 37,4 s CPU. Pariteit: warm is bytegelijk aan koud met hetzelfde labelcheckpoint (alle films en stills).
+Koud is bytegelijk aan de basislijn voor Regen en Lucht; Wind verschilt door de deeltjestijd (besluit 1) en Gevoel door
+de schaal (besluit 4) en de verse labels voor losse stills (6.2).
+
+Reproductie: `tools/fetch-data-snapshot.sh` (snapshots), `tools/measure-frame-cache.sh` (paar, basislijn, pariteit)
+en `tools/measure-frame-cache-chain.sh` (keten), elk vanuit `web/` onder `scripts/perf-lock.sh`.
+
 ## Changelog
 - 2026-10-18 13:18 CEST: concept (worker U97).
 - 2026-10-18: besluiten van de PO verwerkt (sectie 5); wind zonder inloop, schaal met gisteren als referentie.
+- 2026-10-18: uitvoering en meting (secties 6 en 7); nowcast- en seamless-frames worden niet bewaard (orkestrator).
