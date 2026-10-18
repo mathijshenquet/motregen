@@ -1051,6 +1051,8 @@ td small { color: var(--muted); font-size: 9px; }
 
 /* Geen aparte lijn bij een dagwissel: de rijen dragen hun dag zelf (PO 2026-10-18). */
 /* De dagkop (PO 2026-10-18) is een band zoals de zonbanden (.sun-row) en valt om 01 uur, dus in de nachtkleur. */
+/* Zonder eigen bovenrand: de rij erboven tekent zijn onderlijn al, anders lagen er twee lijnen op elkaar. */
+.forecast-table tr.day-heading-row > td { border-top: 0; }
 .forecast-table tr.beyond-timeline { cursor: default; }
 .forecast-table tr.span-row .time-label:not(button) { cursor: default; }
 .rain-chance { color: var(--accent); font-size: 10px; font-weight: 650; line-height: 1.1; }
