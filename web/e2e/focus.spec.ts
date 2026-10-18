@@ -291,6 +291,8 @@ test('pinned isolines re-render after a manifest refresh with a new run and afte
   await page.locator('.freshness-trigger').first().click()
   await page.getByRole('button', { name: 'Nu verversen', exact: true }).click()
   await page.keyboard.press('Escape')
+  // Het paneel rolt eerst op (sluitanimatie); tot dan vangt het de scroll-zoom hieronder af.
+  await expect(page.locator('dialog.freshness-dialog')).not.toHaveAttribute('open', '')
   await page.mouse.move(5, 5)
   // De uurlagen van de nieuwe run worden opnieuw geüpload en de snede opnieuw getekend.
   await expect.poll(async () => (await isolineCounters(page)).uploads ?? 0).toBeGreaterThan(rest.uploads ?? 0)

@@ -665,7 +665,6 @@ mod tests {
             .unwrap()
             .set_modified(stale)
             .unwrap();
-        drop(weather);
         cache.used.lock().unwrap().clear();
         let report = cache.mode("weather").finish(&[]).unwrap();
         assert_eq!(report.removed_files, 1);
