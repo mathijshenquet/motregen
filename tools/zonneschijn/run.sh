@@ -16,4 +16,9 @@ step fetch_harmonie.py 2026-01-09 2026-10-15
 step fetch_harmonie.py 2026-01-09 2026-10-15 --step 4 --run-hours 3,6,9,12,15,18 --leads 0-3 --out harmonie-kort
 step fetch_openmeteo.py 2026-01-09 2026-10-15
 step evaluate.py
+echo "== bench.mts 6"
+node bench.mts 6
+code=$?
+echo "EXIT: $code (bench.mts)"
+if [ "$code" -ne 0 ]; then status=1; fi
 exit "$status"

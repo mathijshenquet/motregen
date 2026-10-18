@@ -79,10 +79,10 @@ Open-Meteo zet per uur bijna altijd 0 of 60 minuten: een drempel op de uurgemidd
 S4 (wolkenlagen) is de terugval voor uren zonder stralingsframe. Die is 0,5 min/u slechter.
 
 **Rekentijd** (node 24 op de devhost, `tools/zonneschijn/bench.mts`, 6 substappen van 10 minuten zoals `cloudModification`):
-- tabel, één locatie × 48 uur: 0,07 ms;
+- tabel, één locatie × 48 uur: 0,06 ms;
 - kaartframe op het 8 km-raster (157×169): 5,7 ms.
 
-Met 6 in plaats van 30 substappen verandert de meting niet (MAE 10,5, dezelfde parameters).
+Met 6 in plaats van 30 substappen verandert de meting niet: S1 houdt MAE 10,4 en bias +0,8 met dezelfde parameters.
 
 **Hoe het kan landen.** Dit zijn voorstellen; de keuzes liggen bij de PO.
 - **Tabel/urenoverzicht:** per uur "☀ 40 min" of een kleine zonbalk 0–60 in de Lucht-kolom. Met een MAE van 10 min is een afronding op 10 minuten eerlijk; het getal suggereert dan geen precisie die er niet is. Een dagtotaal "≈ 5 u zon" kan bovenaan de dag, met een MAE van 1,4 u.
@@ -96,7 +96,7 @@ Met 6 in plaats van 30 substappen verandert de meting niet (MAE 10,5, dezelfde p
 tools/zonneschijn/run.sh   # vanuit een checkout; KNMI_OPEN_DATA_API_KEY in de omgeving of .env
 ```
 
-Het script haalt KNMI-uren (2016 t/m 17 oktober 2026), het HARMONIE-archief en Open-Meteo op. Daarna draait het `evaluate.py`, dat `tools/zonneschijn/results.md` schrijft. De cijfers hierboven komen uit die run, en elke stap gaf `EXIT: 0`. De data (≈ 140 MB) staat in `tools/zonneschijn/data/` en wordt niet gecommit. De eerste ophaalbeurt duurt ongeveer een uur; daarna slaat het script bestaande runs en afgesloten jaren over.
+Het script haalt KNMI-uren (2016 t/m 17 oktober 2026), het HARMONIE-archief en Open-Meteo op. Daarna draait het `evaluate.py`, dat `tools/zonneschijn/results.md` schrijft, en tot slot de rekentijdmeting `bench.mts`. De cijfers hierboven komen uit die run, en elke stap gaf `EXIT: 0`. De data (≈ 140 MB) staat in `tools/zonneschijn/data/` en wordt niet gecommit. De eerste ophaalbeurt duurt ongeveer een uur; daarna slaat het script bestaande runs en afgesloten jaren over.
 
 ## Open vragen voor de PO
 

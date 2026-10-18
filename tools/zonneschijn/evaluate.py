@@ -47,10 +47,10 @@ def erbs_diffuse_fraction(clearness: np.ndarray) -> np.ndarray:
     return np.where(k <= 0.22, 1 - 0.09 * k, np.where(k <= 0.80, middle, 0.165))
 
 
-def add_geometry(frame: pd.DataFrame, sun_threshold_degrees: float) -> pd.DataFrame:
-    """Zongeometrie over het uur [T−1 u, T] in SUBSTEPS stappen (middens van 2 minuten)."""
+def add_geometry(frame: pd.DataFrame, sun_threshold_degrees: float, substeps: int = SUBSTEPS) -> pd.DataFrame:
+    """Zongeometrie over het uur [T−1 u, T] in `substeps` stappen (standaard middens van 2 minuten)."""
     hour_end = (frame["hour_end"] - pd.Timestamp("1970-01-01")).dt.total_seconds().to_numpy()
-    offsets = (np.arange(SUBSTEPS) + 0.5) / SUBSTEPS * 3600 - 3600
+    offsets = (np.arange(substeps) + 0.5) / substeps * 3600 - 3600
     epochs = hour_end[:, None] + offsets[None, :]
     mu = solar_elevation_sin(epochs, frame["lon"].to_numpy()[:, None], frame["lat"].to_numpy()[:, None])
     day_of_year = frame["hour_end"].dt.dayofyear.to_numpy()[:, None]
@@ -362,6 +362,15 @@ def main() -> int:
         "## Resolutie: dichtstbijzijnde 2 km-cel in plaats van blokgemiddelde (zelfde parameters)",
         "",
         *score_table(point_test, {name: point_estimates[name] for name in ["S1 k-overgang (gefit)", "S4 wolkenlagen (gefit)", "S5 combinatie S1/S4 (gefit)", "B1 klimatologie"]}),
+        "",
+    ]
+
+    coarse = add_geometry(test, sun_threshold, substeps=6)
+    coarse_estimates = estimators.apply(coarse)
+    out += [
+        "## Gevoeligheid: 6 substappen van 10 minuten in plaats van 30 van 2 minuten (zelfde parameters)",
+        "",
+        *score_table(coarse, {name: coarse_estimates[name] for name in ["S1 k-overgang (gefit)", "S4 wolkenlagen (gefit)", "B1 klimatologie"]}),
         "",
     ]
 

@@ -69,6 +69,14 @@ Vaardigheid = 1 − MAE/MAE(klimatologie). Klimatologie = gemiddelde SQ per stat
 | S5 combinatie S1/S4 (gefit) | 10.5 | +0.8 | +0.47 | 1.42 | +0.19 |
 | B1 klimatologie | 19.7 | +0.7 | +0.00 | 3.43 | +0.16 |
 
+## Gevoeligheid: 6 substappen van 10 minuten in plaats van 30 van 2 minuten (zelfde parameters)
+
+| schatter | MAE (min/u) | bias (min/u) | vaardigheid t.o.v. B1 | MAE dagsom (u) | bias dagsom (u) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| S1 k-overgang (gefit) | 10.4 | +0.8 | +0.47 | 1.36 | +0.19 |
+| S4 wolkenlagen (gefit) | 10.9 | +1.2 | +0.45 | 1.58 | +0.29 |
+| B1 klimatologie | 19.7 | +0.7 | +0.00 | 3.43 | +0.16 |
+
 ## Plafond: dezelfde schatters op de gemeten stationsstraling Q
 
 Zonder modelfout: wat er overblijft is de omrekening van een uurgemiddelde naar minuten zon.
