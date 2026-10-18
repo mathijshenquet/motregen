@@ -790,6 +790,7 @@ button { color: inherit; cursor: pointer; }
 .cursor-readout::before { position: absolute; top: -4px; left: -4px; width: 8px; height: 8px; border: 2px solid var(--cursor-surface); border-radius: 50%; background: var(--cursor-ink); content: ''; }
 .cursor-readout span { position: absolute; bottom: 5px; left: 7px; padding: 2px 6px; border-radius: 6px; color: var(--cursor-ink); background: color-mix(in srgb, var(--cursor-surface) 88%, transparent); font-size: 11px; font-weight: 700; white-space: nowrap; }
 .cursor-readout.tween { transition: top .14s ease-out; }
+.cursor-readout.left-of-cursor span { right: 7px; left: auto; }
 .x-axis { position: absolute; bottom: calc(100% + 7px); right: 0; left: 0; white-space: nowrap; color: var(--muted); font-size: 11px; pointer-events: none; }
 .x-axis span { position: absolute; bottom: 0; line-height: 1; transform: translateX(-50%); }
 .x-axis span.midnight { color: var(--text); font-weight: 700; }

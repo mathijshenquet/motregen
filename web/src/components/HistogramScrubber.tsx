@@ -150,6 +150,8 @@ const RULER_HEIGHT_PX = 26
 const CURSOR_TIME_ROOM_PX = 56
 // Ruimte links van de cursor voor een wolkenlabel ("midden wolken 100%"); anders blijft het rechts.
 const CLOUD_TAG_ROOM_PX = 118
+// Ruimte rechts van de cursor voor "60 min zon per uur"; daarvoor wijkt het zonlabel naar links uit.
+const SUN_READOUT_ROOM_PX = 150
 // Onder dit daglicht krijgt de liniaal lichte inkt op een donkere sluier (U62).
 const RULER_NIGHT_DAYLIGHT = 0.5
 
@@ -296,7 +298,7 @@ export default function HistogramScrubber(props: Props) {
   // door de uurwaarden op het midden van hun uur, vanaf nul bij zon op tot nul bij zon onder.
   const sunArea = createMemo(() => {
     const inputs = props.sky
-    if (!inputs || !sunVisible() || SUN_STYLE === 'uur' || SUN_STYLE === 'kwartier') return { fill: [] as string[], line: [] as string[] }
+    if (!inputs || !sunVisible() || SUN_STYLE === 'uur' || SUN_STYLE === 'kwartier') return { runs: [] as Array<Array<[number, number]>>, fill: [] as string[], line: [] as string[] }
     const radiationByEpoch = new Map(inputs.radiation.timeline.map((frame, index) => [frame.epoch, inputs.radiation.values[index]]))
     const runs: Array<Array<[number, number]>> = []
     let run: Array<[number, number]> = []
@@ -318,6 +320,7 @@ export default function HistogramScrubber(props: Props) {
     const base = plotHeight()
     const shaped = runs.filter((points) => points.length > 1)
     return {
+      runs: shaped,
       fill: shaped.map((points) => `${monotonePath(points)}L${points.at(-1)![0].toFixed(1)} ${base}L${points[0]![0].toFixed(1)} ${base}Z`),
       line: shaped.map(monotonePath),
     }
@@ -512,6 +515,18 @@ export default function HistogramScrubber(props: Props) {
     return nearest.value
   })
   const cursorSun = createMemo(() => {
+    if (SUN_STYLE === 'vlak' || SUN_STYLE === 'vlak-lijn') {
+      // Punt en waarde lezen de getekende curve zelf, anders staat het puntje naast de lijn (PO 2026-10-18).
+      // De curve staat in baancoördinaten; cursorX() is de positie in beeld.
+      const x = xAt(cursorEpoch())
+      for (const run of sunArea().runs) {
+        const y = monotoneAt(run, x)
+        if (y === undefined) continue
+        const minutes = Math.max(0, Math.min(60, 60 * (plotHeight() - y) / (plotHeight() * SUN_CHART_HEIGHT_SHARE)))
+        return minutes >= SUN_LABEL_STEP_MINUTES / 2 ? { y: sunTop(minutes), text: sunshineLabel(minutes, SUN_LABEL_STEP_MINUTES).replace('min zon', 'min zon per uur') } : undefined
+      }
+      return undefined
+    }
     if (SUN_STYLE !== 'uur') {
       const start = Math.floor(cursorEpoch() / QUARTER) * QUARTER
       const quarter = sunQuarters().find((candidate) => candidate.epoch === start)
@@ -975,7 +990,7 @@ export default function HistogramScrubber(props: Props) {
           </div>
         </Show>
         <Show when={!props.loading && view() === 'air' && cursorSun()}>{(sun) =>
-          <div class="cursor-readout sun-readout" classList={{ tween: tween() }} style={{ left: `${cursorX()}px`, top: `${sun().y}px` }} aria-hidden="true">
+          <div class="cursor-readout sun-readout" classList={{ tween: tween(), 'left-of-cursor': cursorX() > plotWidth() - SUN_READOUT_ROOM_PX }} style={{ left: `${cursorX()}px`, top: `${sun().y}px` }} aria-hidden="true">
             <span>{sun().text}</span>
           </div>
         }</Show>
@@ -1058,15 +1073,31 @@ function bandRuns(xs: number[], lower: Array<number | null>, upper: Array<number
  * Smooth like smoothPath, but monotone between points (harmonic-mean tangents, Fritsch–Butland): never above or
  * below its neighbours, so a plateau of 60 min sunshine does not bulge up before a steep drop (PO 2026-10-18).
  */
-function monotonePath(points: Array<[number, number]>): string {
-  if (points.length < 3) return smoothPath(points)
+function monotoneTangents(points: Array<[number, number]>): number[] {
   const slopes = points.slice(0, -1).map((point, index) => (points[index + 1]![1] - point[1]) / (points[index + 1]![0] - point[0]))
-  const tangents = points.map((_, index) => {
+  return points.map((_, index) => {
     if (index === 0) return slopes[0]!
     if (index === points.length - 1) return slopes.at(-1)!
     const before = slopes[index - 1]!, after = slopes[index]!
     return before * after <= 0 ? 0 : 2 * before * after / (before + after)
   })
+}
+
+/** The y of monotonePath at `x` (cubic Hermite with the same tangents), or undefined outside the points. */
+function monotoneAt(points: Array<[number, number]>, x: number): number | undefined {
+  if (points.length < 2 || x < points[0]![0] || x > points.at(-1)![0]) return undefined
+  const tangents = points.length < 3 ? points.map(() => (points[1]![1] - points[0]![1]) / (points[1]![0] - points[0]![0])) : monotoneTangents(points)
+  let index = 0
+  while (index < points.length - 2 && x > points[index + 1]![0]) index++
+  const [x1, y1] = points[index]!, [x2, y2] = points[index + 1]!
+  const width = x2 - x1, t = (x - x1) / width
+  const h00 = 2 * t ** 3 - 3 * t ** 2 + 1, h10 = t ** 3 - 2 * t ** 2 + t, h01 = -2 * t ** 3 + 3 * t ** 2, h11 = t ** 3 - t ** 2
+  return h00 * y1 + h10 * width * tangents[index]! + h01 * y2 + h11 * width * tangents[index + 1]!
+}
+
+function monotonePath(points: Array<[number, number]>): string {
+  if (points.length < 3) return smoothPath(points)
+  const tangents = monotoneTangents(points)
   let path = `M${points[0]![0].toFixed(1)} ${points[0]![1].toFixed(1)}`
   for (let index = 0; index < points.length - 1; index++) {
     const [x1, y1] = points[index]!, [x2, y2] = points[index + 1]!
