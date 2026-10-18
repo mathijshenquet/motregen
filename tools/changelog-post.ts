@@ -25,7 +25,7 @@ type Fetch = typeof fetch
 interface PostOptions { dryRun?: boolean; test?: boolean; layout?: 'posts' | 'items' | 'album' }
 
 export function releaseText(release: Release): string {
-  const text = `Motregen Updates · v${release.version}\n\n${release.notes.map((note) => `${note.title}\n${note.body}`).join('\n\n')}\n\nhttps://motregen.nl/changelog#v${release.version}`
+  const text = `Motregen Updates\n\n${release.notes.map((note) => `${note.title}\n${note.body}`).join('\n\n')}\n\nhttps://motregen.nl/changelog#${release.date}`
   if (text.length > 4096) throw new Error('Releasetekst is langer dan Telegram toelaat (4096 tekens)')
   return text
 }

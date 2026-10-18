@@ -34,7 +34,7 @@ describe('about dialog', () => {
     expect([...dialog.querySelectorAll('dt')].map((term) => term.textContent)).toEqual(['Observatie', 'Voorspelling', 'KNMI', 'Dagen', 'UV', 'Maan', 'Kaart', 'Zoeken', 'Privacy', 'Telegram', 'Broncode'])
     // Naast de ondertitel alleen de versielink naar de changelog (U85).
     expect(dialog.querySelectorAll('.about-body > p')).toHaveLength(2)
-    expect(dialog.querySelector<HTMLAnchorElement>('.about-body > p a[href="/changelog"]')?.textContent).toMatch(/^Versie \d+\.\d+\.\d+ · Wat is er nieuw\?$/)
+    expect(dialog.querySelector<HTMLAnchorElement>('.about-body > p a[href="/changelog"]')?.textContent).toBe('Wat is er nieuw?')
     expect(screen.getByText(/HARMONIE-AROME/)).toBeTruthy()
     expect(screen.getByRole('link', { name: 'ECMWF IFS open data' })).toBeTruthy()
     expect(screen.getByText(/NL en Vlaanderen/)).toBeTruthy()

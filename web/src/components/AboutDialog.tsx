@@ -64,7 +64,7 @@ export default function AboutDialog(props: Props) {
           <h2 id="about-title">{brand.name}</h2>
         </header>
         <p class="about-lead">Regenradar en weersverwachting</p>
-        <p><a href="/changelog">Versie {version.trim()} · Wat is er nieuw?</a></p>
+        <p><a href="/changelog" title={`Versie ${version.trim()}`}>Wat is er nieuw?</a></p>
         <div class="about-share"><button type="button" onClick={() => void props.onShare?.()}><Share2 {...INLINE_ICON} />Deel deze stand</button><span aria-live="polite">{props.shareNotice}</span></div>
         <dl>
           <dt>Observatie</dt><dd>KNMI-radar, elke 5 min · NL en Vlaanderen</dd>
