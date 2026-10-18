@@ -198,8 +198,8 @@ impl FillRaster {
         let mut rgba = [0.0f32; 4];
         for (fill_row, fill_column, weight) in corners {
             let index = (fill_row * self.width + fill_column) * 4;
-            for channel in 0..4 {
-                rgba[channel] += self.premultiplied[index + channel] as f32 * weight;
+            for (channel, value) in rgba.iter_mut().enumerate() {
+                *value += self.premultiplied[index + channel] as f32 * weight;
             }
         }
         rgba
