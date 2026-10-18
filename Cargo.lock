@@ -1191,6 +1191,7 @@ dependencies = [
  "motion",
  "mrf",
  "rayon",
+ "render-core",
  "reqwest",
  "serde",
  "serde_json",
