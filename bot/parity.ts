@@ -10,10 +10,12 @@ import { NativeMaps } from './native-map.js'
 import { NativeRainData, RainCompositor, rainTheme } from './native-rain.js'
 import { NativeModesRenderer } from './native-modes-render.js'
 import { nativeFramePath } from './native-render.js'
-import { validateManifest, type LoopMode } from './stills.js'
+import { STILL_MINUTES, validateManifest, type LoopMode } from './stills.js'
 import { sequencePlan } from './sequences.js'
 import { colorDifference } from './color-difference.js'
 import { NativeWindData } from './native-wind.js'
+import { runRustRenderer } from './rust-render.js'
+import { NATIVE_VIEW } from './native-view.js'
 import { phaseMask, unmaskedRgb, windMetrics, type WindMetrics } from './wind-parity.js'
 
 const manifestPath = process.argv[2]
@@ -23,6 +25,9 @@ const manifest = validateManifest(JSON.parse(await readFile(manifestPath, 'utf8'
 const requestedMode = process.argv.find((argument) => argument.startsWith('--mode='))?.slice(7) ?? 'weather'
 if (!['weather', 'feels', 'wind'].includes(requestedMode)) throw new Error('Onbekende pariteitsmodus')
 const mode = requestedMode as LoopMode
+// Rust (de prod-route) levert stills, geen losse frames: vergelijk alleen samples die op een still vallen.
+const rust = process.argv.includes('--renderer=rust')
+if (rust && mode === 'wind') throw new Error('Wind heeft geen Rust-stills om te vergelijken')
 const origin = process.env.MOTREGEN_ORIGIN ?? 'https://motregen.nl'
 const referenceOrigin = process.env.MOTREGEN_PARITY_ORIGIN ?? origin
 const now = Date.parse(manifest.now)
@@ -49,7 +54,13 @@ try {
   const maps = new NativeMaps(origin, cache, async () => context)
   const overlay = new NativeOverlay(origin, cache, async () => context, mode)
   await overlay.prepare(manifest)
-  const samples = [{ name: 'historie', minutes: -55 }, { name: 'voor-loop', minutes: -120 }, { name: 'nu', minutes: 0 }, { name: 'verwachting', minutes: 95 }, { name: 'nacht', minutes: 720 }]
+  const allSamples = [{ name: 'historie', minutes: -55 }, { name: 'voor-loop', minutes: -120 }, { name: 'nu', minutes: 0 }, { name: 'verwachting', minutes: 95 }, { name: 'nacht', minutes: 720 }]
+  const samples = rust ? allSamples.filter((sample) => STILL_MINUTES.includes(sample.minutes)) : allSamples
+  const rustDirectory = join(outputDirectory, 'rust')
+  if (rust) {
+    await mkdir(rustDirectory, { recursive: true })
+    await runRustRenderer(manifest, rustDirectory, mode)
+  }
   const results = []
   if (mode === 'weather') await openRenderPage(page, referenceOrigin, mode, manifest, now + samples[0]!.minutes * 60_000)
   for (const sample of samples) {
@@ -59,18 +70,34 @@ try {
       await page.close()
       page = await context.newPage()
       await mkdir(sampleDirectory, { recursive: true })
-      const renderer = new NativeModesRenderer(origin, cache, async () => context)
-      await renderer.render(mode, manifest, { epochs: [epoch], loopFrames: 1, fps: 10, stillFrames: [{ hour: 0, index: 0 }] }, sampleDirectory, join(sampleDirectory, 'native-sample.mp4'))
+      if (!rust) {
+        const renderer = new NativeModesRenderer(origin, cache, async () => context)
+        await renderer.render(mode, manifest, { epochs: [epoch], loopFrames: 1, fps: 10, stillFrames: [{ hour: 0, index: 0 }] }, sampleDirectory, join(sampleDirectory, 'native-sample.mp4'))
+      }
       await openRenderPage(page, referenceOrigin, mode, manifest, epoch)
     }
-    await page.evaluate(async ({ epoch, simulationMs }) => {
-      await (window as unknown as { __motregenRenderFrame: (epoch: number, simulationMs: number) => Promise<void> }).__motregenRenderFrame(epoch, simulationMs)
-    }, { epoch, simulationMs: mode === 'wind' ? 1000 : 0 })
+    // De botbeelden hebben het Nederland-kader; de stillpagina van de app opent op het bredere app-kader. De maxBounds
+    // van de app klemt het kadermidden iets naar het zuiden: op dezelfde zoom is dat een vaste verschuiving in rijen.
+    const nativeCenter = await page.evaluate(async ({ epoch, simulationMs, view }) => {
+      const render = window as unknown as {
+        __motregenJumpTo: (lng: number, lat: number, zoom: number) => void
+        __motregenRenderFrame: (epoch: number, simulationMs: number) => Promise<void>
+        __motregenProject: (lng: number, lat: number) => { x: number; y: number }
+      }
+      render.__motregenJumpTo(view.lng, view.lat, view.zoom)
+      await render.__motregenRenderFrame(epoch, simulationMs)
+      return render.__motregenProject(view.lng, view.lat)
+    }, { epoch, simulationMs: mode === 'wind' ? 1000 : 0, view: NATIVE_VIEW })
+    const columnShift = (nativeCenter.x - FRAME.width / 2) * FRAME.scale
+    if (Math.abs(columnShift) > 0.5) throw new Error(`App-kader wijkt horizontaal ${columnShift.toFixed(1)} px af`)
+    const rowShift = Math.round((nativeCenter.y - FRAME.height / 2) * FRAME.scale)
     const reference = await page.screenshot()
     const referenceRgb = await sharp(reference).removeAlpha().raw().toBuffer()
     let rgb: Buffer
     const theme = rainTheme(epoch)
-    if (mode === 'weather') {
+    if (rust) {
+      rgb = await sharp(join(rustDirectory, `${mode}-${epoch}.jpg`)).removeAlpha().raw().toBuffer()
+    } else if (mode === 'weather') {
     const rain = await data.frame(epoch)
     const plate = await maps.get(theme, rain.grid)
     const temperatureEpoch = Math.max(temperatures.timeline[0]!.epoch, Math.min(temperatures.timeline.at(-1)!.epoch, Math.round(epoch / 600_000) * 600_000))
@@ -83,8 +110,11 @@ try {
       rgb = ppm.subarray(Buffer.from(`P6\n${FRAME_PIXELS.width} ${FRAME_PIXELS.height}\n255\n`).length)
     }
     const native = await sharp(rgb, { raw: { ...FRAME_PIXELS, channels: 3 } }).png().toBuffer()
-    const total = colorDifference(referenceRgb, rgb)
-    const map = colorDifference(referenceRgb.subarray(130 * FRAME_PIXELS.width * 3, 1197 * FRAME_PIXELS.width * 3), rgb.subarray(130 * FRAME_PIXELS.width * 3, 1197 * FRAME_PIXELS.width * 3))
+    const rowBytes = FRAME_PIXELS.width * 3
+    const rows = (image: Uint8Array, first: number, last: number) => image.subarray(first * rowBytes, last * rowBytes)
+    const firstRow = Math.max(0, -rowShift), lastRow = Math.min(FRAME_PIXELS.height, FRAME_PIXELS.height - rowShift)
+    const total = colorDifference(rows(referenceRgb, firstRow + rowShift, lastRow + rowShift), rows(rgb, firstRow, lastRow))
+    const map = colorDifference(rows(referenceRgb, 130 + rowShift, 1197 + rowShift), rows(rgb, 130, 1197))
     let comparedTotal = total, comparedMap = map
     let wind
     if (mode === 'wind') {
@@ -117,13 +147,13 @@ try {
       wind = { limits: windLimits, phases, browser: browserMetrics, native: nativeMetrics, relative, excludedFraction, total: comparedTotal, map: comparedMap, passed }
     }
     const passed = comparedTotal.mean <= limits.mean && comparedTotal.maximum <= limits.maximum && comparedMap.mean <= limits.mapMean && comparedMap.maximum <= limits.mapMaximum && (!wind || wind.passed)
-    const result = { mode, sample: sample.name, epoch: new Date(epoch).toISOString(), theme, total, map, ...(wind && { wind }), passed }
+    const result = { mode, sample: sample.name, epoch: new Date(epoch).toISOString(), theme, rowShift, total, map, ...(wind && { wind }), passed }
     results.push(result)
     console.info(JSON.stringify({ event: 'native-parity', ...result }))
     await writeFile(join(outputDirectory, `${sample.name}-browser.png`), reference)
     await writeFile(join(outputDirectory, `${sample.name}-native.png`), native)
     await sharp({ create: { width: FRAME_PIXELS.width * 2, height: FRAME_PIXELS.height, channels: 3, background: '#ffffff' } }).composite([{ input: reference, left: 0, top: 0 }, { input: native, left: FRAME_PIXELS.width, top: 0 }]).png().toFile(join(outputDirectory, `${sample.name}-naast-elkaar.png`))
   }
-  await writeFile(join(outputDirectory, 'parity.json'), JSON.stringify({ generated: manifest.generated, loopFrames: sequencePlan(mode, manifest).loopFrames, metric: 'CIELAB D65 ΔE76', referenceOrigin, limits, results }, null, 2) + '\n')
+  await writeFile(join(outputDirectory, 'parity.json'), JSON.stringify({ generated: manifest.generated, loopFrames: sequencePlan(mode, manifest).loopFrames, metric: 'CIELAB D65 ΔE76', renderer: rust ? 'rust' : 'native', referenceOrigin, limits, results }, null, 2) + '\n')
   if (results.some((result) => !result.passed)) process.exitCode = 1
 } finally { await browser.close() }
