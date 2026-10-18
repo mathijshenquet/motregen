@@ -104,7 +104,7 @@ const TAP_SLOP_PX = 4
 // Na slepen, scrollen of tikken hervat het afspelen pas na zoveel rust (PO 2026-09-25 live: eerst kijken).
 const RESUME_IDLE_MS = 1_000
 // Breedteschatting van een daglabel (10 px hoofdletters met spatiëring) en de marge tot de plotrand.
-const DAY_LABEL_CHAR_PX = 7.2
+const DAY_LABEL_CHAR_PX = 7.9
 const DAY_LABEL_PAD_PX = 8
 const DAY_LABEL_INSET_PX = 4
 const NOW_LABEL_CLEARANCE_PX = 24
@@ -522,7 +522,7 @@ export default function HistogramScrubber(props: Props) {
     day.setDate(day.getDate() + 1)
     const markers: Array<{ epoch: number; label: string }> = []
     while (day.getTime() <= timelineEnd()) {
-      markers.push({ epoch: day.getTime(), label: dayLabel(day.getTime(), today.getTime()) || 'Vandaag' })
+      markers.push({ epoch: day.getTime(), label: dayLabel(day.getTime(), today.getTime()) })
       day.setDate(day.getDate() + 1)
     }
     return markers
@@ -533,7 +533,9 @@ export default function HistogramScrubber(props: Props) {
   const daySegments = createMemo(() => {
     const today = new Date(nowEpoch())
     today.setHours(0, 0, 0, 0)
-    const first = { epoch: timelineStart(), label: dayLabel(timelineStart(), today.getTime()) || 'Vandaag' }
+    // Vandaag is impliciet en krijgt geen label (PO 2026-10-18); het segment blijft, zodat het daglabel van
+    // gisteren bij middernacht nog wordt weggeduwd.
+    const first = { epoch: timelineStart(), label: dayLabel(timelineStart(), today.getTime()) }
     const segments = [first, ...dayMarkers()]
     return segments.map((segment, index) => {
       const width = segment.label.length * DAY_LABEL_CHAR_PX + DAY_LABEL_PAD_PX
@@ -802,7 +804,7 @@ export default function HistogramScrubber(props: Props) {
           </button>
         }</Show>
         <div class="day-labels" aria-hidden="true"><For each={daySegments()}>{(segment, index) =>
-          <span ref={(element) => { dayLabelElements[index()] = element }} classList={{ night: rulerNightAt(stickyLeft(segment, shownOffset()) - shownOffset()) }} style={{ transform: `translateX(${stickyLeft(segment, shownOffset())}px)` }}>{segment.label}</span>
+          <span ref={(element) => { dayLabelElements[index()] = element }} classList={{ night: rulerNightAt(stickyLeft(segment, shownOffset()) - shownOffset()), empty: !segment.label }} style={{ transform: `translateX(${stickyLeft(segment, shownOffset())}px)` }}>{segment.label}</span>
         }</For></div>
         {/* Waarden bij de cursor i.p.v. een y-as (PO 2026-09-25 live). */}
         <Show when={!props.loading && airMix() > 0 && baseOpacity() > 0}>

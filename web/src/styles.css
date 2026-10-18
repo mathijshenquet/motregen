@@ -748,7 +748,9 @@ button { color: inherit; cursor: pointer; }
 /* Daglabels in de urenbalk boven de grafiek (PO 2026-09-25 live), sticky via transform (zie scrubber). */
 .day-labels { position: absolute; top: -26px; right: 0; left: 0; z-index: 3; height: 26px; overflow: hidden; pointer-events: none; }
 /* Zacht uitlopende achtergrond: uurlabels die onder het sticky daglabel schuiven vervagen i.p.v. afgehakt te worden. */
-.day-labels span { position: absolute; bottom: 4px; left: 0; padding: 1px 16px 1px 8px; margin-left: -6px; color: var(--text); background: linear-gradient(to right, transparent, var(--surface) 7px, var(--surface) calc(100% - 14px), transparent); font-size: 10px; font-weight: 750; letter-spacing: .05em; line-height: 1.3; text-transform: uppercase; white-space: nowrap; }
+/* Zelfde grootte en basislijn als de uurlabels (.x-axis: onderkant 7 px boven het plot, line-height 1). */
+.day-labels span { position: absolute; bottom: 5px; left: 0; padding: 2px 16px 2px 8px; margin-left: -6px; color: var(--text); background: linear-gradient(to right, transparent, var(--surface) 7px, var(--surface) calc(100% - 14px), transparent); font-size: 11px; font-weight: 750; letter-spacing: .05em; line-height: 1; text-transform: uppercase; white-space: nowrap; }
+.day-labels span.empty { display: none; }
 .empty-graph { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 12px; pointer-events: none; }
 .scrubber-placeholder { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; padding-left: 38%; color: color-mix(in srgb, var(--muted) 78%, transparent); font-size: 12px; font-weight: 500; pointer-events: none; }
 /* Eigen ondergrond: uur- en dagstrepen lopen anders door de tekst. */
