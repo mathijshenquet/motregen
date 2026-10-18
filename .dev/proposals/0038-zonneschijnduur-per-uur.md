@@ -1,6 +1,6 @@
 # MIP-38 — Zonneschijnduur per uur
 
-Status: draft · auteur: worker U95 (opus-5.5) voor de PM · meting 2026-10-18
+Status: accepted · auteur: worker U95 (opus-5.5) voor de PM · meting 2026-10-18 · aangenomen 2026-10-18
 
 ## Het probleem
 
@@ -106,6 +106,18 @@ Het script haalt KNMI-uren (2016 t/m 17 oktober 2026), het HARMONIE-archief en O
 4. **ICON-D2:** in de winter is ICON-D2 beter voor zon. Een DWD-bron toevoegen is een aparte bronkeuze. Voorstel: niet nu; S1 op HARMONIE verslaat alle Open-Meteo-modellen over het jaar.
 5. **Archief bewaren?** Het KNMI-archief van P1 begint nu bij januari 2026. Als dat archief doorschuift, kan de meting later niet meer vanaf nul worden herhaald. De HARMONIE-uittreksels per station zijn ≈ 24 MB. Bewaren we die als release-asset, of accepteren we dit risico?
 6. **Herkalibratie:** de parameters komen uit januari–oktober 2026. November en december ontbreken nog. Voorstel: in januari 2027 opnieuw fitten met `run.sh` en een verlengde datumreeks.
+
+## Besluit
+
+PO, 18 oktober 2026: aangenomen, **S1** zoals aanbevolen, met een eigen weergave (PO: "het mag het regen histogram op
+lucht modus vervangen, geel kleurig"; voorbeeld: de zonneschijngrafiek van een Zwitserse weerapp, gele staven 0–60
+min per uur met zon op en zon onder erin):
+
+1. **Urenoverzicht in Lucht:** de regenstaven worden gele staven met zonneschijnduur per uur (0–60 min), met zon op
+   en zon onder gemarkeerd. Vraag 1 en 2 hierboven zijn daarmee voor de grafiek beantwoord; tabel en dagtotaal komen
+   later, als de PO dat wil.
+2. **Geen aparte zonnekaart** (vraag 3): de lichtfactor van MIP-34 blijft.
+3. ICON-D2, archief en herkalibratie (vraag 4–6) blijven open.
 
 ## Changelog
 
