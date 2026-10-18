@@ -139,7 +139,10 @@ export default function ForecastTable(props: Props) {
     const events = sunEvents(now, now + 48 * hour, props.location.lng, props.location.lat)
     return (['rise', 'set'] as const).flatMap((kind) => events.find((event) => event.kind === kind) ?? [])
   })
+  const nowRowEpoch = tableMemo('nu-uur', () => props.rows.find((row) => row.kind === 'now')?.epoch)
+  // In de geschiedenis (boven het nu-uur) staan de zonmomenten waar ze vielen (PO 2026-10-18).
   const shownSun = (event: SunEvent) => props.allSunEvents === true ||
+    (nowRowEpoch() !== undefined && event.epoch < nowRowEpoch()!) ||
     nextSun().some((next) => next.kind === event.kind && Math.abs(next.epoch - event.epoch) < SUN_MATCH_MS)
   const sun = tableMemo('zonmomenten', () => {
     const first = props.rows[0]
