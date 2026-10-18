@@ -69,7 +69,9 @@ export default function AboutDialog(props: Props) {
         <dl>
           <dt>Observatie</dt><dd>KNMI-radar, elke 5 min · NL en Vlaanderen</dd>
           <dt>Voorspelling</dt><dd>KNMI-nowcast (2 uur), dan HARMONIE-AROME</dd>
-          <dt>Dagen</dt><dd>Verwachting na morgen: <a href="https://www.ecmwf.int/en/forecasts/datasets/open-data" target="_blank" rel="noopener">ECMWF IFS open data</a> (CC BY 4.0), door motregen omgerekend naar dagwaarden.</dd>
+          <dt>KNMI</dt><dd>Data van het <a href="https://dataplatform.knmi.nl" target="_blank" rel="noopener">KNMI Data Platform</a> onder <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>, door motregen bewerkt tot kaarten, tijdreeksen en uurwaarden.</dd>
+          <dt>Dagen</dt><dd>Verwachting na morgen: <a href="https://www.ecmwf.int/en/forecasts/datasets/open-data" target="_blank" rel="noopener">ECMWF IFS open data</a>, door motregen omgerekend naar dagwaarden.
+            <span class="about-legal" lang="en">This service is based on data and products of the European Centre for Medium-Range Weather Forecasts (ECMWF). Source: <a href="https://www.ecmwf.int" target="_blank" rel="noopener">www.ecmwf.int</a>. This ECMWF data is published under a Creative Commons Attribution 4.0 International (<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>). ECMWF does not accept any liability whatsoever for any error or omission in the data, their availability, or for any loss or damage arising from their use.</span></dd>
           <dt>UV</dt><dd>UV-index van het KNMI, met bewolking</dd>
           <dt>Maan</dt><dd>Textuur: <a href="https://svs.gsfc.nasa.gov/5587/" target="_blank" rel="noopener">NASA Scientific Visualization Studio</a></dd>
           <dt>Kaart</dt><dd>© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a></dd>
