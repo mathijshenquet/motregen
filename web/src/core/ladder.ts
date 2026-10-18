@@ -60,7 +60,9 @@ export function buildLadder(now: number, ladder: Ladder = TABLE_LADDER): LadderS
   const slots: LadderSlot[] = []
   for (let day = 1; day <= ladder.partDays; day++) {
     const date = addDays(today, day)
-    for (const [label, from, to] of PARTS) {
+    // De laatste dagdelendag stopt na de avond: de dagrijen sluiten daar aan zonder losse nacht ertussen (PO 2026-10-18).
+    const parts = day === ladder.partDays ? PARTS.slice(0, -1) : PARTS
+    for (const [label, from, to] of parts) {
       slots.push({ start: localTime(date, from), end: localTime(date, to), grain: 'part', date, label, range: `${pad(from)}–${pad(to)}` })
     }
   }

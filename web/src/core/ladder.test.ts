@@ -17,16 +17,19 @@ describe('table ladder', () => {
     const now = at('2026-10-17T11:00:00Z') // 13:00 lokaal
     expect(hourlyEnd(now)).toBe(localTime('2026-10-18', 1))
     const slots = buildLadder(now)
-    expect(summary(slots).slice(0, 11)).toEqual([
+    expect(summary(slots).slice(0, 10)).toEqual([
       '2026-10-18 part Nacht 01–07', '2026-10-18 part Ochtend 07–11', '2026-10-18 part Middag 11–15', '2026-10-18 part Avond 15–19',
       '2026-10-18 part Nacht 19–01',
       '2026-10-19 part Nacht 01–07', '2026-10-19 part Ochtend 07–11', '2026-10-19 part Middag 11–15', '2026-10-19 part Avond 15–19',
-      '2026-10-19 part Nacht 19–01', '2026-10-20 day Dag 01–01',
+      '2026-10-20 day Dag 01–01',
     ])
     expect(summary(slots).at(-1)).toBe('2026-10-26 day Dag 01–01')
-    // Aaneengesloten: geen gat en geen overlap, vanaf 01 uur waar de uren stoppen.
+    // Aaneengesloten vanaf 01 uur waar de uren stoppen, op de nacht na de laatste dagdelendag na (19–01, bewust weg).
     expect(slots[0]!.start).toBe(hourlyEnd(now))
-    for (let index = 1; index < slots.length; index++) expect(slots[index]!.start).toBe(slots[index - 1]!.end)
+    for (let index = 1; index < slots.length; index++) {
+      const gap = slots[index]!.start - slots[index - 1]!.end
+      expect(gap).toBe(slots[index]!.date === '2026-10-20' && slots[index - 1]!.date === '2026-10-19' ? 6 * hour : 0)
+    }
   })
 
   it('counts the hour after midnight to the day before', () => {
@@ -64,7 +67,7 @@ describe('slot sources', () => {
     const slots = buildLadder(now).filter((slot) => slot.date === '2026-10-19')
     const rows = buildSlotRows(now, slots, { harmonieEpochs, steps: { intervals } })
     // De vroege nacht 01–07 (23–05 UTC) ligt binnen HARMONIE; de ochtend loopt tot 09 UTC en HARMONIE stopt om 07.
-    expect(rows.map((row) => `${row.slot.label} ${row.source}`)).toEqual(['Nacht harmonie', 'Ochtend ecmwf', 'Middag ecmwf', 'Avond ecmwf', 'Nacht ecmwf'])
+    expect(rows.map((row) => `${row.slot.label} ${row.source}`)).toEqual(['Nacht harmonie', 'Ochtend ecmwf', 'Middag ecmwf', 'Avond ecmwf'])
     expect(rows[0]!.dayStart).toBe(true)
   })
 
