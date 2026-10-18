@@ -758,7 +758,8 @@ button { color: inherit; cursor: pointer; }
 .scrubber-placeholder.on-sky span { color: rgba(255, 255, 255, .82); background: rgba(8, 20, 28, .5); }
 @keyframes scrubber-pulse { from { opacity: .35; } to { opacity: 1; } }
 .now-line { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px solid color-mix(in srgb, var(--text) 38%, transparent); pointer-events: none; }
-.x-axis .now-tick { bottom: -2px; padding: 1px 6px; border: 1px solid color-mix(in srgb, var(--text) 38%, transparent); border-radius: 999px; color: var(--text); background: var(--surface); font-size: 10px; font-weight: 750; line-height: 1.3; }
+/* Tekst op dezelfde basislijn als de uurlabels: line-height 1 en de tekstonderkant op de onderkant van de as. */
+.x-axis .now-tick { bottom: -3px; padding: 2px 6px; border: 1px solid color-mix(in srgb, var(--text) 38%, transparent); border-radius: 999px; color: var(--text); background: var(--surface); font-size: 11px; font-weight: 750; line-height: 1; }
 .cursor-marker { position: absolute; top: 0; bottom: 0; left: 33.333%; will-change: left; z-index: 2; width: 0; border-left: 2px solid var(--cursor-ink); transform: translateX(-1px); pointer-events: none; }
 .cursor-pill { position: absolute; top: -34px; z-index: 3; left: 33.333%; display: inline-flex; align-items: center; justify-content: center; min-width: 58px; pointer-events: none; border: 0; color: var(--surface); background: var(--text); box-shadow: 0 2px 8px rgba(10, 32, 41, .18); transform: translateX(-50%); }
 .cursor-pill::after { position: absolute; inset: -8px -4px; content: ''; }
