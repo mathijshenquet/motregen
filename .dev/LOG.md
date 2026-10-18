@@ -1,5 +1,16 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-18 13:20 CEST — changelog per feature, links gerepareerd, pagina per datum (Claude, w9)
+
+1. PO: release = één TG-post per feature met clip, geen tekstbericht, geen versienummers voor gebruikers. v0.3.0
+   opnieuw gepost als 19 (tabel-scroll) en 20 (Opnieuw met zichtbare tik); tekstberichten 18 (v0.3.0) en 13 (v0.2.0)
+   verwijderd. Per ongeluk tekstbericht 21 (v0.1.1, poster met --met-tekst op oude administratie) direct verwijderd.
+2. Bug: k/n-link stond op het jaartal — multipart zet \n om in \r\n, Telegram schuift entiteiten terug. Linkbewerking
+   nu JSON; v0.1.1, v0.2.0 en v0.3.0 hersteld en live gecontroleerd.
+3. Afgedwongen (e2748ae): changelog:check eist media, release.sh eist `goedgekeurd`, poster standaard per feature en
+   nooit achteraf tekst; AGENTS.md + changes/README.md beschrijven de flow (concepten naar MOTREGEN_SMOKE_CHAT_ID).
+4. /changelog per datum, Over zonder versienummer (aa000ce), live na nixos-upgrade; clips staan op de pagina.
+
 ## 2026-10-18 12:07 CEST — v0.3.0 live: tien dagen vooruit, nieuwe tabelindeling, CAS-cache, lijnkleur (Claude, w9)
 
 Live (main ba36ed9, tag v0.3.0; PO: "daarna kan je dit allemaal uitrollen", changelog alleen A1 + A5; TG-post 18):
