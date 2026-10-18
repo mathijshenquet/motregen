@@ -1,5 +1,5 @@
 import { CloudDriftLoader } from './core/cloud-drift-loader'
-import { TEMPERATURE_LINE_OPACITY, ISOBAR_LINE_OPACITY } from './core/map-presentation.js'
+import { TEMPERATURE_LINE_OPACITY, TEMPERATURE_LINE_OPACITY_NIGHT, ISOBAR_LINE_OPACITY } from './core/map-presentation.js'
 import { batch, createEffect, createMemo, createSignal, For, lazy, onCleanup, onMount, Show, untrack, type Accessor, type Setter } from 'solid-js'
 import maplibregl, { Marker, type GeoJSONSource } from 'maplibre-gl'
 import { registerSW } from 'virtual:pwa-register'
@@ -1834,7 +1834,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
 
   function isolineStyle(): IsolineStyle {
     const range = temperatureRange()
-    return { step: TEMPERATURE_ISOLINE_STEP, fill: ISOLINE_FILL_OPACITY, fillSmooth: false, palette: range && paletteStops(range), color: hexColor(isolineColor(mapSurfaceTheme())), lineOpacity: TEMPERATURE_LINE_OPACITY }
+    return { step: TEMPERATURE_ISOLINE_STEP, fill: ISOLINE_FILL_OPACITY, fillSmooth: false, palette: range && paletteStops(range), color: hexColor(isolineColor(mapSurfaceTheme())), lineOpacity: mapSurfaceTheme() === 'dark' ? TEMPERATURE_LINE_OPACITY_NIGHT : TEMPERATURE_LINE_OPACITY }
   }
 
   /** Isobaren: één egale lijnkleur, geen vulling en geen vervaging, zoals op een weerkaart (PO U35). */

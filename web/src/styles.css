@@ -680,8 +680,8 @@ button { color: inherit; cursor: pointer; }
 .chart-plot.sky-ruler::after { border-top-color: var(--line); }
 .sky-ruler .x-axis span:not(.now-tick) { color: var(--ruler-day-ink); font-weight: 600; }
 .sky-ruler .x-axis span.night:not(.now-tick) { color: var(--ruler-night-ink); }
-.sky-ruler .day-labels span { color: var(--ruler-day-ink); background: linear-gradient(to right, transparent, var(--ruler-day-chip) 7px, var(--ruler-day-chip) calc(100% - 14px), transparent); }
-.sky-ruler .day-labels span.night { color: var(--ruler-night-ink); background: linear-gradient(to right, transparent, var(--ruler-night-chip) 7px, var(--ruler-night-chip) calc(100% - 14px), transparent); }
+.sky-ruler .day-labels span { color: var(--ruler-day-ink); background: linear-gradient(to right, var(--ruler-day-chip) calc(100% - 14px), transparent); }
+.sky-ruler .day-labels span.night { color: var(--ruler-night-ink); background: linear-gradient(to right, var(--ruler-night-chip) calc(100% - 14px), transparent); }
 /* Lucht en wolken kleuren per uur mee met het licht (U47, MIP-18). --dark en --day staan per stop,
    --sky (0–1) op de svg: zonder hemel houden de wolken hun rustige grijzen, met hemel worden ze wit
    tegen blauw of zwaar tegen lood. --weight: hoe sterk een laag meedonkert (cirrus blijft licht). */
@@ -752,9 +752,10 @@ button { color: inherit; cursor: pointer; }
 .day-grid > div.boundary { border-left: 1px dashed color-mix(in srgb, var(--text) 30%, transparent); }
 /* Daglabels in de urenbalk boven de grafiek (PO 2026-09-25 live), sticky via transform (zie scrubber). */
 .day-labels { position: absolute; top: -26px; right: 0; left: 0; z-index: 3; height: 26px; overflow: hidden; pointer-events: none; }
-/* Zacht uitlopende achtergrond: uurlabels die onder het sticky daglabel schuiven vervagen i.p.v. afgehakt te worden. */
+/* Rechts zacht uitlopend: uurlabels die onder het sticky daglabel schuiven vervagen i.p.v. afgehakt te worden. Links
+   dekkend, zodat er geen half uurlabel naast het daglabel doorschijnt (PO 2026-10-18). */
 /* Zelfde grootte en basislijn als de uurlabels (.x-axis: onderkant 7 px boven het plot, line-height 1). */
-.day-labels span { position: absolute; bottom: 5px; left: 0; padding: 2px 16px 2px 8px; margin-left: -6px; color: var(--text); background: linear-gradient(to right, transparent, var(--surface) 7px, var(--surface) calc(100% - 14px), transparent); font-size: 11px; font-weight: 750; letter-spacing: .05em; line-height: 1; text-transform: uppercase; white-space: nowrap; }
+.day-labels span { position: absolute; bottom: 5px; left: 0; padding: 2px 16px 2px 8px; margin-left: -6px; color: var(--text); background: linear-gradient(to right, var(--surface) calc(100% - 14px), transparent); font-size: 11px; font-weight: 750; letter-spacing: .05em; line-height: 1; text-transform: uppercase; white-space: nowrap; }
 .day-labels span.empty { display: none; }
 .empty-graph { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 12px; pointer-events: none; }
 .scrubber-placeholder { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; padding-left: 38%; color: color-mix(in srgb, var(--muted) 78%, transparent); font-size: 12px; font-weight: 500; pointer-events: none; }
