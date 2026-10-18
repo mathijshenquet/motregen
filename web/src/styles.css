@@ -346,7 +346,11 @@ button { color: inherit; cursor: pointer; }
 .about-legal { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.4; }
 /* ECMWF-voorwaarden: de vermelding hoort prominent bij de dagen die erop gebaseerd zijn, dus onder de tabel. */
 /* Voet in de kleur van een daghemel-kop (thead.day-hour zonder bewolking), op kophoogte, en tot de onderrand. */
-.table-source { margin: 0; padding: 18px max(16px, env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); color: #7f9198; text-shadow: 1px 1px 0 rgba(255, 255, 255, .85); background: color-mix(in oklab, var(--table-day-bright) var(--table-day-mix, 44%), #fff); font-size: 10px; line-height: 1.45; text-align: center; }
+/* Kleuren achter de tabel: de bronvoet en wat bij het doorschieten boven of onder de inhoud zichtbaar wordt. */
+.forecast-panel { --table-foot: color-mix(in oklab, var(--table-day-bright) var(--table-day-mix, 44%), #fff); --table-head-ground: var(--table-foot); }
+.forecast-panel.head-night { --table-head-ground: var(--table-night, #0a1820); }
+.table-scroll { background: linear-gradient(var(--table-head-ground) 50%, var(--table-foot) 50%); }
+.table-source { margin: 0; padding: 18px max(16px, env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); color: #7f9198; text-shadow: 1px 1px 0 rgba(255, 255, 255, .85); background: var(--table-foot); font-size: 10px; line-height: 1.45; text-align: center; }
 .table-source a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .about-body a { color: var(--accent); }
 .update-toast { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 1100; padding: 9px 12px; border: 1px solid var(--line-strong); border-radius: 10px; color: var(--text); background: var(--surface-raised); box-shadow: var(--shadow); font-size: 13px; }
@@ -1158,7 +1162,6 @@ td small { color: var(--muted); font-size: 9px; }
   body { overflow: hidden; }
   .app-shell { height: 100dvh; min-height: 620px; grid-template: minmax(0, 1fr) / minmax(0, 1fr) minmax(400px, 470px); }
   .map-shell { grid-column: 1; grid-row: 1; }
-  /* Naad tussen kaart en paneel: doorschijnend donker, zodat hij naast een nachtrij of nachtlucht niet licht oplicht. */
   .dashboard { grid-column: 2; grid-row: 1; overflow-y: auto; border-left: 1px solid rgba(8, 21, 28, .32); box-shadow: -8px 0 24px rgba(21, 51, 63, .07); z-index: 2; }
   .sidebar-nav { position: sticky; top: 0; z-index: 4; padding-right: 24px; padding-left: 24px; }
   .current-weather { min-height: 113px; padding: 22px 24px; }
@@ -1182,11 +1185,13 @@ td small { color: var(--muted); font-size: 9px; }
 /* Desktop met muis: de scrubber blijft staan en alleen de tabel scrolt, zodat hij op de nu-rij kan openen
    met de historie erboven. Touch houdt de doorlopende pagina (sticky scrubber) en de uitklaprij. */
 @media (min-width: 960px) and (pointer: fine) {
-  .dashboard { display: flex; flex-direction: column; overflow: hidden; }
+  .dashboard { position: relative; display: flex; flex-direction: column; overflow: hidden; border-left: 0; }
+  /* Naad tussen kaart en paneel als doorschijnende lijn óver de inhoud: per rij een donkerdere tint van die rij
+     (nacht, dag, lucht, voet) in plaats van één vaste kleur over de paneelachtergrond. */
+  .dashboard::after { position: absolute; inset: 0 auto 0 0; z-index: 5; width: 1px; background: rgba(8, 21, 28, .32); content: ''; pointer-events: none; }
   .dashboard > * { flex: none; }
   .forecast-panel { display: flex; min-height: 0; flex: 1 1 0; flex-direction: column; padding-bottom: 0; }
-  /* Geen elastische overscroll: die toonde wit onder de gekleurde bronvoet. */
-  .table-scroll { min-height: 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior: none; scrollbar-width: auto; scrollbar-color: var(--line-strong) transparent; }
+  .table-scroll { min-height: 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: auto; scrollbar-color: var(--line-strong) transparent; }
   .table-scroll::-webkit-scrollbar { width: 12px; }
   .table-scroll::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 999px; background: var(--line-strong) padding-box; }
 }
