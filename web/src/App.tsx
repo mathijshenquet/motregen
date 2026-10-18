@@ -70,7 +70,7 @@ import { formatUv, uvChipLabel, uvLevel, uvReading } from './core/uv'
 import { WIND_UNITS, type WindUnit } from './core/weather'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
 import { DEFAULT_WIND_TUNING, MOBILE_WIND, WIND_MAX_FPS, WIND_PARAMETERS, WIND_SIMULATION_FPS, WindLayer } from './core/wind-layer'
-import { clearTuningStorage, nightCue, TABLE_CONTRASTS, type TableContrast } from './core/dev-settings'
+import { clearTuningStorage, DEFAULT_ISOLINE_TINT, ISOLINE_TINT_STORAGE_KEY, loadIsolineTint, nightCue, TABLE_CONTRASTS, type IsolineTint, type TableContrast } from './core/dev-settings'
 import { watchIdle } from './core/activity'
 import { CLOUD_LAYERS, type CloudLayer } from './core/cloud-section'
 import { browserUsageEnvironment, createUsageTracker, installUsageBeacon, sanitizeUsageLabel, storedUsageLabel, USAGE_LABEL_STORAGE_KEY } from './core/usage'
@@ -518,6 +518,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   // Dag of nacht van de koppenrij: de tabelachtergrond voert dezelfde kleur.
   const [tableHeadSky, setTableHeadSky] = createSignal<HourSky>()
   const [rainLookChoice, setRainLookChoice] = createSignal<RainLookChoice>(devMode ? loadRainLookChoice() : DEFAULT_RAIN_LOOK)
+  const [isolineTint, setIsolineTint] = createSignal<IsolineTint>(devMode ? loadIsolineTint() : DEFAULT_ISOLINE_TINT)
   const [cloudMapForms, setCloudMapForms] = createSignal(!devMode || localStorage.getItem('motregen-cloud-map') !== 'sluier')
   const [cloudMapSample, setCloudMapSample] = createSignal<CloudMapSample>('live')
   const [viewportDiagnose, setViewportDiagnose] = createSignal(devMode && localStorage.getItem(VIEWPORT_DIAGNOSE_STORAGE_KEY) === 'aan')
@@ -1832,12 +1833,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     set.labels?.setOpacity(visible)
   }
 
-  // Overdag een donkerdere, 's nachts een lichtere tint van de bandgrens: op de nachtkaart verdwijnt een donkere lijn.
-  const TEMPERATURE_LINE_FILL = { light: { opacity: 0.6, shade: 0.7 }, dark: { opacity: 0.55, shade: 1.15 } } as const
   // Proef (PO 2026-10-18): temperatuurlijnen in de kleur van hun bandgrens, verdonkerd, i.p.v. wit of grijs.
   function isolineStyle(): IsolineStyle {
     const range = temperatureRange()
-    return { step: TEMPERATURE_ISOLINE_STEP, fill: ISOLINE_FILL_OPACITY, fillSmooth: false, palette: range && paletteStops(range), color: hexColor(isolineColor(mapSurfaceTheme())), lineOpacity: TEMPERATURE_LINE_FILL[mapSurfaceTheme()].opacity, lineFromFill: TEMPERATURE_LINE_FILL[mapSurfaceTheme()].shade }
+    return { step: TEMPERATURE_ISOLINE_STEP, fill: ISOLINE_FILL_OPACITY, fillSmooth: false, palette: range && paletteStops(range), color: hexColor(isolineColor(mapSurfaceTheme())), lineOpacity: isolineTint()[mapSurfaceTheme()].opacity, lineFromFill: isolineTint()[mapSurfaceTheme()].shade }
   }
 
   /** Isobaren: één egale lijnkleur, geen vulling en geen vervaging, zoals op een weerkaart (PO U35). */
@@ -2975,6 +2974,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     batch(() => {
       setViewportDiagnose(false)
       setRainLookChoice(DEFAULT_RAIN_LOOK)
+      setIsolineTint(DEFAULT_ISOLINE_TINT)
       setCloudMapForms(true)
       setCloudMapSample('live')
       setDayListMode(false)
@@ -3680,6 +3680,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
             onCloudMapSample={setCloudMapSample}
             rainLook={rainLookChoice()}
             onRainLook={changeRainLookChoice}
+            isolineTint={isolineTint()}
+            onIsolineTint={(theme, patch) => {
+              const next = { ...isolineTint(), [theme]: { ...isolineTint()[theme], ...patch } }
+              setIsolineTint(next)
+              localStorage.setItem(ISOLINE_TINT_STORAGE_KEY, JSON.stringify(next))
+            }}
             viewportDiagnose={viewportDiagnose()}
             onViewportDiagnose={(enabled) => { setViewportDiagnose(enabled); localStorage.setItem(VIEWPORT_DIAGNOSE_STORAGE_KEY, enabled ? 'aan' : 'uit') }}
             perfVisible={perfVisible()}

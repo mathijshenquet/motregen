@@ -86,3 +86,24 @@ function isSkyDiaryEntry(value: unknown): value is SkyDiaryEntry {
     typeof entry.locatie?.lat === 'number' && Number.isFinite(entry.locatie.lat) &&
     typeof entry.locatie.lng === 'number' && Number.isFinite(entry.locatie.lng)
 }
+
+/**
+ * Temperatuurlijnen in de kleur van hun bandgrens (proef PO 2026-10-18): per kaartthema de dekking en de helderheid
+ * ten opzichte van de bandkleur (< 1 donkerder, > 1 lichter). Overdag donkerder, 's nachts lichter: op de nachtkaart
+ * verdwijnt een donkere lijn. Instelbaar onder ?dev tot 2026-11-01.
+ */
+export interface IsolineTint {
+  light: { opacity: number; shade: number }
+  dark: { opacity: number; shade: number }
+}
+export const DEFAULT_ISOLINE_TINT: IsolineTint = { light: { opacity: 0.6, shade: 0.7 }, dark: { opacity: 0.45, shade: 1.1 } }
+export const ISOLINE_TINT_STORAGE_KEY = 'motregen-dev-isolijnkleur'
+
+export function loadIsolineTint(storage: Pick<Storage, 'getItem'> = localStorage): IsolineTint {
+  try {
+    const stored = JSON.parse(storage.getItem(ISOLINE_TINT_STORAGE_KEY) ?? 'null') as Partial<IsolineTint> | null
+    return { light: { ...DEFAULT_ISOLINE_TINT.light, ...stored?.light }, dark: { ...DEFAULT_ISOLINE_TINT.dark, ...stored?.dark } }
+  } catch {
+    return DEFAULT_ISOLINE_TINT
+  }
+}

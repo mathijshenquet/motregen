@@ -1,6 +1,6 @@
 import { createSignal, For, type JSX } from 'solid-js'
 import { copyText } from '../core/clipboard'
-import { appendSkyDiaryEntry, SKY_DIARY_CLASSES, skyDiaryJson, TABLE_CONTRASTS, type SkyDiaryClass, type TableContrast } from '../core/dev-settings'
+import { appendSkyDiaryEntry, SKY_DIARY_CLASSES, skyDiaryJson, TABLE_CONTRASTS, type IsolineTint, type SkyDiaryClass, type TableContrast } from '../core/dev-settings'
 import { RAIN_ISOLINE_RATES, RAIN_ISOLINE_SETS, type RainIsolineSetName, type RainLookChoice } from '../core/rain-palette'
 import { CLOUD_MAP_SAMPLES, type CloudMapSample } from '../core/cloud-map'
 
@@ -17,6 +17,8 @@ interface Props {
   onCloudMapSample: (sample: CloudMapSample) => void
   rainLook: RainLookChoice
   onRainLook: (patch: Partial<RainLookChoice>) => void
+  isolineTint: IsolineTint
+  onIsolineTint: (theme: keyof IsolineTint, patch: Partial<IsolineTint['light']>) => void
   viewportDiagnose: boolean
   onViewportDiagnose: (enabled: boolean) => void
   perfVisible: boolean
@@ -33,6 +35,7 @@ interface Props {
   onUsageLabel: (text: string) => void
 }
 
+const ISOLINE_TINT_HINT = 'Temperatuurlijnen in de kleur van hun bandgrens. Tint is de helderheid ten opzichte van die bandkleur: onder 1 donkerder, boven 1 lichter. Dag en nacht volgen de kaart. Proef PO 2026-10-18, vervalt 2026-11-01.'
 const RAIN_ISOLINE_HINT = 'Lijnen binnen de regen op vaste intensiteiten, alleen bij menging rand. Kleurgrenzen (standaard): 1, 2 en 13 mm/u. Klassen: 2,5, 10 en 50 mm/u (licht/matig/zwaar/zeer zwaar). Dicht: zes lijnen. Proef U86, vervalt 2026-10-23.'
 export default function DevPanel(props: Props) {
   const [skyClass, setSkyClass] = createSignal<SkyDiaryClass>('mooie wolkenlucht')
@@ -66,6 +69,14 @@ export default function DevPanel(props: Props) {
   return <details class="dev-panel" open data-testid="dev-panel">
     <summary>Dev-opties</summary>
     <Group title="Tabel" open>
+      <For each={[['light', 'dag'], ['dark', 'nacht']] as const}>{([theme, name]) => <>
+        <Control label={`Temperatuurlijn ${name}: dekking`} output={props.isolineTint[theme].opacity.toFixed(2)} hint={ISOLINE_TINT_HINT}>
+          <input type="range" min="0" max="1" step="0.05" value={props.isolineTint[theme].opacity} onInput={(event) => props.onIsolineTint(theme, { opacity: Number(event.currentTarget.value) })} />
+        </Control>
+        <Control label={`Temperatuurlijn ${name}: tint`} output={props.isolineTint[theme].shade.toFixed(2)} hint={ISOLINE_TINT_HINT}>
+          <input type="range" min="0.3" max="1.8" step="0.05" value={props.isolineTint[theme].shade} onInput={(event) => props.onIsolineTint(theme, { shade: Number(event.currentTarget.value) })} />
+        </Control>
+      </>}</For>
       <Control label="Dag/nacht-contrast" output={props.tableContrast} hint="Breed is standaard (PO 2026-10-18). Rail: neutrale rijen met links een strook in de kleur van de lucht, schemering op de echte tijden. Symbool: een maantje bij nachtrijen en een heel lichte koele tint. Sterren: sterretjes in nachtrijen. Breed (standaard): de hele tabel zachter getint. Smal: alleen de dagdelen en dag/nacht-rijen. Sterk: het oude contrast. Ook als link: ?dev&contrast=rail. U91b, vervalt 2026-11-01.">
         <select aria-label="Dag/nacht-contrast" value={props.tableContrast} onChange={(event) => props.onTableContrast(event.currentTarget.value as TableContrast)}>
           <For each={TABLE_CONTRASTS}>{(contrast) => <option value={contrast}>{contrast}</option>}</For>
