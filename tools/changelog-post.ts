@@ -117,7 +117,8 @@ export async function postRelease(root: string, version: string, chatId: string,
       state.pending = null
       return messages
     }
-    if (withText && !state.text_sent) {
+    // Een tekstbericht hoort alleen vóór de media; een oude administratie zonder tekst krijgt er nooit achteraf een.
+    if (withText && !state.text_sent && state.media_sent === 0) {
       const body = new FormData()
       body.set('chat_id', chatId)
       body.set('text', text)
@@ -157,14 +158,12 @@ export async function postRelease(root: string, version: string, chatId: string,
       const messageId = mediaIds[index]!
       const nextId = mediaIds[(index + 1) % media.length]!
       const caption = linkedCaption(media[index]!, chatId, nextId)
-      const body = new FormData()
-      body.set('chat_id', chatId)
-      body.set('message_id', String(messageId))
-      body.set('caption', caption.caption)
-      body.set('caption_entities', JSON.stringify(caption.caption_entities))
+      // JSON, geen FormData: multipart zet elke \n om in \r\n, Telegram haalt de \r weg en schuift de link
+      // dan een teken per regeleinde terug (v0.3.0 linkte zo "26," in plaats van "1/2").
+      const body = JSON.stringify({ chat_id: chatId, message_id: messageId, caption: caption.caption, caption_entities: caption.caption_entities })
       let result: { ok: boolean; result?: TelegramMessage; error_code?: number; description?: string }
       try {
-        const response = await fetcher(`https://api.telegram.org/bot${token}/editMessageCaption`, { method: 'POST', body, signal: AbortSignal.timeout(30_000) })
+        const response = await fetcher(`https://api.telegram.org/bot${token}/editMessageCaption`, { method: 'POST', headers: { 'content-type': 'application/json' }, body, signal: AbortSignal.timeout(30_000) })
         result = await response.json() as typeof result
       } catch { throw new Error('Telegram-linkbewerking onzeker; dezelfde opdracht kan veilig hervatten zonder opnieuw te posten') }
       const unchanged = !result.ok && result.error_code === 400 && result.description?.includes('message is not modified')

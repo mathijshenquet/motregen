@@ -50,12 +50,15 @@ product manager (proposals, specs, verification), codex agents
   levende lijst staat in `docs/dev-opties.md`.
 
 ## Changelog en releases
-- Elke track levert één `changes/pending/<slug>.md` per gebruikerswijziging mee: Nederlandse
-  `title`, `kind` (`nieuw`, `beter`, `opgelost`) en 1–3 zinnen voor gewone gebruikers.
-  Optionele `media` bevat `file` onder `changes/media/` en een korte beeldhint als `caption`
-  per item; de Telegram-poster voegt titel, omschrijving, datum en `k/n` toe (MIP-33).
-  De PO reviewt de notities vóór de release. Volg `changes/README.md` voor de stappen,
-  broncontrole van voor/na-media, opmaak, rondlopende links en correcties aan bestaande berichten.
-- De orkestrator releaset met `tools/release.sh patch|minor|major` (eerst `--dry-run`).
-  `VERSION` is de versiebron; het script verzamelt pending notities, commit en tagt lokaal.
-  Push, uitrol en Telegram-publicatie zijn aparte stappen; uitrol alleen na expliciet akkoord van de PO.
+Lees `changes/README.md` vóór je een notitie schrijft of een release maakt. In het kort (PO 2026-10-18):
+- Een release in @motregen_updates is precies een reeks posts: **per feature één bericht met een beeld of clip** en
+  een kort bijschrift. Geen samenvattend tekstbericht, en geen versienummers naar gebruikers (die zijn intern).
+- Wie een gebruikerswijziging bouwt, schrijft in dezelfde commit `changes/pending/<slug>.md` (Nederlandse `title`,
+  `kind` `nieuw`/`beter`/`opgelost`, 1–3 zinnen) **met media**: een still of clip (H.264, ≤ 12 s, ≤ 2 MB) onder
+  `changes/media/`, zelf bekeken. `changelog:check` weigert een pending notitie zonder media.
+- Klein en interne afwerking (papercuts, optimalisaties) krijgt geen notitie; bij twijfel vraag je de PO.
+- Concepten gaan eerst naar de privéchat van de PO (`MOTREGEN_SMOKE_CHAT_ID`); hij kiest met een emoji. Zet daarna
+  `goedgekeurd: JJJJ-MM-DD` in de notitie; `tools/release.sh` weigert notities zonder die keuze.
+- De orkestrator releaset met `tools/release.sh patch|minor|major` (eerst `--dry-run`); `VERSION` is de versiebron.
+  Push, uitrol en `pnpm changelog:post X.Y.Z @motregen_updates` zijn aparte stappen; uitrol alleen na expliciet
+  akkoord van de PO, posten pas na de uitrol.

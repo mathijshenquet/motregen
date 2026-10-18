@@ -22,9 +22,11 @@ function commitFixture(): void {
   git('add', '.')
   git('commit', '-m', 'fixture')
 }
-function mediaNote(file = 'changes/media/regen.webp'): void {
-  note(`media:\n  - file: ${file}\n    caption: Links voor, rechts na.\n`)
+function mediaNote(file = 'changes/media/regen.webp', approved = 'goedgekeurd: 2026-10-18\n'): void {
+  note(`${approved}media:\n  - file: ${file}\n    caption: Links voor, rechts na.\n`)
 }
+// Een uitbrengbare notitie: met beeld en met de keuze van de PO (changes/README.md).
+const RELEASABLE = 'goedgekeurd: 2026-10-18\nmedia:\n  - file: changes/media/standaard.webp\n    caption: Links voor, rechts na.\n'
 function video(name: string, duration: number, codec = 'libx264'): void {
   execFileSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=c=blue:s=32x32:r=2', '-t', String(duration), '-an', '-c:v', codec, resolve(root, 'changes/media', name)], { stdio: 'pipe' })
 }
@@ -35,7 +37,8 @@ beforeEach(() => {
   mkdirSync(resolve(root, 'changes/media'), { recursive: true })
   write('VERSION', '0.1.0\n')
   write('CHANGELOG.md', '# Changelog\n')
-  note()
+  execFileSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=c=blue:s=32x32', '-frames:v', '1', '-c:v', 'libwebp', resolve(root, 'changes/media/standaard.webp')], { stdio: 'pipe' })
+  note(RELEASABLE)
 })
 afterEach(() => rmSync(root, { recursive: true, force: true }))
 
@@ -79,6 +82,15 @@ describe('changelog validation', () => {
     video('mpeg4.mp4', 1, 'mpeg4')
     mediaNote('changes/media/mpeg4.mp4')
     expect(() => validateChanges(root)).toThrow('H.264')
+  })
+
+  it('requires media on every pending note and a valid approval date', () => {
+    note('goedgekeurd: 2026-10-18\n')
+    expect(() => validateChanges(root)).toThrow('beeld of clip')
+    note(RELEASABLE.replace('2026-10-18', '18-10-2026'))
+    expect(() => validateChanges(root)).toThrow('JJJJ-MM-DD')
+    note(RELEASABLE)
+    expect(readNote(root, 'pending', 'regen.md').goedgekeurd).toBe('2026-10-18')
   })
 
   it.each(['01.1.0', '1.2', 'v1.2.3', '1.2.3-rc.1'])('rejects invalid VERSION %s', (version) => {
@@ -131,9 +143,16 @@ describe('local releases', () => {
     expect(() => release(root, 'patch')).toThrow('Geen pending')
   })
 
+  it('refuses to release a note the PO has not chosen yet', () => {
+    note(RELEASABLE.replace('goedgekeurd: 2026-10-18\n', ''))
+    commitFixture()
+    expect(() => release(root, 'patch')).toThrow('goedgekeurd')
+    expect(existsSync(resolve(root, 'changes/v0.1.1'))).toBe(false)
+  })
+
   it('honors release order and escapes note content in the public page', () => {
-    note('', 'Regen <script>alert("test")</script> & hagel.')
-    write('changes/pending/andere.md', '---\ntitle: Andere wijziging\nkind: nieuw\n---\nEen tweede notitie.\n')
+    note(RELEASABLE, 'Regen <script>alert("test")</script> & hagel.')
+    write('changes/pending/andere.md', `---\ntitle: Andere wijziging\nkind: nieuw\n${RELEASABLE}---\nEen tweede notitie.\n`)
     commitFixture()
     release(root, 'patch')
     write('changes/v0.1.1/index.md', '# v0.1.1\n\nDatum: 2026-10-16\n\n- [regen.md](regen.md)\n- [andere.md](andere.md)\n')
