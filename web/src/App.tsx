@@ -1832,12 +1832,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     set.labels?.setOpacity(visible)
   }
 
-  const TEMPERATURE_LINE_FILL_OPACITY = 0.75
-  const TEMPERATURE_LINE_FILL_SHADE = 0.6
+  // Overdag een donkerdere, 's nachts een lichtere tint van de bandgrens: op de nachtkaart verdwijnt een donkere lijn.
+  const TEMPERATURE_LINE_FILL = { light: { opacity: 0.6, shade: 0.7 }, dark: { opacity: 0.55, shade: 1.15 } } as const
   // Proef (PO 2026-10-18): temperatuurlijnen in de kleur van hun bandgrens, verdonkerd, i.p.v. wit of grijs.
   function isolineStyle(): IsolineStyle {
     const range = temperatureRange()
-    return { step: TEMPERATURE_ISOLINE_STEP, fill: ISOLINE_FILL_OPACITY, fillSmooth: false, palette: range && paletteStops(range), color: hexColor(isolineColor(mapSurfaceTheme())), lineOpacity: TEMPERATURE_LINE_FILL_OPACITY, lineFromFill: TEMPERATURE_LINE_FILL_SHADE }
+    return { step: TEMPERATURE_ISOLINE_STEP, fill: ISOLINE_FILL_OPACITY, fillSmooth: false, palette: range && paletteStops(range), color: hexColor(isolineColor(mapSurfaceTheme())), lineOpacity: TEMPERATURE_LINE_FILL[mapSurfaceTheme()].opacity, lineFromFill: TEMPERATURE_LINE_FILL[mapSurfaceTheme()].shade }
   }
 
   /** Isobaren: één egale lijnkleur, geen vulling en geen vervaging, zoals op een weerkaart (PO U35). */
