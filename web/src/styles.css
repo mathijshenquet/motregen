@@ -298,6 +298,8 @@ button { color: inherit; cursor: pointer; }
   backdrop-filter: blur(4px);
 }
 :root:not([data-theme="dark"]) .source { color: var(--muted); background: rgba(255, 255, 255, .9); backdrop-filter: none; }
+/* Boven een nachtkaart is een witte strook het felste van het beeld; dan de donkere variant, ook in het lichte thema. */
+.map-shell.sky-night .source { color: rgba(237, 248, 252, .82); background: rgba(8, 21, 28, .26); backdrop-filter: blur(4px); }
 .about-dialog {
   inset: 0;
   width: min(420px, calc(100vw - 32px));
@@ -1350,9 +1352,11 @@ td small { color: var(--muted); font-size: 9px; }
 /* Mobiel (U14/U42): het eerste scherm is kaart + scrubber + een voorproef van de tabel. De kleine
    viewportmaat houdt die geometrie vast terwijl de Firefox/Safari-browserbalk animeert. */
 :root {
-  --scrubber-mobile: 236px;
-  --table-peek-mobile: 146px;
-  --map-mobile: max(42svh, calc(100svh - var(--scrubber-mobile) - var(--table-peek-mobile) - env(safe-area-inset-bottom)));
+  /* De voorproef is de koppenrij plus één rij. De kaart krijgt minstens de helft van het scherm: op lage
+     telefoons geeft de scrubber eerst hoogte in (PO 2026-10-18). */
+  --table-peek-mobile: 115px;
+  --scrubber-mobile: clamp(176px, calc(50svh - var(--table-peek-mobile)), 236px);
+  --map-mobile: max(50svh, calc(100svh - var(--scrubber-mobile) - var(--table-peek-mobile) - env(safe-area-inset-bottom)));
 }
 @media (max-width: 959px) {
   .app-shell { display: block; }
@@ -1380,6 +1384,10 @@ td small { color: var(--muted); font-size: 9px; }
   .map-brand { top: calc(env(safe-area-inset-top) + 12px); right: calc(env(safe-area-inset-right) + 12px); }
   /* De UV-chip staat linksonder op de kaart (U21: het merk staat rechtsboven). */
   .sidebar-nav { top: calc(var(--map-mobile) - 64px); }
+  /* De regenlegenda kost op de telefoon kaart en botst met de bronvermelding; die laatste vervaagt na het begin. */
+  .rain-isoline-legend { display: none; }
+  .map-shell .source { transition: opacity .6s ease; }
+  .map-shell.map-source-faded .source { opacity: 0; pointer-events: none; }
 }
 
 @media (max-width: 959px) and (orientation: portrait) {
@@ -1411,7 +1419,7 @@ td small { color: var(--muted); font-size: 9px; }
   .app-shell { height: 100dvh; display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr) minmax(300px, 52%); }
   .map-shell { height: auto; grid-column: 1; grid-row: 1; }
   .dashboard { grid-column: 2; grid-row: 1; overflow-y: auto; border-left: 1px solid var(--line); overscroll-behavior: contain; }
-  .scrubber { position: static; height: min(var(--scrubber-mobile), 100dvh); padding-bottom: 8px; }
+  .scrubber { position: static; height: min(236px, 100dvh); padding-bottom: 8px; }
   .search-results { max-height: calc(100dvh - 76px); }
   .sidebar-nav { top: calc(100dvh - 50px); }
   .forecast-table :is(th, td):last-child { padding-right: 2px; }

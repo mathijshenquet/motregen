@@ -277,6 +277,14 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const release = window.setTimeout(() => setFirstMapImageShown(true), 2_000)
     onCleanup(() => window.clearTimeout(release))
   })
+  // OSM-richtlijn: de bronvermelding mag na vijf seconden of bij de eerste kaartinteractie wegvallen, zolang hij
+  // via de druppel (Over) vindbaar blijft. Alleen op de telefoon, waar hij kaart kost.
+  const [mapSourceFaded, setMapSourceFaded] = createSignal(false)
+  createEffect(() => {
+    if (!mapReady() || !firstMapImageShown()) return
+    const fade = window.setTimeout(() => setMapSourceFaded(true), 5_000)
+    onCleanup(() => window.clearTimeout(fade))
+  })
   let mapStart: ReturnType<typeof createMapStart>
   const basemapTiles = new Map<string, number>()
   const isolineCounters = (): IsolineCounters => ({
@@ -979,6 +987,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         recordPerfPhase('basemap-tile', performance.now() - started, { tile: key }, performance.now())
       })
       map.on('moveend', rememberMapView)
+      map.on('dragstart', () => setMapSourceFaded(true))
       map.on('zoomend', () => void showTemperature())
       map.on('moveend', () => {
         updateIsobarStep()
@@ -3622,7 +3631,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   return <main ref={shellElement} class="app-shell" classList={{ 'still-view': stillMode, 'table-view-open': tableViewOpen(), 'table-covers-viewport': tableViewAvailable() && tableCoversViewport(), 'table-scroll-open': tableViewAvailable() && tableScrollOpen() }} data-generated={manifest()?.generated} data-epoch={cursorMinute()}>
     <section
       class="map-shell"
-      classList={{ 'sky-day': chromeSky()?.daylight === true, 'sky-night': chromeSky()?.daylight === false }}
+      classList={{ 'sky-day': chromeSky()?.daylight === true, 'sky-night': chromeSky()?.daylight === false, 'map-source-faded': mapSourceFaded() }}
       style={chromeSky() ? { '--day-overcast': chromeSky()!.overcast.toFixed(2) } : undefined}
       aria-label="Regenkaart van Nederland" data-rendering={mapRendering()} data-rain-opacity={rainLook().opacity.toFixed(2)} data-rain-blend={rainLook().multiply ? 'multiply' : 'normal'} data-focus={focus().toFixed(2)} data-wind-focus={windFocus().toFixed(2)} data-wind-intensity={focusedWindTuning().intensity.toFixed(2)} data-isolines={isolineCount()} data-isobars={isobarCount()}>
       <div ref={mapElement} class="map" />
