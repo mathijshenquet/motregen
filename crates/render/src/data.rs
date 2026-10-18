@@ -16,7 +16,7 @@ use std::{
     time::Instant,
 };
 
-use crate::frame_cache::Identity;
+use crate::frame_cache::{Identity, Source};
 
 #[derive(Debug)]
 pub struct Raster {
@@ -121,7 +121,7 @@ impl<'a> Dataset<'a> {
     }
 
     /// Content identity of a decoded (and for rain: filtered) frame; `None` for chunks without member hashes.
-    pub fn identity(&mut self, frame: &TimelineFrame) -> Result<Option<Identity>> {
+    pub fn identity(&mut self, frame: &TimelineFrame) -> Result<Option<Source>> {
         let Some(member) = self.header(frame.chunk_index)?.header.frames[frame.frame_index]
             .hash
             .clone()
@@ -140,10 +140,21 @@ impl<'a> Dataset<'a> {
             hasher.update(&sampling.sigma.to_le_bytes());
             hasher.update(&cap.unwrap_or(f64::NAN).to_le_bytes());
         }
-        Ok(Some(*hasher.finalize().as_bytes()))
+        Ok(Some(Source {
+            identity: *hasher.finalize().as_bytes(),
+            volatile: self.volatile(frame),
+        }))
     }
 
-    pub fn motion_identity(&mut self, frame: &TimelineFrame) -> Result<Option<Identity>> {
+    /// Nowcast and seamless are replaced every 5 and 15 minutes; radar and models stay.
+    fn volatile(&self, frame: &TimelineFrame) -> bool {
+        matches!(
+            self.manifest.chunks[frame.chunk_index].source.as_str(),
+            "nowcast" | "seamless"
+        )
+    }
+
+    pub fn motion_identity(&mut self, frame: &TimelineFrame) -> Result<Option<Source>> {
         let Some(member) = self.header(frame.chunk_index)?.header.frames[frame.frame_index]
             .motion
             .as_ref()
@@ -155,7 +166,10 @@ impl<'a> Dataset<'a> {
         hasher.update(b"motion");
         hasher.update(&self.context(frame.chunk_index)?);
         hasher.update(member.as_bytes());
-        Ok(Some(*hasher.finalize().as_bytes()))
+        Ok(Some(Source {
+            identity: *hasher.finalize().as_bytes(),
+            volatile: self.volatile(frame),
+        }))
     }
 
     pub fn take_touched(&mut self) -> Vec<Option<Identity>> {
@@ -167,7 +181,7 @@ impl<'a> Dataset<'a> {
 
     fn touch(&mut self, frame: &TimelineFrame) -> Result<()> {
         if self.touched.is_some() {
-            let identity = self.identity(frame)?;
+            let identity = self.identity(frame)?.map(|source| source.identity);
             self.touched.as_mut().unwrap().push(identity);
         }
         Ok(())
@@ -403,7 +417,7 @@ impl<'a> Dataset<'a> {
             return Ok(None);
         };
         if self.touched.is_some() {
-            let identity = self.motion_identity(&frame)?;
+            let identity = self.motion_identity(&frame)?.map(|source| source.identity);
             self.touched.as_mut().unwrap().push(identity);
         }
         let range = self

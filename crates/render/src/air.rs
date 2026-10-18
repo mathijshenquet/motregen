@@ -548,7 +548,7 @@ pub fn render(
                     hour_keys[index] = Some(sources.hour_key(&cloud_frames[index], cache)?);
                 }
                 match hour_keys[index].as_ref().unwrap() {
-                    Some(hour) => key.bytes(hour.key.hex().as_bytes()),
+                    Some(hour) => key.include(hour),
                     None => key.source(None),
                 };
             }
@@ -709,7 +709,7 @@ pub fn render(
                                     .as_ref()
                                     .map(|file| temporary.path().join(&file.file));
                                 cache.store(
-                                    prediction.key,
+                                    prediction,
                                     output.rgb.as_deref(),
                                     still.as_deref(),
                                     None,

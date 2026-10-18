@@ -38,7 +38,7 @@ for label in labels:
             continue
         print(
             f"  {mode:8} {total / 1000:6.2f} s  hergebruikt {cache['reused_frames']:3}"
-            f"  gerenderd {cache['rendered_frames']:3}  niet-cachebaar {cache['uncacheable_frames']}"
+            f"  gerenderd {cache['rendered_frames']:3}  vluchtig {cache.get('volatile_frames', 0):3}  niet-cachebaar {cache['uncacheable_frames']}"
             f"  mismatches {cache['mismatches']}  geschreven {cache['written_bytes'] / 2**20:6.1f} MB"
             f"  keten {'ja' if cache['resumed_chain'] else 'nee'}"
         )

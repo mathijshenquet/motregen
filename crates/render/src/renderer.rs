@@ -328,12 +328,7 @@ impl Work {
                     cache.rendered(prediction.as_ref());
                     if let Some(prediction) = &prediction {
                         let still = output.still.as_ref().map(|file| directory.join(&file.file));
-                        cache.store(
-                            prediction.key,
-                            output.rgb.as_deref(),
-                            still.as_deref(),
-                            None,
-                        )?;
+                        cache.store(prediction, output.rgb.as_deref(), still.as_deref(), None)?;
                     }
                 }
                 Ok(output)

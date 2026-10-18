@@ -399,7 +399,7 @@ fn plan_work(
             sources
                 .fields
                 .restore(hit.state.as_deref().unwrap_or_default())?;
-            if frame.plan.loop_frame {
+            if frame.plan.loop_frame && !prediction.volatile {
                 chain.push((frame.plan.epoch, prediction.key));
             }
             return Ok(Work::Cached {
@@ -415,6 +415,7 @@ fn plan_work(
     let prediction = prediction.filter(|prediction| cache.verify(prediction, &touched));
     if let Some(prediction) = &prediction
         && frame.plan.loop_frame
+        && !prediction.volatile
     {
         chain.push((frame.plan.epoch, prediction.key));
     }
@@ -473,7 +474,7 @@ impl Work {
                     if let Some(prediction) = &prediction {
                         let still = output.still.as_ref().map(|file| directory.join(&file.file));
                         cache.store(
-                            prediction.key,
+                            prediction,
                             output.rgb.as_deref(),
                             still.as_deref(),
                             state.as_deref(),

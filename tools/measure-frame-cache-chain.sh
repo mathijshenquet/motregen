@@ -34,7 +34,7 @@ wall, user, system = (float(value) for value in sys.argv[3:6])
 print(f"generatie {sys.argv[2]} (nu {media['now']}): {wall:.2f} s wand, {user + system:.2f} s CPU")
 for mode, entry in sorted(media["modes"].items()):
     cache = entry["cache"]
-    print(f"  {mode:8} {entry['total_ms'] / 1000:6.2f} s  hergebruikt {cache['reused_frames']:3}  gerenderd {cache['rendered_frames']:3}"
+    print(f"  {mode:8} {entry['total_ms'] / 1000:6.2f} s  hergebruikt {cache['reused_frames']:3}  gerenderd {cache['rendered_frames']:3}  vluchtig {cache['volatile_frames']:3}"
           f"  geschreven {cache['written_bytes'] / 2**20:6.1f} MB  keten {'ja' if cache['resumed_chain'] else 'nee'}")
 PYTHON
 done | tee "$work/summary.txt"

@@ -17,6 +17,14 @@ use std::{
 
 pub type Identity = [u8; 32];
 
+/// A source frame's identity, and whether its product is replaced every few minutes (nowcast, seamless): a frame
+/// built on such a source never comes back in a later generation, so it is not worth writing (MIP-37).
+#[derive(Clone, Copy)]
+pub struct Source {
+    pub identity: Identity,
+    pub volatile: bool,
+}
+
 /// Bump when the meaning of a key or the layout of a cache file changes.
 const SCHEMA: &[u8] = b"motregen-frame-cache-1";
 const ZSTD_LEVEL: i32 = 1;
@@ -37,6 +45,7 @@ pub struct KeyBuilder {
     hasher: blake3::Hasher,
     sources: Vec<Identity>,
     cacheable: bool,
+    volatile: bool,
 }
 
 impl KeyBuilder {
@@ -70,14 +79,22 @@ impl KeyBuilder {
     }
 
     /// A source frame the output may read; one without an identity makes the frame uncacheable.
-    pub fn source(&mut self, identity: Option<Identity>) -> &mut Self {
-        match identity {
-            Some(identity) => {
-                self.hasher.update(&identity);
-                self.sources.push(identity);
+    pub fn source(&mut self, source: Option<Source>) -> &mut Self {
+        match source {
+            Some(source) => {
+                self.hasher.update(&source.identity);
+                self.sources.push(source.identity);
+                self.volatile |= source.volatile;
             }
             None => self.cacheable = false,
         }
+        self
+    }
+
+    /// Another key this frame depends on as a whole (a Lucht cloud hour); its sources are checked on their own.
+    pub fn include(&mut self, other: &Prediction) -> &mut Self {
+        self.hasher.update(&other.key.0);
+        self.volatile |= other.volatile;
         self
     }
 
@@ -85,6 +102,7 @@ impl KeyBuilder {
         self.cacheable.then(|| Prediction {
             key: Key(*self.hasher.finalize().as_bytes()),
             sources: self.sources.into_iter().collect(),
+            volatile: self.volatile,
         })
     }
 }
@@ -93,6 +111,7 @@ impl KeyBuilder {
 pub struct Prediction {
     pub key: Key,
     sources: HashSet<Identity>,
+    pub volatile: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -112,6 +131,8 @@ pub struct Report {
     pub reused_frames: usize,
     pub rendered_frames: usize,
     pub uncacheable_frames: usize,
+    /// Rendered but not written: they read nowcast or seamless data.
+    pub volatile_frames: usize,
     pub mismatches: usize,
     pub written_bytes: u64,
     pub read_bytes: u64,
@@ -159,6 +180,7 @@ impl FrameCache {
             reused: AtomicUsize::new(0),
             rendered: AtomicUsize::new(0),
             uncacheable: AtomicUsize::new(0),
+            volatile: AtomicUsize::new(0),
             mismatches: AtomicUsize::new(0),
             written: AtomicU64::new(0),
             read: AtomicU64::new(0),
@@ -226,6 +248,7 @@ pub struct ModeCache<'a> {
     reused: AtomicUsize,
     rendered: AtomicUsize,
     uncacheable: AtomicUsize,
+    volatile: AtomicUsize,
     mismatches: AtomicUsize,
     written: AtomicU64,
     read: AtomicU64,
@@ -241,6 +264,7 @@ impl ModeCache<'_> {
             hasher,
             sources: Vec::new(),
             cacheable: true,
+            volatile: false,
         }
     }
 
@@ -321,14 +345,18 @@ impl ModeCache<'_> {
         Ok(bytes)
     }
 
-    /// Stores the parts of a freshly rendered frame that are not on disk yet.
+    /// Stores the parts of a freshly rendered frame that are not on disk yet; volatile frames are skipped.
     pub fn store(
         &self,
-        key: Key,
+        prediction: &Prediction,
         rgb: Option<&[u8]>,
         still: Option<&Path>,
         state: Option<&[u8]>,
     ) -> Result<()> {
+        if prediction.volatile {
+            return Ok(());
+        }
+        let key = prediction.key;
         let mut written = 0;
         if let Some(rgb) = rgb {
             let name = self.name(key, "rgb");
@@ -359,9 +387,13 @@ impl ModeCache<'_> {
 
     pub fn rendered(&self, prediction: Option<&Prediction>) {
         self.rendered.fetch_add(1, Ordering::Relaxed);
-        if prediction.is_none() {
-            self.uncacheable.fetch_add(1, Ordering::Relaxed);
-        }
+        match prediction {
+            None => self.uncacheable.fetch_add(1, Ordering::Relaxed),
+            Some(prediction) if prediction.volatile => {
+                self.volatile.fetch_add(1, Ordering::Relaxed)
+            }
+            Some(_) => 0,
+        };
     }
 
     /// True when rendering read only source frames that the key covers.
@@ -442,6 +474,7 @@ impl ModeCache<'_> {
             reused_frames: self.reused.load(Ordering::Relaxed),
             rendered_frames: self.rendered.load(Ordering::Relaxed),
             uncacheable_frames: self.uncacheable.load(Ordering::Relaxed),
+            volatile_frames: self.volatile.load(Ordering::Relaxed),
             mismatches: self.mismatches.load(Ordering::Relaxed),
             written_bytes: self.written.load(Ordering::Relaxed),
             read_bytes: self.read.load(Ordering::Relaxed),
@@ -484,7 +517,10 @@ mod tests {
 
     fn prediction(mode: &ModeCache, epoch: i64, source: Option<Identity>) -> Option<Prediction> {
         let mut key = mode.key();
-        key.number(epoch).source(source);
+        key.number(epoch).source(source.map(|identity| Source {
+            identity,
+            volatile: false,
+        }));
         key.finish()
     }
 
@@ -509,7 +545,8 @@ mod tests {
     fn stored_frames_come_back_bytewise_and_are_written_once() {
         let (directory, cache) = cache();
         let weather = cache.mode("weather");
-        let key = prediction(&weather, 1, Some([1; 32])).unwrap().key;
+        let stored = prediction(&weather, 1, Some([1; 32])).unwrap();
+        let key = stored.key;
         let parts = Parts {
             rgb: true,
             still: true,
@@ -520,12 +557,12 @@ mod tests {
         fs::write(&still, b"jpeg").unwrap();
         let frame = rgb(7);
         weather
-            .store(key, Some(&frame), Some(&still), Some(b"state"))
+            .store(&stored, Some(&frame), Some(&still), Some(b"state"))
             .unwrap();
         let written = weather.written.load(Ordering::Relaxed);
         assert!(written > 0 && written < frame.len() as u64);
         weather
-            .store(key, Some(&frame), Some(&still), Some(b"state"))
+            .store(&stored, Some(&frame), Some(&still), Some(b"state"))
             .unwrap();
         assert_eq!(weather.written.load(Ordering::Relaxed), written);
         let hit = weather.lookup(key, parts).unwrap().unwrap();
@@ -540,8 +577,9 @@ mod tests {
     fn a_frame_needs_every_requested_part_and_corrupt_pixels_are_removed() {
         let (_directory, cache) = cache();
         let feels = cache.mode("feels");
-        let key = prediction(&feels, 1, Some([1; 32])).unwrap().key;
-        feels.store(key, None, None, Some(b"state")).unwrap();
+        let stored = prediction(&feels, 1, Some([1; 32])).unwrap();
+        let key = stored.key;
+        feels.store(&stored, None, None, Some(b"state")).unwrap();
         let loop_frame = Parts {
             rgb: true,
             still: false,
@@ -552,6 +590,31 @@ mod tests {
         let hit = feels.lookup(key, loop_frame).unwrap().unwrap();
         assert!(feels.restore(key, &hit.rgb.unwrap()).is_err());
         assert!(feels.lookup(key, loop_frame).unwrap().is_none());
+    }
+
+    #[test]
+    fn frames_on_nowcast_data_are_rendered_but_not_written() {
+        let (_directory, cache) = cache();
+        let weather = cache.mode("weather");
+        let mut key = weather.key();
+        key.source(Some(Source {
+            identity: [1; 32],
+            volatile: true,
+        }));
+        let volatile = key.finish().unwrap();
+        weather.rendered(Some(&volatile));
+        weather.store(&volatile, Some(&rgb(3)), None, None).unwrap();
+        let parts = Parts {
+            rgb: true,
+            still: false,
+            state: false,
+        };
+        assert!(weather.lookup(volatile.key, parts).unwrap().is_none());
+        let mut hour = weather.key();
+        hour.include(&volatile);
+        assert!(hour.finish().unwrap().volatile);
+        let report = weather.finish(&[]).unwrap();
+        assert_eq!((report.volatile_frames, report.written_bytes), (1, 0));
     }
 
     #[test]
@@ -569,8 +632,10 @@ mod tests {
     fn the_chain_hands_label_state_to_the_next_generation() {
         let (_directory, cache) = cache();
         let wind = cache.mode("wind");
-        let key = prediction(&wind, 75_000, Some([1; 32])).unwrap().key;
-        wind.store(key, None, None, Some(b"after 75000")).unwrap();
+        let stored = prediction(&wind, 75_000, Some([1; 32])).unwrap();
+        let key = stored.key;
+        wind.store(&stored, None, None, Some(b"after 75000"))
+            .unwrap();
         wind.finish(&[(75_000, key)]).unwrap();
         let next = cache.mode("wind");
         assert_eq!(next.chain_state(75_000).unwrap().unwrap(), b"after 75000");
@@ -582,10 +647,15 @@ mod tests {
     fn cleanup_keeps_recent_files_and_enforces_the_hard_limit() {
         let (directory, mut cache) = cache();
         let weather = cache.mode("weather");
-        let old = prediction(&weather, 1, Some([1; 32])).unwrap().key;
-        let recent = prediction(&weather, 2, Some([1; 32])).unwrap().key;
-        weather.store(old, Some(&rgb(3)), None, None).unwrap();
-        weather.store(recent, Some(&rgb(5)), None, None).unwrap();
+        let old_prediction = prediction(&weather, 1, Some([1; 32])).unwrap();
+        let recent_prediction = prediction(&weather, 2, Some([1; 32])).unwrap();
+        let (old, recent) = (old_prediction.key, recent_prediction.key);
+        weather
+            .store(&old_prediction, Some(&rgb(3)), None, None)
+            .unwrap();
+        weather
+            .store(&recent_prediction, Some(&rgb(5)), None, None)
+            .unwrap();
         let old_path = weather.path(&weather.name(old, "rgb"));
         let recent_path = weather.path(&weather.name(recent, "rgb"));
         let stale = SystemTime::now() - Duration::from_secs(3600);
