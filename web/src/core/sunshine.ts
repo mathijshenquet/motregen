@@ -38,3 +38,35 @@ export function sunshineLabel(minutes: number, stepMinutes: number): string {
   const rounded = Math.round(minutes / stepMinutes) * stepMinutes
   return rounded === 0 ? 'geen zon' : `${rounded} min zon`
 }
+
+/**
+ * Fraction of time with sunshine (0–1) around `epoch`, at quarter-hour resolution: the hour clear index of the two
+ * neighbouring HARMONIE hours, interpolated between hour centres, times whether the sun stands high enough at `epoch`.
+ * `radiationAt(end)` gives the hour mean that ends at `end`. Null where both neighbouring hours lack radiation.
+ */
+export function sunshineFraction(
+  epoch: number,
+  radiationAt: (end: number) => number | null | undefined,
+  sinElevation: (epoch: number) => number,
+): number | null {
+  if (sinElevation(epoch) <= SUN_THRESHOLD_SIN) return 0
+  const hour = 3_600_000
+  const shareAt = (end: number): number | null => {
+    const radiation = radiationAt(end)
+    if (radiation == null || !Number.isFinite(radiation)) return null
+    const clear = clearSkyHourMean(end, sinElevation)
+    if (clear <= 1) return null
+    const ramp = (radiation / clear - SUNSHINE_CLEAR_INDEX_LOW) / (SUNSHINE_CLEAR_INDEX_HIGH - SUNSHINE_CLEAR_INDEX_LOW)
+    return Math.max(0, Math.min(1, ramp))
+  }
+  // Hour [end − 1 h, end] stands for its centre end − 30 min.
+  const previousEnd = Math.floor((epoch + hour / 2) / hour) * hour
+  const nextEnd = previousEnd + hour
+  const previous = shareAt(previousEnd)
+  const next = shareAt(nextEnd)
+  if (previous == null && next == null) return null
+  if (previous == null) return next
+  if (next == null) return previous
+  const weight = (epoch - (previousEnd - hour / 2)) / hour
+  return previous + (next - previous) * weight
+}

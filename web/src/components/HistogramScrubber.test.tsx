@@ -322,10 +322,10 @@ describe('histogram scrubber', () => {
     expect(Number(container.querySelector<SVGGElement>('.sun-bars')!.style.opacity)).toBeCloseTo(0.5)
 
     setMix({ wind: 0, air: 1, temperature: 0 })
-    const bars = [...container.querySelectorAll<SVGRectElement>('.sun-bar')]
-    // Alleen de zonnige uren: 08–09 … 13–14 UTC (60 min) en het uur tot 15 UTC; daarna te weinig licht.
-    expect(bars.length).toBe(7)
-    expect(container.querySelector('.sun-readout')?.textContent).toBe('60 min zon')
+    // Standaard een vloeiend vlak met lijn (PO 2026-10-18), één daglichtperiode: vlak en lijn.
+    expect(container.querySelector('.sun-bars')?.getAttribute('data-style')).toBe('vlak-lijn')
+    expect(container.querySelectorAll('.sun-bars path[d^="M"]').length).toBe(2)
+    expect(container.querySelector('.sun-readout')?.textContent).toBe('60 min zon per uur')
     expect(screen.getByRole('slider', { name: 'Tijd' }).getAttribute('aria-valuetext')).toContain('60 min zon')
     expect([...container.querySelectorAll('.sun-marker')].map((marker) => marker.classList.contains('set'))).toEqual([true])
   })
