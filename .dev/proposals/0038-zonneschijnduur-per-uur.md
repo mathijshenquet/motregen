@@ -92,6 +92,37 @@ Op de korte runs (+1…+3, dus gelijke lead) is het beeld hetzelfde: S1 op HARMO
 
 **Conclusie.** Gebruikt de app voor Nederland ECMWF IFS, dan is S1 duidelijk nauwkeuriger: 10,4 tegen 11,6–15,5 min/u, en IFS geeft 1,8 tot 3,2 uur per dag te veel zon. Op ICON-EU hangt het af van de omrekening: met een DNI-drempel is ICON-EU slechter (12,4), met onze S1-omrekening iets beter dan HARMONIE (9,8 tegen 10,4), ook bij gelijke lead.
 
+#### De Zwitserse app in Zwitserland (U95c)
+
+De PO wilde ook weten hoe goed MeteoSwiss thuis is, naast onze S1 thuis.
+
+**Bron van de app: zeker.** MeteoSwiss publiceert de puntverwachting als open data (`ch.meteoschweiz.ogd-local-forecasting`). Volgens MeteoSwiss is dat "the same forecast data used in the MeteoSwiss app and on the website for each ZIP-code". Het is een mix van INCA, ICON-CH1-EPS, ICON-CH2-EPS en ECMWF, met elk uur een nieuwe run. Ik heb het zelf nagerekend: voor Zürich 8001 is `sunshine1h` uit de app-API voor morgen getal voor getal gelijk aan de run van 11 UTC. MeteoSwiss bewaart die verwachting maar ongeveer twee dagen. Over de U95-periode meet ik daarom de modellen eronder: ICON-CH1 en ICON-CH2 via Open-Meteo. Hun zonneschijnduur komt vrijwel zeker uit het model zelf (ICON-CH levert `DURSUN` en directe straling met terreinschaduw). De waarden hebben tussenstappen en een kleine bias, anders dan de DNI-drempel die Open-Meteo bij andere modellen gebruikt.
+
+**Waarheid:** 12 SwissMetNet-stations, met de gemeten zonneschijnduur `sre000h0` van een zonneschijnsensor, per uur. Plateau: Basel, Bern, Genève, Luzern, Payerne en Zürich. Berg: Davos, Jungfraujoch en Säntis. Zuid: Lugano, Magadino en Locarno. Zelfde periode als U95 (9 januari t/m 15 oktober 2026), alleen uren met de zon boven de horizon. Klimatologie per station, maand en uur over 2016–2025. Nederland is de korte HARMONIE-set (+1…+3), die dezelfde korte termijn heeft als Open-Meteo.
+
+MAE (min/u) / vaardigheid t.o.v. klimatologie:
+
+| schatter | Nederland | Zwitserland | Plateau | Berg | Zuid |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| **MeteoSwiss ICON-CH1, eigen zonneschijnduur** | — | **8,8 / +0,56** | **8,7 / +0,57** | 10,0 / +0,50 | 7,8 / +0,59 |
+| MeteoSwiss ICON-CH2, eigen zonneschijnduur | — | 8,7 / +0,56 | 8,7 / +0,57 | 9,7 / +0,52 | 7,7 / +0,60 |
+| **S1 op het landsmodel** (NL: HARMONIE, CH: ICON-CH1) | **10,5 / +0,48** | 10,7 / +0,46 | 9,3 / +0,54 | 15,2 / +0,24 | 8,9 / +0,54 |
+| Open-Meteo `knmi_seamless` (HARMONIE, DNI-drempel) | 12,8 / +0,36 | — | — | — | — |
+| ICON-D2, Open-Meteo-omrekening (in beide landen) | 10,7 / +0,46 | 11,9 / +0,40 | 10,2 / +0,50 | 16,4 / +0,18 | 10,6 / +0,44 |
+| S1 op ICON-D2-straling (in beide landen) | 8,7 / +0,57 | 10,3 / +0,48 | 8,9 / +0,56 | 14,2 / +0,29 | 9,1 / +0,52 |
+| klimatologie (B1), MAE | 20,0 | 20,0 | 20,3 | 20,0 | 19,1 |
+
+Stationsuren: Nederland 32.446, Zwitserland 46.866, Plateau 23.522, Berg 11.754, Zuid 11.590. Per dag zit ICON-CH1 in Zwitserland gemiddeld 1,32 uur naast de meting, met een bias van −0,30 uur. S1 op HARMONIE zit in Nederland 1,31 uur naast de meting.
+
+Kanttekeningen:
+- **De omrekening maakt het verschil.** S1 op de uurstraling van ICON-CH1 is in Zwitserland 10,7 min/u, met een bias van +6,0. Dat is ongeveer ons niveau in Nederland. ICON-CH rekent de zon per modeltijdstap uit directe straling, met terreinschaduw. Dat werkt beter dan een uurgemiddelde van de globale straling achteraf omrekenen. HARMONIE P1 levert geen directe straling en geen zonneschijnduur (zie Meting), dus die route hebben wij niet.
+- **Andere waarheid.** SwissMetNet meet met een sensor, KNMI rekent SQ uit globale straling. Daarom zit S1 met de NL-parameters in Zwitserland te hoog: +5,0 min/u, zelfs op de gemeten straling. Ik heb de k-grenzen opnieuw gefit op de even Zwitserse dagen (0,60–0,84) en gemeten op de oneven dagen. Dan scoort S1 op ICON-CH1 10,0 min/u, tegen 9,2 voor ICON-CH1 zelf op dezelfde dagen.
+- **Bergen zijn het moeilijkst.** Daar spelen terreinhorizon, mist en wolken onder het station. S1 kent geen terreinhorizon en geeft daar +12 min/u.
+- **De app zelf, als steekproef.** Ik heb 59 app-runs van 16 tot en met 18 oktober vergeleken met de metingen. Overal is de MAE 6,8 min/u (vaardigheid +0,66); op het Plateau is dat 2,7, maar dat waren vooral grijze dagen. Twee à drie dagen zeggen niets over een jaar. `fetch_app.py` bewaart elke run die het ziet in `tools/zonneschijn/meteoswiss-app/`, dus de steekproef groeit als het script vaker draait.
+- **Bijvangst voor Nederland.** S1 op de ICON-D2-straling is in Nederland 8,7 min/u (+0,57), tegen 10,5 voor S1 op HARMONIE. Over de 00 UTC-set is dat 8,9 tegen 10,4. Zie open vraag 4.
+
+**Conclusie.** Thuis is MeteoSwiss duidelijk beter dan wij thuis: ICON-CH haalt 8,7–8,8 min/u (vaardigheid +0,56), ook op het Plateau dat het meest op Nederland lijkt, tegen 10,5 min/u (+0,48) voor S1 op HARMONIE in Nederland. Het verschil zit vooral in de omrekening. Dezelfde S1 op ICON-CH-straling komt in Zwitserland niet verder dan ons niveau (10,7), en ICON-CH rekent de zon in het model zelf uit, een veld dat HARMONIE P1 niet levert.
+
 ## Aanbeveling
 
 **Neem S1** als zonneschijnduur per uur. Daarvoor zijn er vier redenen:
@@ -121,14 +152,14 @@ Met 6 in plaats van 30 substappen verandert de meting niet: S1 houdt MAE 10,4 en
 tools/zonneschijn/run.sh   # vanuit een checkout; KNMI_OPEN_DATA_API_KEY in de omgeving of .env
 ```
 
-Het script haalt KNMI-uren (2016 t/m 17 oktober 2026), het HARMONIE-archief en Open-Meteo op. Daarna draait het `evaluate.py`, dat `tools/zonneschijn/results.md` schrijft, en tot slot de rekentijdmeting `bench.mts`. De cijfers hierboven komen uit die run, en elke stap gaf `EXIT: 0`. De data (≈ 140 MB) staat in `tools/zonneschijn/data/` en wordt niet gecommit. De eerste ophaalbeurt duurt ongeveer een uur; daarna slaat het script bestaande runs en afgesloten jaren over.
+Het script haalt KNMI-uren (2016 t/m 17 oktober 2026), het HARMONIE-archief en Open-Meteo op. Daarna draait het `evaluate.py`, dat `tools/zonneschijn/results.md` schrijft, en tot slot de rekentijdmeting `bench.mts`. Voor Zwitserland haalt het ook SwissMetNet-uren (2010 t/m vandaag), de app-verwachting en ICON-CH via Open-Meteo op. De cijfers hierboven komen uit die run, en elke stap gaf `EXIT: 0`. De data (≈ 140 MB) staat in `tools/zonneschijn/data/` en wordt niet gecommit. De eerste ophaalbeurt duurt ongeveer een uur; daarna slaat het script bestaande runs en afgesloten jaren over.
 
 ## Open vragen voor de PO
 
 1. **Waar tonen?** Kies uit: (a) per uur in de Lucht-kolom, (b) alleen een dagtotaal, (c) allebei. Voorstel: (c), met per uur een balk en het dagtotaal als getal.
 2. **Vorm:** minuten afgerond op 10, of klassen ("zonnig / af en toe zon / bewolkt")? Voorstel: minuten op 10 met een balk. Klassen verbergen het verschil tussen 20 en 40 minuten, en dat verschil zit wél in de data.
 3. **Zonnekaart in Lucht:** een eigen laag, of houden we de lichtfactor van MIP-34? Voorstel: geen aparte laag, omdat de lichtfactor al vrijwel hetzelfde laat zien.
-4. **ICON-D2:** in de winter is ICON-D2 beter voor zon. Een DWD-bron toevoegen is een aparte bronkeuze. Voorstel: niet nu; S1 op HARMONIE verslaat alle Open-Meteo-modellen over het jaar. Kanttekening uit de vergelijking met de Zwitserse app: S1 op de ICON-EU-straling is 0,6–0,7 min/u beter dan S1 op HARMONIE.
+4. **ICON-D2:** in de winter is ICON-D2 beter voor zon. Een DWD-bron toevoegen is een aparte bronkeuze. Voorstel: niet nu; S1 op HARMONIE verslaat alle Open-Meteo-modellen over het jaar. Kanttekening uit de vergelijking met de Zwitserse app: S1 op de ICON-EU-straling is 0,6–0,7 min/u beter dan S1 op HARMONIE. S1 op de ICON-D2-straling is zelfs 1,5–1,8 min/u beter (8,7–8,9 tegen 10,4–10,5, U95c). Dat maakt een DWD-bron voor zon een serieuze kandidaat.
 5. **Archief bewaren?** Het KNMI-archief van P1 begint nu bij januari 2026. Als dat archief doorschuift, kan de meting later niet meer vanaf nul worden herhaald. De HARMONIE-uittreksels per station zijn ≈ 24 MB. Bewaren we die als release-asset, of accepteren we dit risico?
 6. **Herkalibratie:** de parameters komen uit januari–oktober 2026. November en december ontbreken nog. Voorstel: in januari 2027 opnieuw fitten met `run.sh` en een verlengde datumreeks.
 
@@ -136,3 +167,4 @@ Het script haalt KNMI-uren (2016 t/m 17 oktober 2026), het HARMONIE-archief en O
 
 - 2026-10-18 — concept (U95).
 - 2026-10-18 — vergelijking met de Zwitserse app (U95b): ICON-EU, ICON global en ECMWF IFS erbij.
+- 2026-10-18 — de Zwitserse app in Zwitserland (U95c): SwissMetNet tegen ICON-CH1/CH2, een app-steekproef en S1 op ICON-D2.
