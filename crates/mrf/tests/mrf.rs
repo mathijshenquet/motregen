@@ -1,7 +1,8 @@
 use base64::{Engine, engine::general_purpose::STANDARD};
 use mrf::{
-    COMPRESSION_LEVEL, ChunkMeta, Grid, MotionGrid, decode, encode, encode_with_motion,
-    encode_with_motion_parallel, parse_header, quantization_table, quantize, quantize_with_table,
+    COMPRESSION_LEVEL, ChunkMeta, Error, Grid, MotionGrid, decode, encode, encode_with_motion,
+    encode_with_motion_parallel, member_hash, parse_header, quantization_table, quantize,
+    quantize_with_table,
 };
 use proptest::prelude::*;
 
@@ -184,6 +185,90 @@ fn golden_chunk_decodes_byte_exactly() {
 }
 
 #[test]
+fn legacy_chunks_without_member_hashes_still_decode() {
+    for (name, fixture) in [
+        (
+            "canonical",
+            include_str!("fixtures/legacy-canonical.mrf.b64"),
+        ),
+        ("motion", include_str!("fixtures/legacy-motion.mrf.b64")),
+    ] {
+        let legacy = STANDARD
+            .decode(fixture.lines().collect::<String>())
+            .unwrap();
+        let decoded = decode(&legacy).unwrap();
+        assert!(!decoded.frames.is_empty(), "{name}");
+        for frame in &decoded.header.frames {
+            assert_eq!(frame.hash, None, "{name}");
+            assert_eq!(
+                frame.motion.as_ref().and_then(|motion| motion.hash.clone()),
+                None
+            );
+        }
+    }
+}
+
+#[test]
+fn a_frame_keeps_its_hash_when_the_window_slides() {
+    let frames = sparse_advecting_fields(4);
+    let earlier = parse_header(&encode(&frames[..3], &meta(700, 765, 3)).unwrap()).unwrap();
+    let later = parse_header(&encode(&frames[1..], &meta(700, 765, 3)).unwrap()).unwrap();
+    for shared in 0..2 {
+        let earlier_frame = &earlier.header.frames[shared + 1];
+        let later_frame = &later.header.frames[shared];
+        assert_ne!(earlier_frame.offset, later_frame.offset);
+        assert_eq!(earlier_frame.hash, later_frame.hash);
+    }
+    assert_ne!(earlier.header.frames[0].hash, later.header.frames[2].hash);
+}
+
+#[test]
+fn member_hashes_cover_the_compressed_bytes() {
+    let frames = vec![vec![0, 1, 2, 3], vec![4, 5, 6, 7]];
+    let chunk = encode_with_motion(
+        &frames,
+        &meta(2, 2, 2),
+        MotionGrid { bw: 2, bh: 1 },
+        &[None, Some(vec![10, -5, 3, 4])],
+    )
+    .unwrap();
+    let index = parse_header(&chunk).unwrap();
+    let range = index.frame_range(1).unwrap();
+    let member = &chunk[range.start as usize..range.end as usize];
+    assert_eq!(
+        index.header.frames[1].hash.as_deref(),
+        Some(member_hash(member).as_str())
+    );
+    assert_eq!(member_hash(member).len(), 32);
+
+    let mut tampered = chunk.clone();
+    tampered[range.end as usize - 1] ^= 1;
+    assert!(matches!(
+        index.decode_frame(1, &tampered[range.start as usize..range.end as usize]),
+        Err(Error::MemberHashMismatch { index: 1 })
+    ));
+    let motion = index.motion_range(1).unwrap();
+    tampered = chunk.clone();
+    tampered[motion.end as usize - 1] ^= 1;
+    assert!(matches!(
+        index.decode_motion(1, &tampered[motion.start as usize..motion.end as usize]),
+        Err(Error::MemberHashMismatch { index: 1 })
+    ));
+
+    let json = std::str::from_utf8(&chunk[8..index.header_len]).unwrap();
+    let hash = index.header.frames[0].hash.as_deref().unwrap();
+    let uppercase = json.replace(hash, &hash.to_uppercase());
+    let mut rewritten = chunk[..4].to_vec();
+    rewritten.extend_from_slice(&(uppercase.len() as u32).to_le_bytes());
+    rewritten.extend_from_slice(uppercase.as_bytes());
+    rewritten.extend_from_slice(&chunk[index.header_len..]);
+    assert!(matches!(
+        parse_header(&rewritten),
+        Err(Error::InvalidMemberHash { index: 0 })
+    ));
+}
+
+#[test]
 fn motion_annex_roundtrips_through_full_and_ranged_decoders() {
     let frames = vec![vec![0, 1, 2, 3], vec![4, 5, 6, 7], vec![8, 9, 10, 11]];
     let motions = vec![
@@ -345,7 +430,17 @@ fn cli_inspects_and_dumps_motion() {
     assert!(inspect.status.success());
     let stdout = String::from_utf8(inspect.stdout).unwrap();
     assert!(stdout.contains("motion_grid"));
-    assert!(stdout.contains("motion=offset="));
+    let index = parse_header(&std::fs::read(&chunk_path).unwrap()).unwrap();
+    let frame_hash = index.header.frames[1].hash.as_deref().unwrap();
+    let motion_hash = index.header.frames[1]
+        .motion
+        .as_ref()
+        .unwrap()
+        .hash
+        .as_deref()
+        .unwrap();
+    assert!(stdout.contains(&format!("hash={frame_hash} motion=offset=")));
+    assert!(stdout.contains(&format!("hash={motion_hash}")));
     assert!(
         std::process::Command::new(binary)
             .arg("dump-motion")

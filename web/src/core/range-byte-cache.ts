@@ -51,18 +51,38 @@ export class RangeByteCache {
     try {
       const db = await this.open()
       if (!db) return
-      const tx = db.transaction(['entries', 'bytes'], 'readonly')
-      const entries = await request(tx.objectStore('entries').index('url').getAll(url)) as Entry[]
-      const entry = entries.find((item) => item.start <= start && item.end >= end && Date.now() - item.used < MAX_AGE)
-      if (!entry) return
-      const bytes = await request(tx.objectStore('bytes').get(entry.key)) as Uint8Array | undefined
-      if (!bytes || bytes.byteLength !== entry.size) return
-      return bytes.slice(start - entry.start, end - entry.start + 1)
+      return await readRange(db.transaction(['entries', 'bytes'], 'readonly'), url, start, end)
     } catch { return }
   }
 
+  /** Gecomprimeerde mrf-members op inhoudshash (U93), gelezen in één transactie; ontbrekende hashes ontbreken in de map. */
+  async getMembers(hashes: string[]): Promise<Map<string, Uint8Array>> {
+    const found = new Map<string, Uint8Array>()
+    if (!hashes.length) return found
+    try {
+      const db = await this.open()
+      if (!db) return found
+      const tx = db.transaction(['entries', 'bytes'], 'readonly')
+      await Promise.all(hashes.map(async (hash) => {
+        const bytes = await readRange(tx, memberUrl(hash))
+        if (bytes) found.set(hash, bytes)
+      }))
+    } catch { /* Een gedeeltelijke vondst is nog steeds bruikbaar. */ }
+    return found
+  }
+
   async put(url: string, start: number, end: number, bytes: Uint8Array): Promise<void> {
-    if (bytes.byteLength !== end - start + 1 || bytes.byteLength > this.budget) return
+    if (bytes.byteLength !== end - start + 1) return
+    await this.write([{ url, start, end, bytes }])
+  }
+
+  async putMembers(members: Array<{ hash: string; bytes: Uint8Array }>): Promise<void> {
+    await this.write(members.map(({ hash, bytes }) => ({ url: memberUrl(hash), start: 0, end: bytes.byteLength - 1, bytes })))
+  }
+
+  private async write(items: Array<{ url: string; start: number; end: number; bytes: Uint8Array }>): Promise<void> {
+    const storable = items.filter((item) => item.bytes.byteLength > 0 && item.bytes.byteLength <= this.budget)
+    if (!storable.length) return
     try {
       const db = await this.open()
       if (!db) return
@@ -71,13 +91,15 @@ export class RangeByteCache {
         tx.oncomplete = tx.onabort = tx.onerror = () => resolve()
       })
       const entries = tx.objectStore('entries'), data = tx.objectStore('bytes'), state = tx.objectStore('state')
-      const key = `${url}#${start}:${end}`
       const totals = (await request(state.get('totals')) as { size: number; count: number } | undefined) ?? { size: 0, count: 0 }
-      const previous = await request(entries.get(key)) as Entry | undefined
-      totals.size += bytes.byteLength - (previous?.size ?? 0)
-      totals.count += previous ? 0 : 1
-      entries.put({ key, url, start, end, size: bytes.byteLength, used: Date.now() } satisfies Entry)
-      data.put(bytes, key)
+      for (const { url, start, end, bytes } of storable) {
+        const key = `${url}#${start}:${end}`
+        const previous = await request(entries.get(key)) as Entry | undefined
+        totals.size += bytes.byteLength - (previous?.size ?? 0)
+        totals.count += previous ? 0 : 1
+        entries.put({ key, url, start, end, size: bytes.byteLength, used: Date.now() } satisfies Entry)
+        data.put(bytes, key)
+      }
       // Metadata stays separate: eviction never reads all cached weather bytes into memory.
       const cursor = entries.index('used').openCursor()
       cursor.onsuccess = () => {
@@ -94,6 +116,20 @@ export class RangeByteCache {
       await done
     } catch { /* Storage is optional; quota/privacy failures must not stop the map. */ }
   }
+}
+
+async function readRange(tx: IDBTransaction, url: string, start?: number, end?: number): Promise<Uint8Array | undefined> {
+  const entries = await request(tx.objectStore('entries').index('url').getAll(url)) as Entry[]
+  const entry = entries.find((item) => item.start <= (start ?? item.start) && item.end >= (end ?? item.end) && Date.now() - item.used < MAX_AGE)
+  if (!entry) return
+  const bytes = await request(tx.objectStore('bytes').get(entry.key)) as Uint8Array | undefined
+  if (!bytes || bytes.byteLength !== entry.size) return
+  return bytes.slice((start ?? entry.start) - entry.start, (end ?? entry.end) - entry.start + 1)
+}
+
+/** Members delen de entries-tabel met de URL-bereiken, zodat dezelfde opruimregels gelden. */
+function memberUrl(hash: string): string {
+  return `member:${hash}`
 }
 
 export function immutableWeatherUrl(url: string): boolean {

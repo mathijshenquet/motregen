@@ -23,6 +23,11 @@ function validateHeader(header: MrfHeader): void {
   if (!header.motion_grid && header.frames.some((frame) => frame.motion)) throw new Error('Motion-annex zonder motion-grid')
   if (header.pred && header.pred.v !== PRED_VERSION) throw new Error(`Niet-ondersteunde predictieve frames v${header.pred.v}`)
   if (header.frames.some((frame) => frame.motion && (!Number.isInteger(frame.motion.offset) || !Number.isInteger(frame.motion.len) || frame.motion.offset < 0 || frame.motion.len < 1))) throw new Error('Ongeldige motion-verwijzing')
+  if (header.frames.some((frame) => !validMemberHash(frame.hash) || !validMemberHash(frame.motion?.hash))) throw new Error('Ongeldige member-hash')
+}
+
+function validMemberHash(hash: string | undefined): boolean {
+  return hash === undefined || /^[0-9a-f]{32}$/.test(hash)
 }
 
 export function decodeFrame(bytes: Uint8Array, expectedLength: number, pred?: PredFrameSpec, decompressFrame: (bytes: Uint8Array) => Uint8Array = decompress): Uint8Array {

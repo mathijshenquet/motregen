@@ -11,6 +11,7 @@ pub mod pred;
 pub const MAGIC: [u8; 4] = *b"mrf0";
 pub const VERSION: u32 = 0;
 pub const COMPRESSION_LEVEL: i32 = 19;
+pub const MEMBER_HASH_HEX_LEN: usize = 32;
 
 static RAIN_QUANTIZATION_TABLE: LazyLock<Vec<Option<f32>>> = LazyLock::new(make_quantization_table);
 
@@ -39,6 +40,9 @@ pub struct Frame {
     pub time: String,
     pub offset: u64,
     pub len: u64,
+    /// [`member_hash`] of the compressed member; absent in chunks written before U93.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hash: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub motion: Option<MotionMember>,
 }
@@ -47,6 +51,8 @@ pub struct Frame {
 pub struct MotionMember {
     pub offset: u64,
     pub len: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hash: Option<String>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -213,6 +219,10 @@ pub enum Error {
     },
     #[error("motion member for frame {index} has a half no-data vector at block {block}")]
     HalfNoDataMotion { index: usize, block: usize },
+    #[error("frame {index} has a hash that is not {MEMBER_HASH_HEX_LEN} lowercase hex digits")]
+    InvalidMemberHash { index: usize },
+    #[error("member bytes for frame {index} do not match the header hash")]
+    MemberHashMismatch { index: usize },
     #[error("zstd failed: {0}")]
     Zstd(#[from] std::io::Error),
     #[error("failed to start parallel compressor: {0}")]
@@ -320,6 +330,14 @@ enum Compression {
     Parallel(usize),
 }
 
+/// Content key of a compressed member as stored in the chunk: BLAKE3 truncated to 128 bits, lowercase hex.
+pub fn member_hash(compressed: &[u8]) -> String {
+    blake3::hash(compressed).as_bytes()[..MEMBER_HASH_HEX_LEN / 2]
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
 fn compress_member(bytes: &[u8]) -> Result<Vec<u8>, Error> {
     // U50: U49 measured 2.2–20× faster fzstd decode when the zstd member pledges its content size.
     zstd::bulk::compress(bytes, COMPRESSION_LEVEL).map_err(Error::from)
@@ -364,6 +382,7 @@ fn encode_inner(
                 time: time.clone(),
                 offset,
                 len,
+                hash: Some(member_hash(bytes)),
                 motion: None,
             };
             offset += len;
@@ -377,7 +396,11 @@ fn encode_inner(
                 let bytes = values.iter().map(|value| *value as u8).collect::<Vec<_>>();
                 let bytes = compress_member(&bytes)?;
                 let len = bytes.len() as u64;
-                entries[index].motion = Some(MotionMember { offset, len });
+                entries[index].motion = Some(MotionMember {
+                    offset,
+                    len,
+                    hash: Some(member_hash(&bytes)),
+                });
                 offset += len;
                 Some(bytes)
             } else {
@@ -497,6 +520,7 @@ impl HeaderIndex {
         if usize::try_from(frame.len).ok() != Some(compressed.len()) {
             return Err(Error::TruncatedPayload { index });
         }
+        verify_member_hash(index, frame.hash.as_deref(), compressed)?;
         let mut decoded = zstd::stream::decode_all(compressed)?;
         if self.header.pred.is_some() {
             decoded =
@@ -526,6 +550,7 @@ impl HeaderIndex {
         if usize::try_from(member.len).ok() != Some(compressed.len()) {
             return Err(Error::TruncatedPayload { index });
         }
+        verify_member_hash(index, member.hash.as_deref(), compressed)?;
         let decoded = zstd::stream::decode_all(compressed)?;
         let expected = self
             .header
@@ -631,6 +656,17 @@ fn validate_header(header: &Header) -> Result<(), Error> {
     if header.dict.is_some() {
         return Err(Error::UnsupportedDictionary);
     }
+    for (index, frame) in header.frames.iter().enumerate() {
+        let motion_hash = frame
+            .motion
+            .as_ref()
+            .and_then(|member| member.hash.as_deref());
+        for hash in [frame.hash.as_deref(), motion_hash].into_iter().flatten() {
+            if !is_member_hash(hash) {
+                return Err(Error::InvalidMemberHash { index });
+            }
+        }
+    }
     let mut expected_offset = 0_u64;
     for (index, frame) in header.frames.iter().enumerate() {
         if frame.offset != expected_offset {
@@ -670,6 +706,26 @@ fn validate_header(header: &Header) -> Result<(), Error> {
         None => {}
     }
     Ok(())
+}
+
+fn is_member_hash(hash: &str) -> bool {
+    hash.len() == MEMBER_HASH_HEX_LEN
+        && hash
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
+fn verify_member_hash(
+    index: usize,
+    expected: Option<&str>,
+    compressed: &[u8],
+) -> Result<(), Error> {
+    match expected {
+        Some(expected) if member_hash(compressed) != expected => {
+            Err(Error::MemberHashMismatch { index })
+        }
+        _ => Ok(()),
+    }
 }
 
 fn validate_motions(

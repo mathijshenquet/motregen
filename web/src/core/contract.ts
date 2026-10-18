@@ -58,12 +58,15 @@ export interface FrameIndex {
   time: string
   offset: number
   len: number
+  /** Inhoudshash van de gecomprimeerde member (docs/mrf.md §Member hashes); ontbreekt in oudere chunks. */
+  hash?: string
   motion?: PayloadIndex
 }
 
 export interface PayloadIndex {
   offset: number
   len: number
+  hash?: string
 }
 
 export interface MotionGrid {
