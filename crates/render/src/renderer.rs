@@ -9,7 +9,7 @@ use render_core::{
     clock::ClockTransition,
     constants::{constants, warp_limit},
     motion::Motion,
-    overlay::{ClockOptions, draw_overlay},
+    overlay::{ClockOptions, clock_appearance, draw_overlay},
     projection::Grid,
     rain::{RainCompositor, RainPair},
     temperature::{TemperaturePair, draw_temperature},
@@ -166,7 +166,16 @@ impl Scene<'_> {
         let mut key = cache.key();
         key.bytes(format!("{clock:?}").as_bytes())
             .number(epoch)
-            .flag(plan.still)
+            .bytes(
+                clock_appearance(
+                    epoch,
+                    ClockOptions {
+                        transition: clock,
+                        still: plan.still,
+                    },
+                )
+                .as_bytes(),
+            )
             .flag(epoch <= now)
             .number(left.epoch)
             .number(right.epoch)

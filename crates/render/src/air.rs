@@ -19,7 +19,7 @@ use render_core::{
     constants::constants,
     field::Field,
     mode_constants::mode_constants,
-    overlay::{ClockOptions, draw_overlay_title},
+    overlay::{ClockOptions, clock_appearance, draw_overlay_title},
     projection::{Grid, Projection},
     temperature::{TemperaturePair, draw_temperature},
     text::Text,
@@ -525,7 +525,16 @@ pub fn render(
             let mut key = cache.key();
             key.bytes(format!("{clock:?}").as_bytes())
                 .number(plan.epoch)
-                .flag(plan.still)
+                .bytes(
+                    clock_appearance(
+                        plan.epoch,
+                        ClockOptions {
+                            transition: clock,
+                            still: plan.still,
+                        },
+                    )
+                    .as_bytes(),
+                )
                 .flag(plan.epoch <= now)
                 .real(cloud.time)
                 .real(cloud.phase)

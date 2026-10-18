@@ -12,7 +12,7 @@ use render_core::{
     constants::constants,
     field_raster::{self, LineColor},
     mode_constants::{color, mode_constants},
-    overlay::{ClockOptions, clock_panel_bounds, draw_overlay_title},
+    overlay::{ClockOptions, clock_appearance, clock_panel_bounds, draw_overlay_title},
     projection::Projection,
     rotated_text::{RotatedText, TextStyle},
     temperature::{TemperaturePair, draw_temperature},
@@ -308,7 +308,16 @@ impl<'a> Sources<'a> {
         let mut key = cache.key();
         key.bytes(format!("{:?}", frame.clock).as_bytes())
             .number(time)
-            .flag(frame.plan.still)
+            .bytes(
+                clock_appearance(
+                    time,
+                    ClockOptions {
+                        transition: frame.clock,
+                        still: frame.plan.still,
+                    },
+                )
+                .as_bytes(),
+            )
             .flag(time <= frame.now)
             .real(frame.simulation_seconds)
             .reals(frame.colors)

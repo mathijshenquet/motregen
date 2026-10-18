@@ -27,6 +27,22 @@ pub fn clock_panel_bounds(text: &mut Text, title: &str) -> [f64; 4] {
     ]
 }
 
+/// Everything the clock panel takes from `options` beyond the epoch: frames with the same epoch and appearance draw the
+/// same panel, whether or not one of them is a still (MIP-37 frame cache).
+pub fn clock_appearance(epoch: i64, options: ClockOptions) -> String {
+    match options.transition {
+        Some(transition) => {
+            let state = crate::clock::shown_state(epoch, options.still);
+            format!(
+                "{transition:?} {} {} {}",
+                state.from, state.to, state.progress
+            )
+        }
+        None if options.still => epoch.to_string(),
+        None => crate::time::loop_clock_epoch(epoch).to_string(),
+    }
+}
+
 pub fn draw_overlay(
     text: &mut Text,
     rgb: &mut [u8],
@@ -170,6 +186,31 @@ fn rounded_panel(
                     + rgb[offset + channel] as f32 * (1.0 - alpha))
                     .round() as u8;
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn appearance(epoch: i64, transition: Option<ClockTransition>, still: bool) -> String {
+        clock_appearance(epoch, ClockOptions { transition, still })
+    }
+
+    #[test]
+    fn a_still_on_the_five_minute_mark_shows_the_same_clock_as_a_film_frame() {
+        let mark = 1_792_320_000_000;
+        let between = mark + 100_000;
+        for transition in [None, Some(ClockTransition::Schuif)] {
+            assert_eq!(
+                appearance(mark, transition, true),
+                appearance(mark, transition, false)
+            );
+            assert_ne!(
+                appearance(between, transition, true),
+                appearance(between, transition, false)
+            );
         }
     }
 }
