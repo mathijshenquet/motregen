@@ -384,7 +384,11 @@ export class StillRenderer {
       const generation = await runRustGeneration(manifest, directory)
       const sequences = {} as Record<LoopMode, RenderedSequence>
       for (const { mode } of LOOP_MODES) sequences[mode] = await this.importRustSequence(mode, manifest, directory, generation.modes[mode])
-      console.info(JSON.stringify({ event: 'rust-generation-render', generated: manifest.generated, totalMs: generation.total_ms, sharedRasterHits: generation.shared_raster_hits }))
+      const frameCache = Object.fromEntries(LOOP_MODES.flatMap(({ mode }) => {
+        const report = generation.modes[mode].cache
+        return report ? [[mode, { reused: report.reused_frames, rendered: report.rendered_frames, writtenBytes: report.written_bytes }]] : []
+      }))
+      console.info(JSON.stringify({ event: 'rust-generation-render', generated: manifest.generated, totalMs: generation.total_ms, sharedRasterHits: generation.shared_raster_hits, frameCache }))
       return sequences
     } catch (error) {
       throw new StillRenderError('weather', 'rust-all', undefined, error)

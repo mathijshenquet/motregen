@@ -2,6 +2,7 @@ mod all;
 mod data;
 mod encode;
 mod fields;
+mod frame_cache;
 mod modes;
 mod renderer;
 mod shared;
@@ -37,6 +38,10 @@ struct Arguments {
     manifest: Option<PathBuf>,
     #[arg(long, help = "PO clock prototype: schuif or klap")]
     clock_variant: Option<render_core::clock::ClockTransition>,
+    #[arg(long, help = "Reuse frames across generations from this directory (MIP-37)")]
+    frame_cache: Option<PathBuf>,
+    #[arg(long, default_value_t = 3072, help = "Frame cache size limit in MiB")]
+    frame_cache_limit_mb: u64,
 }
 
 fn main() -> Result<()> {
@@ -52,16 +57,30 @@ fn main() -> Result<()> {
     ensure!(manifest.version == 0, "Unsupported manifest version");
     render_core::time::epoch(&manifest.now)?;
     render_core::time::epoch(&manifest.generated)?;
-    let clock = arguments
-        .clock_variant
-        .or(render_core::clock::CLOCK_TRANSITION);
+    let cache = arguments
+        .frame_cache
+        .as_deref()
+        .map(|directory| {
+            frame_cache::FrameCache::open(
+                directory,
+                &arguments.basemap_dir,
+                arguments.frame_cache_limit_mb * 1024 * 1024,
+            )
+        })
+        .transpose()?;
+    let options = renderer::Options {
+        clock: arguments
+            .clock_variant
+            .or(render_core::clock::CLOCK_TRANSITION),
+        cache: cache.as_ref(),
+    };
     if matches!(arguments.mode, Mode::All) {
         let media = all::render(
             &arguments.data_dir,
             &arguments.basemap_dir,
             &arguments.out_dir,
             &manifest,
-            clock,
+            options,
         )?;
         println!("{}", serde_json::to_string(&media)?);
         return Ok(());
@@ -72,7 +91,7 @@ fn main() -> Result<()> {
             &arguments.basemap_dir,
             &arguments.out_dir,
             &manifest,
-            clock,
+            options,
         )?,
         Mode::Wind | Mode::Feels => modes::render(
             &arguments.data_dir,
@@ -80,7 +99,7 @@ fn main() -> Result<()> {
             &arguments.out_dir,
             &manifest,
             matches!(arguments.mode, Mode::Wind),
-            clock,
+            options,
         )?,
         Mode::All => unreachable!(),
     };

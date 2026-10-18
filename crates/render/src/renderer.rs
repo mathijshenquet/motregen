@@ -1,6 +1,7 @@
 use crate::{
     data::{Dataset, Raster},
     encode::{Video, jpeg},
+    frame_cache::{FrameCache, Key, ModeCache, Parts, Prediction},
 };
 use anyhow::{Context, Result, ensure};
 use rayon::prelude::*;
@@ -13,7 +14,7 @@ use render_core::{
     rain::{RainCompositor, RainPair},
     temperature::{TemperaturePair, draw_temperature},
     text::Text,
-    time::{Manifest, dark, epoch, frame_blend},
+    time::{Manifest, TimelineFrame, dark, epoch, frame_blend},
 };
 use serde::Serialize;
 use std::{
@@ -54,6 +55,8 @@ pub struct Media {
     pub total_ms: u128,
     pub profile: Profile,
     pub files: Vec<FileMedia>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cache: Option<crate::frame_cache::Report>,
 }
 
 #[derive(Debug, Default, Serialize)]
@@ -72,6 +75,12 @@ pub struct Profile {
     pub labels_us: u128,
     pub strokes_us: u128,
     pub composition_us: u128,
+}
+
+#[derive(Clone, Copy)]
+pub struct Options<'a> {
+    pub clock: Option<ClockTransition>,
+    pub cache: Option<&'a FrameCache>,
 }
 
 #[derive(Clone, Copy)]
@@ -128,6 +137,56 @@ struct Scene<'a> {
 }
 
 impl Scene<'_> {
+    fn temperature_frames(&self, epoch: i64) -> Option<(TimelineFrame, TimelineFrame, f64)> {
+        let frames = &self.temperatures.frames;
+        if frames.is_empty() {
+            return None;
+        }
+        let temperature_epoch = ((epoch + 300_000).div_euclid(600_000) * 600_000)
+            .clamp(frames[0].epoch, frames.last().unwrap().epoch);
+        let blend = frame_blend(frames, temperature_epoch);
+        Some((
+            frames[blend.left].clone(),
+            frames[blend.right].clone(),
+            blend.mix,
+        ))
+    }
+
+    fn predict(
+        &mut self,
+        plan: FramePlan,
+        now: i64,
+        cache: &ModeCache,
+        clock: Option<ClockTransition>,
+    ) -> Result<Option<Prediction>> {
+        let epoch = plan.epoch;
+        let blend = frame_blend(&self.rain.frames, epoch);
+        let left = self.rain.frames[blend.left].clone();
+        let right = self.rain.frames[blend.right].clone();
+        let mut key = cache.key();
+        key.bytes(format!("{clock:?}").as_bytes())
+            .number(epoch)
+            .flag(plan.still)
+            .flag(epoch <= now)
+            .number(left.epoch)
+            .number(right.epoch)
+            .real(blend.mix)
+            .source(self.rain.identity(&left)?)
+            .source(self.rain.identity(&right)?);
+        if blend.mix > 0.0 && blend.mix < 1.0 {
+            match self.rain.motion_frame(&left, &right)? {
+                Some(frame) => key.source(self.rain.motion_identity(&frame)?),
+                None => key.flag(false),
+            };
+        }
+        if let Some((left, right, mix)) = self.temperature_frames(epoch) {
+            key.real(mix)
+                .source(self.temperatures.identity(&left)?)
+                .source(self.temperatures.identity(&right)?);
+        }
+        Ok(key.finish())
+    }
+
     fn prepare(&mut self, plan: FramePlan) -> Result<FrameInput> {
         let started = Instant::now();
         let epoch = plan.epoch;
@@ -172,21 +231,13 @@ impl Scene<'_> {
             self.motion_pair = Some(pair);
             self.profile.motion_us += started.elapsed().as_micros();
         }
-        let temperatures = if self.temperatures.frames.is_empty() {
-            None
-        } else {
-            let temperature_epoch = ((epoch + 300_000).div_euclid(600_000) * 600_000).clamp(
-                self.temperatures.frames[0].epoch,
-                self.temperatures.frames.last().unwrap().epoch,
-            );
-            let blend = frame_blend(&self.temperatures.frames, temperature_epoch);
-            let left_frame = self.temperatures.frames[blend.left].clone();
-            let right_frame = self.temperatures.frames[blend.right].clone();
-            Some((
-                self.temperatures.load(&left_frame)?,
-                self.temperatures.load(&right_frame)?,
-                blend.mix,
-            ))
+        let temperatures = match self.temperature_frames(epoch) {
+            Some((left, right, mix)) => Some((
+                self.temperatures.load(&left)?,
+                self.temperatures.load(&right)?,
+                mix,
+            )),
+            None => None,
         };
         self.prepare_us += started.elapsed().as_micros();
         Ok(FrameInput {
@@ -219,6 +270,70 @@ struct FrameOutput {
     still: Option<FileMedia>,
     profile: Profile,
     render_us: u128,
+}
+
+enum Work {
+    Cached {
+        plan: FramePlan,
+        key: Key,
+        rgb: Option<Vec<u8>>,
+    },
+    Render {
+        input: Box<FrameInput>,
+        prediction: Option<Prediction>,
+    },
+}
+
+impl Work {
+    fn run(
+        self,
+        painter: &Painter,
+        cache: Option<&ModeCache>,
+        directory: &Path,
+    ) -> Result<FrameOutput> {
+        match self {
+            Work::Cached { plan, key, rgb } => {
+                let cache = cache.context("Cached frame without cache")?;
+                let rgb = rgb
+                    .map(|compressed| cache.restore(key, &compressed))
+                    .transpose()?;
+                let still = if plan.still {
+                    let file = still_name(plan.epoch);
+                    let bytes = cache.copy_still(key, &directory.join(&file))?;
+                    Some(still_media(file, plan.epoch, bytes))
+                } else {
+                    None
+                };
+                Ok(FrameOutput {
+                    rgb,
+                    still,
+                    profile: Profile::default(),
+                    render_us: 0,
+                })
+            }
+            Work::Render { input, prediction } => {
+                let output = painter
+                    .frame(&input, directory)
+                    .with_context(|| format!("Rendering map time {}", input.plan.epoch))?;
+                if let Some(cache) = cache {
+                    cache.rendered(prediction.as_ref());
+                    if let Some(prediction) = &prediction {
+                        let still = output
+                            .still
+                            .as_ref()
+                            .map(|file| directory.join(&file.file));
+                        cache.store(
+                            prediction.key,
+                            output.rgb.as_deref(),
+                            still.as_deref(),
+                            None,
+                        )?;
+                    }
+                }
+                Ok(output)
+            }
+        }
+    }
 }
 
 impl Painter {
@@ -417,9 +532,11 @@ pub fn render(
     basemap_directory: &Path,
     out_directory: &Path,
     manifest: &Manifest,
-    clock_variant: Option<ClockTransition>,
+    options: Options,
 ) -> Result<Media> {
     let started = Instant::now();
+    let clock_variant = options.clock;
+    let cache = options.cache.map(|cache| cache.mode("weather"));
     let constants = constants();
     let now = epoch(&manifest.now)?;
     let mut rain = Dataset::new(data_directory, manifest, "rain_rate")?;
@@ -446,6 +563,10 @@ pub fn render(
         profile: Profile::default(),
         prepare_us: 0,
     };
+    if cache.is_some() {
+        scene.rain.touched = Some(Vec::new());
+        scene.temperatures.touched = Some(Vec::new());
+    }
     fs::create_dir_all(out_directory)?;
     let receipt = out_directory.join("media.json");
     if receipt.exists() {
@@ -473,21 +594,16 @@ pub fn render(
             } else {
                 4
             }) {
-                let inputs = plans
-                    .iter()
-                    .map(|&plan| {
-                        scene
-                            .prepare(plan)
-                            .with_context(|| format!("Preparing map time {}", plan.epoch))
-                    })
-                    .collect::<Result<Vec<_>>>()?;
-                let frames = inputs
-                    .par_iter()
-                    .map(|input| {
-                        painter
-                            .frame(input, temporary.path())
-                            .with_context(|| format!("Rendering map time {}", input.plan.epoch))
-                    })
+                let mut works = Vec::new();
+                for &plan in plans {
+                    works.push(
+                        plan_work(&mut scene, plan, now, cache.as_ref(), clock_variant)
+                            .with_context(|| format!("Preparing map time {}", plan.epoch))?,
+                    );
+                }
+                let frames = works
+                    .into_par_iter()
+                    .map(|work| work.run(&painter, cache.as_ref(), temporary.path()))
                     .collect::<Result<Vec<_>>>()?;
                 sender.send(frames).context("Video writer stopped")?;
             }
@@ -557,6 +673,7 @@ pub fn render(
         total_ms: started.elapsed().as_millis(),
         profile: output.profile,
         files,
+        cache: cache.map(|cache| cache.finish(&[])).transpose()?,
     };
     fs::write(
         temporary.path().join("media.json"),
@@ -566,17 +683,64 @@ pub fn render(
     Ok(media)
 }
 
-fn still(rgb: &[u8], epoch: i64, directory: &Path) -> Result<FileMedia> {
-    let file = format!("weather-{epoch}.jpg");
-    let bytes = jpeg(rgb, &directory.join(&file))?;
-    Ok(FileMedia {
+fn plan_work(
+    scene: &mut Scene,
+    plan: FramePlan,
+    now: i64,
+    cache: Option<&ModeCache>,
+    clock: Option<ClockTransition>,
+) -> Result<Work> {
+    let Some(cache) = cache else {
+        return Ok(Work::Render {
+            input: Box::new(scene.prepare(plan)?),
+            prediction: None,
+        });
+    };
+    let prediction = scene.predict(plan, now, cache, clock)?;
+    if let Some(prediction) = &prediction {
+        let parts = Parts {
+            rgb: plan.loop_frame,
+            still: plan.still,
+            state: false,
+        };
+        if let Some(hit) = cache.lookup(prediction.key, parts)? {
+            return Ok(Work::Cached {
+                plan,
+                key: prediction.key,
+                rgb: hit.rgb,
+            });
+        }
+    }
+    scene.rain.take_touched();
+    scene.temperatures.take_touched();
+    let input = scene.prepare(plan)?;
+    let mut touched = scene.rain.take_touched();
+    touched.extend(scene.temperatures.take_touched());
+    Ok(Work::Render {
+        input: Box::new(input),
+        prediction: prediction.filter(|prediction| cache.verify(prediction, &touched)),
+    })
+}
+
+fn still_name(epoch: i64) -> String {
+    format!("weather-{epoch}.jpg")
+}
+
+fn still_media(file: String, epoch: i64, bytes: u64) -> FileMedia {
+    FileMedia {
         file,
         kind: "photo",
         epoch,
         bytes,
         width: constants().size.width,
         height: constants().size.height,
-    })
+    }
+}
+
+fn still(rgb: &[u8], epoch: i64, directory: &Path) -> Result<FileMedia> {
+    let file = still_name(epoch);
+    let bytes = jpeg(rgb, &directory.join(&file))?;
+    Ok(still_media(file, epoch, bytes))
 }
 
 #[cfg(test)]

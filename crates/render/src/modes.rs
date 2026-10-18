@@ -2,7 +2,8 @@ use crate::{
     data::Dataset,
     encode::{Video, jpeg},
     fields::{Fields, Pair, Slice, pair, screen},
-    renderer::{FileMedia, Media, Profile, frame_plans, plates},
+    frame_cache::{Key, ModeCache, Parts, Prediction},
+    renderer::{FileMedia, FramePlan, Media, Options, Profile, frame_plans, plates},
 };
 use anyhow::{Context, Result, ensure};
 use rayon::prelude::*;
@@ -16,7 +17,7 @@ use render_core::{
     rotated_text::{RotatedText, TextStyle},
     temperature::{TemperaturePair, draw_temperature},
     text::Text,
-    time::{Manifest, dark, epoch},
+    time::{Manifest, dark, epoch, frame_blend},
     wind::{self, Water, WindField},
 };
 use std::{
@@ -35,7 +36,7 @@ struct WaterMask {
 
 struct Input {
     epoch: i64,
-    index: usize,
+    simulation_seconds: f64,
     still: bool,
     loop_frame: bool,
     night: bool,
@@ -73,7 +74,7 @@ fn wind_field(pair: &Pair) -> WindField<'_> {
 }
 
 struct Output {
-    rgb: Vec<u8>,
+    rgb: Option<Vec<u8>>,
     loop_frame: bool,
     still: Option<FileMedia>,
     profile: Profile,
@@ -153,7 +154,7 @@ impl Painter<'_> {
                 &mut rgb,
                 wind_field(east),
                 wind_field(north),
-                1.0 + input.index as f64 / mode_constants().loops.wind.fps,
+                input.simulation_seconds,
                 input.night,
                 Water {
                     width: water.width,
@@ -238,11 +239,227 @@ impl Painter<'_> {
             profile.jpeg_us += jpeg_started.elapsed().as_micros();
         }
         Ok(Output {
-            rgb,
+            rgb: Some(rgb),
             loop_frame: input.loop_frame,
             still,
             profile,
         })
+    }
+}
+
+/// Every dataset a Wind or Gevoel frame reads.
+struct Sources<'a> {
+    fields: Fields<'a>,
+    east: Option<Dataset<'a>>,
+    north: Option<Dataset<'a>>,
+    temperatures: Option<Dataset<'a>>,
+}
+
+impl<'a> Sources<'a> {
+    fn temperature_time(temperatures: &Dataset, time: i64) -> i64 {
+        ((time + 300_000).div_euclid(600_000) * 600_000).clamp(
+            temperatures.frames[0].epoch,
+            temperatures.frames.last().unwrap().epoch,
+        )
+    }
+
+    fn input(&mut self, plan: FramePlan, simulation_seconds: f64) -> Result<Input> {
+        let time = plan.epoch;
+        let slice = self.fields.slice(time)?;
+        let wind = if let (Some(east), Some(north)) = (&mut self.east, &mut self.north) {
+            Some((pair(east, time)?, pair(north, time)?))
+        } else {
+            None
+        };
+        let temperatures = if let Some(temperatures) = &mut self.temperatures {
+            let time = Self::temperature_time(temperatures, time);
+            Some(pair(temperatures, time)?)
+        } else {
+            None
+        };
+        Ok(Input {
+            epoch: time,
+            simulation_seconds,
+            still: plan.still,
+            loop_frame: plan.loop_frame,
+            night: dark(time),
+            slice,
+            wind,
+            temperatures,
+        })
+    }
+
+    fn key_pair(dataset: &mut Dataset, time: i64, key: &mut crate::frame_cache::KeyBuilder) -> Result<()> {
+        let blend = frame_blend(&dataset.frames, time);
+        let left = dataset.frames[blend.left].clone();
+        let right = dataset.frames[blend.right].clone();
+        key.real(blend.mix)
+            .source(dataset.identity(&left)?)
+            .source(dataset.identity(&right)?);
+        Ok(())
+    }
+
+    fn predict(&mut self, frame: &FrameKey, cache: &ModeCache) -> Result<Option<Prediction>> {
+        let time = frame.plan.epoch;
+        let mut key = cache.key();
+        key.bytes(format!("{:?}", frame.clock).as_bytes())
+            .number(time)
+            .flag(frame.plan.still)
+            .flag(time <= frame.now)
+            .real(frame.simulation_seconds)
+            .reals(frame.colors)
+            .bytes(&self.fields.state()?);
+        self.fields.key_sources(time, &mut key)?;
+        if let (Some(east), Some(north)) = (&mut self.east, &mut self.north) {
+            Self::key_pair(east, time, &mut key)?;
+            Self::key_pair(north, time, &mut key)?;
+        }
+        if let Some(temperatures) = &mut self.temperatures {
+            let time = Self::temperature_time(temperatures, time);
+            Self::key_pair(temperatures, time, &mut key)?;
+        }
+        Ok(key.finish())
+    }
+
+    fn datasets(&mut self) -> impl Iterator<Item = &mut Dataset<'a>> {
+        [Some(&mut self.fields.data), self.east.as_mut(), self.north.as_mut(), self.temperatures.as_mut()]
+            .into_iter()
+            .flatten()
+    }
+
+    fn take_touched(&mut self) -> Vec<Option<crate::frame_cache::Identity>> {
+        self.datasets().flat_map(|data| data.take_touched()).collect()
+    }
+}
+
+/// Everything besides the source frames that decides the pixels of one frame.
+struct FrameKey<'a> {
+    plan: FramePlan,
+    now: i64,
+    simulation_seconds: f64,
+    colors: &'a [f32],
+    clock: Option<ClockTransition>,
+}
+
+enum Work {
+    Cached {
+        plan: FramePlan,
+        key: Key,
+        rgb: Option<Vec<u8>>,
+    },
+    Render {
+        input: Box<Input>,
+        prediction: Option<Prediction>,
+        state: Option<Vec<u8>>,
+    },
+}
+
+/// Decides hit or render for one frame and keeps the label chain going either way.
+fn plan_work(
+    sources: &mut Sources,
+    frame: FrameKey,
+    cache: Option<&ModeCache>,
+    chain: &mut Vec<(i64, Key)>,
+) -> Result<Work> {
+    let Some(cache) = cache else {
+        return Ok(Work::Render {
+            input: Box::new(sources.input(frame.plan, frame.simulation_seconds)?),
+            prediction: None,
+            state: None,
+        });
+    };
+    let prediction = sources.predict(&frame, cache)?;
+    if let Some(prediction) = &prediction {
+        let parts = Parts {
+            rgb: frame.plan.loop_frame,
+            still: frame.plan.still,
+            state: true,
+        };
+        if let Some(hit) = cache.lookup(prediction.key, parts)? {
+            sources.fields.restore(hit.state.as_deref().unwrap_or_default())?;
+            chain.push((frame.plan.epoch, prediction.key));
+            return Ok(Work::Cached {
+                plan: frame.plan,
+                key: prediction.key,
+                rgb: hit.rgb,
+            });
+        }
+    }
+    sources.take_touched();
+    let input = sources.input(frame.plan, frame.simulation_seconds)?;
+    let touched = sources.take_touched();
+    let prediction = prediction.filter(|prediction| cache.verify(prediction, &touched));
+    if let Some(prediction) = &prediction {
+        chain.push((frame.plan.epoch, prediction.key));
+    }
+    Ok(Work::Render {
+        input: Box::new(input),
+        prediction,
+        state: Some(sources.fields.state()?),
+    })
+}
+
+impl Work {
+    fn run(
+        self,
+        painter: &Painter,
+        cache: Option<&ModeCache>,
+        mode: &str,
+        directory: &Path,
+    ) -> Result<Output> {
+        match self {
+            Work::Cached { plan, key, rgb } => {
+                let cache = cache.context("Cached frame without cache")?;
+                let still = if plan.still {
+                    let file = format!("{mode}-{}.jpg", plan.epoch);
+                    let bytes = cache.copy_still(key, &directory.join(&file))?;
+                    Some(FileMedia {
+                        file,
+                        kind: "photo",
+                        epoch: plan.epoch,
+                        bytes,
+                        width: constants().size.width,
+                        height: constants().size.height,
+                    })
+                } else {
+                    None
+                };
+                Ok(Output {
+                    rgb: rgb
+                        .map(|compressed| cache.restore(key, &compressed))
+                        .transpose()?,
+                    loop_frame: plan.loop_frame,
+                    still,
+                    profile: Profile::default(),
+                })
+            }
+            Work::Render {
+                input,
+                prediction,
+                state,
+            } => {
+                let mut output = painter.frame(&input, directory)?;
+                if !input.loop_frame {
+                    output.rgb = None;
+                }
+                if let Some(cache) = cache {
+                    cache.rendered(prediction.as_ref());
+                    if let Some(prediction) = &prediction {
+                        let still = output
+                            .still
+                            .as_ref()
+                            .map(|file| directory.join(&file.file));
+                        cache.store(
+                            prediction.key,
+                            output.rgb.as_deref(),
+                            still.as_deref(),
+                            state.as_deref(),
+                        )?;
+                    }
+                }
+                Ok(output)
+            }
+        }
     }
 }
 
@@ -262,23 +479,26 @@ pub fn render(
     out_directory: &Path,
     manifest: &Manifest,
     wind: bool,
-    clock: Option<ClockTransition>,
+    options: Options,
 ) -> Result<Media> {
     let started = Instant::now();
+    let clock = options.clock;
+    let mode = if wind { "wind" } else { "feels" };
+    let cache = options.cache.map(|cache| cache.mode(mode));
     let now = epoch(&manifest.now)?;
     let loop_plan = if wind {
         &mode_constants().loops.wind
     } else {
         &mode_constants().loops.feels
     };
-    let mut fields = Fields::new(data_directory, manifest, wind)?;
-    let mut east = wind
+    let fields = Fields::new(data_directory, manifest, wind)?;
+    let east = wind
         .then(|| Dataset::new(data_directory, manifest, "wind_u_ms"))
         .transpose()?;
-    let mut north = wind
+    let north = wind
         .then(|| Dataset::new(data_directory, manifest, "wind_v_ms"))
         .transpose()?;
-    let mut temperatures = wind
+    let temperatures = wind
         .then(|| Dataset::new(data_directory, manifest, "feels_like_c"))
         .transpose()?;
     if let (Some(east), Some(north)) = (&east, &north) {
@@ -315,11 +535,22 @@ pub fn render(
     });
     let [light, night] = water;
     let water = [light?, night?];
+    let mut sources = Sources {
+        fields,
+        east,
+        north,
+        temperatures,
+    };
     let colors = if wind {
         Vec::new()
     } else {
-        fields.palette(now)?
+        sources.fields.palette(now)?
     };
+    if cache.is_some() {
+        for data in sources.datasets() {
+            data.touched = Some(Vec::new());
+        }
+    }
     let workers = [0, 1].map(|_| -> Result<Mutex<Worker>> {
         Ok(Mutex::new(Worker {
             text: Text::new().map_err(anyhow::Error::msg)?,
@@ -333,7 +564,6 @@ pub fn render(
         fs::remove_file(&receipt)?;
     }
     let temporary = tempfile::tempdir_in(out_directory)?;
-    let mode = if wind { "wind" } else { "feels" };
     let loop_epochs: Vec<_> = loop_plan
         .loop_offsets
         .iter()
@@ -350,8 +580,10 @@ pub fn render(
     };
     let plans = frame_plans(&loop_epochs, &still_epochs);
     let painter_workers = [first?, second?];
-    let projection = Projection::new(&fields.grid);
-    let field_grid = fields.grid.clone();
+    let projection = Projection::new(&sources.fields.grid);
+    let field_grid = sources.fields.grid.clone();
+    let frame_step = loop_plan.loop_offsets[1] - loop_plan.loop_offsets[0];
+    let mut chain = Vec::new();
     let mut total = Profile::default();
     let mut preparation_us = 0;
     let batch_size = if crate::shared::inputs().is_some() {
@@ -381,7 +613,7 @@ pub fn render(
                     }
                     if frame.loop_frame {
                         let started = Instant::now();
-                        video.frame(&frame.rgb)?;
+                        video.frame(frame.rgb.as_deref().context("Loop frame without pixels")?)?;
                         profile.ffmpeg_wait_us += started.elapsed().as_micros();
                     }
                 }
@@ -395,49 +627,38 @@ pub fn render(
         let producer = scope.spawn(|| -> Result<u128> {
             let input_sender = input_sender;
             let mut preparation_us = 0;
-            for (batch_index, batch) in plans.chunks(batch_size).enumerate() {
+            if let (Some(cache), Some(first)) = (&cache, plans.first())
+                && let Some(state) = cache.chain_state(first.epoch - frame_step)?
+            {
+                sources.fields.restore(&state)?;
+            }
+            for batch in plans.chunks(batch_size) {
                 let preparation_started = Instant::now();
-                let inputs = batch
-                    .iter()
-                    .enumerate()
-                    .map(|(offset, plan)| -> Result<Input> {
-                        let time = plan.epoch;
-                        let slice = fields.slice(time)?;
-                        let wind_pair = if let (Some(east), Some(north)) = (&mut east, &mut north) {
-                            Some((pair(east, time)?, pair(north, time)?))
-                        } else {
-                            None
-                        };
-                        let temperature = if let Some(temperatures) = &mut temperatures {
-                            let time = ((time + 300_000).div_euclid(600_000) * 600_000).clamp(
-                                temperatures.frames[0].epoch,
-                                temperatures.frames.last().unwrap().epoch,
-                            );
-                            Some(pair(temperatures, time)?)
-                        } else {
-                            None
-                        };
-                        Ok(Input {
-                            epoch: time,
-                            index: batch_index * batch_size + offset,
-                            still: plan.still,
-                            loop_frame: plan.loop_frame,
-                            night: dark(time),
-                            slice,
-                            wind: wind_pair,
-                            temperatures: temperature,
-                        })
-                    })
-                    .collect::<Result<Vec<_>>>()?;
+                let mut works = Vec::new();
+                for &plan in batch {
+                    // Film seconds since 1970: every generation shows the same particles at the same epoch.
+                    let simulation_seconds = plan.epoch as f64 / frame_step as f64 / loop_plan.fps;
+                    let frame = FrameKey {
+                        plan,
+                        now,
+                        simulation_seconds,
+                        colors: &colors,
+                        clock,
+                    };
+                    works.push(
+                        plan_work(&mut sources, frame, cache.as_ref(), &mut chain)
+                            .with_context(|| format!("Preparing map time {}", plan.epoch))?,
+                    );
+                }
                 preparation_us += preparation_started.elapsed().as_micros();
                 input_sender
-                    .send(inputs)
+                    .send(works)
                     .context("Field painters stopped")?;
             }
             Ok(preparation_us)
         });
         let production = (|| -> Result<()> {
-            for inputs in &input_receiver {
+            for works in &input_receiver {
                 let painter = Painter {
                     plates: &plates,
                     water: &water,
@@ -449,9 +670,9 @@ pub fn render(
                     wind,
                     clock,
                 };
-                let outputs = inputs
-                    .par_iter()
-                    .map(|input| painter.frame(input, temporary.path()))
+                let outputs = works
+                    .into_par_iter()
+                    .map(|work| work.run(&painter, cache.as_ref(), mode, temporary.path()))
                     .collect::<Result<Vec<_>>>()?;
                 sender.send(outputs).context("Field video writer stopped")?;
             }
@@ -492,14 +713,18 @@ pub fn render(
             out_directory.join(&file.file),
         )?;
     }
-    total.fields_us = fields.fields_us;
-    total.contours_us = fields.contours_us;
-    total.labels_us += fields.labels_us;
-    total.decode_us = fields.data.decode_us;
-    total.source_frames = fields.data.loaded;
-    for data in [east.as_ref(), north.as_ref(), temperatures.as_ref()]
-        .into_iter()
-        .flatten()
+    total.fields_us = sources.fields.fields_us;
+    total.contours_us = sources.fields.contours_us;
+    total.labels_us += sources.fields.labels_us;
+    total.decode_us = sources.fields.data.decode_us;
+    total.source_frames = sources.fields.data.loaded;
+    for data in [
+        sources.east.as_ref(),
+        sources.north.as_ref(),
+        sources.temperatures.as_ref(),
+    ]
+    .into_iter()
+    .flatten()
     {
         total.decode_us += data.decode_us;
         total.source_frames += data.loaded;
@@ -529,6 +754,7 @@ pub fn render(
         total_ms: started.elapsed().as_millis(),
         profile: total,
         files,
+        cache: cache.map(|cache| cache.finish(&chain)).transpose()?,
     };
     fs::write(
         temporary.path().join("media.json"),

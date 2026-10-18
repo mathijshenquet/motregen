@@ -1,6 +1,6 @@
 # MIP-37 — Botframes hergebruiken en generaties hervatten
 
-Status: draft · auteur: worker U97 (opus-5.5) voor de PM
+Status: accepted (PO 2026-10-18, zie sectie 5) · auteur: worker U97 (opus-5.5) voor de PM
 
 ## 1. Het probleem
 De bot op de prod-VM (2 vcores) rendert elke vijf minuten alle films en stills opnieuw (MIP-26, MIP-29: `bot/rust-render.ts`
@@ -90,8 +90,7 @@ gewijzigde renderer is alles bewust een miss (3.2, punt 2); een deploy die allee
 cache intact.
 
 ### 3.6 Opruimen
-Na elke geslaagde modus verwijdert de renderer de cachebestanden van die modus die deze generatie niet gebruikte, plus
-achtergebleven tijdelijke bestanden. Er staat dus hooguit één generatie plus wat een onderbroken run achterliet. De
+Zie Besluit 3: per modus LRU op mtime met een bewaartijd van 20 minuten, daarna een harde grens voor de hele map. De
 bestaande bot-prune laat de submap `frames/` met rust.
 
 ### 3.7 Gevoelstemperatuur-schaal
@@ -120,5 +119,30 @@ zijn (Gevoel pas na de schaalkeuze); Lucht binnen het uur bijna alles. x264 blij
 3. Labels en isobaarstap lopen door vanaf de vorige film. Na een herstart zonder cache starten ze fris en kunnen ze één
    keer verspringen ten opzichte van de vorige film. Akkoord?
 
+## 5. Besluit (PO 2026-10-18, via de orkestrator)
+1. **Wind zonder inloop**: "zonder inloop lijkt me vooral beter". De deeltjestijd volgt uit de epoch; er komt geen vlag
+   voor de oude inloop.
+2. **Isobaarstap en labelankers** lopen als checkpoint door van film naar film (open vraag 3): akkoord.
+3. **Schijf** (open vraag 2): de VM heeft 15 G vrij; 1,4 G piek past. Voorwaarden: alleen nieuwe sleutels schrijven
+   (hergebruikte frames niet opnieuw), gecomprimeerd opslaan, een harde bovengrens met LRU-opruimen, en de
+   geschreven MB per generatie meten. Uitwerking: de renderer schrijft een bestand alleen als het nog niet bestaat; een hit
+   ververst alleen de mtime. Opruimen gebeurt per modus na elke generatie: bestanden die 20 minuten niet zijn gebruikt
+   gaan weg. Dat is langer dan één generatie, omdat stills op een 10-minutenrooster rond "nu" liggen en pas twee
+   generaties later terugkomen. Daarna geldt de harde grens `--frame-cache-limit-mb` (standaard 3072), oudste mtime eerst.
+4. **Gevoel-schaal: gisteren als referentie, met vaste overflow.** PO: "werkt ook beter op de website zelf omdat nu de
+   temperatuur graph histogram nog wel eens wil verspringen als er extra data binnenkomt". App en bot krijgen dezelfde
+   schaal. Ontwerp:
+   - Bereik = min en max van de gevoelstemperatuur over NL (het regiokader van het huidige palet) op de vorige
+     kalenderdag, lokale tijd. De ingest kent de HARMONIE-uren. Hij houdt per geldig uur min/max bij (een nieuwere run
+     overschrijft dat uur) en publiceert het bereik van gisteren als klein veld in het manifest. App en bot rekenen
+     daarmee hetzelfde.
+   - Minstens 8 °C breed, zoals nu (symmetrisch aangevuld op hele graden). De ankers 0 °C en 25 °C blijven.
+   - Buiten het bereik kapt de schaal niet af. Per 2 °C wordt het een vaste stap donkerder, tot 8 °C buiten het bereik:
+     diep blauw onder het bereik, diep rood erboven. Verder buiten het bereik blijft de diepste kleur.
+   - Zonder bereik van gisteren (koude start, ontbrekende uren) valt alles terug op het huidige gedrag.
+   - Voor de framecache: het palet is een functie van één dag en hoort bij de sleutel, dus Gevoel-frames worden
+     hergebruikt zolang de dag en de data gelijk zijn. Na de bouw meet ik het hergebruik van Gevoel-frames.
+
 ## Changelog
 - 2026-10-18 13:18 CEST: concept (worker U97).
+- 2026-10-18: besluiten van de PO verwerkt (sectie 5); wind zonder inloop, schaal met gisteren als referentie.

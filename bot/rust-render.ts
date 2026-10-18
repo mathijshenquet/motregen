@@ -6,11 +6,16 @@ import { holdFrames, sequencePlan } from './sequences.js'
 import { LOOP_MODES, STILL_HOURS, stillEpoch, type LoopMode, type StillManifest } from './stills.js'
 import { validateLoopBytes } from './video-settings.js'
 
+export interface RustFrameCacheReport {
+  reused_frames: number; rendered_frames: number; uncacheable_frames: number; mismatches: number
+  written_bytes: number; read_bytes: number; removed_files: number; resumed_chain: boolean
+}
 export interface RustMediaFile { file: string; kind: 'photo' | 'animation'; epoch: number; bytes: number; width: number; height: number }
 export interface RustMedia {
   version: number; mode: string; generated: string; now: string; width: number; height: number
   fps: number; frames: number; hold_frames: number; loop_epochs: number[]
   render_ms: number; encode_ms: number; loop_ms: number; total_ms: number; files: RustMediaFile[]
+  cache?: RustFrameCacheReport
 }
 export interface RustGeneration {
   version: number; mode: 'all'; generated: string; now: string; width: number; height: number
@@ -23,8 +28,10 @@ async function runRustProcess(manifest: StillManifest, directory: string, mode: 
   if (!dataDirectory || !basemapDirectory) throw new Error('Rust-renderer vereist MOTREGEN_DATA_DIR en MOTREGEN_RUST_BASEMAP_DIR')
   const snapshot = join(directory, 'manifest.json')
   await writeFile(snapshot, JSON.stringify(manifest))
+  const frameCache = process.env.MOTREGEN_FRAME_CACHE
   const child = spawn(process.env.MOTREGEN_RENDER_BIN ?? 'motregen-render', [
     '--data-dir', dataDirectory, '--basemap-dir', basemapDirectory, '--mode', mode, '--out-dir', directory, '--manifest', snapshot,
+    ...(frameCache ? ['--frame-cache', frameCache] : []),
   ], { stdio: ['ignore', 'ignore', 'pipe'] })
   let diagnostic = ''
   child.stderr.on('data', (bytes: Buffer) => { diagnostic = (diagnostic + bytes.toString()).slice(-4000) })

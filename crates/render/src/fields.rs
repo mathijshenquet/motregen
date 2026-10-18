@@ -1,4 +1,7 @@
-use crate::data::{Dataset, Raster};
+use crate::{
+    data::{Dataset, Raster},
+    frame_cache::KeyBuilder,
+};
 use anyhow::{Context, Result, ensure};
 use render_core::{
     contours::{self, Contour},
@@ -9,6 +12,7 @@ use render_core::{
     projection::{Grid, Projection, project},
     time::{Manifest, frame_blend},
 };
+use serde::{Deserialize, Serialize};
 use std::{path::Path, sync::Arc, time::Instant};
 
 pub struct Pair {
@@ -91,6 +95,13 @@ pub struct Slice {
     pub labels: Vec<Label>,
     pub marks: Vec<Mark>,
     pub opacity: f64,
+}
+
+/// What a slice carries over to the next one: the isobar step and the label anchors.
+#[derive(Deserialize, Serialize)]
+struct FieldState {
+    step: f64,
+    labels: Labels,
 }
 
 pub struct Fields<'a> {
@@ -215,6 +226,48 @@ impl<'a> Fields<'a> {
         Ok(marks)
     }
 
+    pub fn state(&self) -> Result<Vec<u8>> {
+        Ok(serde_json::to_vec(&FieldState {
+            step: self.step,
+            labels: self.labels.clone(),
+        })?)
+    }
+
+    pub fn restore(&mut self, state: &[u8]) -> Result<()> {
+        let state: FieldState = serde_json::from_slice(state)?;
+        self.step = state.step;
+        self.labels = state.labels;
+        Ok(())
+    }
+
+    /// Adds every source frame a slice at `time` may read: the four slice weights around the blend
+    /// pair, each widened by the pressure time weights.
+    pub fn key_sources(&mut self, time: i64, key: &mut KeyBuilder) -> Result<()> {
+        let blend = frame_blend(&self.data.frames, time);
+        let reach = mode_constants().isoline.time_weights.len() as isize + 2;
+        let last = self.data.frames.len() as isize - 1;
+        let first = (blend.left as isize - reach).clamp(0, last) as usize;
+        let end = (blend.right as isize + reach).clamp(0, last) as usize;
+        key.real(blend.mix).real(self.edge_opacity(time));
+        for index in first..=end {
+            let frame = self.data.frames[index].clone();
+            key.number(frame.epoch).source(self.data.identity(&frame)?);
+        }
+        Ok(())
+    }
+
+    fn edge_opacity(&self, time: i64) -> f64 {
+        let first = self.data.frames[0].epoch;
+        let last = self.data.frames.last().unwrap().epoch;
+        if time < first {
+            (1.0 - (first - time) as f64 / mode_constants().isoline.edge_fade_ms).max(0.0)
+        } else if time > last {
+            (1.0 - (time - last) as f64 / mode_constants().isoline.edge_fade_ms).max(0.0)
+        } else {
+            1.0
+        }
+    }
+
     pub fn slice(&mut self, time: i64) -> Result<Slice> {
         let started = Instant::now();
         let fields_before = self.fields_us;
@@ -321,22 +374,14 @@ impl<'a> Fields<'a> {
             .find(|(cached, _)| *cached == key)
             .unwrap()
             .1;
-        let first = self.data.frames[0].epoch;
-        let last = self.data.frames.last().unwrap().epoch;
-        let opacity = if time < first {
-            (1.0 - (first - time) as f64 / mode_constants().isoline.edge_fade_ms).max(0.0)
-        } else if time > last {
-            (1.0 - (time - last) as f64 / mode_constants().isoline.edge_fade_ms).max(0.0)
-        } else {
-            1.0
-        };
+        let opacity = self.edge_opacity(time);
         let labels = self.labels.place(Placement {
             field: &field,
             lines,
             contours: &contours,
             screen,
             step: self.step,
-            key: label_index,
+            key: self.data.frames[label_index].epoch,
             pressure: self.pressure,
             opacity,
         });

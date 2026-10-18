@@ -33,11 +33,12 @@ pub struct Label {
     pub text: String,
 }
 
-#[derive(Default)]
+/// Labels keep their anchors from frame to frame; this is the whole memory of a film's isolines.
+#[derive(Clone, Default, Deserialize, Serialize)]
 pub struct Labels {
     anchors: Vec<Label>,
     step: f64,
-    key: Option<(usize, i32)>,
+    key: Option<(i64, i32)>,
 }
 
 pub fn candidates(points: &[[f64; 2]], spacing: f64) -> Vec<[f64; 2]> {
@@ -66,7 +67,8 @@ pub struct Placement<'a> {
     pub contours: &'a [Contour],
     pub screen: Screen,
     pub step: f64,
-    pub key: usize,
+    /// Epoch of the source frame the label lines come from.
+    pub key: i64,
     pub pressure: bool,
     pub opacity: f64,
 }

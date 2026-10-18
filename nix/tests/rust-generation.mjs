@@ -50,6 +50,9 @@ try {
     assert.equal((await renderer.render({ mode, hour: 'loop' }, manifest)).cached, true)
   }
   assert.equal(events.filter(({ event }) => event === 'rust-generation-render').length, 1)
+  const { frameCache } = events.find(({ event }) => event === 'rust-generation-render')
+  for (const { mode } of LOOP_MODES) assert.ok(frameCache[mode].rendered + frameCache[mode].reused > 0)
+  assert.ok((await stat(process.env.MOTREGEN_FRAME_CACHE)).isDirectory())
   assert.equal(events.filter(({ event }) => event === 'sequence-render').length, 3)
   const files = await readdir(process.env.MOTREGEN_RENDER_CACHE)
   assert.equal(files.filter((file) => file.endsWith('.jpg')).length, 170)
