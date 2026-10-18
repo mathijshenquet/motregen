@@ -231,6 +231,22 @@ in
       description = "Include the ECMWF daily forecast from ecmwf.json in manifest.json.";
     };
 
+    iconD2Package = lib.mkOption {
+      type = lib.types.package;
+      default = cfg.ingestPackage;
+      defaultText = lib.literalExpression "config.services.motregen.ingestPackage";
+      description = "Package providing motregen-icon-d2 (DWD ICON-D2 direct radiation job).";
+    };
+
+    iconD2InManifest = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Include the ICON-D2 direct radiation from icon-d2.json in manifest.json; the sunshine curve
+        in Lucht uses it up to +48 h and falls back to HARMONIE (MIP-39, docs/icon-d2.md).
+      '';
+    };
+
     frontendPackage = lib.mkOption {
       type = lib.types.package;
       default = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-web;
@@ -372,6 +388,7 @@ in
         MOTREGEN_DATA_DIR = cfg.dataDir;
         MOTREGEN_CAMS_IN_MANIFEST = lib.boolToString cfg.camsInManifest;
         MOTREGEN_ECMWF_IN_MANIFEST = lib.boolToString cfg.ecmwfInManifest;
+        MOTREGEN_ICON_D2_IN_MANIFEST = lib.boolToString cfg.iconD2InManifest;
         RUST_LOG = "info";
       };
 
@@ -527,6 +544,62 @@ in
       wantedBy = [ "timers.target" ];
       timerConfig = {
         OnCalendar = [ "*-*-* 08:15:00 UTC" "*-*-* 20:15:00 UTC" ];
+        Persistent = true;
+      };
+    };
+
+    systemd.services.motregen-icon-d2 = {
+      description = "DWD ICON-D2 direct radiation for motregen.nl";
+      wants = [ "network-online.target" ];
+      after = [ "network-online.target" ];
+
+      environment = {
+        MOTREGEN_DATA_DIR = cfg.dataDir;
+        RUST_LOG = "info";
+      };
+
+      serviceConfig = {
+        Type = "oneshot";
+        ExecStart = lib.getExe' cfg.iconD2Package "motregen-icon-d2";
+        DynamicUser = true;
+        User = "motregen-ingest";
+        StateDirectory = "motregen";
+        StateDirectoryMode = "0755";
+        UMask = "0022";
+        Restart = "on-failure";
+        RestartSec = "15min";
+
+        PrivateDevices = true;
+        PrivateTmp = true;
+        ProtectClock = true;
+        ProtectControlGroups = true;
+        ProtectHome = true;
+        ProtectHostname = true;
+        ProtectKernelLogs = true;
+        ProtectKernelModules = true;
+        ProtectKernelTunables = true;
+        ProtectProc = "invisible";
+        ProtectSystem = "strict";
+        ProcSubset = "pid";
+        RestrictAddressFamilies = [
+          "AF_INET"
+          "AF_INET6"
+          "AF_UNIX"
+        ];
+        RestrictNamespaces = true;
+        RestrictRealtime = true;
+        LockPersonality = true;
+        CapabilityBoundingSet = "";
+        AmbientCapabilities = "";
+        SystemCallArchitectures = "native";
+      };
+    };
+
+    # ICON-D2 runs every 3 h and is complete on opendata.dwd.de about 1 h 20 min after run time.
+    systemd.timers.motregen-icon-d2 = {
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnCalendar = "*-*-* 01/3:35:00 UTC";
         Persistent = true;
       };
     };

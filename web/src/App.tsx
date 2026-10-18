@@ -90,7 +90,7 @@ import { coldProfileRequested, decode, fetchManifest, initialClient, initialMani
 const defaultLocation = DEFAULT_LOCATION
 // Intent (MIP-20): velden die de kaart of de scrubber in een van de modi tekent; de straling hoort
 // erbij omdat ze de hemel achter de scrubber kleurt (U62). Na deze rust geldt de scrubber als stilstaand.
-const SHOWN_FIELDS: ReadonlySet<string> = new Set(['rain_rate', 'motion', 'uv', 'uv_clear', 'radiation', 'cloud_low', 'cloud_mid', 'cloud_high', 'cloud_frac', 'wind_u_ms', 'wind_v_ms', 'gust_ms', 'pressure_hpa', 'feels_like_c', 'temp_c'])
+const SHOWN_FIELDS: ReadonlySet<string> = new Set(['rain_rate', 'motion', 'uv', 'uv_clear', 'radiation', 'radiation_direct', 'cloud_low', 'cloud_mid', 'cloud_high', 'cloud_frac', 'wind_u_ms', 'wind_v_ms', 'gust_ms', 'pressure_hpa', 'feels_like_c', 'temp_c'])
 const SCRUB_REST_MS = 250
 // Duur van de tween waarmee de tabelpiep onder de kaart naar het cursoruur schuift.
 const TABLE_FOLLOW_MS = 220
@@ -142,8 +142,8 @@ function isolineSet(config: IsolineSetConfig): IsolineSet {
 
 /** Luchtdruk laadt pas bij de eerste windfocus (U35): ook zijn headers horen niet in de cold start. */
 function eagerHeader(chunk: ManifestChunk): boolean {
-  // De dagenlijst laadt zijn ECMWF-chunks pas als hij in beeld komt (U91).
-  return chunkField(chunk) !== 'pressure_hpa' && chunk.source !== 'ecmwf'
+  // De dagenlijst laadt zijn ECMWF-chunks pas als hij in beeld komt (U91), de ICON-D2-straling pas bij Lucht (MIP-39).
+  return chunkField(chunk) !== 'pressure_hpa' && chunk.source !== 'ecmwf' && chunk.source !== 'icon_d2'
 }
 
 interface PointLoadState {
@@ -380,6 +380,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [manifestRefresh, setManifestRefresh] = createSignal<RefreshState>()
   const timeline = createMemo(() => manifest() ? buildTimeline(manifest()!) : [])
   const radiationTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'radiation') : [])
+  const directTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'radiation_direct') : [])
   const uvTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'uv') : [])
   const uvClearTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'uv_clear') : [])
   const tempTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'temp_c') : [])
@@ -461,6 +462,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [windVSeries, setWindVSeries] = createSignal<Array<number | null>>([])
   const [gustSeries, setGustSeries] = createSignal<Array<number | null>>([])
   const [radiationSeries, setRadiationSeries] = createSignal<Array<number | null>>([])
+  const [directSeries, setDirectSeries] = createSignal<Array<number | null>>([])
   const [uvClearSeries, setUvClearSeries] = createSignal<Array<number | null>>([])
   // De tabelvelden die als puntreeks per locatie laden; `field` is de naam in het meetpunt window-ready.
   const tableSeries: Array<{ key: TableSeriesKey; field: string; frames: Accessor<TimelineFrame[]>; values: Accessor<Array<number | null>>; set: Setter<Array<number | null>> }> = [
@@ -3243,6 +3245,28 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       if (read === radiationRead) setRadiationSeries([...values])
     }).catch(() => undefined)
   })
+  // ICON-D2-straling voor de zon in Lucht (MIP-39): pas vanaf de eerste Luchtfocus, zoals de luchtdruk bij wind.
+  // Alleen uren met de zon op; op een krap apparaat alleen wat de scrubber toont.
+  const airUsed = createMemo<boolean>((used) => used || airFocus() > 0, false)
+  let directRead: { point: object; frames: object; values: Array<number | null> } | undefined
+  createEffect(() => {
+    const point = location()
+    const frames = directTimeline()
+    if (!airUsed() || !frames.length) return
+    const window = inViewOnly ? viewWindow() : undefined
+    if (directRead?.point !== point || directRead.frames !== frames) directRead = { point, frames, values: new Array<number | null>(frames.length).fill(null) }
+    const read = directRead
+    const missing = frames.flatMap((frame, index) => {
+      if (read.values[index] != null) return []
+      if (window && (frame.epoch < window.start || frame.epoch - 3_600_000 > window.end)) return []
+      const sunUp = [0, 1_800_000, 3_600_000].some((before) => solarElevationSin(frame.epoch - before, point.lng, point.lat) > 0)
+      return sunUp ? [index] : []
+    })
+    if (!missing.length) return
+    void readPointSeries(frames, point, missing, 'low', read.values, undefined, 'L0').then((values) => {
+      if (read === directRead) setDirectSeries([...values])
+    }).catch(() => undefined)
+  })
   // Heldere-hemel-UV reist als eigen veld mee; net als de straling alleen de uurframes van de tabelrijen
   // (alle kwartieren decoderen zou de gedeelde framecache van 512 uit de puntreeksen drukken). De bytes
   // komen wel als één payload-Range binnen: losse frame-Ranges op dit kleine bestand kwamen warm opnieuw
@@ -3745,7 +3769,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           glideRate={0}
           onPlayPressed={() => usage.mark('play')}
           clouds={{ timeline: cloudTimelines(), values: cloudValues() }}
-          sky={{ radiation: { timeline: radiationTimeline(), values: radiationSeries() }, sinElevation: sunElevationAt() }}
+          sky={{ radiation: { timeline: radiationTimeline(), values: radiationSeries() }, direct: { timeline: directTimeline(), values: directSeries() }, sinElevation: sunElevationAt() }}
           wind={{ timeline: windUFrames(), speed: windSpeedSeries(), gustTimeline: gustTimeline(), gust: gustSeries(), unit: windUnit() }}
           expressive={expressive()}
           rainLook={rainColourLook()}
@@ -3801,7 +3825,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
               } }}
             />
             <p class="table-source">
-              Waarnemingen en de verwachting tot en met morgen zijn gebaseerd op data van het <a href="https://dataplatform.knmi.nl" target="_blank" rel="noopener">KNMI</a><Show when={manifest()?.ecmwf?.days.length} fallback=".">, de verwachting vanaf overmorgen op data en producten van het <a href="https://www.ecmwf.int" target="_blank" rel="noopener">ECMWF</a>.</Show>
+              Waarnemingen en de verwachting tot en met morgen zijn gebaseerd op data van het <a href="https://dataplatform.knmi.nl" target="_blank" rel="noopener">KNMI</a><Show when={manifest()?.ecmwf?.days.length}>, de verwachting vanaf overmorgen op data en producten van het <a href="https://www.ecmwf.int" target="_blank" rel="noopener">ECMWF</a></Show><Show when={directTimeline().length}>, de zon in Lucht op data van de <a href="https://www.dwd.de/opendata" target="_blank" rel="noopener">Deutscher Wetterdienst</a></Show>.
               {' '}Licentie: <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>, bewerkt door motregen.nl.
             </p>
             {/* Pas na de eerste regen-draw: de lijst en zijn chunk horen niet bij het kritieke pad. */}

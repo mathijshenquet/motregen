@@ -12,6 +12,7 @@ use motregen_ingest::{
     cams, ecmwf,
     env_file::read_env_file_key,
     feels_reference::FeelsHours,
+    icon_d2,
     pipeline::{
         AROME_DATASET, AROME_VERSION, NOWCAST_DATASET, NOWCAST_VERSION, RTCOR_DATASET,
         RTCOR_VERSION, SEAMLESS_DATASET, SEAMLESS_VERSION, UV_DATASET, UV_VERSION,
@@ -86,6 +87,9 @@ struct Config {
     cams_in_manifest: bool,
     #[arg(long, env = "MOTREGEN_ECMWF_IN_MANIFEST")]
     ecmwf_in_manifest: bool,
+    /// Add the ICON-D2 direct radiation (icon-d2.json) for the sunshine estimate (MIP-39).
+    #[arg(long, env = "MOTREGEN_ICON_D2_IN_MANIFEST")]
+    icon_d2_in_manifest: bool,
     #[arg(long)]
     once: bool,
     #[arg(long, value_parser = parse_duration)]
@@ -205,6 +209,7 @@ struct Daemon {
     uv: Vec<ProducedChunk>,
     cams: cams::Feed,
     ecmwf: ecmwf::Feed,
+    icon_d2: icon_d2::Feed,
     last_arome_check: Option<Instant>,
     last_seamless_check: Option<Instant>,
     last_uv_check: Option<Instant>,
@@ -247,6 +252,7 @@ impl Daemon {
             uv: Vec::new(),
             cams: cams::Feed::default(),
             ecmwf: ecmwf::Feed::default(),
+            icon_d2: icon_d2::Feed::default(),
             last_arome_check: None,
             last_seamless_check: None,
             last_uv_check: None,
@@ -270,6 +276,8 @@ impl Daemon {
         self.finish_refresh("cams", result);
         let result = self.refresh_ecmwf();
         self.finish_refresh("ecmwf", result);
+        let result = self.refresh_icon_d2();
+        self.finish_refresh("icon_d2", result);
         if self.config.once {
             let outcome = self.seamless_worker.wait_outcome()?;
             let changed = self.apply_seamless_outcome(outcome)?;
@@ -494,6 +502,14 @@ impl Daemon {
             .refresh(&self.config.data_dir, chrono::Utc::now())
     }
 
+    fn refresh_icon_d2(&mut self) -> Result<bool> {
+        if !self.config.icon_d2_in_manifest {
+            return Ok(false);
+        }
+        self.icon_d2
+            .refresh(&self.config.data_dir, chrono::Utc::now())
+    }
+
     fn publish(&mut self) -> Result<()> {
         let rtcor = self.rtcor.as_ref().context("RTCOR is not ready")?;
         if self.arome.is_empty() {
@@ -517,6 +533,7 @@ impl Daemon {
         chunks.extend(self.uv.iter());
         chunks.extend(self.cams.chunks.iter());
         chunks.extend(self.ecmwf.chunks.iter());
+        chunks.extend(self.icon_d2.chunks.iter());
         let checked_at = chrono::Utc::now();
         let harmonie: Vec<_> = self.arome.iter().chain(&self.arome_history).collect();
         if let Err(error) = self.feels_hours.record(&harmonie, checked_at) {
@@ -608,6 +625,8 @@ impl Daemon {
         activity |= self.finish_refresh("cams", result);
         let result = self.refresh_ecmwf();
         activity |= self.finish_refresh("ecmwf", result);
+        let result = self.refresh_icon_d2();
+        activity |= self.finish_refresh("icon_d2", result);
         let result = self.collect_seamless();
         activity |= self.finish_refresh("seamless", result);
         if !activity {
@@ -703,6 +722,7 @@ mod tests {
                 cache_age: Duration::from_secs(43_200),
                 cams_in_manifest: false,
                 ecmwf_in_manifest: false,
+                icon_d2_in_manifest: false,
                 once: false,
                 run_for: None,
                 api_base: Some("http://127.0.0.1".into()),
@@ -723,6 +743,7 @@ mod tests {
             uv: Vec::new(),
             cams: cams::Feed::default(),
             ecmwf: ecmwf::Feed::default(),
+            icon_d2: icon_d2::Feed::default(),
             last_arome_check: None,
             last_seamless_check: None,
             last_uv_check: None,
@@ -839,6 +860,54 @@ mod tests {
         assert!(changed);
         daemon.publish_after(changed).unwrap();
         assert!(read_manifest().ecmwf.is_none());
+    }
+
+    #[test]
+    fn icon_d2_sidecar_joins_manifest_only_when_enabled_and_leaves_when_stale() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut daemon = test_daemon(directory.path().into(), idle_test_worker());
+        let now = chrono::Utc::now();
+        let run = now.date_naive().and_hms_opt(0, 0, 0).unwrap().and_utc()
+            + chrono::Duration::hours(i64::from(chrono::Timelike::hour(&now) / 3 * 3));
+        let direct = icon_d2::DirectRun {
+            run,
+            hours: vec![vec![200.0; icon_d2::GRID.cell_count()]; icon_d2::LEADS as usize],
+            station_hours: Vec::new(),
+        };
+        let chunk = icon_d2::build_chunk(&direct).unwrap();
+        icon_d2::write_publication(directory.path(), run, &chunk).unwrap();
+        daemon.rtcor = Some(test_chunk("rtcor", &run.to_rfc3339(), "rtcor-test.mrf"));
+        daemon.arome.push(test_chunk(
+            "harmonie",
+            &run.to_rfc3339(),
+            "harmonie-test.mrf",
+        ));
+        let read_manifest = || -> motregen_ingest::publisher::Manifest {
+            serde_json::from_slice(&fs::read(directory.path().join("manifest.json")).unwrap())
+                .unwrap()
+        };
+        let icon_chunks = |manifest: &motregen_ingest::publisher::Manifest| {
+            manifest
+                .chunks
+                .iter()
+                .filter(|chunk| chunk.source == icon_d2::SOURCE)
+                .cloned()
+                .collect::<Vec<_>>()
+        };
+        assert!(!daemon.refresh_icon_d2().unwrap());
+        daemon.publish().unwrap();
+        assert!(icon_chunks(&read_manifest()).is_empty());
+        daemon.config.icon_d2_in_manifest = true;
+        let changed = daemon.refresh_icon_d2().unwrap();
+        assert!(changed);
+        daemon.publish_after(changed).unwrap();
+        assert_eq!(icon_chunks(&read_manifest()), vec![chunk.manifest.clone()]);
+        assert!(!daemon.refresh_icon_d2().unwrap());
+        fs::remove_file(directory.path().join(icon_d2::SIDECAR)).unwrap();
+        let changed = daemon.refresh_icon_d2().unwrap();
+        assert!(changed);
+        daemon.publish_after(changed).unwrap();
+        assert!(icon_chunks(&read_manifest()).is_empty());
     }
 
     #[test]

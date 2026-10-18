@@ -7,6 +7,7 @@ pub mod ecmwf;
 pub mod env_file;
 pub mod feels_reference;
 pub mod grid;
+pub mod icon_d2;
 pub mod pipeline;
 pub mod publisher;
 

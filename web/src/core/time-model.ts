@@ -1,6 +1,6 @@
 import { chunkField, type Field, type Manifest, type Source, type TimelineFrame } from './contract.js'
 
-const priority: Record<Source, number> = { ecmwf: 0, harmonie: 0, uv: 0, seamless: 1, nowcast: 2, rtcor: 3 }
+const priority: Record<Source, number> = { ecmwf: 0, harmonie: 0, uv: 0, icon_d2: 0, seamless: 1, nowcast: 2, rtcor: 3 }
 const PLAYBACK_FRAME_DURATION_MS = 650
 // PO 2026-09-25 live (U34), naar WarnWetter: de cursor staat vast op dit deel van de scrubberbreedte
 // en de tijdlijn schuift eronder; zoveel uur past in de breedte.

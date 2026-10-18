@@ -99,6 +99,7 @@
         camsPackage = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-ingest;
         ecmwfPackage = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-ingest;
         ecmwfInManifest = true;
+        iconD2Package = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-ingest;
         frontendPackage = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-web;
         frontendPackages."weerok.nl" = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-web-weerok;
         basemapPackage = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-basemap;
@@ -124,6 +125,8 @@
 
       # De openbare ECMWF-job mag in deze netwerkloze test niet worden uitgevoerd.
       systemd.services.motregen-ecmwf.unitConfig.ConditionPathExists = "/run/ecmwf-network-enabled";
+      # Idem voor de DWD-job (MIP-39); de decoder zelf testen de cargo-tests met echte DWD-fixtures.
+      systemd.services.motregen-icon-d2.unitConfig.ConditionPathExists = "/run/icon-d2-network-enabled";
 
       system.autoUpgrade.enable = lib.mkForce false;
       nix.gc.automatic = lib.mkForce false;
@@ -271,6 +274,18 @@
     machine.succeed("systemctl start motregen-ecmwf.service")
     assert machine.succeed("systemctl show motregen-ecmwf.service -p ConditionResult --value").strip() == "no"
     machine.succeed("test ! -e /var/lib/motregen/ecmwf.json")
+
+    # MIP-39: ICON-D2-job elke 3 uur, standaard in het manifest.
+    machine.succeed("systemctl cat motregen-icon-d2.service | grep -F motregen-icon-d2")
+    icon_timer = machine.succeed("systemctl cat motregen-icon-d2.timer")
+    assert "OnCalendar=*-*-* 01/3:35:00 UTC" in icon_timer, icon_timer
+    assert "Persistent=true" in icon_timer, icon_timer
+    icon_service = machine.succeed("systemctl cat motregen-icon-d2.service")
+    assert "Restart=on-failure" in icon_service and "RestartSec=15min" in icon_service, icon_service
+    assert "MOTREGEN_ICON_D2_IN_MANIFEST=true" in ingest_environment, ingest_environment
+    machine.succeed("systemctl start motregen-icon-d2.service")
+    assert machine.succeed("systemctl show motregen-icon-d2.service -p ConditionResult --value").strip() == "no"
+    machine.succeed("test ! -e /var/lib/motregen/icon-d2.json")
 
     # U39: dagelijkse CAMS-job met de ADS-fixture; zelfde dynamische user als de ingest.
     machine.succeed("systemctl list-timers --all | grep -F motregen-cams.timer")
