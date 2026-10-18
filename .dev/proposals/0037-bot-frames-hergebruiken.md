@@ -143,6 +143,26 @@ zijn (Gevoel pas na de schaalkeuze); Lucht binnen het uur bijna alles. x264 blij
    - Voor de framecache: het palet is een functie van één dag en hoort bij de sleutel, dus Gevoel-frames worden
      hergebruikt zolang de dag en de data gelijk zijn. Na de bouw meet ik het hergebruik van Gevoel-frames.
 
+## 6. Uitvoering (U97, 2026-10-18)
+Wat er tijdens de bouw bijkwam ten opzichte van sectie 3:
+1. **Klok in plaats van still-vlag.** Elke 5-minutenmarkering is in een van twee opeenvolgende generaties een still (het
+   10-minutenrooster rond "nu"). De sleutel bevat daarom niet de still-vlag, maar wat de klok werkelijk toont
+   (`render_core::overlay::clock_appearance`, dezelfde functie die `draw_clock` gebruikt). Op de markering tekenen still
+   en filmframe dezelfde klok.
+2. **Stills buiten de film krijgen een verse labeltoestand.** Bij Gevoel liepen die stills mee in de labelketen; omdat
+   ze per generatie op het andere rooster liggen, deelden twee generaties nooit een toestand. Nu volgt alleen de film de
+   keten, en die hervat vanaf het eerste filmframe. Een still is een los beeld; zijn labels hoeven niet door te lopen
+   vanuit de film.
+3. **Exacte floats in de toestand.** `serde_json` parseert floats standaard niet exact terug; de render-crate zet
+   `float_roundtrip` aan, anders verschilt een herstelde labeltoestand in de laatste bits en breekt de keten.
+4. **Lucht.** Sleutel per frame = de exacte `CloudFrame` (tijd, fase, driftankers) plus een sleutel per wolkenuur (het
+   wolkenframe, de laag/midden/hoog-, straling- en volgende-uur-blends en de regenbeweging op dat uur). Wolkenuren worden
+   alleen nog berekend voor frames die gerenderd moeten worden. Bevinding: het kubische venster leest een uur tot 2 uur
+   vooruit, en de regenbeweging daar komt uit de nowcast, die elke 5 minuten nieuw is. Met echte opeenvolgende data
+   wordt Lucht daarom nauwelijks hergebruikt; alleen bij hervatten en bij gelijke data.
+5. **Bewaking.** Elke miss controleert dat de renderer alleen bronnen las die in de sleutel zitten (bij Lucht per
+   wolkenuur); in alle metingen nul afwijkingen.
+
 ## Changelog
 - 2026-10-18 13:18 CEST: concept (worker U97).
 - 2026-10-18: besluiten van de PO verwerkt (sectie 5); wind zonder inloop, schaal met gisteren als referentie.
