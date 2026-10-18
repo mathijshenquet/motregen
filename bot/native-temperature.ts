@@ -4,7 +4,7 @@ import { blendFrames, blurField, fieldRangeInView, isolineBlurPasses, isolineFra
 import { prepareField, type PreparedField } from '../web/src/core/isoline-field.js'
 import { sliceWeights, type FieldSlice } from '../web/src/core/isoline-spline.js'
 import { blendSlice, buildSegments, traceContours, shortRings, ringFadeRaster, type Contour, type ShortRing } from '../web/src/core/isoline-contours.js'
-import { paletteRange, paletteStops, bandColor } from '../web/src/core/temperature-palette.js'
+import { paletteRange, paletteStops, bandColor, referenceRange, type PaletteRange } from '../web/src/core/temperature-palette.js'
 import { NETHERLANDS_FLANDERS_BOUNDS } from '../web/src/core/map-frame.js'
 import { NativeRainData } from './native-rain.js'
 import { FRAME } from './config.js'
@@ -45,6 +45,8 @@ export class NativeTemperatureData {
 
   async prepare(): Promise<void> {
     if (this.kind === 'pressure') { this.colors = new Float32Array(256 * 3); return }
+    const reference = referenceRange(this.manifest.feels_reference)
+    if (reference) { this.setColors(reference); return }
     let min = Infinity, max = -Infinity
     const now = Date.parse(this.manifest.now)
     const horizon = now + 18 * 3600_000
@@ -57,6 +59,10 @@ export class NativeTemperatureData {
     }
     const range = paletteRange(min, max)
     if (!range) throw new Error('Temperatuurpalet heeft geen geldig bereik')
+    this.setColors(range)
+  }
+
+  private setColors(range: PaletteRange): void {
     const stops = paletteStops(range)
     this.colors = Float32Array.from({ length: 256 * 3 }, (_, index) => bandColor(Math.floor(index / 3) - 128, 1, stops)[index % 3]!)
   }

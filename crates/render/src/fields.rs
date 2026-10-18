@@ -9,7 +9,7 @@ use render_core::{
     isoline_labels::{Label, Labels, Placement, Screen},
     mode_constants::mode_constants,
     pressure::{self, Mark},
-    projection::{Grid, Projection, project},
+    projection::{Grid, Projection},
     time::{Manifest, frame_blend},
 };
 use serde::{Deserialize, Serialize};
@@ -56,36 +56,9 @@ pub fn screen(grid: &Grid) -> Screen {
 }
 
 pub fn range(field: &Field, grid: &Grid, bounds: [f64; 4]) -> Option<(f64, f64)> {
-    let west = bounds[0]
-        .min(bounds[2])
-        .floor()
-        .clamp(0.0, (grid.width - 1) as f64) as usize;
-    let east = bounds[0]
-        .max(bounds[2])
-        .floor()
-        .clamp(0.0, (grid.width - 1) as f64) as usize;
-    let north = bounds[1]
-        .min(bounds[3])
-        .floor()
-        .clamp(0.0, (grid.height - 1) as f64) as usize;
-    let south = bounds[1]
-        .max(bounds[3])
-        .floor()
-        .clamp(0.0, (grid.height - 1) as f64) as usize;
-    let mut minimum = f64::INFINITY;
-    let mut maximum = f64::NEG_INFINITY;
-    for row in north..=south {
-        for column in west..=east {
-            let index = row * grid.width + column;
-            if field.valid[index] <= 0.5 {
-                continue;
-            }
-            let value = f64::from(field.values[index]);
-            minimum = minimum.min(value);
-            maximum = maximum.max(value);
-        }
-    }
-    (minimum <= maximum).then_some((minimum, maximum))
+    render_core::field_palette::extent(grid, bounds, |index| {
+        (field.valid[index] > 0.5).then(|| f64::from(field.values[index]))
+    })
 }
 
 pub struct Slice {
@@ -409,39 +382,27 @@ impl<'a> Fields<'a> {
         })
     }
 
-    pub fn palette(&mut self, now: i64) -> Result<Vec<f32>> {
+    /// The yesterday reference when the manifest has one (MIP-37), otherwise the range over now-hour … +18 h.
+    pub fn palette(&mut self, manifest: &Manifest, now: i64) -> Result<Vec<f32>> {
+        if let Some(reference) = &manifest.feels_reference
+            && let Some(palette) =
+                render_core::field_palette::Palette::new(reference.min, reference.max)
+        {
+            return Ok(palette.with_overflow().bands());
+        }
         let mut minimum = f64::INFINITY;
         let mut maximum = f64::NEG_INFINITY;
-        let bounds = &mode_constants().bounds;
-        let southwest = project(bounds.west, bounds.south);
-        let northeast = project(bounds.east, bounds.north);
-        let region = [
-            (southwest.0 - self.grid.x0) / self.grid.dx,
-            (northeast.1 - self.grid.y0) / self.grid.dy,
-            (northeast.0 - self.grid.x0) / self.grid.dx,
-            (southwest.1 - self.grid.y0) / self.grid.dy,
-        ];
+        let region = render_core::field_palette::palette_region(&self.grid);
         let frames = self.data.frames.clone();
         for frame in frames.iter().filter(|frame| {
             frame.epoch >= now.div_euclid(3_600_000) * 3_600_000
                 && frame.epoch <= now + 18 * 3_600_000
         }) {
             let raster = self.data.load(frame)?;
-            let values: Vec<_> = raster
-                .values
-                .iter()
-                .map(|&code| raster.quant[code as usize].unwrap_or(f32::NAN))
-                .collect();
-            let field = Field {
-                width: raster.grid.width,
-                height: raster.grid.height,
-                valid: values
-                    .iter()
-                    .map(|value| if value.is_nan() { 0.0 } else { 1.0 })
-                    .collect(),
-                values,
-            };
-            if let Some((low, high)) = range(&field, &self.grid, region) {
+            let extent = render_core::field_palette::extent(&raster.grid, region, |index| {
+                raster.quant[raster.values[index] as usize].map(f64::from)
+            });
+            if let Some((low, high)) = extent {
                 minimum = minimum.min(low);
                 maximum = maximum.max(high);
             }

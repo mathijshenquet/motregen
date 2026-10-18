@@ -15,6 +15,7 @@ humantime = "2.3"
 knmi-grib = { path = "../knmi-grib" }
 knmi-hdf5 = { path = "../knmi-hdf5" }
 mrf = { path = "../mrf" }
+render-core = { path = "../render-core" }
 motion = { path = "../motion" }
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
 rayon.workspace = true

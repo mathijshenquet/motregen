@@ -467,6 +467,7 @@ mod tests {
                 field: "rain_rate".into(),
                 times,
             }],
+            feels_reference: None,
         };
         (directory, manifest)
     }

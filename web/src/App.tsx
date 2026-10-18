@@ -63,7 +63,7 @@ import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedP
 import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureCollection } from './core/sun'
 import { DEFAULT_LOCATION, stillMapTheme } from './core/still-theme.js'
 import { isSunUp, solarElevationSin } from './core/solar'
-import { paletteRange, paletteStops, type PaletteRange } from './core/temperature-palette'
+import { paletteRange, paletteStops, referenceRange, type PaletteRange } from './core/temperature-palette'
 import { selectTemperaturePlaces, temperatureLabelSpacingPx, temperatureLabels, temperatureLayer, type TemperatureFeatureCollection } from './core/temperature'
 import { buildTimeline, epochInWindow, frameBlend, scrubberViewWindow, seriesValueAt, timelineCoverage, timelineCursorAtEpoch, timelineEpochAtCursor, timelineHorizonEnd, timelineIndexesInWindow, timelinePlaybackRate, type EpochWindow } from './core/time-model'
 import { formatUv, uvChipLabel, uvLevel, uvReading } from './core/uv'
@@ -2021,12 +2021,29 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
    * updateTemperatureRange vervangt het zodra het volledige bekend is.
    */
   function provisionalTemperatureRange(field: PreparedField, grid: Grid): void {
-    if (temperatureRange()) return
+    if (temperatureRange() || applyReferenceRange()) return
     const inView = fieldRangeInView(field.values, field.valid, grid, NETHERLANDS_FLANDERS_BOUNDS)
     if (inView) setTemperatureRange(paletteRange(inView[0], inView[1]))
   }
 
+  /**
+   * MIP-37: met het bereik van gisteren uit het manifest staat het palet vast voor de hele dag; nieuwe verwachtingsuren
+   * verschuiven de kleuren dan niet meer. Zonder referentie (koude start) het eigen bereik hieronder.
+   */
+  function applyReferenceRange(): boolean {
+    const reference = manifest()?.feels_reference
+    const range = referenceRange(reference)
+    if (!reference || !range) return false
+    const key = `referentie ${reference.day} ${reference.min} ${reference.max}`
+    if (key !== temperatureRangeKey) {
+      temperatureRangeKey = key
+      setTemperatureRange(range)
+    }
+    return true
+  }
+
   async function updateTemperatureRange(): Promise<void> {
+    if (applyReferenceRange()) return
     const frames = feelsLikeTimeline()
     const key = [...new Set(frames.map((frame) => frame.chunk.url))].join('|')
     if (!frames.length || key === temperatureRangeKey) return

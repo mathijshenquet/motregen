@@ -10,6 +10,8 @@ use anyhow::{Context, Result, ensure};
 use chrono::{SecondsFormat, Utc};
 use serde::{Deserialize, Serialize};
 
+use render_core::time::FeelsReference;
+
 use crate::{cams::CamsSection, ecmwf::EcmwfSection};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -22,6 +24,8 @@ pub struct Manifest {
     pub cams: Option<CamsSection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ecmwf: Option<EcmwfSection>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feels_reference: Option<FeelsReference>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -86,7 +90,7 @@ pub fn publish_with_cams(
     prune_age: Duration,
     cams: Option<CamsSection>,
 ) -> Result<Manifest> {
-    publish_with_feeds(data_dir, now, chunks, prune_age, cams, None)
+    publish_with_feeds(data_dir, now, chunks, prune_age, cams, None, None)
 }
 
 pub fn publish_with_feeds(
@@ -96,6 +100,7 @@ pub fn publish_with_feeds(
     prune_age: Duration,
     cams: Option<CamsSection>,
     ecmwf: Option<EcmwfSection>,
+    feels_reference: Option<FeelsReference>,
 ) -> Result<Manifest> {
     ensure!(!chunks.is_empty(), "cannot publish an empty manifest");
     let chunks_dir = write_chunks(data_dir, chunks)?;
@@ -106,6 +111,7 @@ pub fn publish_with_feeds(
         chunks: chunks.iter().map(|chunk| chunk.manifest.clone()).collect(),
         cams,
         ecmwf,
+        feels_reference,
     };
     let json = serde_json::to_vec_pretty(&manifest)?;
     atomic_write(&data_dir.join("manifest.json"), &json)?;

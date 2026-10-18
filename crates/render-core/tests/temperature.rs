@@ -12,6 +12,7 @@ use serde::Deserialize;
 struct Range {
     low: f64,
     high: f64,
+    overflow: bool,
 }
 #[derive(Deserialize)]
 struct Fixture {
@@ -31,6 +32,11 @@ fn temperature_bands_and_cold_warm_anchors_follow_the_typescript_palette() {
         serde_json::from_str(include_str!("../assets/mode-constants.json")).unwrap();
     for fixture in fixtures.palette_fixtures {
         let palette = Palette::new(fixture.min, fixture.max).unwrap();
+        let palette = if fixture.range.overflow {
+            palette.with_overflow()
+        } else {
+            palette
+        };
         assert_eq!(palette.low, fixture.range.low);
         assert_eq!(palette.high, fixture.range.high);
         for (index, expected) in fixture.colors.iter().enumerate() {

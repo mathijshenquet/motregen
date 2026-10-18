@@ -5,6 +5,7 @@ pub mod cams_ads;
 pub mod cams_open_meteo;
 pub mod ecmwf;
 pub mod env_file;
+pub mod feels_reference;
 pub mod grid;
 pub mod pipeline;
 pub mod publisher;

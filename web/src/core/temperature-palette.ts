@@ -1,3 +1,5 @@
+import type { FeelsReference } from './contract.js'
+
 // Tintvolgorde van de KNMI-temperatuurkaarten (knmi.nl, actuele temperatuur): blauw → groen → geel → oranje → rood; geen exacte kopie.
 export const TEMPERATURE_RAMP: readonly string[] = ['#2f7fd6', '#4fb0e8', '#4fc6bd', '#62bf62', '#b7d747', '#f4d53a', '#f5a02e', '#e5512b']
 
@@ -9,6 +11,14 @@ export const TEMPERATURE_RAMP: readonly string[] = ['#2f7fd6', '#4fb0e8', '#4fc6
 export const COLD_ANCHOR_C = 0
 export const WARM_ANCHOR_C = 25
 export const MIN_SPAN_C = 8
+/**
+ * MIP-37: met het bereik van gisteren als referentie lopen waarden erbuiten in vaste stappen door naar diep blauw/rood
+ * in plaats van af te kappen; voorbij OVERFLOW_STEPS stappen blijft de diepste tint.
+ */
+export const OVERFLOW_STEP_C = 2
+export const OVERFLOW_STEPS = 4
+export const OVERFLOW_COLD = '#142f6b'
+export const OVERFLOW_WARM = '#7f1a10'
 // Ramppositie van lichtblauw (t/m 0 °C) en van het begin van rood (vanaf 25 °C).
 const BLUE_END = 1 / (TEMPERATURE_RAMP.length - 1)
 const RED_START = 1 - 0.5 / (TEMPERATURE_RAMP.length - 1)
@@ -18,15 +28,20 @@ export type Rgb = [number, number, number]
 export interface PaletteRange {
   low: number
   high: number
+  /** Vaste referentie (gisteren): buiten het bereik doorlopen in stappen i.p.v. afkappen. */
+  overflow?: boolean
 }
+
 
 /** Stops in °C: tussen twee stops lineair, daarbuiten de eindkleur. */
 export type PaletteStops = ReadonlyArray<readonly [number, Rgb]>
 
-const RAMP = TEMPERATURE_RAMP.map((hex): Rgb => {
+function hexRgb(hex: string): Rgb {
   const value = Number.parseInt(hex.slice(1), 16)
   return [(value >> 16 & 255) / 255, (value >> 8 & 255) / 255, (value & 255) / 255]
-})
+}
+
+const RAMP = TEMPERATURE_RAMP.map(hexRgb)
 
 /** Bereik op hele graden, minstens MIN_SPAN_C breed (symmetrisch aangevuld); undefined zonder waarden. */
 export function paletteRange(min: number, max: number): PaletteRange | undefined {
@@ -39,6 +54,21 @@ export function paletteRange(min: number, max: number): PaletteRange | undefined
   }
   return { low, high }
 }
+
+/** Paletbereik uit de referentie van gisteren, met doorlopende overflow; undefined zonder (geldige) referentie. */
+export function referenceRange(reference: FeelsReference | undefined): PaletteRange | undefined {
+  const range = reference && paletteRange(reference.min, reference.max)
+  return range && { ...range, overflow: true }
+}
+
+/** Overflowtint `step` (1 … OVERFLOW_STEPS) van rampkleur `from` naar `deep`. */
+function overflowColor(from: Rgb, deep: Rgb, step: number): Rgb {
+  const mix = step / OVERFLOW_STEPS
+  return [0, 1, 2].map((channel) => from[channel]! + (deep[channel]! - from[channel]!) * mix) as Rgb
+}
+
+// Vlak binnen een stap: twee stops per grens, deze fractie van een graad uit elkaar.
+const STEP_EDGE_C = 1e-3
 
 /** Knopen (°C, ramppositie) van de monotone, stuksgewijs lineaire afbeelding temperatuur → ramp. */
 export function rampKnots({ low, high }: PaletteRange): Array<[number, number]> {
@@ -70,7 +100,17 @@ export function paletteStops(range: PaletteRange): PaletteStops {
   }
   const [last, position] = knots.at(-1)!
   stops.push([last, rampColor(position)])
-  return stops
+  if (!range.overflow) return stops
+  const cold: Array<readonly [number, Rgb]> = [], warm: Array<readonly [number, Rgb]> = []
+  const [lowest, highest] = [stops[0]![1], stops.at(-1)![1]]
+  for (let step = 1; step <= OVERFLOW_STEPS; step++) {
+    const below = overflowColor(lowest, hexRgb(OVERFLOW_COLD), step)
+    const above = overflowColor(highest, hexRgb(OVERFLOW_WARM), step)
+    const inner = (step - 1) * OVERFLOW_STEP_C, outer = step * OVERFLOW_STEP_C
+    cold.unshift([range.low - outer, below], [range.low - inner - STEP_EDGE_C, below])
+    warm.push([range.high + inner + STEP_EDGE_C, above], [range.high + outer, above])
+  }
+  return [...cold, ...stops, ...warm]
 }
 
 /** Paletkleur (0–1) bij `temperature` °C, geklemd op de eindstops. */
@@ -121,7 +161,7 @@ export function fillColor(s: number, fade: number, step: number, stops: PaletteS
 }
 
 /** Maximaal aantal stops: elke rampkleur plus de twee ankers. */
-export const PALETTE_STOPS = TEMPERATURE_RAMP.length + 2
+export const PALETTE_STOPS = TEMPERATURE_RAMP.length + 2 + 4 * OVERFLOW_STEPS
 
 /** Stops als uniform-arrays voor de shader, opgevuld met de laatste stop. */
 export function paletteUniforms(stops: PaletteStops): { temperatures: Float32Array; colors: Float32Array } {
