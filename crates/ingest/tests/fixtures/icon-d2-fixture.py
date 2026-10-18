@@ -1,7 +1,9 @@
 """Snijdt echte ICON-D2-bestanden (DWD open data, regular-lat-lon) bij tot een klein vak rond De Bilt voor de tests.
 
 Alle berichten blijven staan (het uurbericht en de drie kwartieren erna), met dezelfde sleutels; alleen het raster
-krimpt tot 51,90–52,30 N × 4,90–5,50 E. Het resultaat wordt opnieuw met bzip2 ingepakt, zoals de DWD het levert.
+krimpt tot 51,90–52,30 N × 4,90–5,50 E. De bitmap blijft, zoals in de echte bestanden (met `missingValue` als geheel
+getal); het zuidwestelijke hoekpunt wordt ontbrekend gemaakt om dat pad te testen. Het resultaat wordt opnieuw met
+bzip2 ingepakt, zoals de DWD het levert.
 
 Gebruik (vanuit tools/zonneschijn, dat eccodes in zijn uv-omgeving heeft):
     uv run python ../../crates/ingest/tests/fixtures/icon-d2-fixture.py <bron.grib2> <doel.grib2.bz2>
@@ -27,9 +29,11 @@ def crop(handle) -> bytes:
     first_column, last_column = round((WEST - lon0) / step), round((EAST - lon0) / step)
     values = eccodes.codes_get_values(handle).reshape(nj, ni)
     box = values[first_row : last_row + 1, first_column : last_column + 1]
-    assert not np.any(box == eccodes.codes_get(handle, "missingValue"))
+    missing = eccodes.codes_get(handle, "missingValue")
+    assert not np.any(box == missing)
+    box = box.copy()
+    box[0, 0] = missing
     clone = eccodes.codes_clone(handle)
-    eccodes.codes_set(clone, "bitmapPresent", 0)
     eccodes.codes_set(clone, "Ni", box.shape[1])
     eccodes.codes_set(clone, "Nj", box.shape[0])
     eccodes.codes_set(clone, "latitudeOfFirstGridPointInDegrees", SOUTH)
