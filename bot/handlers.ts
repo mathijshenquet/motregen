@@ -54,7 +54,9 @@ async function dispatchUpdate(update: TelegramUpdate, runtime: BotRuntime): Prom
 }
 
 export function startText(username: string): string {
-  return 'motregen.nl -- Regenradar en Weersverwachting\n/weer amsterdam toont wolken en regen voor die plek; /regen ams werkt ook. /regen, /temperatuur (of /hitte) en /wind geven een bewegende kaart; met de knoppen eronder kies je een stilstaand moment. Inline: @' + username + ' regen.'
+  const films = enabledLoopModes().map((entry) => entry.listed.length ? `/${entry.command} (of ${entry.listed.map((alias) => `/${alias}`).join(', ')})` : `/${entry.command}`)
+  const filmList = `${films.slice(0, -1).join(', ')} en ${films.at(-1)}`
+  return `motregen.nl -- Regenradar en Weersverwachting\n/weer amsterdam toont wolken en regen voor die plek; /regen ams werkt ook. ${filmList} geven een bewegende kaart; met de knoppen eronder kies je een stilstaand moment. Inline: @${username} regen.`
 }
 
 async function handleCommand(message: TelegramMessage, runtime: BotRuntime): Promise<void> {

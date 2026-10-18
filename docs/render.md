@@ -203,9 +203,9 @@ De bestaande Node-pixelroute blijft op `PRE_U77_RAIN_LOOK`; de Rust-route toont 
 ## Nix-unit en terugval
 
 `services.motregen.bot.rustModes` kiest voor `renderer` en `combined` standaard
-`[ "weather" "feels" "wind" ]`; `"air"` mag erbij en zet Lucht aan (PO-besluit). De unit zet `MOTREGEN_RUST_RENDERER` en
+`[ "weather" "feels" "wind" "air" ]`; zonder `"air"` biedt de bot Lucht niet aan (PO 2026-10-18: Lucht aan). De unit zet `MOTREGEN_RUST_RENDERER` en
 `MOTREGEN_RUST_BASEMAP_DIR` op de store-platen. De botwrapper levert `MOTREGEN_RENDER_BIN`, de renderwrapper
-voegt ffmpeg aan PATH toe. Bij alle drie Rust-modi bevat de unit geen Chromium-pad. Een lege lijst herstelt
+voegt ffmpeg aan PATH toe. Met weather, feels en wind in Rust bevat de unit geen Chromium-pad. Een lege lijst herstelt
 de bestaande Node-route; een gedeeltelijke lijst houdt Chromium voor de overige modi beschikbaar.
 De `poller` krijgt geen Rust- of browseromgeving.
 

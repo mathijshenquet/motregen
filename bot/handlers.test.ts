@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { TelegramApi, TelegramApiError, type TelegramUpdate } from './api.js'
 import { FileIdCache } from './file-ids.js'
-import { handleUpdate, type BotRuntime } from './handlers.js'
+import { handleUpdate, startText, type BotRuntime } from './handlers.js'
 import { StillPhotos } from './photos.js'
 import { createPlaceWeather } from './place-weather.js'
 import { MessageSelections } from './selections.js'
@@ -64,6 +64,16 @@ async function setup() {
 function callback(data: string, chatId = 99): TelegramUpdate {
   return { update_id: 2, callback_query: { id: 'callback', data, message: { message_id: 10, chat: { id: chatId, type: 'private' } } } }
 }
+
+describe('start text', () => {
+  it('names the film commands in the order of the mode buttons, with Lucht only when it is offered', () => {
+    vi.stubEnv('MOTREGEN_RUST_RENDERER', 'weather,feels,wind')
+    expect(startText('motregen_bot')).toContain('/regen, /temperatuur (of /hitte) en /wind geven een bewegende kaart')
+    vi.stubEnv('MOTREGEN_RUST_RENDERER', 'weather,feels,wind,air')
+    expect(startText('motregen_bot')).toContain('/regen, /lucht, /temperatuur (of /hitte) en /wind geven een bewegende kaart')
+    vi.unstubAllEnvs()
+  })
+})
 
 describe('still delivery and callbacks', () => {
   it('answers a command with the loop, uploads it once and resends the cached Telegram file id', async () => {

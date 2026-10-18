@@ -289,8 +289,8 @@ in
       };
       rustModes = lib.mkOption {
         type = lib.types.listOf (lib.types.enum (renderModes ++ rustOnlyModes));
-        default = renderModes;
-        description = "Modes rendered in Rust for renderer/combined roles; an empty list restores the Node route. Add \"air\" to offer the Lucht film (Rust only).";
+        default = renderModes ++ rustOnlyModes;
+        description = "Modes rendered in Rust for renderer/combined roles; an empty list restores the Node route. \"air\" (Lucht) exists only in Rust; leave it out to stop offering Lucht.";
       };
       dataDir = lib.mkOption {
         type = lib.types.str;
