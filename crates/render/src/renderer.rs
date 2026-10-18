@@ -628,16 +628,16 @@ mod tests {
         assert_eq!(mode.fps_fraction.numerator, 15);
         assert_eq!(mode.fps_fraction.denominator, 2);
         assert_eq!(mode.hold_frames, 8);
-        assert_eq!(mode.loop_offsets.len(), 289);
+        assert_eq!(mode.loop_offsets.len(), 193);
         assert_eq!(mode.loop_offsets[0], -3_600_000);
-        assert_eq!(*mode.loop_offsets.last().unwrap(), 18_000_000);
+        assert_eq!(*mode.loop_offsets.last().unwrap(), 10_800_000);
         assert!(
             mode.loop_offsets
                 .windows(2)
                 .all(|pair| pair[1] - pair[0] == 75_000)
         );
         let plans = frame_plans(&mode.loop_offsets, &[]);
-        assert_eq!(plans.len(), 289);
+        assert_eq!(plans.len(), 193);
         assert!(plans.iter().all(|plan| plan.loop_frame && !plan.still));
     }
 

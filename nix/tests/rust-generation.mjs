@@ -39,7 +39,7 @@ try {
     assert.equal(loop.backend, 'rust')
     assert.equal(loop.cached, false)
     const plan = sequencePlan(mode, manifest)
-    assert.equal(plan.loopFrames, mode === 'wind' ? 289 : mode === 'weather' ? 109 : 217)
+    assert.equal(plan.loopFrames, mode === 'wind' ? 193 : mode === 'weather' ? 109 : 217)
     assert.equal(plan.fps, mode === 'wind' ? 7.5 : 5.6)
     assert.equal(holdFrames(plan), mode === 'wind' ? 8 : 6)
     assert.equal(loop.frames, plan.loopFrames)

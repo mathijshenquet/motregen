@@ -6,12 +6,12 @@ const manifest: StillManifest = { version: 0, generated: '2026-10-07T12:00:00Z',
 const now = Date.parse(manifest.now)
 
 describe('one frame sequence per mode', () => {
-  it('uses one app tempo for rain, temperature and air, and the shorter air window', () => {
+  it('uses one app tempo for rain, temperature and air, and the shorter wind and air windows', () => {
     const expected = {
       weather: { fps: 5.6, stepSeconds: 100, loopFrames: 109, epochs: 175, startHours: -1, endHours: 2 },
-      wind: { fps: 7.5, stepSeconds: 75, loopFrames: 289, epochs: 289, startHours: -1, endHours: 5 },
+      wind: { fps: 7.5, stepSeconds: 75, loopFrames: 193, epochs: 193, startHours: -1, endHours: 3 },
       feels: { fps: 5.6, stepSeconds: 100, loopFrames: 217, epochs: 265, startHours: -1, endHours: 5 },
-      air: { fps: 5.6, stepSeconds: 100, loopFrames: 127, epochs: 190, startHours: -0.5, endHours: 3 },
+      air: { fps: 5.6, stepSeconds: 100, loopFrames: 145, epochs: 205, startHours: -1, endHours: 3 },
     }
     for (const definition of LOOP_MODES) {
       const plan = sequencePlan(definition.mode, manifest)
