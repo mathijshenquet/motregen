@@ -1185,7 +1185,8 @@ td small { color: var(--muted); font-size: 9px; }
   .dashboard { display: flex; flex-direction: column; overflow: hidden; }
   .dashboard > * { flex: none; }
   .forecast-panel { display: flex; min-height: 0; flex: 1 1 0; flex-direction: column; padding-bottom: 0; }
-  .table-scroll { min-height: 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: auto; scrollbar-color: var(--line-strong) transparent; }
+  /* Geen elastische overscroll: die toonde wit onder de gekleurde bronvoet. */
+  .table-scroll { min-height: 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior: none; scrollbar-width: auto; scrollbar-color: var(--line-strong) transparent; }
   .table-scroll::-webkit-scrollbar { width: 12px; }
   .table-scroll::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 999px; background: var(--line-strong) padding-box; }
 }
