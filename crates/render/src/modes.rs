@@ -399,7 +399,9 @@ fn plan_work(
             sources
                 .fields
                 .restore(hit.state.as_deref().unwrap_or_default())?;
-            chain.push((frame.plan.epoch, prediction.key));
+            if frame.plan.loop_frame {
+                chain.push((frame.plan.epoch, prediction.key));
+            }
             return Ok(Work::Cached {
                 plan: frame.plan,
                 key: prediction.key,
@@ -411,7 +413,9 @@ fn plan_work(
     let input = sources.input(frame.plan, frame.simulation_seconds)?;
     let touched = sources.take_touched();
     let prediction = prediction.filter(|prediction| cache.verify(prediction, &touched));
-    if let Some(prediction) = &prediction {
+    if let Some(prediction) = &prediction
+        && frame.plan.loop_frame
+    {
         chain.push((frame.plan.epoch, prediction.key));
     }
     Ok(Work::Render {
@@ -646,7 +650,10 @@ pub fn render(
         let producer = scope.spawn(|| -> Result<u128> {
             let input_sender = input_sender;
             let mut preparation_us = 0;
-            if let (Some(cache), Some(first)) = (&cache, plans.first())
+            // Stills buiten de film staan op een 10-minutenrooster rond "nu" en verspringen per generatie; met een
+            // eigen, verse labeltoestand blijft de keten van de film gelijk tussen generaties (MIP-37).
+            let fresh_state = sources.fields.state()?;
+            if let (Some(cache), Some(first)) = (&cache, plans.iter().find(|plan| plan.loop_frame))
                 && let Some(state) = cache.chain_state(first.epoch - frame_step)?
             {
                 sources.fields.restore(&state)?;
@@ -664,10 +671,20 @@ pub fn render(
                         colors: &colors,
                         clock,
                     };
+                    let film_state = if plan.loop_frame {
+                        None
+                    } else {
+                        let state = sources.fields.state()?;
+                        sources.fields.restore(&fresh_state)?;
+                        Some(state)
+                    };
                     works.push(
                         plan_work(&mut sources, frame, cache.as_ref(), &mut chain)
                             .with_context(|| format!("Preparing map time {}", plan.epoch))?,
                     );
+                    if let Some(state) = film_state {
+                        sources.fields.restore(&state)?;
+                    }
                 }
                 preparation_us += preparation_started.elapsed().as_micros();
                 input_sender.send(works).context("Field painters stopped")?;
