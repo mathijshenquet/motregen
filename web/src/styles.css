@@ -346,7 +346,7 @@ button { color: inherit; cursor: pointer; }
 .about-legal { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.4; }
 /* ECMWF-voorwaarden: de vermelding hoort prominent bij de dagen die erop gebaseerd zijn, dus onder de tabel. */
 /* Voet in de kleur van een daghemel-kop (thead.day-hour zonder bewolking), op kophoogte, en tot de onderrand. */
-.table-source { margin: 0; padding: 18px max(16px, env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); color: #5d7077; text-shadow: 1px 1px 0 rgba(255, 255, 255, .85); background: color-mix(in oklab, var(--table-day-bright) var(--table-day-mix, 44%), #fff); font-size: 10px; line-height: 1.45; text-align: center; }
+.table-source { margin: 0; padding: 18px max(16px, env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); color: #7f9198; text-shadow: 1px 1px 0 rgba(255, 255, 255, .85); background: color-mix(in oklab, var(--table-day-bright) var(--table-day-mix, 44%), #fff); font-size: 10px; line-height: 1.45; text-align: center; }
 .table-source a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .about-body a { color: var(--accent); }
 .update-toast { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 1100; padding: 9px 12px; border: 1px solid var(--line-strong); border-radius: 10px; color: var(--text); background: var(--surface-raised); box-shadow: var(--shadow); font-size: 13px; }
