@@ -20,21 +20,24 @@ describe('table ladder', () => {
     const now = at('2026-10-17T11:00:00Z') // 13:00 lokaal; zon onder ±18:40, zon op morgen ±08:10
     expect(hourlyEnd(now, utrecht)).toBe(localTime('2026-10-18', 9))
     const slots = buildLadder(now, utrecht)
-    expect(summary(slots).slice(0, 4)).toEqual([
-      '2026-10-18 part Ochtend 09–12', '2026-10-18 part Middag 12–18', '2026-10-18 part Avond 18–24', '2026-10-19 day Dag 00–24',
+    expect(summary(slots).slice(0, 6)).toEqual([
+      '2026-10-18 part Ochtend 09–12', '2026-10-18 part Middag 12–18', '2026-10-18 part Avond 18–24', '2026-10-18 part Nacht 00–06',
+      '2026-10-19 day Dag 06–24', '2026-10-20 day Dag 00–24',
     ])
     expect(summary(slots).at(-1)).toBe('2026-10-26 day Dag 00–24')
     // Aaneengesloten: geen gat en geen overlap tussen de rijen.
     for (let index = 1; index < slots.length; index++) expect(slots[index]!.start).toBe(slots[index - 1]!.end)
   })
 
-  it('before sunrise ends the hours after today\'s sunset and shows the rest of today and all of tomorrow in parts', () => {
+  it('before sunrise ends the hours after today\'s sunset; each night follows its evening', () => {
     const now = at('2026-10-17T05:00:00Z') // 07:00 lokaal
     expect(hourlyEnd(now, utrecht)).toBe(localTime('2026-10-17', 19))
-    expect(summary(buildLadder(now, utrecht)).slice(0, 6)).toEqual([
-      '2026-10-17 part Avond 19–24', '2026-10-18 part Nacht 00–06', '2026-10-18 part Ochtend 06–12', '2026-10-18 part Middag 12–18',
-      '2026-10-18 part Avond 18–24', '2026-10-19 day Dag 00–24',
+    const slots = buildLadder(now, utrecht)
+    expect(summary(slots).slice(0, 7)).toEqual([
+      '2026-10-17 part Avond 19–24', '2026-10-17 part Nacht 00–06', '2026-10-18 part Ochtend 06–12', '2026-10-18 part Middag 12–18',
+      '2026-10-18 part Avond 18–24', '2026-10-18 part Nacht 00–06', '2026-10-19 day Dag 06–24',
     ])
+    expect(slots[1]).toMatchObject({ start: localTime('2026-10-18', 0), end: localTime('2026-10-18', 6) })
   })
 
   it('counts the sunrise of the current hour, as the table does with its sun rows', () => {
@@ -56,7 +59,7 @@ describe('table ladder', () => {
     const now = at('2026-10-17T05:00:00Z')
     const slots = buildLadder(now, utrecht)
     const rows = buildSlotRows(now, slots.slice(0, 3), { harmonieEpochs: Array.from({ length: 60 }, (_, index) => at('2026-10-17T03:00:00Z') + index * hour) }, '2026-10-17')
-    expect(rows.map((row) => row.dayStart)).toEqual([undefined, true, undefined])
+    expect(rows.map((row) => row.dayStart)).toEqual([undefined, undefined, true])
     expect(rows.every((row) => row.source === 'harmonie' && row.values === undefined)).toBe(true)
   })
 })
@@ -69,11 +72,11 @@ describe('slot sources', () => {
   const constant = (value: number) => intervals.map(() => value)
 
   it('takes a window from HARMONIE only when HARMONIE covers all of it, else from the ECMWF steps', () => {
-    const slots = buildLadder(now, utrecht).filter((slot) => slot.date === '2026-10-19')
+    const slots = buildLadder(now, utrecht).filter((slot) => slot.date === '2026-10-18' || slot.date === '2026-10-19')
     const rows = buildSlotRows(now, slots, { harmonieEpochs, steps: { intervals } })
-    // Nacht 00–06 (22–04 UTC) ligt binnen HARMONIE; de ochtend loopt tot 10 UTC en HARMONIE stopt om 07.
-    expect(rows.map((row) => `${row.slot.label} ${row.source}`)).toEqual(['Nacht harmonie', 'Ochtend ecmwf', 'Middag ecmwf', 'Avond ecmwf'])
-    expect(rows[0]!.dayStart).toBe(true)
+    // De nacht naar maandag (22–04 UTC) ligt binnen HARMONIE; maandagochtend loopt tot 10 UTC en HARMONIE stopt om 07.
+    expect(rows.map((row) => `${row.slot.label} ${row.source}`)).toEqual(['Avond harmonie', 'Nacht harmonie', 'Ochtend ecmwf', 'Middag ecmwf', 'Avond ecmwf', 'Nacht ecmwf'])
+    expect(rows.map((row) => row.dayStart === true)).toEqual([false, false, true, false, false, false])
   })
 
   it('aggregates loaded steps over a whole calendar day and puts the chance of rain on it', () => {
@@ -91,8 +94,8 @@ describe('slot sources', () => {
   it('shows only day rows from the day fields while there are no steps, and drops what has no source', () => {
     const slots = buildLadder(now, utrecht).filter((slot) => slot.date === '2026-10-19' || slot.date === '2026-10-22')
     const rows = buildSlotRows(now, slots, { harmonieEpochs, days: { dates: ['2026-10-22'], values: { day_tmax_c: [15], day_precip_prob: [40] } } })
-    expect(rows.map((row) => `${row.slot.date} ${row.slot.label}`)).toEqual(['2026-10-19 Nacht', '2026-10-22 Dag'])
-    expect(rows[1]!.values).toMatchObject({ tmax: 15, precipProb: 40, tmin: null })
+    expect(rows.map((row) => `${row.slot.date} ${row.slot.label}`)).toEqual(['2026-10-22 Dag'])
+    expect(rows[0]!.values).toMatchObject({ tmax: 15, precipProb: 40, tmin: null })
   })
 })
 

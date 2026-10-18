@@ -59,25 +59,30 @@ export function hourlyEnd(now: number, location: LadderLocation): number {
   return Math.floor(Math.max(rise.epoch, set.epoch) / hour) * hour + hour
 }
 
-/** De grove rijen na het uurdeel: dagdelen tot en met `partsThroughDay`, dan kalenderdagen tot en met `lastDay`. */
+/**
+ * De grove rijen na het uurdeel: dagdelen tot en met de nacht na `partsThroughDay`, dan dagen tot en met `lastDay`.
+ * Een nacht 00–06 volgt zijn avond en hoort bij die dag, zoals "de nacht van maandag op dinsdag"; de eerste dagrij
+ * begint daarom om 06 uur, de rest loopt van middernacht tot middernacht.
+ */
 export function buildLadder(now: number, location: LadderLocation, ladder: Ladder = TABLE_LADDER): LadderSlot[] {
   const today = localDate(now)
   const slots: LadderSlot[] = []
-  const partsEnd = localTime(addDays(today, ladder.partsThroughDay + 1), 0)
+  const partsEnd = localTime(addDays(today, ladder.partsThroughDay + 1), PART_HOURS)
   let cursor = hourlyEnd(now, location)
   while (cursor < partsEnd) {
-    const date = localDate(cursor)
+    const calendarDate = localDate(cursor)
     const clock = Math.round(localMinutes(cursor) / 60)
     const part = Math.floor(clock / PART_HOURS)
     const partEnd = (part + 1) * PART_HOURS
+    const date = part === 0 ? addDays(calendarDate, -1) : calendarDate
     // Het eerste dagdeel begint waar het uurdeel ophoudt en kan dus korter zijn ("Avond 19–24").
-    slots.push({ start: cursor, end: localTime(date, partEnd), grain: 'part', date, label: PARTS[part]!, range: `${pad(clock)}–${pad(partEnd)}` })
-    cursor = localTime(date, partEnd)
+    slots.push({ start: cursor, end: localTime(calendarDate, partEnd), grain: 'part', date, label: PARTS[part]!, range: `${pad(clock)}–${pad(partEnd)}` })
+    cursor = localTime(calendarDate, partEnd)
   }
-  let date = localDate(cursor)
-  if (localTime(date, 0) < cursor) date = addDays(date, 1)
-  for (; date <= addDays(today, ladder.lastDay); date = addDays(date, 1)) {
-    slots.push({ start: localTime(date, 0), end: localTime(date, 24), grain: 'day', date, label: 'Dag', range: '00–24' })
+  for (let date = localDate(cursor); date <= addDays(today, ladder.lastDay); date = addDays(date, 1)) {
+    const start = Math.max(cursor, localTime(date, 0))
+    const clock = Math.round(localMinutes(start) / 60)
+    slots.push({ start, end: localTime(date, 24), grain: 'day', date, label: 'Dag', range: `${pad(clock)}–24` })
   }
   return slots
 }
