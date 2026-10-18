@@ -289,7 +289,11 @@ impl<'a> Sources<'a> {
         })
     }
 
-    fn key_pair(dataset: &mut Dataset, time: i64, key: &mut crate::frame_cache::KeyBuilder) -> Result<()> {
+    fn key_pair(
+        dataset: &mut Dataset,
+        time: i64,
+        key: &mut crate::frame_cache::KeyBuilder,
+    ) -> Result<()> {
         let blend = frame_blend(&dataset.frames, time);
         let left = dataset.frames[blend.left].clone();
         let right = dataset.frames[blend.right].clone();
@@ -322,13 +326,20 @@ impl<'a> Sources<'a> {
     }
 
     fn datasets(&mut self) -> impl Iterator<Item = &mut Dataset<'a>> {
-        [Some(&mut self.fields.data), self.east.as_mut(), self.north.as_mut(), self.temperatures.as_mut()]
-            .into_iter()
-            .flatten()
+        [
+            Some(&mut self.fields.data),
+            self.east.as_mut(),
+            self.north.as_mut(),
+            self.temperatures.as_mut(),
+        ]
+        .into_iter()
+        .flatten()
     }
 
     fn take_touched(&mut self) -> Vec<Option<crate::frame_cache::Identity>> {
-        self.datasets().flat_map(|data| data.take_touched()).collect()
+        self.datasets()
+            .flat_map(|data| data.take_touched())
+            .collect()
     }
 }
 
@@ -376,7 +387,9 @@ fn plan_work(
             state: true,
         };
         if let Some(hit) = cache.lookup(prediction.key, parts)? {
-            sources.fields.restore(hit.state.as_deref().unwrap_or_default())?;
+            sources
+                .fields
+                .restore(hit.state.as_deref().unwrap_or_default())?;
             chain.push((frame.plan.epoch, prediction.key));
             return Ok(Work::Cached {
                 plan: frame.plan,
@@ -445,10 +458,7 @@ impl Work {
                 if let Some(cache) = cache {
                     cache.rendered(prediction.as_ref());
                     if let Some(prediction) = &prediction {
-                        let still = output
-                            .still
-                            .as_ref()
-                            .map(|file| directory.join(&file.file));
+                        let still = output.still.as_ref().map(|file| directory.join(&file.file));
                         cache.store(
                             prediction.key,
                             output.rgb.as_deref(),
@@ -651,9 +661,7 @@ pub fn render(
                     );
                 }
                 preparation_us += preparation_started.elapsed().as_micros();
-                input_sender
-                    .send(works)
-                    .context("Field painters stopped")?;
+                input_sender.send(works).context("Field painters stopped")?;
             }
             Ok(preparation_us)
         });

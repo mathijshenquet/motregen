@@ -405,8 +405,10 @@ impl ModeCache<'_> {
     /// Records this generation's chain, then removes this mode's files that no recent generation used.
     pub fn finish(&self, chain: &[(i64, Key)]) -> Result<Report> {
         if !chain.is_empty() {
-            let index: BTreeMap<i64, String> =
-                chain.iter().map(|(epoch, key)| (*epoch, key.hex())).collect();
+            let index: BTreeMap<i64, String> = chain
+                .iter()
+                .map(|(epoch, key)| (*epoch, key.hex()))
+                .collect();
             self.cache
                 .write_atomic(&self.chain_name(), &serde_json::to_vec(&index)?)?;
         }
@@ -457,5 +459,151 @@ fn remove_if_present(path: &Path) -> Result<()> {
     match fs::remove_file(path) {
         Err(error) if error.kind() != std::io::ErrorKind::NotFound => Err(error.into()),
         _ => Ok(()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn cache() -> (tempfile::TempDir, FrameCache) {
+        let directory = tempfile::tempdir().unwrap();
+        let basemaps = directory.path().join("basemaps");
+        fs::create_dir_all(&basemaps).unwrap();
+        fs::write(basemaps.join("light.png"), b"plate").unwrap();
+        let cache = FrameCache::open(&directory.path().join("frames"), &basemaps, 1 << 30).unwrap();
+        (directory, cache)
+    }
+
+    fn rgb(seed: u8) -> Vec<u8> {
+        let size = &constants().size;
+        (0..size.width * size.height * 3)
+            .map(|index| (index as u8).wrapping_mul(seed))
+            .collect()
+    }
+
+    fn prediction(mode: &ModeCache, epoch: i64, source: Option<Identity>) -> Option<Prediction> {
+        let mut key = mode.key();
+        key.number(epoch).source(source);
+        key.finish()
+    }
+
+    #[test]
+    fn keys_follow_every_input_and_missing_hashes_are_uncacheable() {
+        let (_directory, cache) = cache();
+        let weather = cache.mode("weather");
+        let base = prediction(&weather, 1, Some([1; 32])).unwrap().key;
+        assert_eq!(base, prediction(&weather, 1, Some([1; 32])).unwrap().key);
+        assert_ne!(base, prediction(&weather, 2, Some([1; 32])).unwrap().key);
+        assert_ne!(base, prediction(&weather, 1, Some([2; 32])).unwrap().key);
+        assert_ne!(
+            base,
+            prediction(&cache.mode("wind"), 1, Some([1; 32]))
+                .unwrap()
+                .key
+        );
+        assert!(prediction(&weather, 1, None).is_none());
+    }
+
+    #[test]
+    fn stored_frames_come_back_bytewise_and_are_written_once() {
+        let (directory, cache) = cache();
+        let weather = cache.mode("weather");
+        let key = prediction(&weather, 1, Some([1; 32])).unwrap().key;
+        let parts = Parts {
+            rgb: true,
+            still: true,
+            state: true,
+        };
+        assert!(weather.lookup(key, parts).unwrap().is_none());
+        let still = directory.path().join("still.jpg");
+        fs::write(&still, b"jpeg").unwrap();
+        let frame = rgb(7);
+        weather
+            .store(key, Some(&frame), Some(&still), Some(b"state"))
+            .unwrap();
+        let written = weather.written.load(Ordering::Relaxed);
+        assert!(written > 0 && written < frame.len() as u64);
+        weather
+            .store(key, Some(&frame), Some(&still), Some(b"state"))
+            .unwrap();
+        assert_eq!(weather.written.load(Ordering::Relaxed), written);
+        let hit = weather.lookup(key, parts).unwrap().unwrap();
+        assert_eq!(weather.restore(key, &hit.rgb.unwrap()).unwrap(), frame);
+        assert_eq!(hit.state.unwrap(), b"state");
+        let copy = directory.path().join("copy.jpg");
+        weather.copy_still(key, &copy).unwrap();
+        assert_eq!(fs::read(copy).unwrap(), b"jpeg");
+    }
+
+    #[test]
+    fn a_frame_needs_every_requested_part_and_corrupt_pixels_are_removed() {
+        let (_directory, cache) = cache();
+        let feels = cache.mode("feels");
+        let key = prediction(&feels, 1, Some([1; 32])).unwrap().key;
+        feels.store(key, None, None, Some(b"state")).unwrap();
+        let loop_frame = Parts {
+            rgb: true,
+            still: false,
+            state: true,
+        };
+        assert!(feels.lookup(key, loop_frame).unwrap().is_none());
+        fs::write(feels.path(&feels.name(key, "rgb")), b"not zstd").unwrap();
+        let hit = feels.lookup(key, loop_frame).unwrap().unwrap();
+        assert!(feels.restore(key, &hit.rgb.unwrap()).is_err());
+        assert!(feels.lookup(key, loop_frame).unwrap().is_none());
+    }
+
+    #[test]
+    fn verification_rejects_frames_that_read_unpredicted_sources() {
+        let (_directory, cache) = cache();
+        let wind = cache.mode("wind");
+        let prediction = prediction(&wind, 1, Some([1; 32])).unwrap();
+        assert!(wind.verify(&prediction, &[Some([1; 32]), Some([1; 32])]));
+        assert!(!wind.verify(&prediction, &[Some([1; 32]), Some([2; 32])]));
+        assert!(!wind.verify(&prediction, &[None]));
+        assert_eq!(wind.mismatches.load(Ordering::Relaxed), 2);
+    }
+
+    #[test]
+    fn the_chain_hands_label_state_to_the_next_generation() {
+        let (_directory, cache) = cache();
+        let wind = cache.mode("wind");
+        let key = prediction(&wind, 75_000, Some([1; 32])).unwrap().key;
+        wind.store(key, None, None, Some(b"after 75000")).unwrap();
+        wind.finish(&[(75_000, key)]).unwrap();
+        let next = cache.mode("wind");
+        assert_eq!(next.chain_state(75_000).unwrap().unwrap(), b"after 75000");
+        assert!(next.chain_state(150_000).unwrap().is_none());
+        assert!(next.finish(&[]).unwrap().resumed_chain);
+    }
+
+    #[test]
+    fn cleanup_keeps_recent_files_and_enforces_the_hard_limit() {
+        let (directory, mut cache) = cache();
+        let weather = cache.mode("weather");
+        let old = prediction(&weather, 1, Some([1; 32])).unwrap().key;
+        let recent = prediction(&weather, 2, Some([1; 32])).unwrap().key;
+        weather.store(old, Some(&rgb(3)), None, None).unwrap();
+        weather.store(recent, Some(&rgb(5)), None, None).unwrap();
+        let old_path = weather.path(&weather.name(old, "rgb"));
+        let recent_path = weather.path(&weather.name(recent, "rgb"));
+        let stale = SystemTime::now() - Duration::from_secs(3600);
+        File::options()
+            .append(true)
+            .open(&old_path)
+            .unwrap()
+            .set_modified(stale)
+            .unwrap();
+        drop(weather);
+        cache.used.lock().unwrap().clear();
+        let report = cache.mode("weather").finish(&[]).unwrap();
+        assert_eq!(report.removed_files, 1);
+        assert!(!old_path.exists() && recent_path.exists());
+        cache.used.lock().unwrap().clear();
+        cache.limit_bytes = 0;
+        cache.mode("weather").finish(&[]).unwrap();
+        assert!(!recent_path.exists());
+        drop(directory);
     }
 }

@@ -159,7 +159,10 @@ impl<'a> Dataset<'a> {
     }
 
     pub fn take_touched(&mut self) -> Vec<Option<Identity>> {
-        self.touched.as_mut().map(std::mem::take).unwrap_or_default()
+        self.touched
+            .as_mut()
+            .map(std::mem::take)
+            .unwrap_or_default()
     }
 
     fn touch(&mut self, frame: &TimelineFrame) -> Result<()> {

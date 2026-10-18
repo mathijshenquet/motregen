@@ -38,7 +38,10 @@ struct Arguments {
     manifest: Option<PathBuf>,
     #[arg(long, help = "PO clock prototype: schuif or klap")]
     clock_variant: Option<render_core::clock::ClockTransition>,
-    #[arg(long, help = "Reuse frames across generations from this directory (MIP-37)")]
+    #[arg(
+        long,
+        help = "Reuse frames across generations from this directory (MIP-37)"
+    )]
     frame_cache: Option<PathBuf>,
     #[arg(long, default_value_t = 3072, help = "Frame cache size limit in MiB")]
     frame_cache_limit_mb: u64,
