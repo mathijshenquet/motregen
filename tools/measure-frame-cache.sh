@@ -23,11 +23,11 @@ mkdir -p "$work"
 render() { # naam snapshot [cachemap]
   local started ended executable="$binary" cache=()
   if [[ -n ${3:-} ]]; then cache=(--frame-cache "$3"); else executable="$MOTREGEN_BASELINE_BIN"; fi
-  started=$(date +%s%N)
-  taskset -c 0,1 "$executable" --mode all --modes "${MOTREGEN_MODES:-weather,wind,feels,air}" --data-dir "$2" --basemap-dir "$basemaps" \
-    --out-dir "$work/$1" "${cache[@]}" > "$work/$1.json"
-  ended=$(date +%s%N)
-  echo "$1 $(( (ended - started) / 1000000 ))" >> "$work/wall.txt"
+  local TIMEFORMAT="%R %U %S"
+  # Wand, user en sys in seconden; op de 2 vcores van de VM telt vooral de CPU-tijd.
+  { time taskset -c 0,1 "$executable" --mode all --modes "${MOTREGEN_MODES:-weather,wind,feels,air}" --data-dir "$2" \
+      --basemap-dir "$basemaps" --out-dir "$work/$1" "${cache[@]}" > "$work/$1.json"; } 2> "$work/$1.time"
+  echo "$1 $(cat "$work/$1.time")" >> "$work/wall.txt"
 }
 
 for run in $(seq 1 "$repeats"); do

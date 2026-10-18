@@ -8,7 +8,12 @@ from pathlib import Path
 
 work = Path(sys.argv[1])
 repeats = int(sys.argv[2])
-walls = dict(line.split() for line in (work / "wall.txt").read_text().splitlines())
+walls = {}
+cpus = {}
+for line in (work / "wall.txt").read_text().splitlines():
+    name, wall, user, system = line.split()
+    walls[name] = float(wall)
+    cpus[name] = float(user) + float(system)
 
 
 def media(name):
@@ -22,8 +27,9 @@ def median(values):
 labels = ["koud-a", "warm-b", "koud-b"] + (["basis-b"] if "basis-b-1" in walls else [])
 for label in labels:
     runs = [media(f"{label}-{run}") for run in range(1, repeats + 1)]
-    wall = median(int(walls[f"{label}-{run}"]) for run in range(1, repeats + 1))
-    print(f"{label}: generatie {wall / 1000:.2f} s wand (mediaan van {repeats})")
+    wall = median(walls[f"{label}-{run}"] for run in range(1, repeats + 1))
+    cpu = median(cpus[f"{label}-{run}"] for run in range(1, repeats + 1))
+    print(f"{label}: generatie {wall:.2f} s wand, {cpu:.2f} s CPU (mediaan van {repeats})")
     for mode in sorted(runs[0]["modes"]):
         total = median(run["modes"][mode]["total_ms"] for run in runs)
         cache = runs[0]["modes"][mode].get("cache")
