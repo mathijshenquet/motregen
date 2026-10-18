@@ -80,10 +80,10 @@ class Quarters:
         return 15 * np.bincount(self.rows, weights=share * self.possible, minlength=self.row_count)
 
 
-def add_clear_direct(frame: pd.DataFrame) -> pd.DataFrame:
+def add_clear_direct(frame: pd.DataFrame, substeps: int = SUBSTEPS) -> pd.DataFrame:
     """Uurgemiddelde directe horizontale straling bij heldere hemel (Haurwitz + Erbs), op dezelfde substappen."""
     hour_end = (frame["hour_end"] - pd.Timestamp("1970-01-01")).dt.total_seconds().to_numpy()
-    offsets = (np.arange(SUBSTEPS) + 0.5) / SUBSTEPS * 3600 - 3600
+    offsets = (np.arange(substeps) + 0.5) / substeps * 3600 - 3600
     mu = solar_elevation_sin(hour_end[:, None] + offsets[None, :], frame["lon"].to_numpy()[:, None], frame["lat"].to_numpy()[:, None])
     day_of_year = frame["hour_end"].dt.dayofyear.to_numpy()[:, None]
     extraterrestrial = SOLAR_CONSTANT * (1 + 0.033 * np.cos(2 * np.pi * day_of_year / 365))
@@ -119,15 +119,26 @@ def load_icon_d2(stations: pd.DataFrame, observations: pd.DataFrame, normals: pd
     return frame
 
 
+def joint_direct_fit(train: pd.DataFrame) -> np.ndarray:
+    """Eén paar D1-grenzen voor beide leads samen: de app kent de lead van een uur niet apart."""
+    truth = np.concatenate([train["sunshine_min"].to_numpy()] * len(LEADS))
+    direct = {lead: train[f"{lead}_direct_wm2"].to_numpy(dtype=float) for lead in LEADS}
+    return grid_fit(
+        lambda p: mae(np.concatenate([direct_ramp_estimate(train, direct[lead], p[0], p[1]) for lead in LEADS]), truth) if p[1] > p[0] else np.inf,
+        np.arange(0.0, 0.81, 0.02), np.arange(0.1, 1.31, 0.02),
+    )
+
+
 class IconEstimators:
     """Fit per lead op de trainingsdagen: S1 opnieuw op ICON-D2, de directe overgang en een menging van de twee."""
 
-    def __init__(self, train: pd.DataFrame, lead: str, harmonie: Estimators):
+    def __init__(self, train: pd.DataFrame, lead: str, harmonie: Estimators, joint_direct: np.ndarray):
         truth = train["sunshine_min"].to_numpy()
         global_radiation = train[f"{lead}_global_wm2"].to_numpy(dtype=float)
         direct = train[f"{lead}_direct_wm2"].to_numpy(dtype=float)
         self.lead = lead
         self.harmonie = harmonie
+        self.joint_direct = joint_direct
         self.global_ramp = grid_fit(
             lambda p: mae(ramp_estimate(train, global_radiation, p[0], p[1]), truth) if p[1] > p[0] else np.inf,
             np.arange(0.0, 0.91, 0.02), np.arange(0.3, 1.21, 0.02),
@@ -158,6 +169,7 @@ class IconEstimators:
             "S1 op ICON-D2-globaal, opnieuw gefit": refit,
             "D1 directe overgang (gefit)": direct_estimate,
             "D2 menging S1/D1 (gefit)": self.blend * refit + (1 - self.blend) * direct_estimate,
+            "D1 met de app-grenzen (beide leads samen gefit)": direct_ramp_estimate(frame, direct, *self.joint_direct),
             "Open-Meteo icon_d2 (DNI-drempel)": frame[f"{self.lead}_openmeteo_min"].to_numpy(dtype=float),
             "B1 klimatologie": frame["climatology"].to_numpy(),
         }
@@ -188,6 +200,49 @@ def harmonie_reference(observations: pd.DataFrame, stations: pd.DataFrame, norma
         *segment_table(joined, estimates, pd.Series(season(joined)), list(estimates)),
         "",
     ]
+
+
+def lead_matched(observations: pd.DataFrame, stations: pd.DataFrame, normals: pd.DataFrame, sun_threshold: float, icon: pd.DataFrame, harmonie_estimators: Estimators, joint_direct: np.ndarray) -> list[str]:
+    """HARMONIE en ICON-D2 op dezelfde stationsuren én ongeveer dezelfde lead.
+
+    harmonie-kort: runs 03…18 UTC om de 4 dagen, leads +1…+3. harmonie-dag1: alle 3-uursruns om de 4 dagen, leads
+    +24…+26 (lead 27 valt samen met lead 24 van de volgende run en telt niet dubbel).
+    """
+    keys = ["station", "hour_end"]
+    icon_columns = [*keys, "clear_direct", *[f"{lead}_{kind}" for lead in LEADS for kind in ["global_wm2", "direct_wm2", "openmeteo_min"]]]
+    lines = ["## Gelijke lead: HARMONIE naast ICON-D2 op dezelfde stationsuren", ""]
+    for directory, lead, leads, description in [
+        ("harmonie-kort", "kort", range(1, 4), "korte termijn: HARMONIE +1…+3, ICON-D2 ≈ +0…+3"),
+        ("harmonie-dag1", "dag1", range(24, 27), "een dag vooruit: HARMONIE +24…+26, ICON-D2 ≈ +24…+27"),
+    ]:
+        if not (DATA / directory).is_dir():
+            lines += [f"({directory} ontbreekt; draai fetch_harmonie.py zoals in run.sh)", ""]
+            continue
+        harmonie = load_harmonie(DATA / directory, "block")
+        harmonie = harmonie[harmonie["lead"].isin(list(leads))]
+        frame = prepare(harmonie, observations, stations, normals, sun_threshold)
+        frame = frame.merge(icon[icon_columns], on=keys, how="inner").reset_index(drop=True)
+        frame["run_day"] = frame["hour_end"].dt.normalize()
+        direct = frame[f"{lead}_direct_wm2"].to_numpy(dtype=float)
+        estimates = {
+            "S1 op HARMONIE (zoals nu in de app)": harmonie_estimators.apply(frame)["S1 k-overgang (gefit)"],
+            "S1 op ICON-D2-globaal, HARMONIE-parameters": harmonie_estimators.s1(frame, frame[f"{lead}_global_wm2"].to_numpy(dtype=float)),
+            "D1 op ICON-D2-direct, app-grenzen": direct_ramp_estimate(frame, direct, *joint_direct),
+            "B1 klimatologie": frame["climatology"].to_numpy(),
+        }
+        lines += [
+            f"### {description}",
+            "",
+            f"{len(frame)} stationsuren, {frame['run_day'].nunique()} dagen.",
+            "",
+            *score_table(frame, estimates),
+            "",
+            "Per seizoen (MAE / bias, min/u):",
+            "",
+            *segment_table(frame, estimates, pd.Series(season(frame)), list(estimates)),
+            "",
+        ]
+    return lines
 
 
 def main() -> int:
@@ -225,8 +280,10 @@ def main() -> int:
     ]
     sections = []
     truth = icon["sunshine_min"].to_numpy()
+    joint_direct = joint_direct_fit(train)
+    out.append(f"- D1 app-grenzen (beide leads samen): b_laag = {joint_direct[0]:.3f}, b_hoog = {joint_direct[1]:.3f}")
     for lead, description in LEADS.items():
-        estimators = IconEstimators(train, lead, harmonie_estimators)
+        estimators = IconEstimators(train, lead, harmonie_estimators, joint_direct)
         out += [f"- {line}" for line in estimators.parameters()]
         estimates = estimators.apply(test)
         for kind, name, axes in [
@@ -251,6 +308,7 @@ def main() -> int:
             "",
         ]
     out += ["", *sections]
+    out += lead_matched(observations_2026, stations, normals, sun_threshold, icon, harmonie_estimators, joint_direct)
     out += harmonie_reference(observations_2026, stations, normals, sun_threshold, icon, harmonie_estimators)
     out += [
         "Vaardigheid = 1 − MAE/MAE(klimatologie). Klimatologie = gemiddelde SQ per station, maand en uur, "

@@ -1,5 +1,5 @@
-export type Source = 'rtcor' | 'nowcast' | 'seamless' | 'harmonie' | 'uv' | 'ecmwf'
-export type Field = 'rain_rate' | 'radiation' | 'temp_c' | 'feels_like_c' | 'wind_u_ms' | 'wind_v_ms' | 'uv' | 'uv_clear' | 'rel_humidity' | 'cloud_frac' | 'pressure_hpa' | 'gust_ms' | 'cloud_low' | 'cloud_mid' | 'cloud_high' | EcmwfDayField | EcmwfStepField
+export type Source = 'rtcor' | 'nowcast' | 'seamless' | 'harmonie' | 'uv' | 'ecmwf' | 'icon_d2'
+export type Field = 'rain_rate' | 'radiation' | 'radiation_direct' | 'temp_c' | 'feels_like_c' | 'wind_u_ms' | 'wind_v_ms' | 'uv' | 'uv_clear' | 'rel_humidity' | 'cloud_frac' | 'pressure_hpa' | 'gust_ms' | 'cloud_low' | 'cloud_mid' | 'cloud_high' | EcmwfDayField | EcmwfStepField
 export type EcmwfStepField = 'step_tmax_c' | 'step_tmin_c' | 'step_precip_mm' | 'step_gust_ms' | 'step_temp_c' | 'step_wind_u_ms' | 'step_wind_v_ms' | 'step_cloud'
 export type EcmwfDayField = 'day_tmax_c' | 'day_tmin_c' | 'day_precip_mm' | 'day_precip_prob' | 'day_precip_prob5' | 'day_wind_ms' | 'day_wind_dir' | 'day_gust_ms' | 'day_cloud'
 

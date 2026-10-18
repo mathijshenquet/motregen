@@ -54,7 +54,7 @@ const pressureQuant = linearQuant(940, 1067)
 const gustQuant = linearQuant(0, 127)
 const cloudLayerQuant = linearQuant(0, 1270)
 
-interface ChunkPlan { name: string; source: Source; field: Exclude<Field, EcmwfDayField | EcmwfStepField>; run: number; times: number[] }
+interface ChunkPlan { name: string; source: Source; field: Exclude<Field, EcmwfDayField | EcmwfStepField | 'radiation_direct'>; run: number; times: number[] }
 const plans: ChunkPlan[] = []
 for (let hour = -3; hour < 0; hour++) plans.push({
   name: `rtcor-${iso(now + hour * 3_600_000).replaceAll(/[-:]/g, '').slice(0, 13)}.mrf`,
@@ -165,7 +165,7 @@ function makeUvFrame(epoch: number, clearSky = false): Uint8Array {
   return values
 }
 
-function makeWeatherFrame(epoch: number, field: Exclude<Field, 'rain_rate' | 'radiation' | 'uv' | 'uv_clear' | EcmwfDayField | EcmwfStepField>): Uint8Array {
+function makeWeatherFrame(epoch: number, field: Exclude<Field, 'rain_rate' | 'radiation' | 'radiation_direct' | 'uv' | 'uv_clear' | EcmwfDayField | EcmwfStepField>): Uint8Array {
   const values = new Uint8Array(grid.width * grid.height)
   const hour = (epoch - now) / 3_600_000
   for (let y = 0; y < grid.height; y++) for (let x = 0; x < grid.width; x++) {

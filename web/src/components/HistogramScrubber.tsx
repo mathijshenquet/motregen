@@ -7,7 +7,7 @@ import type { RainLook } from '../core/rain-palette'
 import { SCRUBBER_CURSOR_FRACTION, SCRUBBER_VIEW_HOURS, seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor, timelineZones } from '../core/time-model'
 import { cloudModification } from '../core/uv'
 import { sunEventsAlong } from '../core/solar'
-import { SUNSHINE_SUN_ELEVATION_DEGREES, sunshineFraction, sunshineLabel, sunshineMinutes } from '../core/sunshine'
+import { SUNSHINE_SUN_ELEVATION_DEGREES, sunshineFraction, sunshineInputs, sunshineLabel, sunshineMinutes } from '../core/sunshine'
 import SunGlyph from './SunGlyph'
 import { summarizeWind, WIND_UNIT_LABELS, type WindUnit } from '../core/weather'
 import { BEAUFORT_STOPS, windColor } from '../core/wind-layer'
@@ -54,7 +54,8 @@ interface Props {
    * op de cursortijd; zolang de hemel achter de grafiek staat kiest elke staaf zelf dag of nacht.
    */
   rainLook?: RainLook
-  sky?: { radiation: { timeline: TimelineFrame[]; values: Array<number | null> }; sinElevation: (epoch: number) => number }
+  /** HARMONIE-straling voor hemel en zon; `direct` is de ICON-D2-straling voor de zon in Lucht (MIP-39). */
+  sky?: { radiation: { timeline: TimelineFrame[]; values: Array<number | null> }; direct?: { timeline: TimelineFrame[]; values: Array<number | null> }; sinElevation: (epoch: number) => number }
   /** Totale bewolking als één band boven het regenhistogram, in de weermodus (PO 2026-09-25 live, U34). */
   cloudCover?: { timeline: TimelineFrame[]; values: Array<number | null> }
   /** Tijdens gelijkmatig afspelen: epoch-ms per ms; de baan schuift dan op de compositor (U41). */
@@ -257,15 +258,15 @@ export default function HistogramScrubber(props: Props) {
     })
   })
   const sunTop = (minutes: number) => plotHeight() * (1 - SUN_CHART_HEIGHT_SHARE * Math.min(1, minutes / 60))
+  const sun = createMemo(() => props.sky && sunshineInputs(props.sky.radiation, props.sky.direct, props.sky.sinElevation))
   // Eén staaf per uurvak [T − 1 u, T] met het stralingsuurgemiddelde dat op T eindigt; geen staaf waar de zon onder is.
   const sunBars = scrubMemo('zonstaven', () => {
-    const inputs = props.sky
+    const inputs = sun()
     if (!inputs || !sunVisible()) return []
-    const radiationByEpoch = new Map(inputs.radiation.timeline.map((frame, index) => [frame.epoch, inputs.radiation.values[index]]))
     const gap = HOUR * pxPerMs() > 6 ? 1.5 : 1
     const result: Array<{ x: number; width: number; top: number; minutes: number; past: boolean; end: number }> = []
     for (let end = Math.ceil(timelineStart() / HOUR) * HOUR + HOUR; end <= timelineEnd(); end += HOUR) {
-      const minutes = sunshineMinutes(end, radiationByEpoch.get(end), inputs.sinElevation)
+      const minutes = sunshineMinutes(end, inputs)
       if (minutes == null || minutes <= 0) continue
       const left = xAt(end - HOUR)
       const width = Math.max(1.2, xAt(end) - left - gap)
@@ -275,13 +276,12 @@ export default function HistogramScrubber(props: Props) {
   })
   // Per kwartier: het deel van de tijd met zon (0–1), voor de proefweergaven kwartier/vlak.
   const sunQuarters = scrubMemo('zonkwartieren', () => {
-    const inputs = props.sky
+    const inputs = sun()
     if (!inputs || !sunVisible() || SUN_STYLE === 'uur') return []
-    const radiationByEpoch = new Map(inputs.radiation.timeline.map((frame, index) => [frame.epoch, inputs.radiation.values[index]]))
     const result: Array<{ epoch: number; x: number; fraction: number }> = []
     for (let start = Math.ceil(timelineStart() / QUARTER) * QUARTER; start + QUARTER <= timelineEnd(); start += QUARTER) {
       const middle = start + QUARTER / 2
-      const fraction = sunshineFraction(middle, (end) => radiationByEpoch.get(end), inputs.sinElevation)
+      const fraction = sunshineFraction(middle, inputs)
       if (fraction == null) continue
       result.push({ epoch: start, x: xAt(middle), fraction })
     }
@@ -297,9 +297,8 @@ export default function HistogramScrubber(props: Props) {
   // Vloeiend vlak zoals de temperatuur (PO 2026-10-18: "minder knikkig"): per daglichtperiode een monotone curve
   // door de uurwaarden op het midden van hun uur, vanaf nul bij zon op tot nul bij zon onder.
   const sunArea = createMemo(() => {
-    const inputs = props.sky
+    const inputs = sun()
     if (!inputs || !sunVisible() || SUN_STYLE === 'uur' || SUN_STYLE === 'kwartier') return { runs: [] as Array<Array<[number, number]>>, fill: [] as string[], line: [] as string[] }
-    const radiationByEpoch = new Map(inputs.radiation.timeline.map((frame, index) => [frame.epoch, inputs.radiation.values[index]]))
     const runs: Array<Array<[number, number]>> = []
     let run: Array<[number, number]> = []
     for (let start = Math.floor(timelineStart() / QUARTER) * QUARTER; start <= timelineEnd(); start += QUARTER) {
@@ -312,7 +311,7 @@ export default function HistogramScrubber(props: Props) {
       // Uurwaarden op het midden van hun uur: het kwartier dat op :15 begint ligt op :30 na zijn middenpunt.
       if (new Date(start).getUTCMinutes() === 15) {
         const end = start + 45 * 60_000
-        const minutes = sunshineMinutes(end, radiationByEpoch.get(end), inputs.sinElevation)
+        const minutes = sunshineMinutes(end, inputs)
         if (minutes != null) run.push([xAt(start + QUARTER), sunTop(minutes)])
       }
     }

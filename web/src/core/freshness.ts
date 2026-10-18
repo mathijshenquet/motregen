@@ -40,6 +40,8 @@ const SOURCE_ROWS: Array<Omit<SourceFreshness, 'epoch'>> = [
   { source: 'uv', label: 'UV', kind: 'run', cadence: 'elk kwartier', provider: 'KNMI UV-index', explanation: 'Zonkracht met en zonder wolken', cadenceMs: 15 * MINUTE, delayMs: 0 },
   // Runs 00 en 12 UTC; de ingest-timer draait om 08:15/20:15 UTC, ruim na de ENS-kansen van 08:01/20:01 (docs/ecmwf.md).
   { source: 'ecmwf', label: 'ECMWF', kind: 'run', cadence: 'elke 12 uur', provider: 'ECMWF IFS (open data)', explanation: 'Europees weermodel voor de dagen na HARMONIE, tien dagen vooruit', cadenceMs: 720 * MINUTE, delayMs: 500 * MINUTE },
+  // Runs elke 3 uur, compleet ~1 u 20 min na de runtijd; de timer draait om 01:35, 04:35, … UTC (docs/icon-d2.md).
+  { source: 'icon_d2', label: 'ICON-D2', kind: 'run', cadence: 'elke 3 uur', provider: 'DWD ICON-D2 (open data)', explanation: 'Duits weermodel voor de zon in Lucht, 48 uur vooruit', cadenceMs: 180 * MINUTE, delayMs: 95 * MINUTE },
 ]
 
 /** Wanneer de volgende meting/run ongeveer binnenkomt. */
