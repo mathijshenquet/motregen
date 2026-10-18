@@ -739,6 +739,7 @@ button { color: inherit; cursor: pointer; }
 .cursor-readout.below span { top: 5px; bottom: auto; }
 .cursor-tags { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
 .cursor-tags span { position: absolute; padding: 1px 5px; border-radius: 6px; color: var(--cursor-ink); background: color-mix(in srgb, var(--cursor-surface) 85%, transparent); font-size: 10px; font-weight: 700; white-space: nowrap; transform: translate(6px, -50%); }
+.cursor-tags span.left-of-cursor { transform: translate(calc(-100% - 6px), -50%); }
 .cloud-labels span { position: absolute; left: 6px; transform: translateY(-50%); color: color-mix(in srgb, var(--muted) 80%, transparent); font-size: 9px; font-weight: 700; letter-spacing: .04em; }
 :root:not([data-theme="dark"]) .rain-bars { filter: brightness(.86) saturate(1.35); }
 .rain-bar { animation: rain-bar-in .45s ease-out both; }

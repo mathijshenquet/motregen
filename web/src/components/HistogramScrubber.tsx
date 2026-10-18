@@ -148,6 +148,8 @@ const SLIDE_DURATION_MS = 120_000
 const RULER_HEIGHT_PX = 26
 // Breedte die het tijdlabel links van de cursorlijn nodig heeft ("23:59" op 11 px plus marge).
 const CURSOR_TIME_ROOM_PX = 56
+// Ruimte links van de cursor voor een wolkenlabel ("midden wolken 100%"); anders blijft het rechts.
+const CLOUD_TAG_ROOM_PX = 118
 // Onder dit daglicht krijgt de liniaal lichte inkt op een donkere sluier (U62).
 const RULER_NIGHT_DAYLIGHT = 0.5
 
@@ -519,6 +521,8 @@ export default function HistogramScrubber(props: Props) {
     const bar = sunBars().find((candidate) => candidate.end === end)
     return bar && { y: bar.top, text: sunshineLabel(bar.minutes, SUN_LABEL_STEP_MINUTES) }
   })
+  // In Lucht staat het zonlabel rechts van de cursor; de wolkenlabels wijken dan naar links uit (PO 2026-10-18).
+  const cloudTagsLeft = () => view() === 'air' && !!cursorSun() && cursorX() > CLOUD_TAG_ROOM_PX
   const cursorLayers = createMemo(() => {
     const clouds = props.clouds
     if (!clouds) return []
@@ -946,7 +950,7 @@ export default function HistogramScrubber(props: Props) {
         {/* Waarden bij de cursor i.p.v. een y-as (PO 2026-09-25 live). */}
         <Show when={!props.loading && airMix() > 0 && baseOpacity() > 0}>
           <div class="cursor-tags" style={{ opacity: Math.min(airMix(), baseOpacity()) }} aria-hidden="true"><For each={cursorLayers()}>{(tag) =>
-            <span style={{ left: `${cursorX()}px`, top: `${tag.y}px` }}>{tag.text}</span>
+            <span classList={{ 'left-of-cursor': cloudTagsLeft() }} style={{ left: `${cursorX()}px`, top: `${tag.y}px` }}>{tag.text}</span>
           }</For></div>
         </Show>
         <Show when={!props.loading && coverOpacity() > 0 && cursorCover()}>{(tag) =>
