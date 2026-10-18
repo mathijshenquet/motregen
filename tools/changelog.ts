@@ -6,7 +6,8 @@ export const repositoryRoot = resolve(import.meta.dirname, '..')
 export const versionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/
 export const maxMediaBytes = 2_000_000
 export interface ChangeMedia { file: string; caption: string }
-export interface ChangeNote { slug: string; title: string; kind: 'nieuw' | 'beter' | 'opgelost'; body: string; media: ChangeMedia[] }
+/** `goedgekeurd`: datum waarop de PO het beeld koos (emoji op een concept); `tools/release.sh` eist hem. */
+export interface ChangeNote { slug: string; title: string; kind: 'nieuw' | 'beter' | 'opgelost'; body: string; media: ChangeMedia[]; goedgekeurd?: string }
 export interface Release { version: string; date: string; notes: ChangeNote[] }
 
 function scalar(value: string): string {
@@ -84,8 +85,10 @@ export function validateMedia(root: string, media: ChangeMedia, probe = true): v
 export function readNote(root: string, directory: string, slug: string, probe = true): ChangeNote {
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*\.md$/.test(slug) || slug === 'index.md') throw new Error(`Ongeldige notitienaam: ${slug}`)
   const { header, body } = fields(readFileSync(resolve(root, 'changes', directory, slug), 'utf8'))
-  exactFields(header, ['title', 'kind', 'media'])
+  exactFields(header, ['title', 'kind', 'media', 'goedgekeurd'])
   const title = requiredText(header.title, 'titel', 160)
+  const goedgekeurd = header.goedgekeurd === undefined ? undefined : String(header.goedgekeurd)
+  if (goedgekeurd !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(goedgekeurd)) throw new Error(`${slug}: goedgekeurd moet JJJJ-MM-DD zijn`)
   if (!['nieuw', 'beter', 'opgelost'].includes(String(header.kind))) throw new Error(`Onbekend soort: ${header.kind}`)
   requiredText(body, 'notitie', 1500)
   const media = (header.media ?? []) as ChangeMedia[]
@@ -96,7 +99,7 @@ export function readNote(root: string, directory: string, slug: string, probe = 
     requiredText(item.caption, 'bijschrift', 1024)
     validateMedia(root, item, probe)
   }
-  return { slug, title, kind: header.kind as ChangeNote['kind'], body, media }
+  return { slug, title, kind: header.kind as ChangeNote['kind'], body, media, ...(goedgekeurd && { goedgekeurd }) }
 }
 
 export function noteFiles(root: string, directory: string): string[] {
@@ -133,6 +136,9 @@ export function readReleases(root = repositoryRoot, probe = true): Release[] {
 
 export function validateChanges(root = repositoryRoot): void {
   readVersion(root)
-  for (const file of noteFiles(root, 'pending')) readNote(root, 'pending', file)
+  for (const file of noteFiles(root, 'pending')) {
+    // Een release is één Telegram-post per feature met beeld (PO 2026-10-18), dus elke nieuwe notitie heeft media.
+    if (readNote(root, 'pending', file).media.length === 0) throw new Error(`pending/${file}: elke notitie heeft een beeld of clip nodig (changes/README.md)`)
+  }
   readReleases(root)
 }

@@ -27,6 +27,8 @@ export interface IsolineStyle {
   lines?: boolean
   /** Dekking van de lijnen; standaard ISOLINE_LINE_OPACITY. */
   lineOpacity?: number
+  /** Lijn in de vulkleur onder de lijn (de bandgrens), helderheid maal deze factor (> 1 lichter); zonder: `color`. */
+  lineFromFill?: number
   /** Vuldekking schaalt van 0 naar `fill` tussen deze veldwaarden (bewolkingssluier: helder = doorzichtig). */
   fillByValue?: readonly [number, number]
 }
@@ -151,12 +153,15 @@ uniform sampler2D u_fill_b;
 uniform float u_has_fill;
 uniform float u_weight_b;
 uniform float u_line_opacity;
+uniform float u_line_from_fill;
 uniform float u_opacity;
 in vec2 v_uv;
 out vec4 color;
 vec4 slice(sampler2D result, sampler2D fillTexture) {
   vec4 line = texture(result, v_uv) * u_line_opacity;
   vec4 fill = u_has_fill > 0.5 ? texture(fillTexture, v_uv) : vec4(0.0);
+  // De vulling op een bandgrens mengt de twee aangrenzende bandkleuren: de lijn krijgt die kleur, verdonkerd.
+  if (u_line_from_fill > 0.0 && fill.a > 0.0) line.rgb = min(fill.rgb / fill.a * u_line_from_fill, vec3(1.0)) * line.a;
   return line + fill * (1.0 - line.a);
 }
 void main() {
@@ -684,6 +689,7 @@ export class IsolineLayer implements CustomLayerInterface {
       gl.uniform1i(gl.getUniformLocation(program, name), unit)
     })
     gl.uniform1f(gl.getUniformLocation(program, 'u_has_fill'), filled ? 1 : 0)
+    gl.uniform1f(gl.getUniformLocation(program, 'u_line_from_fill'), this.style.lineFromFill ?? 0)
     gl.uniform1f(gl.getUniformLocation(program, 'u_weight_b'), b?.weight ?? 0)
     gl.uniform1f(gl.getUniformLocation(program, 'u_line_opacity'), this.style.lines === false ? 0 : this.style.lineOpacity ?? ISOLINE_LINE_OPACITY)
     gl.uniform1f(gl.getUniformLocation(program, 'u_opacity'), this.opacity)

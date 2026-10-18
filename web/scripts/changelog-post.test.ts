@@ -13,10 +13,12 @@ function fixture(mediaCount: number, video = false): void {
   writeFileSync(resolve(root, 'changes/v0.1.0/note.md'), `---\ntitle: Nieuwe kaart\nkind: beter\n${media ? `media:\n${media}` : ''}---\nDe regen is beter zichtbaar.\n`)
   if (mediaCount) execFileSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=c=blue:s=32x32:r=2', ...(video ? ['-t', '1', '-c:v', 'libx264'] : ['-frames:v', '1', '-c:v', 'libwebp']), resolve(root, 'changes/media', `example.${video ? 'mp4' : 'webp'}`)], { stdio: 'pipe' })
 }
+// Linkbewerkingen gaan als JSON (geen multipart, die zet \n om in \r\n en verschuift de link).
+function editBody(init: RequestInit | undefined): { message_id: number; caption: string; caption_entities: Array<{ type: string; offset: number; length: number; url?: string }> } { return JSON.parse(String(init!.body)) }
 function success(result: unknown): Response { return new Response(JSON.stringify({ ok: true, result })) }
 const captionSuccess: typeof fetch = async (url, init) => {
   if (!String(url).endsWith('/editMessageCaption')) throw new Error('Onverwacht verzoek')
-  return success({ message_id: Number((init!.body as FormData).get('message_id')) })
+  return success({ message_id: Number(JSON.parse(String(init!.body)).message_id) })
 }
 function state(test = false): Record<string, unknown> { return JSON.parse(readFileSync(resolve(root, `changes/v0.1.0/posted${test ? '.test' : ''}.json`), 'utf8')) as Record<string, unknown> }
 
@@ -49,9 +51,9 @@ describe('Telegram publication', () => {
     const photo = fetcher.mock.calls[1]![1]!.body as FormData
     expect(photo.get('caption')).toBe('Nieuwe kaart (Bijschrift 1)\n\nDe regen is beter zichtbaar.\n\n16 oktober 2026, 1/2')
     expect(JSON.parse(String(photo.get('caption_entities')))).toEqual([{ type: 'bold', offset: 0, length: 'Nieuwe kaart (Bijschrift 1)'.length }])
-    const edits = fetcher.mock.calls.slice(3).map(([, init]) => init!.body as FormData)
-    expect(edits.map((body) => body.get('message_id'))).toEqual(['51', '93'])
-    expect(edits.map((body) => JSON.parse(String(body.get('caption_entities')))[1])).toEqual([
+    const edits = fetcher.mock.calls.slice(3).map(([, init]) => editBody(init))
+    expect(edits.map((body) => body.message_id)).toEqual([51, 93])
+    expect(edits.map((body) => body.caption_entities[1])).toEqual([
       { type: 'text_link', offset: String(photo.get('caption')).lastIndexOf('1/2'), length: 3, url: 'https://t.me/c/12345/93' },
       { type: 'text_link', offset: String(photo.get('caption')).lastIndexOf('1/2'), length: 3, url: 'https://t.me/c/12345/51' },
     ])
@@ -64,6 +66,19 @@ describe('Telegram publication', () => {
     await expect(postRelease(root, '0.1.0', chat, '', fetcher)).resolves.toContain('al gepost')
     expect(fetcher).toHaveBeenCalledTimes(5)
     await expect(postRelease(root, '0.1.0', '-100999', token, fetcher)).rejects.toThrow('past niet')
+  })
+
+  it('posts one message per feature without a text message, and refuses a feature without media', async () => {
+    fixture(2)
+    const fetcher = vi.fn<typeof fetch>(captionSuccess).mockResolvedValueOnce(success({ message_id: 51 })).mockResolvedValueOnce(success({ message_id: 93 }))
+    await postRelease(root, '0.1.0', chat, token, fetcher, { layout: 'posts' })
+    expect(fetcher.mock.calls.map(([url]) => String(url).split('/').at(-1))).toEqual(['sendPhoto', 'sendPhoto', 'editMessageCaption', 'editMessageCaption'])
+    const edits = fetcher.mock.calls.slice(2).map(([, init]) => editBody(init))
+    expect(edits.map((body) => body.message_id)).toEqual([51, 93])
+    expect(state()).toMatchObject({ complete: true, text_sent: false, message_ids: [51, 93], layout: 'posts' })
+    rmSync(resolve(root, 'changes/v0.1.0/posted.json'))
+    fixture(0)
+    await expect(postRelease(root, '0.1.0', chat, token, fetcher, { layout: 'posts', dryRun: true })).rejects.toThrow('elke notitie')
   })
 
   it('supports albums with independent captions and skips repeating the text after a known rejection', async () => {
@@ -108,7 +123,7 @@ describe('Telegram publication', () => {
     await postRelease(root, '0.1.0', chat, token, fetcher, { layout: 'album' })
     expect(fetcher.mock.calls[1]![0]).toContain('/sendVideo')
     expect((fetcher.mock.calls[1]![1]!.body as FormData).get('supports_streaming')).toBe('true')
-    expect(JSON.parse(String((fetcher.mock.calls[2]![1]!.body as FormData).get('caption_entities')))[1].url).toBe('https://t.me/c/12345/41')
+    expect(editBody(fetcher.mock.calls[2]![1]).caption_entities[1].url).toBe('https://t.me/c/12345/41')
   })
 
   it('marks every TEST message and deletes only TEST ids once', async () => {
@@ -136,8 +151,9 @@ describe('Telegram publication', () => {
     expect(photo.get('caption')).toBe(`TEST\n${title}\n\n<b>Letterlijke tekst & regen</b>.\n\n16 oktober 2026, 1/1`)
     expect(photo.get('parse_mode')).toBe(null)
     expect(JSON.parse(String(photo.get('caption_entities')))).toEqual([{ type: 'bold', offset: 5, length: title.length }])
-    const linked = fetcher.mock.calls[2]![1]!.body as FormData
-    expect(JSON.parse(String(linked.get('caption_entities')))[1].offset).toBe(String(photo.get('caption')).lastIndexOf('1/1'))
+    const linked = editBody(fetcher.mock.calls[2]![1])
+    expect(linked.caption).toBe(photo.get('caption'))
+    expect(linked.caption_entities[1]!.offset).toBe(String(photo.get('caption')).lastIndexOf('1/1'))
   })
 
   it('rejects an oversized complete caption before sending or writing posting state', async () => {
@@ -182,7 +198,7 @@ describe('Telegram publication', () => {
     await expect(postRelease(root, '0.1.0', chat, token, fetcher)).rejects.toThrow('veilig hervatten')
     expect(state()).toMatchObject({ complete: false, links_updated: 1 })
     await postRelease(root, '0.1.0', chat, token, fetcher)
-    expect((fetcher.mock.calls[5]![1]!.body as FormData).get('message_id')).toBe('82')
+    expect(editBody(fetcher.mock.calls[5]![1]).message_id).toBe(82)
     expect(fetcher).toHaveBeenCalledTimes(6)
     expect(state()).toMatchObject({ complete: true, links_updated: 2 })
   })

@@ -17,7 +17,7 @@ Het enige bestand dat de client pollt. JSON:
   "chunks": [
     {
       "url": "chunks/rtcor-20260828T1200.mrf",  // relatief aan het manifest
-      "source": "rtcor",                  // "rtcor" | "nowcast" | "seamless" | "harmonie" | "uv" | "cams"
+      "source": "rtcor",                  // "rtcor" | "nowcast" | "seamless" | "harmonie" | "uv" | "cams" | "ecmwf"
       "field": "rain_rate",               // optioneel; ontbreekt ⇒ "rain_rate". Zie veldenlijst onderaan
       "run": "2026-08-28T12:00:00Z",      // run-/referentietijd van de bron
       "header_len": 1342,                 // totale headerlengte in bytes (magic t/m JSON)
@@ -28,6 +28,16 @@ Het enige bestand dat de client pollt. JSON:
     "run": "2026-09-25T00:00:00Z",
     "provider": "ads",                   // "ads" | "open-meteo"
     "license": "Contains modified Copernicus Atmosphere Monitoring Service information"
+  },
+  "ecmwf": {                             // optioneel: dagwaarden en 3-/6-uursstappen
+    "run": "2026-10-17T00:00:00Z",
+    "license": "ECMWF IFS open data (CC BY 4.0), door motregen omgerekend naar dagwaarden",
+    "days": [
+      { "date": "2026-10-18", "start": "2026-10-17T22:00:00Z", "end": "2026-10-18T22:00:00Z" }
+    ],                                   // één item per dagframe; begin inclusief, einde exclusief
+    "steps": [
+      { "start": "2026-10-17T00:00:00Z", "end": "2026-10-17T03:00:00Z" }
+    ]                                    // één item per step_*-frame; frametijd = end
   }
 }
 ```
@@ -133,12 +143,52 @@ niet nodig, `version`-veld leidt.
 | `cloud_low`, `cloud_mid`, `cloud_high` | % | bewolking laag/midden/hoog (AROME 73/74/75), in stappen van 5 %; voor de wolkendoorsnede in de weermodus-scrubber (U37) |
 | `pollen_alder`, `pollen_birch`, `pollen_grass`, `pollen_mugwort` | korrels/m³ | CAMS-pollenverwachting (source `cams`); alleen in het seizoen van de soort gepubliceerd (docs/pollen.md) |
 | `pm25`, `pm10`, `no2`, `o3` | µg/m³ | CAMS-luchtkwaliteitsverwachting (source `cams`) |
+| `day_tmax_c`, `day_tmin_c` | °C | ECMWF dagmaximum/-minimum van intervalextremen |
+| `day_precip_mm` | mm | ECMWF dagsom na de-accumulatie en verdeling naar tijdsoverlap |
+| `day_precip_prob`, `day_precip_prob5` | % | ECMWF ENS-kans op >1 respectievelijk >5 mm per 24-uursvenster |
+| `day_wind_ms`, `day_wind_dir` | m/s, graden | ECMWF hoogste wind op lokale 06–21-knopen en bijbehorende meteorologische richting |
+| `day_gust_ms` | m/s | ECMWF hoogste beschikbare windstoot; na +144 uur alleen het laatste uur per zesuurstap |
+| `day_cloud` | % | ECMWF gemiddelde bewolking op lokale 08–18-knopen |
+| `step_tmax_c`, `step_tmin_c` | °C | ECMWF maximum/minimum over het stapinterval |
+| `step_precip_mm` | mm | ECMWF neerslag in het stapinterval na de-accumulatie |
+| `step_gust_ms` | m/s | ECMWF beschikbare maximale stoot in het interval; dezelfde dekkingbeperking als `day_gust_ms` |
+| `step_temp_c` | °C | ECMWF instantane 2m-temperatuur aan het einde van de stap |
+| `step_wind_u_ms`, `step_wind_v_ms` | m/s | ECMWF instantane windcomponenten aan het einde van de stap; +u oost, +v noord |
+| `step_cloud` | % | ECMWF instantane bewolking aan het einde van de stap |
+
+Alle `day_*`-velden hebben source `ecmwf` en identieke grids en tijden: één frame per
+volledig gedekte kalenderdag in Europe/Amsterdam. `ecmwf.days` geeft de lokale datum en
+UTC-daggrenzen; de frametijd is lokale middag, als UTC-string. Deze velden verlengen
+de uurlijkse kaarttijdlijn niet. Het grid is EPSG:3857 op 24 km, na aggregatie op de
+native 0,25°-uitsnede; richting gebruikt nearest neighbour, andere velden bilineaire
+herprojectie. Publicatie staat standaard uit achter `MOTREGEN_ECMWF_IN_MANIFEST`.
+Bronselectie, intervalbenadering, ontbrekende windstoottijdvakken en kwantisatie staan
+in [docs/ecmwf.md](ecmwf.md).
+
+De acht `step_*`-velden hebben source `ecmwf`, hetzelfde 24 km-grid en identieke
+frametijden: 64 frames, +3 tot +144 uur in stappen van 3 uur, daarna +150 tot +240 uur
+in stappen van 6 uur. `ecmwf.steps[{start,end}]` beschrijft deze intervallen als
+UTC-strings in framevolgorde, met de vorige eindtijd als begin; de frametijd is `end`.
+Een instantaan veld geldt op `end`; neerslag/extremen slaan op het voorafgaande
+interval (met de gedocumenteerde beperking van de windstoten). De client kan hiermee
+vensters voor de lange-termijntabel aggregeren. `step_wind_u_ms` en `step_wind_v_ms`
+worden altijd samen gepubliceerd zodat componenten vóór richting/snelheid kunnen
+worden gemiddeld. De negen bestaande `day_*`-velden blijven ongewijzigd. Oude
+publicaties met uitsluitend dagwaarden mogen `steps` weglaten; stapchunks vereisen
+de volledige lijst en alle acht velden.
 
 `wind_u_ms`/`wind_v_ms` worden altijd als paar gepubliceerd met identiek
 grid, identieke tijden en gelijke frame-volgorde, zodat een client ze per
 frame kan zippen tot vectoren.
 
 ## Changelog
+
+- 2026-10-17 (U90b, PO-aanvulling MIP-36): acht `step_*`-velden met 64 frames en
+  UTC-intervalmetadata in `ecmwf.steps`; bestaande `day_*`-publicatie ongewijzigd.
+
+- 2026-10-17 (U90, MIP-36): additieve source `ecmwf`, negen `day_*`-velden en optionele
+  manifest-sectie `ecmwf` met run, attributie en lokale kalenderdagen. Geen wijziging
+  aan de bestaande KNMI-tijdlijn; opname achter een standaard uitgeschakelde vlag.
 
 - 2026-08-28: v0 vastgepind.
 - 2026-08-28: additief amendement (PO-verzoek zonactiviteit): optionele

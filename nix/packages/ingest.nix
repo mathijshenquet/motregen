@@ -48,7 +48,7 @@ rustPlatform.buildRustPackage {
   BINDGEN_EXTRA_CLANG_ARGS = "-isystem ${lib.getDev stdenv.cc.libc}/include";
 
   postFixup = ''
-    for program in motregen-ingest motregen-cams; do
+    for program in motregen-ingest motregen-cams motregen-ecmwf; do
       wrapProgram "$out/bin/$program" \
         --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath [
           eccodes

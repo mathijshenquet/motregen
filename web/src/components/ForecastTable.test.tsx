@@ -354,3 +354,16 @@ describe('sun rows', () => {
     }
   })
 })
+
+describe('sun bands (U91b)', () => {
+  const twoDays: HourlyForecastRow[] = Array.from({ length: 48 }, (_, index) => ({
+    ...rows[0]!, epoch: start + index * 3_600_000, kind: index === 0 ? 'now' : 'future',
+    rainIndex: null, temperatureIndex: null, feelsLikeIndex: null, cloudIndex: null, windUIndex: null, windVIndex: null, gustIndex: null,
+  }))
+  const bands = () => [...document.querySelectorAll('.sun-row')].map((row) => row.textContent?.replace(/\d\d:\d\d/, 'hh:mm'))
+
+  it('shows every sunrise and sunset among the hourly rows', () => {
+    renderTable({ rows: twoDays })
+    expect(bands()).toEqual(['Zon op hh:mm', 'Zon onder hh:mm', 'Zon op hh:mm', 'Zon onder hh:mm'])
+  })
+})

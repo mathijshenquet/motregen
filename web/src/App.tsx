@@ -1,5 +1,5 @@
 import { CloudDriftLoader } from './core/cloud-drift-loader'
-import { TEMPERATURE_LINE_OPACITY, ISOBAR_LINE_OPACITY } from './core/map-presentation.js'
+import { TEMPERATURE_LINE_FILL_OPACITY, TEMPERATURE_LINE_FILL_SHADE, ISOBAR_LINE_OPACITY } from './core/map-presentation.js'
 import { batch, createEffect, createMemo, createSignal, For, lazy, onCleanup, onMount, Show, untrack, type Accessor, type Setter } from 'solid-js'
 import maplibregl, { Marker, type GeoJSONSource } from 'maplibre-gl'
 import { registerSW } from 'virtual:pwa-register'
@@ -15,12 +15,13 @@ import type { IsolineCounters } from './core/perf'
 import UvBar, { uvBarLabel } from './components/UvBar'
 import { loadBasemapStyle, temperatureLayerBeforeId, type MapTheme } from './core/basemap'
 import { createMapStart, mapStartSource } from './core/map-start'
-import { chunkField, type Grid, type Manifest, type ManifestChunk, type MrfHeader, type TimelineFrame } from './core/contract'
+import { chunkField, type EcmwfDayField, type EcmwfStepField, type Grid, type Manifest, type ManifestChunk, type MrfHeader, type TimelineFrame } from './core/contract'
 import { DayNightLayer } from './core/day-night-layer'
 
 const PerfHud = lazy(() => import('./components/PerfHud'))
 const ViewportDiagnose = lazy(() => import('./components/ViewportDiagnose'))
 const ForecastTable = lazy(() => import('./components/ForecastTable'))
+const DayList = lazy(() => import('./components/DayList'))
 const DevPanel = lazy(() => import('./components/DevPanel'))
 
 const DAY_NIGHT_ENABLED = false
@@ -40,7 +41,9 @@ import { constrainView, containView, containZoom, MAP_CONTAIN_BOUNDS, type Viewp
 import { mapFrameFromGrid, NETHERLANDS_FLANDERS_BOUNDS } from './core/map-frame'
 import { basemapBlendTargets, blendedPaintValue, mapNightStep, nightShare, type BlendTarget } from './core/basemap-blend'
 import { MrfClient, type MotionField } from './core/mrf'
-import { pointValue, projectPoint as project } from './core/point-value'
+import { pointValue, pointValueBilinear, projectPoint as project } from './core/point-value'
+import { buildDayList, ecmwfDayChunks, localDate, type HourlyDayInputs, type Sample } from './core/days'
+import { buildLadder, buildSlotRows, ecmwfStepChunks, hourlyEnd } from './core/ladder'
 import { rainBetween, rainPatch, type RainPatch } from './core/rain-point-detail'
 import { selectPairMotion } from './core/motion-selection'
 import { findCataloguePlace, isInPlaceZone, loadPlaces, namedCataloguePlace, nearestPlace, places, rememberPlace, rememberSearchedPlace } from './core/places'
@@ -67,7 +70,7 @@ import { formatUv, uvChipLabel, uvLevel, uvReading } from './core/uv'
 import { WIND_UNITS, type WindUnit } from './core/weather'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
 import { DEFAULT_WIND_TUNING, MOBILE_WIND, WIND_MAX_FPS, WIND_PARAMETERS, WIND_SIMULATION_FPS, WindLayer } from './core/wind-layer'
-import { clearTuningStorage } from './core/dev-settings'
+import { clearTuningStorage, nightCue, TABLE_CONTRASTS, type TableContrast } from './core/dev-settings'
 import { watchIdle } from './core/activity'
 import { CLOUD_LAYERS, type CloudLayer } from './core/cloud-section'
 import { browserUsageEnvironment, createUsageTracker, installUsageBeacon, sanitizeUsageLabel, storedUsageLabel, USAGE_LABEL_STORAGE_KEY } from './core/usage'
@@ -139,7 +142,8 @@ function isolineSet(config: IsolineSetConfig): IsolineSet {
 
 /** Luchtdruk laadt pas bij de eerste windfocus (U35): ook zijn headers horen niet in de cold start. */
 function eagerHeader(chunk: ManifestChunk): boolean {
-  return chunkField(chunk) !== 'pressure_hpa'
+  // De dagenlijst laadt zijn ECMWF-chunks pas als hij in beeld komt (U91).
+  return chunkField(chunk) !== 'pressure_hpa' && chunk.source !== 'ecmwf'
 }
 
 interface PointLoadState {
@@ -174,17 +178,14 @@ const CITY_TEMPERATURE_STEP_MS = 10 * 60_000
 
 // Temperatuurlijnen half zo zichtbaar als ISOLINE_LINE_OPACITY (0,8) (PO 2026-09-25 live, U34).
 
-// Terugglijden aan het eind van een afspeelrondje (PO 2026-09-25 live, U34).
-const PLAYBACK_REWIND_MS = 700
-const PLAYBACK_END_HOLD_MS = 2_000
+// Terugglijden naar het begin bij opnieuw afspelen (PO 2026-09-25 live, U34).
+// Binnen deze marge van het eind staat de opnieuw-knop in de grafiek.
+const PLAYBACK_END_MARGIN_MS = 60_000
 const PLAYBACK_TEMPO_HOURS = 8
 const TABLE_JUMP_RESUME_MS = 4_000
 // Zoveel px van de tabelrijen moet in beeld zijn voordat hun reeksen laden (U49): in het mobiele
 // startbeeld steekt de eerste rij 2 px boven de onderrand uit, en dat is nog geen lezen.
 const TABLE_PEEK_PX = 24
-// Hoger dan een ingeklapte adresbalk (Android Chrome ~56 px, iOS Safari ~100 px): staat de pagina aan haar
-// einde en steekt er hooguit zoveel boven het tabelpaneel uit, dan is dat de tabelview — verder komt hij niet.
-const TABLE_SNAP_SLACK_PX = 120
 // H/L van twee opeenvolgende uren horen bij elkaar als ze binnen deze afstand liggen.
 const PRESSURE_MATCH_KM = 300
 // Afspelen tikt op 30 Hz: regen-tween, isolijnsnede en klok zijn traag genoeg; alleen de
@@ -201,13 +202,6 @@ const PLAY_RULE_STORAGE_KEY = 'motregen-dev-speelregel'
 const VIEWPORT_DIAGNOSE_STORAGE_KEY = 'motregen-dev-viewport'
 // Productiedomeinen (nix `services.motregen.domains`, met www) plus loopback voor e2e/PWA-checks.
 const SERVICE_WORKER_HOSTNAMES = ['motregen.nl', 'www.motregen.nl', 'weerok.nl', 'www.weerok.nl', 'localhost', '127.0.0.1']
-// Zoveel mag het tabelpaneel hooguit worden verlengd als de pagina eindigt vóór het paneel bovenaan staat.
-const TABLE_PANEL_SHORTFALL_MAX_PX = 200
-const TABLE_VIEW_RECHECK_MS = 700
-const TABLE_PULLS_PER_GESTURE = 4
-// Zo lang na de laatste scrollbeweging geldt de pagina als in rust. Ruim: de correctie is voor een pagina die
-// blijft hangen, en een haperend frame midden in een scroll mag niet voor rust doorgaan.
-const TABLE_REST_MS = 300
 const TABLE_NAVIGATION_MS = 1_500
 // De rand buiten het rooster is geen laag van de basisstijl maar kleurt wel mee met het thema.
 const GRID_OUTSIDE_PAINT = { light: { color: '#84969b', opacity: 0.48 }, dark: { color: '#071319', opacity: 0.58 } } as const
@@ -282,6 +276,14 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (!mapReady() || untrack(firstMapImageShown)) return
     const release = window.setTimeout(() => setFirstMapImageShown(true), 2_000)
     onCleanup(() => window.clearTimeout(release))
+  })
+  // OSM-richtlijn: de bronvermelding mag na vijf seconden of bij de eerste kaartinteractie wegvallen, zolang hij
+  // via de druppel (Over) vindbaar blijft. Alleen op de telefoon, waar hij kaart kost.
+  const [mapSourceFaded, setMapSourceFaded] = createSignal(false)
+  createEffect(() => {
+    if (!mapReady() || !firstMapImageShown()) return
+    const fade = window.setTimeout(() => setMapSourceFaded(true), 5_000)
+    onCleanup(() => window.clearTimeout(fade))
   })
   let mapStart: ReturnType<typeof createMapStart>
   const basemapTiles = new Map<string, number>()
@@ -511,18 +513,15 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let tableViewResizeTimer: number | undefined
   let tableViewSettleTimer: number | undefined
   let tableTouchActive = false
-  // Sommige browsers (Firefox voor Android met de adresbalk in beeld) laten de pagina eindigen terwijl het
-  // paneel van 100dvh nog niet bovenaan staat: de schermhoogte waarmee ze de scroll begrenzen is dan groter
-  // dan 100dvh. Dat tekort wordt gemeten en bij de paneelhoogte opgeteld, in plaats van te raden welke
-  // eenheid de browser bedoelt (PO 2026-10-08: strook scrubber boven de open tabel).
-  const [tablePanelShortfall, setTablePanelShortfall] = createSignal(0)
-  let tablePullsSinceGesture = 0
-  let lastPageScrollAt = Number.NEGATIVE_INFINITY
+  // Telefoon staand: niet het document scrollt, maar de app-shell (een vaste container over het hele scherm).
+  // Het document staat stil, dus geen browser klapt zijn adresbalk in of uit en de schermhoogte ligt vast: het
+  // tabel-snappunt is dan precies het einde van de scroll (PO 2026-10-17, i.p.v. de U62-tekortmeting voor Firefox
+  // en de afgevallen koppenrij op iOS Safari).
+  let shellElement!: HTMLElement
   // Tot dit moment loopt een tik-navigatie (Tabel ↔ kaart) met haar eigen vloeiende scroll.
   let tableNavigationUntil = Number.NEGATIVE_INFINITY
-  // Dag of nacht van de koppenrij: de vangnetstrook boven het open tabelpaneel voert dezelfde kleur.
+  // Dag of nacht van de koppenrij: de tabelachtergrond voert dezelfde kleur.
   const [tableHeadSky, setTableHeadSky] = createSignal<HourSky>()
-  let lastViewportHeight = window.visualViewport?.height ?? window.innerHeight
   const [rainLookChoice, setRainLookChoice] = createSignal<RainLookChoice>(devMode ? loadRainLookChoice() : DEFAULT_RAIN_LOOK)
   const [cloudMapForms, setCloudMapForms] = createSignal(!devMode || localStorage.getItem('motregen-cloud-map') !== 'sluier')
   const [cloudMapSample, setCloudMapSample] = createSignal<CloudMapSample>('live')
@@ -531,92 +530,35 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (tableScrollOpen() === open) return
     setTableScrollOpen(open)
   }
+  function tablePanelTop(): number {
+    return forecastPanelElement.getBoundingClientRect().top - shellElement.getBoundingClientRect().top
+  }
   function syncTableViewPosition(): void {
     tableViewFrame = undefined
     if (!tableViewAvailable() || !forecastPanelElement) {
       setTableCoversViewport(false)
       return
     }
-    const panelTop = forecastPanelElement.getBoundingClientRect().top
-    if (!tableCoversViewport() && (panelTop <= 0 || tableSnappedAtPageEnd(panelTop))) setTableCoversViewport(true)
+    const panelTop = tablePanelTop()
+    if (!tableCoversViewport() && panelTop <= 1) setTableCoversViewport(true)
     else if (tableCoversViewport() && panelTop > 24) setTableCoversViewport(false)
-  }
-  function tableSnappedAtPageEnd(panelTop: number): boolean {
-    const atPageEnd = window.scrollY >= document.documentElement.scrollHeight - window.innerHeight - 2
-    return atPageEnd && panelTop > 0 && panelTop <= TABLE_SNAP_SLACK_PX
   }
   function queueTableViewSync(): void {
     if (tableViewFrame === undefined) tableViewFrame = requestAnimationFrame(syncTableViewPosition)
-  }
-  /**
-   * Bovenkant van het tabelpaneel ten opzichte van wat er werkelijk op het scherm staat. Firefox voor Android
-   * toont, als de adresbalk terugkomt terwijl de pagina aan haar einde staat, een strook BOVEN de layout-viewport
-   * (`visualViewport.offsetTop` wordt negatief; PO-overlay 2026-10-08: −63,7 px bij paneel top 0). Voor de layout
-   * staat het paneel dan bovenaan, op het scherm niet. Bij knijpzoom zegt de verschuiving iets anders en telt
-   * alleen de layout.
-   */
-  function visibleTablePanelTop(): number {
-    const layoutTop = forecastPanelElement.getBoundingClientRect().top
-    const visual = window.visualViewport
-    return visual && Math.abs(visual.scale - 1) < 0.01 ? layoutTop - visual.offsetTop : layoutTop
-  }
-  /**
-   * Zet het tabelpaneel bovenaan en geeft terug hoeveel er daarna nog boven uitsteekt. Niet uitrekenen of de
-   * pagina "op" is (Firefox voor Android begrenst de scroll met een andere schermhoogte dan `innerHeight` zodra
-   * de adresbalk terugkomt), maar de proef op de som: scrollen, en wat dan nog overblijft is het tekort van
-   * het paneel. Dat wordt bij de paneelhoogte opgeteld, waarna de scroll wel kan.
-   */
-  function pullTablePanelToTop(panelTop: number): number {
-    window.scrollBy({ top: panelTop, behavior: 'auto' })
-    const remaining = visibleTablePanelTop()
-    if (remaining <= 1) return remaining
-    const before = tablePanelShortfall()
-    const grown = before + Math.ceil(remaining)
-    if (grown > TABLE_PANEL_SHORTFALL_MAX_PX) return remaining
-    forecastPanelElement.style.setProperty('--table-panel-shortfall', `${grown}px`)
-    window.scrollBy({ top: Math.ceil(remaining), behavior: 'auto' })
-    const afterGrowth = visibleTablePanelTop()
-    if (afterGrowth >= remaining - 1) {
-      // Verlengen hielp niet (de hoogte ligt elders vast): niet blijven optellen.
-      if (before > 0) forecastPanelElement.style.setProperty('--table-panel-shortfall', `${before}px`)
-      else forecastPanelElement.style.removeProperty('--table-panel-shortfall')
-      return afterGrowth
-    }
-    setTablePanelShortfall(grown)
-    return afterGrowth
   }
   function settleTableView(): void {
     if (tableTouchActive || !tableViewAvailable() || !forecastPanelElement) return
     if (tableViewFrame !== undefined) cancelAnimationFrame(tableViewFrame)
     syncTableViewPosition()
-    let panelTop = visibleTablePanelTop()
-    // De pagina is tot rust gekomen vlak naast het tabel-snappunt (PO 2026-10-08, Firefox voor Android: na een
-    // korte veeg terug komt de adresbalk terug en bleef er een strook scrubber boven de tabel staan). Zelf
-    // afmaken; verder weg is het een gebaar dat nog loopt.
-    let pageEndsAbovePanel = tableSnappedAtPageEnd(panelTop)
-    if (Math.abs(panelTop) > 2 && Math.abs(panelTop) <= TABLE_SNAP_SLACK_PX && tableViewTarget() !== 'map') {
-      // Alleen in rust ingrijpen, en niet tijdens een tik-navigatie met haar eigen vloeiende scroll: een
-      // hercontrole die midden in een scroll viel brak die af en liet de tabel dicht. Later opnieuw kijken.
-      const now = performance.now()
-      if (now - lastPageScrollAt < TABLE_REST_MS || now < tableNavigationUntil) scheduleTableViewSettlement(TABLE_REST_MS)
-      // Hooguit een paar keer achter elkaar: verschuift de browser het zichtbare scherm terug zodra er weer
-      // gescrold kan worden, dan mag dit niet heen en weer blijven gaan. Een nieuw gebaar zet de teller terug.
-      else if (tablePullsSinceGesture < TABLE_PULLS_PER_GESTURE) {
-        tablePullsSinceGesture++
-        panelTop = pullTablePanelToTop(panelTop)
-        // Lukt het ook met verlengen niet, dan is dit de tabelview: verder komt hij niet (U58).
-        pageEndsAbovePanel = panelTop > 2
-      }
-    }
-    const atTable = Math.abs(panelTop) <= 2 || pageEndsAbovePanel
-    const atMap = window.scrollY <= 2
-    // Aan de kaartkant wordt niets teruggezet: een correctie daar brak onder haperende frames de vloeiende
-    // scroll naar de tabel af (herhaalde e2e bij zware load, 2026-10-08), en de PO-bug zit alleen aan de tabelkant.
+    const atTable = Math.abs(tablePanelTop()) <= 2
+    const atMap = shellElement.scrollTop <= 2
     if (!atTable && !atMap) return
-    const open = atTable
-    setTableCoversViewport(open)
-    setTableOpen(open)
-    applyTableScrollOpen(open)
+    // Een tik-navigatie is pas klaar als ze aankomt; een tussenstop aan de andere kant telt niet.
+    const target = tableViewTarget()
+    if (target !== undefined && performance.now() < tableNavigationUntil && atTable !== (target === 'table')) return
+    setTableCoversViewport(atTable)
+    setTableOpen(atTable)
+    applyTableScrollOpen(atTable)
     setTableViewTarget(undefined)
   }
   function scheduleTableViewSettlement(delay = 160): void {
@@ -626,31 +568,17 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       settleTableView()
     }, delay)
   }
-  // Een adresbalk schuift nog door nadat het gebaar of het laatste resize-event voorbij is; daarna nog eens kijken.
-  let tableViewRecheckTimer: number | undefined
-  function scheduleTableViewRecheck(): void {
-    window.clearTimeout(tableViewRecheckTimer)
-    tableViewRecheckTimer = window.setTimeout(settleTableView, TABLE_VIEW_RECHECK_MS)
-  }
   function pageScrolled(): void {
-    lastPageScrollAt = performance.now()
     queueTableViewSync()
     scheduleTableViewSettlement()
   }
   function settleTableViewAfterResize(): void {
-    // Mobiele browserbalken sturen tijdens hun animatie iedere frame een resize-event.
     window.clearTimeout(tableViewResizeTimer)
-    // Wordt het scherm hoger (de adresbalk verdwijnt), dan groeit 100dvh mee en is de verlenging niet meer nodig.
-    const viewportHeight = window.visualViewport?.height ?? window.innerHeight
-    if (viewportHeight > lastViewportHeight + 1 && tablePanelShortfall() > 0) {
-      setTablePanelShortfall(0)
-      forecastPanelElement?.style.removeProperty('--table-panel-shortfall')
-    }
-    lastViewportHeight = viewportHeight
     tableViewResizeTimer = window.setTimeout(() => {
+      // Na een draai of een toetsenbord ligt het snappunt elders: de open tabel blijft bovenaan.
+      if (tableViewAvailable() && tableOpen()) shellElement.scrollTop += tablePanelTop()
       queueTableViewSync()
       scheduleTableViewSettlement()
-      scheduleTableViewRecheck()
     }, 120)
   }
   const [status, setStatus] = createSignal('Regen laden…')
@@ -848,34 +776,31 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   onMount(() => {
     const touchStart = (event: TouchEvent) => {
       tableTouchActive = event.touches.length > 0
-      tablePullsSinceGesture = 0
       window.clearTimeout(tableViewSettleTimer)
     }
     const touchEnd = (event: TouchEvent) => {
       tableTouchActive = event.touches.length > 0
-      if (!tableTouchActive) { scheduleTableViewSettlement(); scheduleTableViewRecheck() }
+      if (!tableTouchActive) scheduleTableViewSettlement()
     }
-    window.addEventListener('scroll', pageScrolled, { passive: true })
-    window.addEventListener('scrollend', settleTableView, { passive: true })
+    shellElement.addEventListener('scroll', pageScrolled, { passive: true })
+    shellElement.addEventListener('scrollend', settleTableView, { passive: true })
     window.addEventListener('resize', settleTableViewAfterResize, { passive: true })
     window.addEventListener('touchstart', touchStart, { passive: true })
     window.addEventListener('touchend', touchEnd, { passive: true })
     window.addEventListener('touchcancel', touchEnd, { passive: true })
-    window.visualViewport?.addEventListener('resize', settleTableViewAfterResize, { passive: true })
-    // Het zichtbare scherm kan ook verschuiven zonder van maat te veranderen.
-    window.visualViewport?.addEventListener('scroll', settleTableViewAfterResize, { passive: true })
+    // Het tabelpaneel is precies één shell hoog, gemeten in px: zo valt zijn snappunt exact op het scrolleinde.
+    const shellSize = new ResizeObserver(() => shellElement.style.setProperty('--shell-height', `${shellElement.clientHeight}px`))
+    shellSize.observe(shellElement)
     syncTableViewPosition()
     scheduleTableViewSettlement(0)
     onCleanup(() => {
-      window.clearTimeout(tableViewRecheckTimer)
-      window.removeEventListener('scroll', pageScrolled)
-      window.removeEventListener('scrollend', settleTableView)
+      shellSize.disconnect()
+      shellElement.removeEventListener('scroll', pageScrolled)
+      shellElement.removeEventListener('scrollend', settleTableView)
       window.removeEventListener('resize', settleTableViewAfterResize)
       window.removeEventListener('touchstart', touchStart)
       window.removeEventListener('touchend', touchEnd)
       window.removeEventListener('touchcancel', touchEnd)
-      window.visualViewport?.removeEventListener('resize', settleTableViewAfterResize)
-      window.visualViewport?.removeEventListener('scroll', settleTableViewAfterResize)
       if (tableViewFrame !== undefined) cancelAnimationFrame(tableViewFrame)
       window.clearTimeout(tableViewResizeTimer)
       window.clearTimeout(tableViewSettleTimer)
@@ -1066,6 +991,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         recordPerfPhase('basemap-tile', performance.now() - started, { tile: key }, performance.now())
       })
       map.on('moveend', rememberMapView)
+      map.on('dragstart', () => setMapSourceFaded(true))
       map.on('zoomend', () => void showTemperature())
       map.on('moveend', () => {
         updateIsobarStep()
@@ -1253,6 +1179,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
     if (pressureIsolines.active()) updatePressureMarks()
   }
+  const playbackAtEnd = createMemo(() => {
+    const frames = timeline()
+    if (stillMode || playing() || frames.length < 2) return false
+    const nowEpoch = manifest() ? Date.parse(manifest()!.now) : frames[0]!.epoch
+    return selectedEpoch() >= timelineHorizonEnd(frames, nowEpoch, timeHorizonHours()) - PLAYBACK_END_MARGIN_MS
+  })
   createEffect(() => {
     // Speelregel (MIP-19 §De lat): spelen zodra het cursorframe en het volgende er zijn. De oude
     // regel wachtte op laadfase "window" van de puntreeks.
@@ -1267,11 +1199,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const playbackRate = timelinePlaybackRate(frames, nowEpoch, PLAYBACK_TEMPO_HOURS)
     let previous = performance.now()
     let firstPlaybackTick = true
-    // Aan het eind van een rondje glijdt de tijdlijn terug naar het begin i.p.v. in één frame te springen:
-    // in de schuivende scrubber (U34) oogde die sprong als "de tijdlijn springt telkens terug".
-    let rewind: { from: number; startedAt: number } | undefined
-    // Aan het eind even stilstaan voordat het terugglijdt (PO 2026-09-25 live).
-    let holdUntil: number | undefined
     let waiting: { frame: number; since: number } | undefined
     const framePresent = (index: number) => client.hasFrame(frames[index]!.chunk, frames[index]!.frameIndex)
     let active = true
@@ -1307,27 +1234,16 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       // Vier ms speling voor de vsync-fase: op 60 Hz precies elke tweede vsync.
       if (elapsed < 1_000 / PLAYBACK_MAX_FPS - 4) return
       previous = now
-      if (holdUntil !== undefined) {
-        if (now < holdUntil) return
-        holdUntil = undefined
-        rewind = { from: timelineEpochAtCursor(frames, cursor()), startedAt: now }
-      }
-      if (rewind) {
-        const progress = Math.min(1, (now - rewind.startedAt) / PLAYBACK_REWIND_MS)
-        const eased = progress < 0.5 ? 2 * progress ** 2 : 1 - (2 - 2 * progress) ** 2 / 2
-        const nextCursor = timelineCursorAtEpoch(frames, rewind.from + (frames[0]!.epoch - rewind.from) * eased)
-        if (!renderPlaybackCursor(nextCursor, () => { if (progress >= 1) rewind = undefined })) rewind.startedAt += elapsed
-        return
-      }
       const epoch = timelineEpochAtCursor(frames, cursor())
-      // Voorbij de afspeelhorizon (daar neergezet en daarna hervat): terugglijden naar het begin en
-      // verder spelen, nooit voorgoed stilstaan — er is geen afspeelknop (PO 2026-09-25 live).
-      if (!(epoch < lastEpoch)) { rewind = { from: epoch, startedAt: now }; return }
+      // Afspelen vanaf het eind (de opnieuw-knop, of daar neergezet en hervat): meteen naar het begin, zonder
+      // terugglijden (PO 2026-10-18). Staat dat frame nog niet klaar, dan probeert de volgende tik het opnieuw.
+      if (!(epoch < lastEpoch)) { renderPlaybackCursor(0); return }
       // De eerste tik haalt tijd besteed aan kaartopzet niet in als een cursorsprong.
       const playbackElapsed = firstPlaybackTick ? Math.min(elapsed, 1_000 / PLAYBACK_MAX_FPS) : elapsed
       const nextEpoch = epoch + playbackElapsed * playbackRate
       if (!Number.isFinite(nextEpoch) || nextEpoch >= lastEpoch) {
-        renderPlaybackCursor(timelineCursorAtEpoch(frames, lastEpoch), () => { holdUntil = performance.now() + PLAYBACK_END_HOLD_MS })
+        // Aan het eind stoppen in plaats van terugspoelen; de grafiek toont dan een opnieuw-knop (PO 2026-10-17).
+        renderPlaybackCursor(timelineCursorAtEpoch(frames, lastEpoch), () => setPlaying(false))
         return
       }
       let nextCursor = timelineCursorAtEpoch(frames, nextEpoch)
@@ -1923,7 +1839,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
 
   function isolineStyle(): IsolineStyle {
     const range = temperatureRange()
-    return { step: TEMPERATURE_ISOLINE_STEP, fill: ISOLINE_FILL_OPACITY, fillSmooth: false, palette: range && paletteStops(range), color: hexColor(isolineColor(mapSurfaceTheme())), lineOpacity: TEMPERATURE_LINE_OPACITY }
+    return { step: TEMPERATURE_ISOLINE_STEP, fill: ISOLINE_FILL_OPACITY, fillSmooth: false, palette: range && paletteStops(range), color: hexColor(isolineColor(mapSurfaceTheme())), lineOpacity: TEMPERATURE_LINE_FILL_OPACITY, lineFromFill: TEMPERATURE_LINE_FILL_SHADE }
   }
 
   /** Isobaren: één egale lijnkleur, geen vulling en geen vervaging, zoals op een weerkaart (PO U35). */
@@ -3064,6 +2980,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       setRainLookChoice(DEFAULT_RAIN_LOOK)
       setCloudMapForms(true)
       setCloudMapSample('live')
+      setDayListMode(false)
+      setTableContrast(DEFAULT_TABLE_CONTRAST)
       focusMode.pin(DEFAULT_FOCUS_MODE)
       setFocusPinned(DEFAULT_FOCUS_MODE)
     })
@@ -3193,6 +3111,66 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
 
   const manifestNow = () => manifest() ? Date.parse(manifest()!.now) : 0
+
+  // Lange termijn (U91/U91b, MIP-36): standaard glijdt de urentabel over in 3 u, dagdelen en dag/nacht; onder ?dev
+  // kan de oude uurtabel met de lijst "Komende dagen" terug. HARMONIE-aggregaten en ECMWF-punten laden pas als die
+  // rijen of de lijst bijna in beeld zijn, buiten het kritieke pad.
+  const [dayListMode, setDayListMode] = createSignal(devMode && localStorage.getItem(DAY_LIST_STORAGE_KEY) === 'lijst')
+  const [tableContrast, setTableContrast] = createSignal<TableContrast>(storedTableContrast(devMode))
+  const [longRangeNear, setLongRangeNear] = createSignal(false)
+  const ecmwfDayValues = ecmwfPointValues(createMemo(() => manifest() ? ecmwfDayChunks(manifest()!) : new Map<EcmwfDayField, ManifestChunk>()))
+  const stepChunks = createMemo(() => manifest() ? ecmwfStepChunks(manifest()!) : new Map<EcmwfStepField, ManifestChunk>())
+  const ecmwfStepValues = ecmwfPointValues(stepChunks)
+  function ecmwfPointValues<F extends EcmwfDayField | EcmwfStepField>(chunks: Accessor<Map<F, ManifestChunk>>): Accessor<Partial<Record<F, Array<number | null>>> | undefined> {
+    const [loaded, setLoaded] = createSignal<{ key: string; values: Partial<Record<F, Array<number | null>>> }>()
+    const key = () => {
+      const section = manifest()?.ecmwf
+      return section && chunks().size ? `${section.run} ${location().lng} ${location().lat}` : undefined
+    }
+    createEffect(() => {
+      const wanted = key()
+      if (!longRangeNear() || !wanted || untrack(loaded)?.key === wanted) return
+      const [x, y] = project(location().lng, location().lat)
+      void Promise.all([...chunks()].map(async ([field, chunk]) => {
+        try {
+          const header = await client.getHeader(chunk)
+          const frames = await client.getFrames(chunk, chunk.times.map((_, index) => index), 'low', undefined, 'L2')
+          // Richting in graden mengt niet: 359° en 1° zouden 180° worden.
+          const sample = field === 'day_wind_dir' ? pointValue : pointValueBilinear
+          return [field, frames.map((decoded) => sample(header, decoded, x, y))] as const
+        } catch {
+          return [field, []] as const
+        }
+      })).then((entries) => {
+        if (key() === wanted) setLoaded({ key: wanted, values: Object.fromEntries(entries) as Partial<Record<F, Array<number | null>>> })
+      })
+    })
+    return () => {
+      const point = loaded()
+      return point && point.key === key() ? point.values : undefined
+    }
+  }
+  createEffect(() => {
+    if (longRangeNear() && pointLoadStage() !== 'complete') untrack(() => { void completePointSeries(pointLoad, 'low', 'L2', 'lange termijn') })
+  })
+  const hourlyInputs = createMemo((): HourlyDayInputs | undefined => {
+    if (pointLoadStage() !== 'complete') return undefined
+    const samples = (frames: Array<{ epoch: number }>, values: Array<number | null>): Sample[] =>
+      frames.map((frame, index) => ({ epoch: frame.epoch, value: values[index] ?? null }))
+    return {
+      temperature: samples(tempTimeline(), temperatureSeries()),
+      rain: samples(timeline(), rainSeries()),
+      cloud: samples(cloudTimeline(), cloudSeries()),
+      windU: samples(windUFrames(), windUSeries()),
+      windV: samples(windVFrames(), windVSeries()),
+      gust: samples(gustTimeline(), gustSeries()),
+      feelsLike: samples(feelsLikeTimeline(), feelsLikeSeries()),
+    }
+  })
+  const dayRows = createMemo(() => {
+    const section = manifest()?.ecmwf
+    return buildDayList(manifestNow(), hourlyInputs(), section?.days.length ? { section, values: ecmwfDayValues() } : undefined)
+  })
   const forecast = createMemo(() => measurePerfPhase('table-render', () => buildHourlyForecast({
     rain: timeline(),
     uv: uvTimeline(),
@@ -3205,6 +3183,23 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     windV: windVFrames(),
     gust: gustTimeline(),
   }, manifest() ? Date.parse(manifest()!.now) : 0), { memo: 'uurindeling' }))
+  const ladderHourlyEnd = createMemo(() => hourlyEnd(manifestNow()))
+  const slotRows = createMemo(() => {
+    if (dayListMode() || !manifest()) return []
+    const now = manifestNow()
+    const section = manifest()!.ecmwf
+    const steps = section?.steps?.length && stepChunks().size
+      ? { intervals: section.steps.map((step) => ({ start: Date.parse(step.start), end: Date.parse(step.end) })), values: ecmwfStepValues() }
+      : undefined
+    return buildSlotRows(now, buildLadder(now), {
+      harmonieEpochs: tempTimeline().map((frame) => frame.epoch),
+      hourly: hourlyInputs(),
+      steps,
+      days: section?.days.length ? { dates: section.days.map((day) => day.date), values: ecmwfDayValues() } : undefined,
+    }, localDate(ladderHourlyEnd() - 3_600_000))
+  })
+  // Glijdende tabel: het uurdeel stopt waar de ladder begint (U91b).
+  const tableRows = createMemo(() => dayListMode() ? forecast() : forecast().filter((row) => row.epoch < ladderHourlyEnd()))
   // De straling voedt de tabel (weericoon, UV-schatting) en de hemel achter de scrubber. Gelezen waarden
   // blijven staan zolang locatie en tijdlijn dezelfde zijn: een uurstop van de hemel mag niet terugvallen
   // op de wolkenlaagschatting omdat de tabel of het venster is doorgeschoven (U62).
@@ -3506,7 +3501,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   function scrollTableToEpoch(epoch: number, behavior: ScrollBehavior): boolean {
     const scroller = forecastPanelElement.querySelector<HTMLElement>('.table-scroll')
     const rows = [...forecastPanelElement.querySelectorAll<HTMLElement>('tr[data-epoch]')]
-    const current = rows.find((row) => Number(row.dataset.epoch) === epoch) ?? rows.reduce<HTMLElement | undefined>((nearest, row) =>
+    const current = rows.find((row) => rowContains(Number(row.dataset.epoch), Number(row.dataset.end ?? Number.NaN), epoch)) ?? rows.reduce<HTMLElement | undefined>((nearest, row) =>
       !nearest || Math.abs(Number(row.dataset.epoch) - epoch) < Math.abs(Number(nearest.dataset.epoch) - epoch) ? row : nearest, undefined)
     const heading = forecastPanelElement.querySelector<HTMLElement>('thead')
     if (!scroller || !current || !heading) return false
@@ -3522,15 +3517,15 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let tablePreviewPositioned = false
   let tableFollowFrame: number | undefined
   // Doel-scrollTop per uurrij: één meting per tabel-layout, daarna leest volgen niets meer uit de layout.
-  let tableRowTops: Map<number, number> | undefined
-  function measureTableRowTops(scroller: HTMLElement): Map<number, number> | undefined {
+  let tableRowTops: Map<number, { top: number; end: number }> | undefined
+  function measureTableRowTops(scroller: HTMLElement): Map<number, { top: number; end: number }> | undefined {
     const heading = forecastPanelElement.querySelector<HTMLElement>('thead')
     if (!heading) return undefined
     const scrollerTop = scroller.getBoundingClientRect().top
     const headingHeight = heading.getBoundingClientRect().height
-    const tops = new Map<number, number>()
+    const tops = new Map<number, { top: number; end: number }>()
     for (const row of forecastPanelElement.querySelectorAll<HTMLElement>('tr[data-epoch]')) {
-      tops.set(Number(row.dataset.epoch), scroller.scrollTop + row.getBoundingClientRect().top - scrollerTop - headingHeight)
+      tops.set(Number(row.dataset.epoch), { top: scroller.scrollTop + row.getBoundingClientRect().top - scrollerTop - headingHeight, end: Number(row.dataset.end ?? Number.NaN) })
     }
     return tops
   }
@@ -3543,9 +3538,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (!scroller) return false
     tableRowTops ??= measureTableRowTops(scroller)
     if (!tableRowTops?.size) return false
-    const nearestEpoch = tableRowTops.has(epoch) ? epoch : [...tableRowTops.keys()].reduce((nearest, candidate) =>
+    // Een grove rij (U91b) volgt de cursor over zijn hele venster; anders de dichtstbijzijnde uurrij.
+    const containing = [...tableRowTops].find(([start, row]) => rowContains(start, row.end, epoch))?.[0]
+    const nearestEpoch = containing ?? [...tableRowTops.keys()].reduce((nearest, candidate) =>
       Math.abs(candidate - epoch) < Math.abs(nearest - epoch) ? candidate : nearest)
-    const target = tableRowTops.get(nearestEpoch)!
+    const target = tableRowTops.get(nearestEpoch)!.top
     stopTableFollow()
     const from = scroller.scrollTop
     if (!animate || Math.abs(target - from) < 1) {
@@ -3612,13 +3609,13 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   function scrollToTable(): void {
     tableNavigationUntil = performance.now() + TABLE_NAVIGATION_MS
     setTableViewTarget('table')
-    forecastPanelElement.scrollIntoView({ behavior: reducedMotion.matches ? 'auto' : 'smooth', block: 'start' })
+    shellElement.scrollTo({ top: shellElement.scrollTop + tablePanelTop(), behavior: reducedMotion.matches ? 'auto' : 'smooth' })
   }
 
   function scrollToMap(): void {
     tableNavigationUntil = performance.now() + TABLE_NAVIGATION_MS
     setTableViewTarget('map')
-    window.scrollTo({ top: 0, behavior: reducedMotion.matches ? 'auto' : 'smooth' })
+    shellElement.scrollTo({ top: 0, behavior: reducedMotion.matches ? 'auto' : 'smooth' })
   }
 
   function openTableFromPeek(event: MouseEvent): void {
@@ -3627,10 +3624,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     scrollToTable()
   }
 
-  return <main class="app-shell" classList={{ 'still-view': stillMode, 'table-view-open': tableViewOpen(), 'table-covers-viewport': tableViewAvailable() && tableCoversViewport(), 'table-scroll-open': tableViewAvailable() && tableScrollOpen() }} data-generated={manifest()?.generated} data-epoch={cursorMinute()}>
+  return <main ref={shellElement} class="app-shell" classList={{ 'still-view': stillMode, 'table-view-open': tableViewOpen(), 'table-covers-viewport': tableViewAvailable() && tableCoversViewport(), 'table-scroll-open': tableViewAvailable() && tableScrollOpen() }} data-generated={manifest()?.generated} data-epoch={cursorMinute()}>
     <section
       class="map-shell"
-      classList={{ 'sky-day': chromeSky()?.daylight === true, 'sky-night': chromeSky()?.daylight === false }}
+      classList={{ 'sky-day': chromeSky()?.daylight === true, 'sky-night': chromeSky()?.daylight === false, 'map-source-faded': mapSourceFaded() }}
       style={chromeSky() ? { '--day-overcast': chromeSky()!.overcast.toFixed(2) } : undefined}
       aria-label="Regenkaart van Nederland" data-rendering={mapRendering()} data-rain-opacity={rainLook().opacity.toFixed(2)} data-rain-blend={rainLook().multiply ? 'multiply' : 'normal'} data-focus={focus().toFixed(2)} data-wind-focus={windFocus().toFixed(2)} data-wind-intensity={focusedWindTuning().intensity.toFixed(2)} data-isolines={isolineCount()} data-isobars={isobarCount()}>
       <div ref={mapElement} class="map" />
@@ -3676,6 +3673,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         />
         <Show when={devMode}>
           <DevPanel
+            tableContrast={tableContrast()}
+            onTableContrast={(contrast) => { setTableContrast(contrast); localStorage.setItem(TABLE_CONTRAST_STORAGE_KEY, contrast) }}
+            dayList={dayListMode()}
+            onDayList={(enabled) => { setDayListMode(enabled); localStorage.setItem(DAY_LIST_STORAGE_KEY, enabled ? 'lijst' : 'glijdend') }}
             cloudMapForms={cloudMapForms()}
             onCloudMapForms={(enabled) => { setCloudMapForms(enabled); localStorage.setItem('motregen-cloud-map', enabled ? 'vormen' : 'sluier') }}
             cloudMapSample={cloudMapSample()}
@@ -3722,6 +3723,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           onCursor={scrub}
           onIntent={completeOnIntent}
           onPlaying={setPlayingFromScrubber}
+          onReplay={playbackAtEnd() ? () => setPlaying(true) : undefined}
           // Een compositor-glide loopt tijdens lange hoofddraadtaken door terwijl de regencanvas stilstaat.
           glideRate={0}
           onPlayPressed={() => usage.mark('play')}
@@ -3736,6 +3738,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         <section
           ref={forecastPanelElement}
           id="forecast-table-view"
+          data-contrast={tableContrast()}
           class="forecast-panel"
           classList={{ 'head-day': tableHeadSky()?.daylight === true, 'head-night': tableHeadSky()?.daylight === false }}
           onClick={openTableFromPeek}
@@ -3743,14 +3746,17 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           <div class="table-scroll">
             <ForecastTable
               onMountTable={setForecastTable}
-              rows={forecast()}
+              rows={tableRows()}
+              longRange={slotRows()}
+              timelineEnd={timeline().at(-1)?.epoch}
               series={{
                 rain: rainSeries(), uv: uvSeries(), uvClear: uvClearSeries(), radiation: radiationSeries(), temperature: temperatureSeries(),
                 feelsLike: feelsLikeSeries(), cloud: cloudSeries(), windU: windUSeries(), windV: windVSeries(), gust: gustSeries(),
               }}
               location={location()}
               windUnit={windUnit()}
-              dayNight={expressive()}
+              dayNight={expressive() && !nightCue(tableContrast())}
+              nightCue={expressive() ? nightCue(tableContrast()) : undefined}
               onHeadSky={setTableHeadSky}
               onVisibleRows={inViewOnly ? (epochs) => setPeekRows(new Set(epochs)) : undefined}
               columns={{ weather: hasWeatherIcons(), air: hasWeatherIcons() || uvTimeline().length > 0 || radiationTimeline().length > 0, temperature: hasTemperature(), wind: hasWind() }}
@@ -3761,7 +3767,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
               mobileTableOpen={tableModeSelected()}
               onOpenMobileTable={tableViewAvailable() ? scrollToTable : undefined}
               onSelectMobileMode={tableViewAvailable() ? scrollToMap : undefined}
-              onNeedRows={() => { void completePointSeries(pointLoad, 'high') }}
+              onNeedRows={() => {
+                void completePointSeries(pointLoad, 'high')
+                if (!dayListMode()) setLongRangeNear(true)
+              }}
               onNeedHistory={() => { void loadHistoryRows() }}
               onSelectTime={selectTableTime}
               onOpenHistory={() => {
@@ -3774,11 +3783,19 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
                 focusMode.set(mode, source, active)
               } }}
             />
+            <p class="table-source">
+              Waarnemingen en de verwachting tot en met morgen zijn gebaseerd op data van het <a href="https://dataplatform.knmi.nl" target="_blank" rel="noopener">KNMI</a><Show when={manifest()?.ecmwf?.days.length} fallback=".">, de verwachting vanaf overmorgen op data en producten van het <a href="https://www.ecmwf.int" target="_blank" rel="noopener">ECMWF</a>.</Show>
+              {' '}Licentie: <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>, bewerkt door motregen.nl.
+            </p>
+            {/* Pas na de eerste regen-draw: de lijst en zijn chunk horen niet bij het kritieke pad. */}
+            <Show when={dayListMode() && manifest() && pointLoadsStarted()}>
+              <DayList rows={dayRows()} windUnit={windUnit()} dayNight={expressive()} onNear={() => setLongRangeNear(true)} />
+            </Show>
           </div>
         </section>
       </aside>
     </Show>
-    <Show when={!stillMode && viewportDiagnose()}><ViewportDiagnose shortfallPx={tablePanelShortfall} /></Show>
+    <Show when={!stillMode && viewportDiagnose()}><ViewportDiagnose /></Show>
     <Show when={!stillMode && perfVisible()}><PerfHud
       monitor={perf}
       isolines={isolineCounters}
@@ -3839,6 +3856,29 @@ function cancelIdle(handle: number): void {
   const cancel = (window as unknown as { cancelIdleCallback?: (handle: number) => void }).cancelIdleCallback
   if (cancel) cancel.call(window, handle)
   else window.clearTimeout(handle)
+}
+
+/** Een uurrij heeft geen `data-end` en dekt één uur. */
+function rowContains(start: number, end: number, epoch: number): boolean {
+  return epoch >= start && epoch < (Number.isFinite(end) ? end : start + 3_600_000)
+}
+
+// ?dev-knop "Dagen: lijst onder tabel" (U91b, eigenaar orkestrator, vervalt 2026-11-01): de oude uurtabel tot het
+// einde van HARMONIE met de lijst "Komende dagen" eronder, in plaats van de glijdende tabel.
+const DAY_LIST_STORAGE_KEY = 'motregen-dagenlijst'
+// ?dev-keuze "Dag/nacht-contrast" (U91b, eigenaar orkestrator, vervalt 2026-11-01). Standaard de rail: neutrale rijen
+// zonder lichtheidsverschil, en toch het verloop van de dag met schemering op de echte tijden (PO 2026-10-17: "minder
+// op donkerte leunen"). Symbool en sterren zijn de andere niet-donkere tekens; breed, smal en sterk tinten de rijen.
+const TABLE_CONTRAST_STORAGE_KEY = 'motregen-dagnacht-contrast'
+const DEFAULT_TABLE_CONTRAST: TableContrast = 'breed'
+
+// `?dev&contrast=rail` kiest een waarde direct (en bewaart hem), zodat de PO varianten per link kan vergelijken.
+function storedTableContrast(devMode: boolean): TableContrast {
+  if (!devMode) return DEFAULT_TABLE_CONTRAST
+  const linked = TABLE_CONTRASTS.find((contrast) => contrast === new URLSearchParams(window.location.search).get('contrast'))
+  if (linked) localStorage.setItem(TABLE_CONTRAST_STORAGE_KEY, linked)
+  const stored = localStorage.getItem(TABLE_CONTRAST_STORAGE_KEY)
+  return linked ?? TABLE_CONTRASTS.find((contrast) => contrast === stored) ?? DEFAULT_TABLE_CONTRAST
 }
 
 // Zoomgrens: nooit minder dan deze breedte in beeld (Min. breedte, T3g; knop weg in U30).

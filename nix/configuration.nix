@@ -60,6 +60,8 @@
   };
 
   services.motregen.enable = true;
+  # Tien dagen vooruit (MIP-36): de ECMWF-dagverwachting in het manifest (PO 2026-10-18).
+  services.motregen.ecmwfInManifest = true;
   services.motregen.bot.enable = true;
   # MIP-26 slot (PO 2026-10-09): de VM rendert zijn eigen loops; renderer + poller in één proces.
   services.motregen.bot.role = "combined";

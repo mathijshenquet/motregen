@@ -2,21 +2,26 @@
 
 ## Stappen in het kort
 
-Voer de opdrachten uit vanaf de repositoryroot, met de devenv-omgeving actief.
+Voer de opdrachten uit vanaf de repositoryroot, met de devenv-omgeving actief. Een release in @motregen_updates is
+precies een reeks posts: per feature één bericht met beeld of clip en bijschrift, zonder samenvattend tekstbericht
+en zonder versienummer (PO 2026-10-18; versies zijn intern).
 
-1. De track schrijft een korte Nederlandse notitie in `changes/pending/` en maakt bij
-   een zichtbare wijziging echte voor/na-media met `pnpm changelog:compare` (zie hieronder).
-   Bekijk beide beelden en speel de hele clip af. Zet de media in `changes/media/` en Git.
-2. Controleer met `pnpm changelog:check`. Laat de PO titel, uitleg en beelden beoordelen
-   en verwerk zijn tekstwijzigingen in de notitie.
-3. De orkestrator maakt vanuit een schone werkboom eerst een releaseplan met
-   `tools/release.sh patch --dry-run` en daarna de release met `tools/release.sh patch`.
-   Controleer de datum en volgorde in `changes/vX.Y.Z/index.md` vóór publicatie.
-4. Bekijk `pnpm changelog:post X.Y.Z @motregen_updates --dry-run`. Publiceer na opdracht
-   met dezelfde opdracht zonder `--dry-run`. De poster maakt de opmaak en rondlopende
-   tellerlinks automatisch. Push en uitrol zijn aparte stappen; uitrol vereist PO-akkoord.
-5. Controleer de bijschriften, media en tellerlinks in Telegram. Bewaar de lokale
-   `posted.json` met de echte bericht-id's en voortgang.
+1. **Notitie met media, in de track.** Wie de wijziging bouwt, schrijft in dezelfde commit een korte Nederlandse
+   notitie in `changes/pending/` met minstens één beeld of clip (zie hieronder). Kies wat de feature het best laat
+   zien: een voor/na-vergelijking bij een fix, een clip met de interactie (een zichtbare tik, scrollen) bij iets
+   nieuws, een telefoonbeeld als het om de telefoon gaat. Bekijk elk beeld en speel elke clip helemaal af.
+   Papercuts en interne optimalisaties krijgen geen notitie. `pnpm changelog:check` weigert een notitie zonder media.
+2. **Concepten naar de PO.** Stuur per feature één of twee concepten met het voorgestelde bijschrift naar de privéchat
+   van de PO (`MOTREGEN_SMOKE_CHAT_ID` in `.env`). De PO kiest met een emoji-reactie en meldt zijn keuze; verwerk
+   tekstwijzigingen in de notitie en zet `goedgekeurd: JJJJ-MM-DD`.
+3. **Release.** Vanuit een schone werkboom `tools/release.sh patch --dry-run`, dan zonder `--dry-run`. Het script
+   weigert notities zonder `goedgekeurd`. Controleer datum en volgorde in `changes/vX.Y.Z/index.md`: de belangrijkste
+   feature eerst.
+4. **Uitrol** alleen na expliciet akkoord van de PO.
+5. **Posten** na de uitrol: `pnpm changelog:post X.Y.Z @motregen_updates --dry-run`, daarna zonder `--dry-run`. De
+   poster plaatst één bericht per media-item met titel, beeldhint, omschrijving, datum en een rondlopende `k/n`-link,
+   en bewaart de bericht-id's in het genegeerde `posted.json`. `--met-tekst` en `--album` geven de oude opmaak.
+6. Controleer in Telegram dat elke `k/n`-link op `k/n` staat en naar het volgende bericht springt.
 
 ## Een notitie schrijven
 
@@ -142,6 +147,8 @@ media-volgorde. Voor handmatig geplaatste berichten leg je eerst die volgorde en
    `editMessageCaption` met `chat_id`, `message_id`, `caption` en de JSON-gecodeerde
    `caption_entities` uit de helper. Gebruik de bestaande bot-token uit de omgeving of `.env`.
    Deze bewerking behoudt het bericht en de bijbehorende media.
+   Stuur de bewerking als JSON, niet als multipart: multipart zet elke `\n` om in `\r\n`, Telegram haalt de `\r`
+   weg en schuift links dan een teken per regeleinde terug (zo stond de `k/n`-link van v0.1.1–v0.3.0 op het jaartal).
 4. Controleer de teruggegeven caption en link-entiteiten en bekijk het resultaat in
    Telegram. Leg de bewerkte id's en API-bevestigingen vast in de genegeerde taakadministratie.
 

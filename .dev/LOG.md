@@ -1,5 +1,37 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-18 13:20 CEST — changelog per feature, links gerepareerd, pagina per datum (Claude, w9)
+
+1. PO: release = één TG-post per feature met clip, geen tekstbericht, geen versienummers voor gebruikers. v0.3.0
+   opnieuw gepost als 19 (tabel-scroll) en 20 (Opnieuw met zichtbare tik); tekstberichten 18 (v0.3.0) en 13 (v0.2.0)
+   verwijderd. Per ongeluk tekstbericht 21 (v0.1.1, poster met --met-tekst op oude administratie) direct verwijderd.
+2. Bug: k/n-link stond op het jaartal — multipart zet \n om in \r\n, Telegram schuift entiteiten terug. Linkbewerking
+   nu JSON; v0.1.1, v0.2.0 en v0.3.0 hersteld en live gecontroleerd.
+3. Afgedwongen (e2748ae): changelog:check eist media, release.sh eist `goedgekeurd`, poster standaard per feature en
+   nooit achteraf tekst; AGENTS.md + changes/README.md beschrijven de flow (concepten naar MOTREGEN_SMOKE_CHAT_ID).
+4. /changelog per datum, Over zonder versienummer (aa000ce), live na nixos-upgrade; clips staan op de pagina.
+
+## 2026-10-18 12:07 CEST — v0.3.0 live: tien dagen vooruit, nieuwe tabelindeling, CAS-cache, lijnkleur (Claude, w9)
+
+Live (main ba36ed9, tag v0.3.0; PO: "daarna kan je dit allemaal uitrollen", changelog alleen A1 + A5; TG-post 18):
+1. U90/U91b + vandaag: tabel vandaag per uur tot 01 u, twee dagen in vijf dagdelen (01–07 nacht, 07–11, 11–15,
+   15–19, 19–01 nacht; laatste nacht weg) onder een nachtkleurige dagkop, daarna dagen 01–01; breed standaard; zon
+   op/onder alleen in het uurdeel; bronregel KNMI/ECMWF CC BY 4.0 onder de tabel; prod `ecmwfInManifest = true`,
+   ECMWF-job één keer handmatig gestart (9 dagen, 64 stappen in het manifest).
+2. Mobiel: app-shell-scroller (iOS/Firefox), kaart ≥ 50 % (halve rij vanaf 764 px), regenlegenda weg, bron vervaagt.
+3. U93 CAS-cache: frames op BLAKE3-hash, chunkgeneratie 3 (radar per verversing 2,18 MB → 67 kB gemeten).
+4. Temperatuurlijnen in de bandgrenskleur (dekking 0,45, tint 0,75), app (U-shader) en bot (U94, Rust).
+5. Afspelen stopt aan het eind met Opnieuw (springt naar 0, geen terugglijden).
+Gate op 75d5b68: fmt/clippy/cargo test/web 652/bot/build/changelog/constants/flake 0; nixos-vm eerst 1 (pnpm-hash na
+fake-indexeddb, hersteld) dan 0; e2e desktop 83/87: de 4 falers + 1 flaky (Gent, 2× isobaren, Over-achtergrond,
+startlocatie) falen ook op main 27d1a8a. Perf A/B main↔int onder load 10–15 (andere projecten): bytes deterministisch
+gelijk (desktop +12 kB, mobiel passief −14 kB), tijden ruis, geen regressie.
+Les: `herdr worktree create --base origin/X` zet de upstream op X; U94-commit belandde zo op int (memory).
+
+Open met de PO: MIP-38 zonneschijnduur (U95, PR #127, S1 MAE 10,4 min/u ≈ Open-Meteo icon_d2); Lucht in de bot
+(U92 PR #124: commando/knoppen/VM-meting); 5 kapotte e2e's op main opruimen; MIP-37 bot-hergebruik (wind-checkpoint,
+Gevoel-schaal gisteren vs vaste 2°-schaal, driftpad in ingest). Voor agents: Node-terugval bot-lijnkleur.
+
 ## 2026-10-17 10:00 CEST — histogram hoger, naar-nu-knop, wolkvormen begrensd (Claude, w9)
 
 Live (main a379f9d, current-system 4vnqhdyx…; PO: "lock die er maar in, zonder changelog, dev opties kunnen weer weg"):

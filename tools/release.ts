@@ -28,6 +28,8 @@ export function release(root: string, level: string, dryRun = false): string {
   if (existsSync(resolve(root, `changes/v${next}`)) || git('tag', '--list', `v${next}`)) throw new Error(`v${next} bestaat al`)
   const notes = pending.map((file) => readNote(root, 'pending', file))
   if (notes.flatMap((note) => note.media).length > 10) throw new Error('Een release kan maximaal 10 media-items bevatten')
+  const unapproved = notes.filter((note) => !note.goedgekeurd).map((note) => note.slug)
+  if (unapproved.length) throw new Error(`Nog niet door de PO gekozen (veld goedgekeurd): ${unapproved.join(', ')}`)
   const summary = `${current} → ${next}\n${pending.map((file) => `changes/pending/${file} → changes/v${next}/${file}`).join('\n')}\nVERSION, changes/v${next}/index.md en CHANGELOG.md bijwerken\nCommit: release v${next}\nTag: v${next}\nGeen push of uitrol.`
   if (dryRun) return summary
   const date = new Date().toISOString().slice(0, 10)

@@ -131,3 +131,13 @@ export function paletteUniforms(stops: PaletteStops): { temperatures: Float32Arr
     colors: new Float32Array(padded.flatMap(([, color]) => color)),
   }
 }
+
+/**
+ * Een vaste schaal voor temperatuurbalkjes in tabel en dagenlijst (U91/U91b), niet gerekt over het bereik: 9–15 °C
+ * blijft dan rustig groen-geel.
+ */
+export const CALM_BAR_STOPS = paletteStops({ low: -10, high: 30 })
+
+export function cssRgb(color: Rgb): string {
+  return `rgb(${color.map((channel) => Math.round(channel * 255)).join(' ')})`
+}

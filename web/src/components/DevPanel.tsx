@@ -1,12 +1,16 @@
 import { createSignal, For, type JSX } from 'solid-js'
 import { copyText } from '../core/clipboard'
-import { appendSkyDiaryEntry, SKY_DIARY_CLASSES, skyDiaryJson, type SkyDiaryClass } from '../core/dev-settings'
+import { appendSkyDiaryEntry, SKY_DIARY_CLASSES, skyDiaryJson, TABLE_CONTRASTS, type SkyDiaryClass, type TableContrast } from '../core/dev-settings'
 import { RAIN_ISOLINE_RATES, RAIN_ISOLINE_SETS, type RainIsolineSetName, type RainLookChoice } from '../core/rain-palette'
 import { CLOUD_MAP_SAMPLES, type CloudMapSample } from '../core/cloud-map'
 
 // Alleen via ?dev; hooguit 3–4 knoppen per groep (PO 2026-09-25). Elke knop staat in
 // docs/dev-opties.md met eigenaar en vervaldatum (MIP-12).
 interface Props {
+  tableContrast: TableContrast
+  onTableContrast: (contrast: TableContrast) => void
+  dayList: boolean
+  onDayList: (enabled: boolean) => void
   cloudMapForms: boolean
   onCloudMapForms: (enabled: boolean) => void
   cloudMapSample: CloudMapSample
@@ -61,7 +65,17 @@ export default function DevPanel(props: Props) {
 
   return <details class="dev-panel" open data-testid="dev-panel">
     <summary>Dev-opties</summary>
-    <Group title="Wolkenkaart" open>
+    <Group title="Tabel" open>
+      <Control label="Dag/nacht-contrast" output={props.tableContrast} hint="Breed is standaard (PO 2026-10-18). Rail: neutrale rijen met links een strook in de kleur van de lucht, schemering op de echte tijden. Symbool: een maantje bij nachtrijen en een heel lichte koele tint. Sterren: sterretjes in nachtrijen. Breed (standaard): de hele tabel zachter getint. Smal: alleen de dagdelen en dag/nacht-rijen. Sterk: het oude contrast. Ook als link: ?dev&contrast=rail. U91b, vervalt 2026-11-01.">
+        <select aria-label="Dag/nacht-contrast" value={props.tableContrast} onChange={(event) => props.onTableContrast(event.currentTarget.value as TableContrast)}>
+          <For each={TABLE_CONTRASTS}>{(contrast) => <option value={contrast}>{contrast}</option>}</For>
+        </select>
+      </Control>
+      <Control label="Dagen: lijst onder tabel" output={props.dayList ? 'Aan' : 'Uit'} toggle hint="Uit (standaard): de urentabel wordt naar achteren grover, tot dag en nacht. Aan: de uurtabel tot het eind van HARMONIE met de lijst Komende dagen eronder. U91b, vervalt 2026-11-01.">
+        <input type="checkbox" checked={props.dayList} onChange={(event) => props.onDayList(event.currentTarget.checked)} />
+      </Control>
+    </Group>
+    <Group title="Wolkenkaart">
       <Control label="Wolkenbeeld" output={props.cloudMapForms ? 'vormen' : 'oude sluier'} hint="Vormen uit bewolking en licht. De fijne structuur is getekend; de regionale velden komen uit het model.">
         <select aria-label="Wolkenbeeld" value={props.cloudMapForms ? 'vormen' : 'sluier'} onChange={(event) => props.onCloudMapForms(event.currentTarget.value === 'vormen')}>
           <option value="vormen">vormen</option><option value="sluier">oude sluier</option>

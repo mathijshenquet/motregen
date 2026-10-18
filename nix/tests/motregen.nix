@@ -97,6 +97,8 @@
         enableTls = false;
         ingestPackage = fakeIngest;
         camsPackage = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-ingest;
+        ecmwfPackage = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-ingest;
+        ecmwfInManifest = true;
         frontendPackage = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-web;
         frontendPackages."weerok.nl" = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-web-weerok;
         basemapPackage = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-basemap;
@@ -119,6 +121,9 @@
       # Geen netwerk in de VM: de CAMS-job decodeert de opgenomen ADS-fixture.
       systemd.services.motregen-cams.environment.MOTREGEN_CAMS_GRIB =
         "${../../crates/ingest/tests/fixtures/cams-ads-20260925T00-l0-24.grib2}";
+
+      # De openbare ECMWF-job mag in deze netwerkloze test niet worden uitgevoerd.
+      systemd.services.motregen-ecmwf.unitConfig.ConditionPathExists = "/run/ecmwf-network-enabled";
 
       system.autoUpgrade.enable = lib.mkForce false;
       nix.gc.automatic = lib.mkForce false;
@@ -253,6 +258,19 @@
     ).lower()
     assert "404" in missing_headers, missing_headers
     assert "x-robots-tag: noindex" in missing_headers, missing_headers
+
+    machine.succeed("systemctl cat motregen-ecmwf.service | grep -F motregen-ecmwf")
+    ecmwf_timer = machine.succeed("systemctl cat motregen-ecmwf.timer")
+    assert "OnCalendar=*-*-* 08:15:00 UTC" in ecmwf_timer, ecmwf_timer
+    assert "OnCalendar=*-*-* 20:15:00 UTC" in ecmwf_timer, ecmwf_timer
+    assert "Persistent=true" in ecmwf_timer, ecmwf_timer
+    ecmwf_service = machine.succeed("systemctl cat motregen-ecmwf.service")
+    assert "Restart=on-failure" in ecmwf_service and "RestartSec=30min" in ecmwf_service, ecmwf_service
+    ingest_environment = machine.succeed("systemctl show motregen-ingest.service -p Environment --value")
+    assert "MOTREGEN_ECMWF_IN_MANIFEST=true" in ingest_environment, ingest_environment
+    machine.succeed("systemctl start motregen-ecmwf.service")
+    assert machine.succeed("systemctl show motregen-ecmwf.service -p ConditionResult --value").strip() == "no"
+    machine.succeed("test ! -e /var/lib/motregen/ecmwf.json")
 
     # U39: dagelijkse CAMS-job met de ADS-fixture; zelfde dynamische user als de ingest.
     machine.succeed("systemctl list-timers --all | grep -F motregen-cams.timer")

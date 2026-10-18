@@ -17,6 +17,7 @@ const manifest: Manifest = {
     chunk('harmonie', '2026-09-23T08:00:00Z', ['2026-09-23T09:00:00Z'], 'temp_c'),
     chunk('harmonie', '2026-09-23T11:00:00Z', ['2026-09-23T12:00:00Z'], 'temp_c'),
     chunk('uv', '2026-09-23T14:13:12Z', ['2026-09-23T13:45:00Z'], 'uv'),
+    chunk('ecmwf', '2026-09-23T00:00:00Z', ['2026-09-24T10:00:00Z'], 'day_tmax_c'),
   ],
 }
 const at = (iso: string) => Date.parse(iso)
@@ -30,6 +31,7 @@ describe('freshness', () => {
       ['seamless', '2026-09-23T14:15:00.000Z', 'run'],
       ['harmonie', '2026-09-23T11:00:00.000Z', 'run'],
       ['uv', '2026-09-23T14:13:12.000Z', 'run'],
+      ['ecmwf', '2026-09-23T00:00:00.000Z', 'run'],
     ])
     expect(latestRadarEpoch(manifest)).toBe(at('2026-09-23T14:25:00Z'))
   })

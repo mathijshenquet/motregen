@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.3.0 — 2026-10-18
+
+### Afspelen stopt aan het eind (beter)
+
+De regenfilm speelt nu één keer af en stopt aan het eind, in plaats van steeds opnieuw te beginnen. Met Opnieuw in de grafiek speel je hem nog een keer af.
+
+### Tien dagen vooruit (nieuw)
+
+De tabel bij je plek loopt nu tien dagen vooruit: vandaag per uur, de twee dagen daarna per dagdeel en daarna per dag, met temperatuur, neerslag en wind. De eerste dagen komen uit de KNMI-verwachting, de dagen daarna uit de Europese ECMWF-verwachting.
+
 ## v0.2.0 — 2026-10-16
 
 ### Meer te zien in de wolken (beter)

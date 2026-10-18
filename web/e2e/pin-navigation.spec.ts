@@ -99,7 +99,7 @@ test('touch: one finger scrolls past the map, two fingers pinch and pan, the pin
   const swiped = await camera(page)
   expectSameCenter(swiped, before)
   expect(swiped.location).toEqual(before.location)
-  await page.evaluate(() => window.scrollTo(0, 0))
+  await page.locator('.app-shell').evaluate((shell) => shell.scrollTo(0, 0))
   await page.waitForTimeout(200)
 
   // Pin met de vinger slepen (vanaf het midden, weg van de randmarges): nieuwe locatie, kaart staat stil.

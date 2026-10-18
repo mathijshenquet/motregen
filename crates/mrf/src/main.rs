@@ -62,11 +62,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             for (number, frame) in index.header.frames.iter().enumerate() {
                 let motion = frame.motion.as_ref().map_or_else(
                     || "none".to_owned(),
-                    |motion| format!("offset={} len={}", motion.offset, motion.len),
+                    |motion| {
+                        format!(
+                            "offset={} len={} hash={}",
+                            motion.offset,
+                            motion.len,
+                            motion.hash.as_deref().unwrap_or("none")
+                        )
+                    },
                 );
                 println!(
-                    "{number}: {} offset={} len={} motion={motion}",
-                    frame.time, frame.offset, frame.len,
+                    "{number}: {} offset={} len={} hash={} motion={motion}",
+                    frame.time,
+                    frame.offset,
+                    frame.len,
+                    frame.hash.as_deref().unwrap_or("none"),
                 );
             }
         }

@@ -9,7 +9,7 @@ use anyhow::{Context, Result, ensure};
 use clap::Parser;
 use motregen_ingest::{
     api::{ApiClient, RemoteFile},
-    cams,
+    cams, ecmwf,
     env_file::read_env_file_key,
     pipeline::{
         AROME_DATASET, AROME_VERSION, NOWCAST_DATASET, NOWCAST_VERSION, RTCOR_DATASET,
@@ -17,7 +17,7 @@ use motregen_ingest::{
         build_arome_chunks, build_arome_history_chunks, build_nowcast_chunk, build_rtcor_chunk,
         build_seamless_chunk_for_file, build_uv_chunks, latest_files, prune_download_cache,
     },
-    publisher::{ProducedChunk, publish_with_cams},
+    publisher::{ProducedChunk, publish_with_feeds},
 };
 use tracing::{error, info, warn};
 use tracing_subscriber::EnvFilter;
@@ -83,6 +83,8 @@ struct Config {
     /// uses it: every manifest poll and header prefetch would carry it (docs/pollen.md).
     #[arg(long, env = "MOTREGEN_CAMS_IN_MANIFEST")]
     cams_in_manifest: bool,
+    #[arg(long, env = "MOTREGEN_ECMWF_IN_MANIFEST")]
+    ecmwf_in_manifest: bool,
     #[arg(long)]
     once: bool,
     #[arg(long, value_parser = parse_duration)]
@@ -201,6 +203,7 @@ struct Daemon {
     arome_history: Vec<ProducedChunk>,
     uv: Vec<ProducedChunk>,
     cams: cams::Feed,
+    ecmwf: ecmwf::Feed,
     last_arome_check: Option<Instant>,
     last_seamless_check: Option<Instant>,
     last_uv_check: Option<Instant>,
@@ -235,6 +238,7 @@ impl Daemon {
             arome_history: Vec::new(),
             uv: Vec::new(),
             cams: cams::Feed::default(),
+            ecmwf: ecmwf::Feed::default(),
             last_arome_check: None,
             last_seamless_check: None,
             last_uv_check: None,
@@ -255,6 +259,8 @@ impl Daemon {
         self.publish_after(changed)?;
         let result = self.refresh_cams();
         self.finish_refresh("cams", result);
+        let result = self.refresh_ecmwf();
+        self.finish_refresh("ecmwf", result);
         if self.config.once {
             let outcome = self.seamless_worker.wait_outcome()?;
             let changed = self.apply_seamless_outcome(outcome)?;
@@ -471,6 +477,14 @@ impl Daemon {
         Ok(changed)
     }
 
+    fn refresh_ecmwf(&mut self) -> Result<bool> {
+        if !self.config.ecmwf_in_manifest {
+            return Ok(false);
+        }
+        self.ecmwf
+            .refresh(&self.config.data_dir, chrono::Utc::now())
+    }
+
     fn publish(&self) -> Result<()> {
         let rtcor = self.rtcor.as_ref().context("RTCOR is not ready")?;
         if self.arome.is_empty() {
@@ -493,12 +507,14 @@ impl Daemon {
         chunks.extend(self.arome_history.iter());
         chunks.extend(self.uv.iter());
         chunks.extend(self.cams.chunks.iter());
-        let manifest = publish_with_cams(
+        chunks.extend(self.ecmwf.chunks.iter());
+        let manifest = publish_with_feeds(
             &self.config.data_dir,
             now,
             &chunks,
             self.config.prune_age,
             self.cams.section.clone(),
+            self.ecmwf.section.clone(),
         )?;
         info!(
             chunks = manifest.chunks.len(),
@@ -574,6 +590,8 @@ impl Daemon {
         }
         let result = self.refresh_cams();
         activity |= self.finish_refresh("cams", result);
+        let result = self.refresh_ecmwf();
+        activity |= self.finish_refresh("ecmwf", result);
         let result = self.collect_seamless();
         activity |= self.finish_refresh("seamless", result);
         if !activity {
@@ -668,6 +686,7 @@ mod tests {
                 prune_age: Duration::from_secs(21_600),
                 cache_age: Duration::from_secs(43_200),
                 cams_in_manifest: false,
+                ecmwf_in_manifest: false,
                 once: false,
                 run_for: None,
                 api_base: Some("http://127.0.0.1".into()),
@@ -687,6 +706,7 @@ mod tests {
             arome_history: Vec::new(),
             uv: Vec::new(),
             cams: cams::Feed::default(),
+            ecmwf: ecmwf::Feed::default(),
             last_arome_check: None,
             last_seamless_check: None,
             last_uv_check: None,
@@ -732,6 +752,76 @@ mod tests {
                 .collect::<Vec<_>>(),
             ["rtcor", "harmonie"]
         );
+    }
+
+    #[test]
+    fn ecmwf_sidecar_joins_manifest_only_when_enabled() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut daemon = test_daemon(directory.path().into(), idle_test_worker());
+        let run = chrono::Utc::now()
+            .date_naive()
+            .and_hms_opt(0, 0, 0)
+            .unwrap()
+            .and_utc();
+        let days = ecmwf::complete_days(run, run + chrono::Duration::hours(240));
+        let daily = ecmwf::DailyRun {
+            run,
+            fields: ecmwf::Field::ALL
+                .into_iter()
+                .map(|field| (field, vec![vec![1.0; ecmwf::CROP.cell_count()]; days.len()]))
+                .collect(),
+            days,
+        };
+        let step_run = ecmwf::StepRun {
+            run,
+            steps: ecmwf::steps::for_run(run),
+            fields: ecmwf::StepField::ALL
+                .into_iter()
+                .map(|field| (field, vec![vec![1.0; ecmwf::CROP.cell_count()]; 64]))
+                .collect(),
+        };
+        let mut chunks = ecmwf::build_chunks(&daily).unwrap();
+        chunks.extend(ecmwf::steps::build_chunks(&step_run).unwrap());
+        ecmwf::write_publication(directory.path(), &daily, &chunks).unwrap();
+        daemon.rtcor = Some(test_chunk("rtcor", &run.to_rfc3339(), "rtcor-test.mrf"));
+        daemon.arome.push(test_chunk(
+            "harmonie",
+            &run.to_rfc3339(),
+            "harmonie-test.mrf",
+        ));
+        assert!(!daemon.refresh_ecmwf().unwrap());
+        daemon.publish().unwrap();
+        let read_manifest = || -> motregen_ingest::publisher::Manifest {
+            serde_json::from_slice(&fs::read(directory.path().join("manifest.json")).unwrap())
+                .unwrap()
+        };
+        assert!(read_manifest().ecmwf.is_none());
+        daemon.config.ecmwf_in_manifest = true;
+        let changed = daemon.refresh_ecmwf().unwrap();
+        assert!(changed);
+        daemon.publish_after(changed).unwrap();
+        let manifest = read_manifest();
+        let section = manifest.ecmwf.unwrap();
+        assert_eq!(section.license, ecmwf::LICENSE);
+        assert_eq!(section.days, daily.days);
+        assert_eq!(section.steps, step_run.steps);
+        assert_eq!(
+            manifest
+                .chunks
+                .iter()
+                .filter(|chunk| chunk.source == "ecmwf")
+                .count(),
+            17
+        );
+        for chunk in &chunks {
+            assert!(manifest.chunks.contains(&chunk.manifest));
+        }
+        assert!(!daemon.refresh_ecmwf().unwrap());
+        fs::remove_file(directory.path().join(ecmwf::SIDECAR)).unwrap();
+        let changed = daemon.refresh_ecmwf().unwrap();
+        assert!(changed);
+        daemon.publish_after(changed).unwrap();
+        assert!(read_manifest().ecmwf.is_none());
     }
 
     #[test]
