@@ -505,12 +505,12 @@ export default function ForecastTable(props: Props) {
         }
       }
       // Leest als "Maandag ochtend" en "Woensdag 22 okt": de dag boven, het dagdeel of de datum eronder (PO 2026-10-18).
-      // Onder de kopregel van zijn dag: "Nacht", "Ma ochtend", met het klokvenster eronder; een dagrij "Woensdag" en de datum.
+      // Onder de kopregel van zijn dag: "Nacht", "Ma ochtend" (zonder klokvenster); een dagrij "Woensdag" met de datum.
       const noon = localTime(row.slot.date, 12)
       const shortDay = formatWeekdayShort(noon)
       const title = row.slot.grain === 'day' ? formatWeekdayTitle(noon)
         : row.slot.label === 'Nacht' ? 'Nacht' : `${shortDay.charAt(0).toUpperCase()}${shortDay.slice(1)} ${row.slot.label.toLowerCase()}`
-      const weekday = row.slot.grain === 'day' ? formatDayMonth(noon) : row.slot.range
+      const weekday = row.slot.grain === 'day' ? formatDayMonth(noon) : ''
       const selectable = row.slot.start <= (props.timelineEnd ?? Number.NEGATIVE_INFINITY)
       const overcast = () => ((values()?.cloud ?? 50) / 100 * 0.75).toFixed(3)
       rowSkies.set(row.slot.start, () => ({ daylight: span.daylight, overcast: 0 }))
@@ -519,7 +519,7 @@ export default function ForecastTable(props: Props) {
       const selectSpan = () => { if (selectable) props.onSelectTime?.(row.slot.start) }
       return <>
         <Show when={span.heading}>
-          <tr class="day-heading-row"><td colSpan={columnCount()}>{formatWeekdayTitle(noon)} {formatDayMonth(noon)}</td></tr>
+          <tr class="sun-row day-heading-row night-hour"><td colSpan={columnCount()}>{formatWeekdayTitle(noon)} {formatDayMonth(noon)}</td></tr>
         </Show>
         <tr
           data-epoch={row.slot.start}
@@ -550,7 +550,7 @@ export default function ForecastTable(props: Props) {
           onClick={selectSpan}
         >
           <td class="time-cell">
-            <Show when={selectable} fallback={<span class="time-label" title={row.slot.range || undefined}><strong>{title}</strong><span class="day-date"><NightMark night={!span.daylight} />{weekday}</span></span>}>
+            <Show when={selectable} fallback={<span class="time-label" title={row.slot.range || undefined}><strong>{title}</strong><Show when={weekday}><span class="day-date"><NightMark night={!span.daylight} />{weekday}</span></Show></span>}>
               <button
                 type="button"
                 class="time-label"
@@ -560,7 +560,7 @@ export default function ForecastTable(props: Props) {
                   selectSpan()
                   if (props.mobileTableOpen) props.onSelectMobileMode?.()
                 }}
-              ><strong>{title}</strong><span class="day-date"><NightMark night={!span.daylight} />{weekday}</span></button>
+              ><strong>{title}</strong><Show when={weekday}><span class="day-date"><NightMark night={!span.daylight} />{weekday}</span></Show></button>
             </Show>
           </td>
           <Show when={props.columns.weather}>

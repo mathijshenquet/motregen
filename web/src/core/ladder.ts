@@ -4,13 +4,14 @@ import { addDays, aggregateHourlyWindow, localDate, localTime, type DayValues, t
 const hour = 3_600_000
 
 /**
- * De indeling van de urentabel (PO 2026-10-18): vandaag per uur tot middernacht, dan per dagdeel voor de volgende
- * dagen, daarna per kalenderdag. Precies twee overgangen, elk op een middernacht. Eén plek om op het oog te tunen.
+ * De indeling van de urentabel (PO 2026-10-18): vandaag per uur, dan per dagdeel voor de volgende dagen, daarna per
+ * dag. Een dag loopt van 01 tot 01 uur, rond 13 uur gecentreerd; zo vallen beide nachten binnen hun eigen dag.
+ * Precies twee overgangen, elk op zo'n daggrens. Eén plek om op het oog te tunen.
  */
 export const TABLE_LADDER = {
-  /** Zoveel dagen na vandaag per dagdeel: nacht 00–06, ochtend, middag, avond. */
+  /** Zoveel dagen na vandaag per dagdeel. */
   partDays: 2,
-  /** Daarna per kalenderdag, tot en met deze dag; 0 = vandaag. */
+  /** Daarna per dag, tot en met deze dag; 0 = vandaag. */
   lastDay: 9,
 }
 
@@ -21,10 +22,10 @@ export interface LadderSlot {
   start: number
   end: number
   grain: SlotGrain
-  /** Lokale datum. */
+  /** De dag (01–01) waartoe het venster hoort. */
   date: string
   label: string
-  /** Klokvenster, "06–12" (titel van de rij; de rij zelf toont dag en dagdeel). */
+  /** Klokvenster, "07–11" (titel van de rij). */
   range: string
 }
 
@@ -37,28 +38,34 @@ export interface SlotRow {
   values?: DayValues
 }
 
-const PARTS = ['Nacht', 'Ochtend', 'Middag', 'Avond'] as const
-const PART_HOURS = 6
-const pad = (value: number) => String(value).padStart(2, '0')
+/** Dagdelen in lokale kloktijd vanaf de middernacht van hun dag; de late nacht loopt door tot 01 uur. */
+const PARTS = [['Nacht', 1, 7], ['Ochtend', 7, 11], ['Middag', 11, 15], ['Avond', 15, 19], ['Nacht', 19, 25]] as const
+const DAY_START_HOUR = 1
+const pad = (value: number) => String(value % 24).padStart(2, '0')
 
-/** Het eerste moment dat niet meer per uur is: de komende lokale middernacht. */
-export function hourlyEnd(now: number): number {
-  return localTime(addDays(localDate(now), 1), 0)
+/** De dag (01–01) waartoe een moment hoort: tot 01 uur nog de vorige kalenderdag. */
+function tableDay(epoch: number): string {
+  const date = localDate(epoch)
+  return epoch < localTime(date, DAY_START_HOUR) ? addDays(date, -1) : date
 }
 
-/** De grove rijen na het uurdeel: dagdelen voor `partDays` dagen, dan kalenderdagen tot en met `lastDay`. */
+/** Het eerste moment dat niet meer per uur is: het einde van vandaag, 01 uur. */
+export function hourlyEnd(now: number): number {
+  return localTime(addDays(tableDay(now), 1), DAY_START_HOUR)
+}
+
+/** De grove rijen na het uurdeel: dagdelen voor `partDays` dagen, dan dagen (01–01) tot en met `lastDay`. */
 export function buildLadder(now: number, ladder: Ladder = TABLE_LADDER): LadderSlot[] {
-  const today = localDate(now)
+  const today = tableDay(now)
   const slots: LadderSlot[] = []
   for (let day = 1; day <= ladder.partDays; day++) {
     const date = addDays(today, day)
-    PARTS.forEach((label, part) => {
-      const clock = part * PART_HOURS
-      slots.push({ start: localTime(date, clock), end: localTime(date, clock + PART_HOURS), grain: 'part', date, label, range: `${pad(clock)}–${pad(clock + PART_HOURS)}` })
-    })
+    for (const [label, from, to] of PARTS) {
+      slots.push({ start: localTime(date, from), end: localTime(date, to), grain: 'part', date, label, range: `${pad(from)}–${pad(to)}` })
+    }
   }
   for (let date = addDays(today, ladder.partDays + 1); date <= addDays(today, ladder.lastDay); date = addDays(date, 1)) {
-    slots.push({ start: localTime(date, 0), end: localTime(date, 24), grain: 'day', date, label: 'Dag', range: '00–24' })
+    slots.push({ start: localTime(date, DAY_START_HOUR), end: localTime(date, 24 + DAY_START_HOUR), grain: 'day', date, label: 'Dag', range: '01–01' })
   }
   return slots
 }

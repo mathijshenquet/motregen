@@ -13,30 +13,33 @@ function steps(from: string, count: number, size = 3): Interval[] {
 }
 
 describe('table ladder', () => {
-  it('goes hourly to midnight, then day parts for two days, then calendar days to day 10', () => {
+  it('goes hourly to 01:00, then five day parts for two days, then 01–01 days to day 10', () => {
     const now = at('2026-10-17T11:00:00Z') // 13:00 lokaal
-    expect(hourlyEnd(now)).toBe(localTime('2026-10-18', 0))
+    expect(hourlyEnd(now)).toBe(localTime('2026-10-18', 1))
     const slots = buildLadder(now)
-    expect(summary(slots).slice(0, 9)).toEqual([
-      '2026-10-18 part Nacht 00–06', '2026-10-18 part Ochtend 06–12', '2026-10-18 part Middag 12–18', '2026-10-18 part Avond 18–24',
-      '2026-10-19 part Nacht 00–06', '2026-10-19 part Ochtend 06–12', '2026-10-19 part Middag 12–18', '2026-10-19 part Avond 18–24',
-      '2026-10-20 day Dag 00–24',
+    expect(summary(slots).slice(0, 11)).toEqual([
+      '2026-10-18 part Nacht 01–07', '2026-10-18 part Ochtend 07–11', '2026-10-18 part Middag 11–15', '2026-10-18 part Avond 15–19',
+      '2026-10-18 part Nacht 19–01',
+      '2026-10-19 part Nacht 01–07', '2026-10-19 part Ochtend 07–11', '2026-10-19 part Middag 11–15', '2026-10-19 part Avond 15–19',
+      '2026-10-19 part Nacht 19–01', '2026-10-20 day Dag 01–01',
     ])
-    expect(summary(slots).at(-1)).toBe('2026-10-26 day Dag 00–24')
-    // Aaneengesloten: geen gat en geen overlap, vanaf de middernacht waar de uren stoppen.
+    expect(summary(slots).at(-1)).toBe('2026-10-26 day Dag 01–01')
+    // Aaneengesloten: geen gat en geen overlap, vanaf 01 uur waar de uren stoppen.
     expect(slots[0]!.start).toBe(hourlyEnd(now))
     for (let index = 1; index < slots.length; index++) expect(slots[index]!.start).toBe(slots[index - 1]!.end)
   })
 
-  it('stops the hours at midnight even late in the evening', () => {
-    expect(hourlyEnd(at('2026-10-17T21:30:00Z'))).toBe(localTime('2026-10-18', 0)) // 23:30 lokaal
+  it('counts the hour after midnight to the day before', () => {
+    expect(hourlyEnd(at('2026-10-17T21:30:00Z'))).toBe(localTime('2026-10-18', 1)) // 23:30 lokaal
+    expect(hourlyEnd(at('2026-10-17T22:30:00Z'))).toBe(localTime('2026-10-18', 1)) // 00:30 lokaal
+    expect(hourlyEnd(at('2026-10-17T23:30:00Z'))).toBe(localTime('2026-10-19', 1)) // 01:30 lokaal
   })
 
-  it('keeps the local clock across the clock changes: a 7-hour night in autumn, a 23-hour day in spring', () => {
-    const autumn = buildLadder(at('2026-10-24T10:00:00Z')).find((slot) => slot.date === '2026-10-25' && slot.label === 'Nacht')!
-    expect(autumn).toMatchObject({ start: at('2026-10-24T22:00:00Z'), end: at('2026-10-25T05:00:00Z') })
+  it('keeps the local clock across the clock changes: a 7-hour early night in autumn, a 23-hour day in spring', () => {
+    const autumn = buildLadder(at('2026-10-24T10:00:00Z')).find((slot) => slot.date === '2026-10-25' && slot.range === '01–07')!
+    expect(autumn).toMatchObject({ start: at('2026-10-24T23:00:00Z'), end: at('2026-10-25T06:00:00Z') })
     expect(hours(autumn)).toBe(7)
-    const spring = buildLadder(at('2026-03-26T10:00:00Z')).find((slot) => slot.date === '2026-03-29')!
+    const spring = buildLadder(at('2026-03-25T10:00:00Z')).find((slot) => slot.date === '2026-03-29')!
     expect(spring.grain).toBe('day')
     expect(hours(spring)).toBe(23)
   })
@@ -44,7 +47,7 @@ describe('table ladder', () => {
   it('marks the first row of a new day', () => {
     const now = at('2026-10-17T11:00:00Z')
     const slots = buildLadder(now)
-    const rows = buildSlotRows(now, slots.slice(3, 6), { harmonieEpochs: Array.from({ length: 60 }, (_, index) => at('2026-10-17T03:00:00Z') + index * hour) }, '2026-10-18')
+    const rows = buildSlotRows(now, slots.slice(4, 7), { harmonieEpochs: Array.from({ length: 60 }, (_, index) => at('2026-10-17T03:00:00Z') + index * hour) }, '2026-10-18')
     expect(rows.map((row) => row.dayStart)).toEqual([undefined, true, undefined])
     expect(rows.every((row) => row.source === 'harmonie' && row.values === undefined)).toBe(true)
   })
@@ -60,12 +63,12 @@ describe('slot sources', () => {
   it('takes a window from HARMONIE only when HARMONIE covers all of it, else from the ECMWF steps', () => {
     const slots = buildLadder(now).filter((slot) => slot.date === '2026-10-19')
     const rows = buildSlotRows(now, slots, { harmonieEpochs, steps: { intervals } })
-    // Nacht 00–06 (22–04 UTC) ligt binnen HARMONIE; de ochtend loopt tot 10 UTC en HARMONIE stopt om 07.
-    expect(rows.map((row) => `${row.slot.label} ${row.source}`)).toEqual(['Nacht harmonie', 'Ochtend ecmwf', 'Middag ecmwf', 'Avond ecmwf'])
+    // De vroege nacht 01–07 (23–05 UTC) ligt binnen HARMONIE; de ochtend loopt tot 09 UTC en HARMONIE stopt om 07.
+    expect(rows.map((row) => `${row.slot.label} ${row.source}`)).toEqual(['Nacht harmonie', 'Ochtend ecmwf', 'Middag ecmwf', 'Avond ecmwf', 'Nacht ecmwf'])
     expect(rows[0]!.dayStart).toBe(true)
   })
 
-  it('aggregates loaded steps over a whole calendar day and puts the chance of rain on it', () => {
+  it('aggregates loaded steps over a whole day and puts the chance of rain on it', () => {
     const slots = buildLadder(now).filter((slot) => slot.date === '2026-10-21')
     const rows = buildSlotRows(now, slots, {
       harmonieEpochs,
