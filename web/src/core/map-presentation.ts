@@ -1,5 +1,11 @@
 export const MAP_FOCUS_SATURATION = 0.55
 export const TEMPERATURE_LINE_OPACITY = 0.4
+/**
+ * Temperatuurlijnen in de app hebben de kleur van hun bandgrens (de vulkleur onder de lijn), met de helderheid maal
+ * TEMPERATURE_LINE_FILL_SHADE en deze dekking; dag en nacht gelijk (PO 2026-10-18, op het oog getuned).
+ */
+export const TEMPERATURE_LINE_FILL_OPACITY = 0.45
+export const TEMPERATURE_LINE_FILL_SHADE = 0.75
 export const ISOBAR_LINE_OPACITY = 0.27
 
 export function isolineWidthCss(zoom: number): number {
