@@ -25,7 +25,7 @@ pub const UV_DATASET: &str = "cloud_modified_UV_index_benelux";
 pub const UV_VERSION: &str = "1.0";
 pub const SEAMLESS_DATASET: &str = "seamless_precipitation_ensemble_forecast_members";
 pub const SEAMLESS_VERSION: &str = "1.0";
-const CHUNK_FORMAT_GENERATION: u32 = 2;
+const CHUNK_FORMAT_GENERATION: u32 = 3;
 
 pub fn latest_files(
     api: &ApiClient,

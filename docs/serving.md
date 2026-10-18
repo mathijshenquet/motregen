@@ -18,6 +18,20 @@ ETag-validatie houdt een ongewijzigd manifest bij een header-only `304`.
 Ongewijzigde chunk-URL's blijven decoded in de sessiecache; alleen nieuwe
 generatie-URL's vragen bytes en verschijnen tijdelijk als pending frame.
 
+Hergebruik over chunk-URL's heen (U93): de radarchunk bevat de laatste drie uur
+en krijgt elke vijf minuten een nieuwe naam, terwijl er maar één frame bijkomt.
+Sinds formatgeneratie 3 heeft elke member in de header een inhoudshash
+(`docs/mrf.md` §Member hashes). De client leest bij een nieuwe URL eerst de
+header, slaat frames over waarvan de hash al gedecodeerd in het geheugen of
+gecomprimeerd in IndexedDB staat, en vraagt alleen de ontbrekende members op,
+aaneengesloten ontbrekende frames samen in één Range, hun motion-annexen in een
+tweede. Een verversing kost zo de header plus één frame en één annex in plaats
+van de hele chunk; een koude start na heropenen vindt de oude frames in
+IndexedDB. Members van chunks met hashes staan daar onder hun hash en niet nog
+eens onder URL-bereik; voor chunks zonder hashes en voor headers blijft het
+URL-bereik de sleutel. Beide soorten delen dezelfde limieten (48 MB, 512
+items, 7 dagen) en worden oudste-eerst opgeruimd.
+
 Chunknamen eindigen vóór `.mrf` op een generatiesuffix `-g<16 hex-cijfers>`.
 Die suffix is deterministisch afgeleid van een expliciete
 encodeergeneratie, het veld, de volledige griddefinitie en de volledige

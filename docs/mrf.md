@@ -42,6 +42,36 @@ The example abbreviates `quant`; real input must contain the valid 256-entry tab
 
 `encode_with_motion` appends independently compressed motion members after all independently compressed image members. Their offsets remain relative to the payload start. The full decoder and `HeaderIndex::decode_motion` both validate the `motion_grid` byte count and reject half-no-data pairs; legacy chunks omit both `motion_grid` and per-frame `motion` and retain their original bytes.
 
+## Member hashes
+
+Since chunk format generation 3 (U93) every frame entry carries `hash`, and
+every motion member its own `hash`: BLAKE3 over the compressed member bytes
+exactly as they sit in the payload (what a Range request transfers),
+truncated to the first 128 bits and written as 32 lowercase hex digits.
+
+```json
+{"time": "2026-10-18T04:10:00Z", "offset": 52113, "len": 51874, "hash": "55d28cfd4b5836fc263f3913c41be3a8",
+ "motion": {"offset": 1873120, "len": 1012, "hash": "72c2a65d529054bdc4e710bc864fd168"}}
+```
+
+Members are independent zstd frames, so a frame that recurs in the next chunk
+(the sliding three-hour radar window) has the same bytes and the same hash at a
+different offset. The client keys decoded frames and motions on
+`<generation suffix>:<hash>`, because the decoded result also depends on grid,
+quantization and `pred`, which the generation suffix of the chunk name covers;
+it stores compressed members in IndexedDB under the hash alone (see
+`docs/serving.md`). The hash is a cache key, not an integrity check: the web
+client does not recompute it. The Rust decoder (`HeaderIndex::decode_frame`,
+`decode_motion`, `decode`) does verify a present hash and rejects a mismatch.
+
+Compatibility: `hash` is optional. Readers accept headers without it (chunks
+from generation 2 and earlier) and then fall back to `url#index` keys; a
+present `hash` must be 32 lowercase hex digits. The fields cost about 42 bytes
+of header JSON per member, about 3 kB on a 36-frame radar chunk with motion.
+`mrf inspect` prints `hash=` for each frame and motion member. BLAKE3 is fast
+in Rust and needs no browser counterpart, since the browser never hashes;
+128 bits keeps accidental collisions out of reach for any realistic cache.
+
 ## Client motion texture encoding
 
 The worker keeps a motion annex byte-exact after zstd decode. Before GPU
