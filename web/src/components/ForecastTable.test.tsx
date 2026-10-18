@@ -21,7 +21,7 @@ const series: ForecastSeries = {
 }
 const allColumns = { weather: true, air: true, temperature: true, wind: true }
 
-function renderTable(options: { pinned?: FocusKind; weather?: boolean; dayNight?: boolean; forecastSeries?: ForecastSeries; onSelectTime?: (epoch: number) => void; mobileTableOpen?: boolean; onOpenMobileTable?: () => void; onSelectMobileMode?: () => void; rows?: HourlyForecastRow[]; historyInline?: boolean; windUnit?: () => WindUnit; allSunEvents?: boolean } = {}) {
+function renderTable(options: { pinned?: FocusKind; weather?: boolean; dayNight?: boolean; forecastSeries?: ForecastSeries; onSelectTime?: (epoch: number) => void; mobileTableOpen?: boolean; onOpenMobileTable?: () => void; onSelectMobileMode?: () => void; rows?: HourlyForecastRow[]; historyInline?: boolean; windUnit?: () => WindUnit } = {}) {
   const [pinned, setPinned] = createSignal<FocusKind>(options.pinned ?? 'weather')
   const onPin = vi.fn((mode: FocusKind) => setPinned(mode))
   const onFocus = vi.fn()
@@ -44,7 +44,6 @@ function renderTable(options: { pinned?: FocusKind; weather?: boolean; dayNight?
     onOpenMobileTable={options.onOpenMobileTable}
     onSelectMobileMode={options.onSelectMobileMode}
     focus={{ pinned: pinned(), onPin, onFocus }}
-    allSunEvents={options.allSunEvents}
   />)
   return { pinned, onPin, onFocus }
 }
@@ -363,13 +362,8 @@ describe('sun bands (U91b)', () => {
   }))
   const bands = () => [...document.querySelectorAll('.sun-row')].map((row) => row.textContent?.replace(/\d\d:\d\d/, 'hh:mm'))
 
-  it('shows only the next sunrise and the next sunset in the sliding table', () => {
+  it('shows every sunrise and sunset among the hourly rows', () => {
     renderTable({ rows: twoDays })
-    expect(bands()).toEqual(['Zon op hh:mm', 'Zon onder hh:mm'])
-  })
-
-  it('keeps every sunrise and sunset in the old hourly table', () => {
-    renderTable({ rows: twoDays, allSunEvents: true })
     expect(bands()).toEqual(['Zon op hh:mm', 'Zon onder hh:mm', 'Zon op hh:mm', 'Zon onder hh:mm'])
   })
 })

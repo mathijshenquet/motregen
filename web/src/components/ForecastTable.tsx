@@ -5,7 +5,7 @@ import { moonHorizonAngle, moonLitPath, moonPhase } from '../core/moon'
 import { isSunUp, solarElevationSin, sunEvents, type SunEvent } from '../core/solar'
 import { dailyClearSkyUvMax, uvReading } from '../core/uv'
 import { deriveSpanIcon, deriveWeatherIcon, summarizeWind, summarizeWindFrom, UNLIKELY_RAIN_PERCENT, type WindUnit } from '../core/weather'
-import { tableSunEvents, type SlotRow } from '../core/ladder'
+import type { SlotRow } from '../core/ladder'
 import { BUTTON_ICON, Clock, CloudRain, CloudSun, Moon, Table2, Thermometer, Wind } from './icons'
 import UvBar from './UvBar'
 import { skyRailGradient } from '../core/sky-rail'
@@ -14,7 +14,7 @@ import { CALM_BAR_STOPS, cssRgb, paletteColor } from '../core/temperature-palett
 import WeatherIcon from './WeatherIcon'
 import WindReading from './WindReading'
 import { measurePerfPhase } from '../core/perf'
-import { formatDayMonth, formatNumber, formatTime, formatWeekdayDay, formatWeekdayShort, formatWeekdayTitle } from '../core/locale'
+import { formatDayMonth, formatNumber, formatTime, formatWeekdayShort, formatWeekdayTitle } from '../core/locale'
 import { localMinutes, localTime } from '../core/days'
 import { sameFields } from '../core/stable'
 
@@ -39,7 +39,6 @@ interface Props {
   /** Rijen die later beginnen liggen voorbij de tijdlijn: klikken laat de cursor dan niet springen. */
   timelineEnd?: number
   /** Zonband bij elke zonsop- en ondergang (de oude uurtabel); anders alleen de eerstvolgende van elk (U91b). */
-  allSunEvents?: boolean
   /** Nacht zonder donkere rijen (U91b): lucht-rail links, maantje bij het label, of sterretjes in de nachtrijen. */
   nightCue?: NightCue
   series: ForecastSeries
@@ -81,7 +80,6 @@ const HOVER_LEAVE_MS = 80
 // zichtbaar en worden dus niet gedecodeerd.
 const SHOWN_ROWS_REST_MS = 200
 // sunEvents verfijnt tot op een seconde; twee aanroepen met een ander begin vinden hetzelfde moment.
-const SUN_MATCH_MS = 60_000
 
 export default function ForecastTable(props: Props) {
   const tableMemo = <T,>(name: string, compute: () => T) => createMemo(() => measurePerfPhase('table-render', compute, { memo: name }))
@@ -132,20 +130,11 @@ export default function ForecastTable(props: Props) {
     onFocus={(event) => { if (event.currentTarget.matches(':focus-visible')) props.focus.onFocus(heading.mode, 'keyboard', true) }}
     onBlur={() => props.focus.onFocus(heading.mode, 'keyboard', false)}
   ><ColumnLabel icon={heading.icon} text={heading.label} /></button>
-  // In de glijdende tabel precies één "Zon op" en één "Zon onder", de geschiedenis meegeteld (PO 2026-10-18).
-  const nextSun = tableMemo('volgende-zon', () => {
-    // De bovenste getoonde uurrij, zoals visibleRows hieronder (die staat later in de component).
-    const showsHistory = props.historyInline || props.historyOpen || props.onOpenMobileTable
-    const first = (showsHistory ? props.rows[0] : props.rows.find((row) => row.kind !== 'past'))?.epoch
-    return first === undefined ? [] : tableSunEvents(first, props.location)
-  })
-  const shownSun = (event: SunEvent) => props.allSunEvents === true ||
-    nextSun().some((next) => next.kind === event.kind && Math.abs(next.epoch - event.epoch) < SUN_MATCH_MS)
   const sun = tableMemo('zonmomenten', () => {
     const first = props.rows[0]
     const last = props.rows.at(-1)
     if (!first || !last) return new Map<number, SunEvent>()
-    const events = sunEvents(first.epoch, last.epoch + hour, props.location.lng, props.location.lat).filter(shownSun)
+    const events = sunEvents(first.epoch, last.epoch + hour, props.location.lng, props.location.lat)
     return new Map(events.map((event) => [Math.floor(event.epoch / hour) * hour, event]))
   })
   const elevation = (epoch: number) => solarElevationSin(epoch, props.location.lng, props.location.lat)
@@ -289,22 +278,13 @@ export default function ForecastTable(props: Props) {
     window.clearTimeout(shownTimer)
   })
 
-  // Dag of nacht van een dagdeel volgt het midden van zijn venster. Zonbanden alleen tussen 3-uursrijen, waar
-  // de rijen kloktijden zijn; dagdelen en dag/nacht dragen hun naam al.
-  const spans = tableMemo('grove-rijen', () => {
-    const rows = props.longRange ?? []
-    // Een dagrij (06–06) is een dag, ook al valt het midden van zijn venster na zonsondergang.
-    const daylight = rows.map((row) => row.slot.grain === 'day' || isSunUp((row.slot.start + row.slot.end) / 2, props.location.lng, props.location.lat))
-    // De zonband staat waar de rijkleur wisselt, met het echte moment uit de twee rijen eromheen. Het venster van twee
-    // rijen kan beide bevatten; de wissel kiest welke.
-    return rows.map((row, index) => {
-      const previous = rows[index - 1]
-      const sunBefore = previous && daylight[index - 1] !== daylight[index]
-        ? sunEvents(previous.slot.start, row.slot.end, props.location.lng, props.location.lat).find((event) => event.kind === (daylight[index] ? 'rise' : 'set') && shownSun(event))
-        : undefined
-      return { row, daylight: daylight[index]!, sunBefore }
-    })
-  })
+  // Alleen de nacht is een nachtrij; ochtend, middag en avond zijn dagdelen en een dagrij is een dag (PO 2026-10-18).
+  // Geen zonbanden tussen grove rijen: die dragen hun dagdeel al in de naam. Een dag in dagdelen krijgt een kopregel.
+  const spans = tableMemo('grove-rijen', () => (props.longRange ?? []).map((row, index, rows) => ({
+    row,
+    daylight: row.slot.label !== 'Nacht',
+    heading: row.slot.grain === 'part' && rows[index - 1]?.slot.date !== row.slot.date,
+  })))
   // Eén temperatuurschaal over alle grove rijen, zodat de balkjes het verloop over de dagen laten zien.
   const spanScale = tableMemo('grove-schaal', () => {
     const shown = (props.longRange ?? []).flatMap((row) => {
@@ -488,7 +468,9 @@ export default function ForecastTable(props: Props) {
       const values = () => row.values
       const placeholder = () => values() ? '—' : '…'
       const hours = (row.slot.end - row.slot.start) / hour
-      const icon = createMemo(() => deriveSpanIcon(values()?.precipMm ?? null, values()?.cloud ?? null, span.daylight, hours))
+      // Het icoon volgt de echte zon (een oktoberavond is donker: maan, geen zon), de rijkleur het dagdeel.
+      const sunUp = row.slot.grain === 'day' || isSunUp((row.slot.start + row.slot.end) / 2, props.location.lng, props.location.lat)
+      const icon = createMemo(() => deriveSpanIcon(values()?.precipMm ?? null, values()?.cloud ?? null, sunUp, hours))
       const rainAmount = () => {
         const amount = values()?.precipMm
         return amount == null || amount < 0.1 ? undefined : formatNumber(amount, amount < 10 ? 1 : 0)
@@ -522,10 +504,13 @@ export default function ForecastTable(props: Props) {
           'background-image': `linear-gradient(90deg, ${cssRgb(paletteColor(bottom, CALM_BAR_STOPS))}, ${cssRgb(paletteColor(top, CALM_BAR_STOPS))})`,
         }
       }
-      // Een dagrij noemt de dag zelf ("Woensdag", "22 okt"); een dagdeel zijn naam met de dag eronder.
+      // Leest als "Maandag ochtend" en "Woensdag 22 okt": de dag boven, het dagdeel of de datum eronder (PO 2026-10-18).
+      // Onder de kopregel van zijn dag: "Nacht", "Ma ochtend", met het klokvenster eronder; een dagrij "Woensdag" en de datum.
       const noon = localTime(row.slot.date, 12)
-      const title = row.slot.grain === 'day' ? formatWeekdayTitle(noon) : row.slot.label
-      const weekday = row.slot.grain === 'day' ? formatDayMonth(noon) : formatWeekdayDay(noon)
+      const shortDay = formatWeekdayShort(noon)
+      const title = row.slot.grain === 'day' ? formatWeekdayTitle(noon)
+        : row.slot.label === 'Nacht' ? 'Nacht' : `${shortDay.charAt(0).toUpperCase()}${shortDay.slice(1)} ${row.slot.label.toLowerCase()}`
+      const weekday = row.slot.grain === 'day' ? formatDayMonth(noon) : row.slot.range
       const selectable = row.slot.start <= (props.timelineEnd ?? Number.NEGATIVE_INFINITY)
       const overcast = () => ((values()?.cloud ?? 50) / 100 * 0.75).toFixed(3)
       rowSkies.set(row.slot.start, () => ({ daylight: span.daylight, overcast: 0 }))
@@ -533,11 +518,9 @@ export default function ForecastTable(props: Props) {
       onCleanup(() => rowSkies.delete(row.slot.start))
       const selectSpan = () => { if (selectable) props.onSelectTime?.(row.slot.start) }
       return <>
-        <Show when={span.sunBefore}>{(event) =>
-          <tr class="sun-row" classList={{ 'sunrise-row': event().kind === 'rise', 'sunset-row': event().kind === 'set' }} style={{ '--rail': rail(row.slot.start, row.slot.start) }}>
-            <td colSpan={columnCount()}><SunGlyph />{`${event().kind === 'rise' ? 'Zon op' : 'Zon onder'} ${formatTime(event().epoch)}`}</td>
-          </tr>
-        }</Show>
+        <Show when={span.heading}>
+          <tr class="day-heading-row"><td colSpan={columnCount()}>{formatWeekdayTitle(noon)} {formatDayMonth(noon)}</td></tr>
+        </Show>
         <tr
           data-epoch={row.slot.start}
           data-end={row.slot.end}
@@ -567,7 +550,7 @@ export default function ForecastTable(props: Props) {
           onClick={selectSpan}
         >
           <td class="time-cell">
-            <Show when={selectable} fallback={<span class="time-label" title={row.slot.range || undefined}><strong>{title}</strong><span classList={{ 'day-date': row.slot.grain === 'day' }}><NightMark night={!span.daylight} />{weekday}</span></span>}>
+            <Show when={selectable} fallback={<span class="time-label" title={row.slot.range || undefined}><strong>{title}</strong><span class="day-date"><NightMark night={!span.daylight} />{weekday}</span></span>}>
               <button
                 type="button"
                 class="time-label"
@@ -577,7 +560,7 @@ export default function ForecastTable(props: Props) {
                   selectSpan()
                   if (props.mobileTableOpen) props.onSelectMobileMode?.()
                 }}
-              ><strong>{title}</strong><span classList={{ 'day-date': row.slot.grain === 'day' }}><NightMark night={!span.daylight} />{weekday}</span></button>
+              ><strong>{title}</strong><span class="day-date"><NightMark night={!span.daylight} />{weekday}</span></button>
             </Show>
           </td>
           <Show when={props.columns.weather}>

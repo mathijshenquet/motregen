@@ -220,11 +220,13 @@ test.describe('telefoon staand', () => {
 
     const box = (await page.locator('.scrub-surface').boundingBox())!
     const touchY = box.y + box.height / 2
-    const startX = box.x + box.width - 30
+    // Terug in de tijd (naar rechts slepen): de fixture heeft geen ECMWF-dagen, dus onder de laatste uurrijen staat te
+    // weinig tabel om die bovenaan te krijgen.
+    const startX = box.x + 30
     const cdp = await page.context().newCDPSession(page)
     await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: startX, y: touchY }] })
-    // Anderhalf uur naar links slepen: de cursor passeert minstens één uurgrens.
-    const dragPx = -box.width / 8 * 1.5
+    // Anderhalf uur slepen: de cursor passeert minstens één uurgrens.
+    const dragPx = box.width / 8 * 1.5
     for (let step = 1; step <= 20; step++) {
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: startX + dragPx * step / 20, y: touchY }] })
       await page.waitForTimeout(30)

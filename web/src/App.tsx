@@ -3177,12 +3177,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     windV: windVFrames(),
     gust: gustTimeline(),
   }, manifest() ? Date.parse(manifest()!.now) : 0), { memo: 'uurindeling' }))
-  // De bovenste uurrij zoals de tabel hem toont (ForecastTable: visibleRows); de zonmomenten tellen vanaf daar.
-  const tableFirstRow = createMemo(() => {
-    const showsHistory = historyInline() || historyOpen() || tableViewAvailable()
-    return (showsHistory ? forecast()[0] : forecast().find((row) => row.kind !== 'past'))?.epoch ?? manifestNow()
-  })
-  const ladderHourlyEnd = createMemo(() => hourlyEnd(manifestNow(), tableFirstRow(), location()))
+  const ladderHourlyEnd = createMemo(() => hourlyEnd(manifestNow()))
   const slotRows = createMemo(() => {
     if (dayListMode() || !manifest()) return []
     const now = manifestNow()
@@ -3190,7 +3185,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const steps = section?.steps?.length && stepChunks().size
       ? { intervals: section.steps.map((step) => ({ start: Date.parse(step.start), end: Date.parse(step.end) })), values: ecmwfStepValues() }
       : undefined
-    return buildSlotRows(now, buildLadder(now, tableFirstRow(), location()), {
+    return buildSlotRows(now, buildLadder(now), {
       harmonieEpochs: tempTimeline().map((frame) => frame.epoch),
       hourly: hourlyInputs(),
       steps,
@@ -3748,7 +3743,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
               rows={tableRows()}
               longRange={slotRows()}
               timelineEnd={timeline().at(-1)?.epoch}
-              allSunEvents={dayListMode()}
               series={{
                 rain: rainSeries(), uv: uvSeries(), uvClear: uvClearSeries(), radiation: radiationSeries(), temperature: temperatureSeries(),
                 feelsLike: feelsLikeSeries(), cloud: cloudSeries(), windU: windUSeries(), windV: windVSeries(), gust: gustSeries(),

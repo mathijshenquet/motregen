@@ -40,8 +40,8 @@ test('the sliding table turns coarser after the hourly rows and loads the long r
   const dayRow = page.locator('tr[data-grain="day"]').last()
   await dayRow.evaluate((element) => element.scrollIntoView({ block: 'center' }))
   await expect.poll(() => ecmwf.length).toBeGreaterThan(0)
-  // De dag staat in de rij zelf, geen losse kopbalk (PO 2026-10-17).
-  await expect(page.locator('tr.day-heading-row')).toHaveCount(0)
+  // Een dag in dagdelen krijgt een kopregel; een dagrij noemt zijn dag zelf (PO 2026-10-18).
+  await expect(page.locator('tr.day-heading-row')).toHaveCount(2)
   // Een dagrij noemt de dag ("Woensdag") met de datum eronder (PO 2026-10-18).
   await expect(dayRow.locator('.time-label strong')).toHaveText(/^[A-Z][a-z]+dag$/)
   await expect(dayRow.locator('.time-label span')).toHaveText(/^\d{1,2} [a-z]{3}\.?$/i)
