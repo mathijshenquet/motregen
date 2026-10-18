@@ -31,7 +31,7 @@ describe('about dialog', () => {
     expect(dialog.open).toBe(true)
     expect(document.querySelector('.about-lead')!.textContent).toBe('Regenradar en weersverwachting')
     // Alles in één tabel, ook privacy en broncode; geen losse alinea's of knop meer.
-    expect([...dialog.querySelectorAll('dt')].map((term) => term.textContent)).toEqual(['Observatie', 'Voorspelling', 'KNMI', 'Dagen', 'Zon', 'UV', 'Maan', 'Kaart', 'Zoeken', 'Privacy', 'Telegram', 'Broncode'])
+    expect([...dialog.querySelectorAll('dt')].map((term) => term.textContent)).toEqual(['Observatie', 'Voorspelling', 'KNMI', 'Dagen', 'DWD', 'UV', 'Maan', 'Kaart', 'Zoeken', 'Privacy', 'Telegram', 'Broncode'])
     // Naast de ondertitel alleen de versielink naar de changelog (U85).
     expect(dialog.querySelectorAll('.about-body > p')).toHaveLength(2)
     expect(dialog.querySelector<HTMLAnchorElement>('.about-body > p a[href="/changelog"]')?.textContent).toBe('Wat is er nieuw?')

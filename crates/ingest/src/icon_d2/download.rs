@@ -15,7 +15,7 @@ use rayon::prelude::*;
 use reqwest::{StatusCode, blocking::Client};
 use tracing::{info, warn};
 
-use super::{Average, BlockMap, DirectRun, GRID, LEADS, RUN_INTERVAL_HOURS, hour_means};
+use super::{Average, BlockMap, DirectRun, GRID, LEADS, RUN_INTERVAL_HOURS, archive, hour_means};
 use crate::{cams::LatLonRaster, publisher::atomic_write};
 
 pub const DEFAULT_BASE: &str = "https://opendata.dwd.de/weather/nwp/icon-d2/grib";
@@ -147,8 +147,15 @@ impl DwdClient {
     pub fn fetch(&self, run: DateTime<Utc>) -> Result<DirectRun> {
         let first = self.average(run, 1)?;
         let map = BlockMap::new(&first.raster, GRID)?;
+        let stations = archive::nearest_points(&first.raster)?;
+        let at_stations = |values: &[f32]| {
+            stations
+                .iter()
+                .map(|index| values[*index])
+                .collect::<Vec<_>>()
+        };
         let pool = rayon::ThreadPoolBuilder::new().num_threads(4).build()?;
-        let mut averages = vec![map.apply(&first.values)?];
+        let mut averages = vec![(map.apply(&first.values)?, at_stations(&first.values))];
         averages.extend(pool.install(|| {
             (2..=LEADS)
                 .into_par_iter()
@@ -158,14 +165,16 @@ impl DwdClient {
                         average.raster == *map.source(),
                         "ICON-D2 raster changed within run {run}"
                     );
-                    map.apply(&average.values)
+                    Ok((map.apply(&average.values)?, at_stations(&average.values)))
                 })
                 .collect::<Result<Vec<_>>>()
         })?);
         info!(%run, leads = averages.len(), downloaded_bytes = self.downloaded_bytes(), "ICON-D2 leads decoded");
+        let (blocks, points): (Vec<_>, Vec<_>) = averages.into_iter().unzip();
         Ok(DirectRun {
             run,
-            hours: hour_means(&averages)?,
+            hours: hour_means(&blocks)?,
+            station_hours: hour_means(&points)?,
         })
     }
 

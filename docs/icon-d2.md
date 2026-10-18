@@ -19,11 +19,11 @@ Runs om 00, 03, …, 21 UTC lopen tot +48 uur. Lead 48 staat er ongeveer 1 u 20 
 dag overschreven, dus alleen de laatste 24 uur zijn online. `DURSUN` (zonneschijnduur) levert de DWD
 voor ICON-D2 niet als open data.
 
-Licentie: [CC BY 4.0](https://www.dwd.de/EN/service/legal_notice/legal_notice_node.html), met
-bronvermelding volgens de [DWD-regels](https://www.dwd.de/EN/service/legal_notice/templates_dwd_as_source.html):
-bij bewerkte data in een centrale bronnenlijst, met een vermelding van de bewerking. Dat staat in Over
-("gebaseerd op data van de Deutscher Wetterdienst … uitgemiddeld per uur en omgerekend naar minuten zon")
-en in de bronregel onder de tabel zodra het manifest ICON-D2 bevat.
+Licentie: [CC BY 4.0](https://www.dwd.de/copyright), met bronvermelding volgens het DWD-sjabloon
+["Vorlagen und Erläuterungen für die Gestaltung der Quellenvermerke"](https://www.dwd.de/DE/service/rechtliche_hinweise/vorlagen_quellenangabe.html):
+bij bewerkte data een vermelding in een centrale bronnenlijst, met een vermelding van de bewerking. In Over staat een regel
+"DWD" zoals die voor KNMI en ECMWF, met "Datenbasis: Deutscher Wetterdienst, Einzelwerte gemittelt"; de bronregel
+onder de tabel noemt de Deutscher Wetterdienst zodra het manifest ICON-D2 bevat.
 
 ## Job en timer
 
@@ -58,10 +58,22 @@ Eén chunk per run, veld `radiation_direct`, bron `icon_d2`, 48 frames met als t
 de run hoogstens 12 uur oud is; anders valt de chunk uit het manifest en rekent de client met HARMONIE.
 Er is geen eigen manifestsectie.
 
+## Stationsarchief
+
+De DWD bewaart maar 24 uur, dus de job bewaart zelf per run een uittreksel om ICON-D2 later op langere leads te
+kunnen meten (MIP-39, besluit 2): `<data>/icon-d2-archive/<YYYYMMDDTHH>.csv.bz2`, op de server
+`/var/lib/motregen/icon-d2-archive/`. Kolommen `station,lead,hour_end_utc,block_wm2,point_wm2`: per KNMI-station
+met SQ (32, zie `archive::STATIONS`) en per lead 1…48 het uurgemiddelde van de directe straling in de 8 km-cel
+die de app leest (vóór kwantisatie) en in het dichtstbijzijnde 0,02°-punt. ≈ 5,5 kB per run; de job verwijdert
+uittreksels van runs ouder dan **400 dagen** (≈ 18 MB bij 8 runs per dag). Een mislukt uittreksel houdt de
+publicatie niet tegen (alleen een waarschuwing in het journal). Ophalen voor een meting:
+`scp root@<host>:/var/lib/motregen/icon-d2-archive/*.csv.bz2 tools/zonneschijn/data/icon-d2-archive/`.
+
 ## Client
 
 `web/src/core/sunshine.ts`: per uur het aandeel van de mogelijke zon, S1 op de HARMONIE-globale straling
-(MIP-38) en D1 op de ICON-D2-directe straling (MIP-39). Binnen de ICON-D2-run telt D1; aan beide randen
-loopt het gewicht over drie uur naar HARMONIE (¼, ½, ¾, 1), zodat de curve niet springt. Waar een van beide
-bronnen het uur niet heeft, telt de andere. De ICON-D2-frames laden pas bij de eerste Luchtfocus, en alleen
-de uren met de zon op.
+(MIP-38) en D1 op de ICON-D2-directe straling (MIP-39). Het gewicht van ICON-D2 (`iconD2Weight`) is 1 tot +12 u
+na de run, loopt lineair naar 0 op +24 u en is daarna 0 (MIP-39, besluit 1); over de eerste drie uur van de run
+loopt het op (¼, ½, ¾), zodat de curve aan die kant niet springt. Ontbreekt het HARMONIE-uur (verleden, of nog
+aan het laden), dan telt ICON-D2 alleen tot +12 u; daarna heeft het uur geen waarde. De ICON-D2-frames laden pas
+bij de eerste Luchtfocus, en alleen de uren met de zon op.

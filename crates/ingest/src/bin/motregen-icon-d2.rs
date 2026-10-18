@@ -41,6 +41,15 @@ fn main() -> Result<()> {
     let direct = client.fetch(run)?;
     let chunk = icon_d2::build_chunk(&direct)?;
     icon_d2::write_publication(&config.data_dir, run, &chunk)?;
+    // The station archive is for later measurement; a failure there must not hold back the publication.
+    if let Err(error) = icon_d2::archive::write(&config.data_dir, &direct) {
+        warn!(%error, "ICON-D2 station archive not written");
+    }
+    match icon_d2::archive::prune(&config.data_dir, Utc::now()) {
+        Ok(removed) if removed > 0 => info!(removed, "old ICON-D2 station extracts removed"),
+        Ok(_) => {}
+        Err(error) => warn!(%error, "ICON-D2 station archive pruning failed"),
+    }
     if let Err(error) = client.prune_cache(run) {
         warn!(%error, "ICON-D2 cache pruning failed");
     }

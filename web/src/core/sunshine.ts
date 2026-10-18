@@ -7,7 +7,11 @@ export const SUNSHINE_CLEAR_INDEX_HIGH = 0.92
 // D1 uit MIP-39: dezelfde overgang op de directe straling van ICON-D2, zie tools/zonneschijn/results-icon-d2.md.
 export const SUNSHINE_DIRECT_INDEX_LOW = 0.02
 export const SUNSHINE_DIRECT_INDEX_HIGH = 0.66
-// Aan beide randen van de ICON-D2-reeks loopt het aandeel over deze uren naar HARMONIE, zodat de curve niet springt.
+// MIP-39 besluit 1: ICON-D2 telt volledig tot deze lead, mengt daarna lineair naar HARMONIE en telt vanaf de tweede
+// grens niet meer. ICON-D2 wint vooral kort; een dag vooruit is hij in de herfst slechter (11,8 tegen 10,3 min/u).
+export const ICON_D2_FULL_LEAD_HOURS = 12
+export const ICON_D2_LAST_LEAD_HOURS = 24
+// Aan het begin van de run (meestal al voorbij) loopt het aandeel over deze uren op, zodat de curve daar niet springt.
 export const ICON_D2_EDGE_HOURS = 3
 
 const HOUR = 3_600_000
@@ -16,15 +20,15 @@ const SUN_THRESHOLD_SIN = Math.sin(SUNSHINE_SUN_ELEVATION_DEGREES * Math.PI / 18
 
 /** A point series by frame time: HARMONIE global or ICON-D2 direct hour means that end at the frame time. */
 export interface SunshineSeries {
-  timeline: ReadonlyArray<{ epoch: number }>
+  timeline: ReadonlyArray<{ epoch: number; run: string }>
   values: ReadonlyArray<number | null>
 }
 
 export interface SunshineInputs {
   /** HARMONIE hour-mean global radiation of the hour that ends at `end`. */
   globalAt: (end: number) => number | null | undefined
-  /** ICON-D2 hour-mean direct radiation, with the first and last hour end the run covers (MIP-39). */
-  direct?: { at: (end: number) => number | null | undefined; first: number; last: number }
+  /** ICON-D2 hour-mean direct radiation, with its run time and the first and last hour end it covers (MIP-39). */
+  direct?: { at: (end: number) => number | null | undefined; run: number; first: number; last: number }
   sinElevation: (epoch: number) => number
 }
 
@@ -36,7 +40,7 @@ export function sunshineInputs(global: SunshineSeries, direct: SunshineSeries | 
   const covered = direct?.timeline.length ? direct : undefined
   return {
     globalAt: lookup(global),
-    direct: covered && { at: lookup(covered), first: covered.timeline[0]!.epoch, last: covered.timeline.at(-1)!.epoch },
+    direct: covered && { at: lookup(covered), run: Date.parse(covered.timeline[0]!.run), first: covered.timeline[0]!.epoch, last: covered.timeline.at(-1)!.epoch },
     sinElevation,
   }
 }
@@ -73,17 +77,26 @@ function ramp(index: number, low: number, high: number): number {
   return Math.max(0, Math.min(1, (index - low) / (high - low)))
 }
 
-/** 0–1 between both edges of the ICON-D2 run, rising over ICON_D2_EDGE_HOURS at each edge; 0 outside it. */
-export function iconD2Weight(end: number, first: number, last: number): number {
-  if (end < first || end > last) return 0
-  const hoursFromEdge = Math.min(end - first, last - end) / HOUR
-  return Math.min(1, (hoursFromEdge + 1) / (ICON_D2_EDGE_HOURS + 1))
+/**
+ * 0–1 share of ICON-D2 for the hour that ends at `end`: 1 up to ICON_D2_FULL_LEAD_HOURS after its run, then
+ * linearly to 0 at ICON_D2_LAST_LEAD_HOURS; over the first ICON_D2_EDGE_HOURS of the run it rises from HARMONIE.
+ */
+export function iconD2Weight(end: number, direct: { run: number; first: number; last: number }): number {
+  if (end < direct.first || end > direct.last) return 0
+  const start = Math.min(1, ((end - direct.first) / HOUR + 1) / (ICON_D2_EDGE_HOURS + 1))
+  return start * iconD2LeadFade(end, direct.run)
+}
+
+/** 1 up to ICON_D2_FULL_LEAD_HOURS after the run, linearly to 0 at ICON_D2_LAST_LEAD_HOURS. */
+export function iconD2LeadFade(end: number, run: number): number {
+  const lead = (end - run) / HOUR
+  return Math.max(0, Math.min(1, (ICON_D2_LAST_LEAD_HOURS - lead) / (ICON_D2_LAST_LEAD_HOURS - ICON_D2_FULL_LEAD_HOURS)))
 }
 
 /**
  * The 0–1 share of the possible sunshine in the hour that ends at `end`: S1 on the HARMONIE global
- * radiation, D1 on the ICON-D2 direct radiation where that run covers the hour, blended at its edges.
- * Null without radiation from either source.
+ * radiation and D1 on the ICON-D2 direct radiation, mixed by iconD2Weight. Null without radiation from
+ * either source.
  */
 export function sunshineShare(end: number, inputs: SunshineInputs): number | null {
   const global = inputs.globalAt(end)
@@ -93,13 +106,16 @@ export function sunshineShare(end: number, inputs: SunshineInputs): number | nul
     fromGlobal = clear > 1 ? ramp(global / clear, SUNSHINE_CLEAR_INDEX_LOW, SUNSHINE_CLEAR_INDEX_HIGH) : 0
   }
   const direct = inputs.direct
-  const weight = direct ? iconD2Weight(end, direct.first, direct.last) : 0
+  const weight = direct ? iconD2Weight(end, direct) : 0
   const value = weight > 0 ? direct!.at(end) : null
   if (value == null || !Number.isFinite(value)) return fromGlobal
   const clearDirect = clearSkyDirectHourMean(end, inputs.sinElevation)
   const index = clearDirect > 1 ? Math.min(1.5, value / clearDirect) : 0
   const fromDirect = ramp(index, SUNSHINE_DIRECT_INDEX_LOW, SUNSHINE_DIRECT_INDEX_HIGH)
-  return fromGlobal == null ? fromDirect : weight * fromDirect + (1 - weight) * fromGlobal
+  if (fromGlobal != null) return weight * fromDirect + (1 - weight) * fromGlobal
+  // Past hours lack HARMONIE (only coming hours are read), so the start ramp falls back to ICON-D2. Past +12 h an hour
+  // is a mix: without HARMONIE (still loading) it has no value rather than ICON-D2 alone, which would shift once it lands.
+  return iconD2LeadFade(end, direct!.run) === 1 ? fromDirect : null
 }
 
 /** Minutes of sunshine (0–60) in the hour that ends at `end`. Null without radiation; 0 when the sun stays too low. */

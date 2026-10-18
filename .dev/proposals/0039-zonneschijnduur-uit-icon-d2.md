@@ -1,6 +1,6 @@
 # MIP-39 — Zonneschijnduur uit ICON-D2
 
-Status: draft · auteur: worker U99 (opus-5.5) voor de PM · meting 2026-10-18 · PO-opdracht 2026-10-18: "39 akkoord"
+Status: accepted · auteur: worker U99 (opus-5.5) voor de PM · meting 2026-10-18 · PO-opdracht 2026-10-18: "39 akkoord" · aangenomen 2026-10-18
 
 ## Het probleem
 
@@ -125,18 +125,21 @@ over het jaar. De directe straling is het beste veld, en ook het goedkoopste (zi
 
 ### C. Client
 
-1. **Waar ICON-D2 telt.** Waar de ICON-D2-run het uur dekt (+1…+48 u vanaf zijn runtijd), rekent de zoncurve in
-   Lucht met D1 op de ICON-D2-straling. Daarbuiten rekent hij met S1 op HARMONIE.
-2. **Naadloze overgang.** Aan beide randen van de run schuift het aandeel van ICON-D2 over drie uur naar HARMONIE:
-   ¼, ½, ¾ en dan 1. Dat gebeurt rond het eerste uur, dat meestal al voorbij is, en rond +48 u.
+1. **Waar ICON-D2 telt.** Waar de ICON-D2-run het uur dekt, rekent de zoncurve in Lucht met D1 op de
+   ICON-D2-straling. Daarbuiten rekent hij met S1 op HARMONIE. Na het besluit (zie onder) geldt: volledig tot +12 u,
+   gemengd tot +24 u.
+2. **Naadloze overgang.** Aan het begin van de run schuift het aandeel van ICON-D2 over drie uur op: ¼, ½, ¾ en dan 1.
+   Dat gebeurt rond het eerste uur, dat meestal al voorbij is.
 3. **Laden.** De ICON-D2-frames laden pas bij de eerste Luchtfocus, zoals de luchtdruk pas bij wind. Alleen de uren
    met de zon op komen binnen: in oktober ≈ 27 frames, samen ≈ 140 kB, in de zomer meer.
 4. **Tabel en bot** blijven bij HARMONIE (buiten deze track).
 
 ### D. Vermelding
 
-- **Over:** "Zon in Lucht: gebaseerd op data van de Deutscher Wetterdienst (ICON-D2, CC BY 4.0), door motregen.nl
-  uitgemiddeld per uur en omgerekend naar minuten zon. Bron: Deutscher Wetterdienst."
+- **Over:** een regel "DWD", net als KNMI en ECMWF: "Zon in Lucht: data van de Deutscher Wetterdienst (ICON-D2)
+  onder CC BY 4.0, door motregen.nl uitgemiddeld per uur en omgerekend naar minuten zon." Daaronder staat de
+  veranderingsvermelding uit het DWD-sjabloon ("Vorlagen und Erläuterungen für die Gestaltung der Quellenvermerke"):
+  "Datenbasis: Deutscher Wetterdienst, Einzelwerte gemittelt."
 - **Bronregel onder de tabel:** "…, de zon in Lucht op data van de Deutscher Wetterdienst". Die verschijnt alleen
   als het manifest ICON-D2 bevat.
 - **Versheidspaneel:** een rij voor ICON-D2.
@@ -171,6 +174,34 @@ Nieuw in het script:
 De cijfers hierboven komen uit die bestanden; elke stap gaf `EXIT: 0`. De ingestkosten komen uit
 `motregen-icon-d2 --run 2026-10-18T09:00:00Z` op een lege datamap, gemeten met `/usr/bin/time -v`.
 
+## Besluit
+
+PO, 18 oktober 2026 ("doe maar naar eigen inzicht", via de orkestrator):
+
+1. **Variant b voor de lead.** ICON-D2 telt volledig tot +12 u. Daarna mengt hij lineair naar HARMONIE, en vanaf
+   +24 u telt alleen HARMONIE. Reden: ICON-D2 wint vooral op de korte termijn, en een dag vooruit is hij in de herfst
+   slechter (11,8 tegen 10,3 min/u).
+   - **Overgang aan het begin.** De eerste drie uur van de run (¼, ½, ¾) blijven een overgang; die liggen meestal al
+     in het verleden.
+   - **Ontbrekend HARMONIE-uur.** Tot +12 u telt dan ICON-D2 alleen. Na +12 u is het uur een menging en heeft het
+     zonder HARMONIE geen waarde. Zo verschuift de curve niet als HARMONIE later binnenkomt.
+   - **Code en test.** De weging staat in `web/src/core/sunshine.ts` (`iconD2Weight`, `iconD2LeadFade`). De test
+     controleert de weging per lead. Hij controleert ook dat het aandeel per uur hoogstens ¼ verschuift aan het
+     begin en hoogstens 1/12 tussen +12 en +24 u.
+2. **Eigen stationsarchief.** Elke run schrijft de job per station en per lead de uurgemiddelde directe straling
+   weg: die van de 8 km-cel die de app leest, en die van het dichtstbijzijnde 2 km-punt. Dat gebeurt voor de 32
+   KNMI-stations met SQ.
+   - **Waar:** `<datamap>/icon-d2-archive/<YYYYMMDDTHH>.csv.bz2`. Op de server is dat
+     `/var/lib/motregen/icon-d2-archive/`.
+   - **Grootte:** ≈ 5,5 kB per run.
+   - **Bewaartermijn:** **400 dagen**, genoeg voor een jaarlijkse herkalibratie. Dat is ≈ 18 MB. Oudere bestanden
+     ruimt de job zelf op.
+   - **Bij een fout:** schrijft de job het archief niet, dan blijft de publicatie gewoon staan.
+3. **8 runs per dag.**
+4. **Zo uitrollen.** De ±140 kB per Lucht-sessie bekijken we in het dagrapport.
+5. **Tabel en bot later**, in een eigen track.
+
 ## Changelog
 
 - 2026-10-18 — concept (U99): meting op twee leads, ingest, client en Nix gebouwd.
+- 2026-10-18 — aangenomen (variant b, stationsarchief); naamsvermelding volgens het DWD-sjabloon.

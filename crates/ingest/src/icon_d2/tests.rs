@@ -27,6 +27,7 @@ fn constant_run(run: DateTime<Utc>, value: f32) -> DirectRun {
     DirectRun {
         run,
         hours: vec![vec![value; GRID.cell_count()]; LEADS as usize],
+        station_hours: vec![vec![value; archive::STATIONS.len()]; LEADS as usize],
     }
 }
 
@@ -287,5 +288,111 @@ mod http {
         let client = DwdClient::new(directory.path(), Some(base)).unwrap();
         assert!(client.latest_run(utc("2026-10-18T12:35:00Z")).is_err());
         server.join().unwrap();
+    }
+}
+
+mod station_archive {
+    use super::*;
+    use std::io::Read as _;
+
+    const DWD_RASTER: LatLonRaster = LatLonRaster {
+        lat0: 43.18,
+        lon0: -3.94,
+        dlat: 0.02,
+        dlon: 0.02,
+        ni: 1215,
+        nj: 746,
+    };
+
+    fn de_bilt() -> usize {
+        archive::STATIONS
+            .iter()
+            .position(|station| station.id == 260)
+            .unwrap()
+    }
+
+    #[test]
+    fn stations_map_to_the_nearest_point_and_the_cell_the_client_reads() {
+        let points = archive::nearest_points(&DWD_RASTER).unwrap();
+        assert_eq!(points.len(), 32);
+        // De Bilt (52,100 N, 5,180 E): rij 446, kolom 456.
+        assert_eq!(points[de_bilt()], 446 * 1215 + 456);
+        // Zelfde cel als pointValue in de client: kolom 72, rij 97 op het 8 km-raster.
+        assert_eq!(archive::publication_cells()[de_bilt()], 97 * 157 + 72);
+        let fixture_box = LatLonRaster {
+            lat0: 51.9,
+            lon0: 4.9,
+            dlat: 0.02,
+            dlon: 0.02,
+            ni: 31,
+            nj: 21,
+        };
+        assert!(archive::nearest_points(&fixture_box).is_err());
+    }
+
+    #[test]
+    fn extract_holds_block_and_point_per_station_and_lead() {
+        let directory = tempfile::tempdir().unwrap();
+        let run = utc("2026-10-18T12:00:00Z");
+        let cell_values = (0..GRID.cell_count())
+            .map(|cell| cell as f32)
+            .collect::<Vec<_>>();
+        let direct = DirectRun {
+            run,
+            hours: vec![cell_values; LEADS as usize],
+            station_hours: (1..=LEADS)
+                .map(|lead| vec![lead as f32 * 10.0; archive::STATIONS.len()])
+                .collect(),
+        };
+        archive::write(directory.path(), &direct).unwrap();
+        let path = archive::path(directory.path(), run);
+        assert!(path.ends_with("icon-d2-archive/20261018T12.csv.bz2"));
+        let mut csv = String::new();
+        bzip2::read::BzDecoder::new(fs::File::open(&path).unwrap())
+            .read_to_string(&mut csv)
+            .unwrap();
+        let lines = csv.lines().collect::<Vec<_>>();
+        assert_eq!(lines[0], "station,lead,hour_end_utc,block_wm2,point_wm2");
+        assert_eq!(lines.len(), 1 + 32 * 48);
+        assert!(lines.contains(&"260,1,2026-10-18T13:00:00Z,15301.0,10.0"));
+        assert!(lines.contains(&"260,48,2026-10-20T12:00:00Z,15301.0,480.0"));
+        // Klein: 32 stations × 48 uur.
+        assert!(fs::metadata(&path).unwrap().len() < 20_000);
+
+        let mismatched = DirectRun {
+            station_hours: Vec::new(),
+            ..direct
+        };
+        assert!(archive::write(directory.path(), &mismatched).is_err());
+    }
+
+    #[test]
+    fn prune_removes_only_extracts_older_than_the_retention() {
+        let directory = tempfile::tempdir().unwrap();
+        let archive_dir = directory.path().join(archive::DIRECTORY);
+        fs::create_dir_all(&archive_dir).unwrap();
+        for name in [
+            "20250901T00.csv.bz2",
+            "20251018T12.csv.bz2",
+            "20261018T12.csv.bz2",
+            "notes.txt",
+        ] {
+            fs::write(archive_dir.join(name), b"x").unwrap();
+        }
+        let now = utc("2026-10-18T15:00:00Z");
+        assert_eq!(archive::prune(directory.path(), now).unwrap(), 1);
+        let mut left = fs::read_dir(&archive_dir)
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+            .collect::<Vec<_>>();
+        left.sort();
+        assert_eq!(
+            left,
+            ["20251018T12.csv.bz2", "20261018T12.csv.bz2", "notes.txt"]
+        );
+        assert_eq!(
+            archive::prune(&directory.path().join("missing"), now).unwrap(),
+            0
+        );
     }
 }

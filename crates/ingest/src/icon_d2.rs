@@ -13,6 +13,7 @@ use crate::{
     publisher::{ManifestChunk, ProducedChunk, atomic_write, produced_chunk, write_chunks},
 };
 
+pub mod archive;
 pub mod download;
 
 pub const SOURCE: &str = "icon_d2";
@@ -38,11 +39,13 @@ pub struct Average {
     pub values: Vec<f32>,
 }
 
-/// Hour means ending at run + 1 h … run + 48 h, on [`GRID`], in W/m².
+/// Hour means ending at run + 1 h … run + 48 h, on [`GRID`], in W/m²; `station_hours` holds the same hours at
+/// the source point nearest each [`archive::STATIONS`] entry.
 #[derive(Clone, Debug)]
 pub struct DirectRun {
     pub run: DateTime<Utc>,
     pub hours: Vec<Vec<f32>>,
+    pub station_hours: Vec<Vec<f32>>,
 }
 
 impl DirectRun {

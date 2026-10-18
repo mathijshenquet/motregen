@@ -855,6 +855,7 @@ mod tests {
         let direct = icon_d2::DirectRun {
             run,
             hours: vec![vec![200.0; icon_d2::GRID.cell_count()]; icon_d2::LEADS as usize],
+            station_hours: Vec::new(),
         };
         let chunk = icon_d2::build_chunk(&direct).unwrap();
         icon_d2::write_publication(directory.path(), run, &chunk).unwrap();
