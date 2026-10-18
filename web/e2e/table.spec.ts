@@ -105,11 +105,16 @@ test('mobile previews the heading and current row, then scrolls smoothly between
     const row = document.querySelector<HTMLElement>(`tr[data-epoch="${epoch}"]`)!
     return { current: row.getBoundingClientRect().toJSON(), next: row.nextElementSibling!.getBoundingClientRect().toJSON() }
   })
-  // PO 2026-10-18: de preview toont de huidige rij heel en geen halve volgende; de kaart krijgt minstens de helft.
+  // PO 2026-10-18: de kaart krijgt minstens de helft; de halve volgende rij alleen op hoge telefoons (vanaf 764 px).
   const viewportHeight = page.viewportSize()!.height
   expect(preview.current.top).toBeLessThan(viewportHeight)
   expect(preview.current.bottom).toBeLessThanOrEqual(viewportHeight)
-  expect(preview.next.top).toBeGreaterThanOrEqual(viewportHeight - 2)
+  if (viewportHeight >= 764) {
+    expect(preview.next.top).toBeLessThan(viewportHeight)
+    expect(preview.next.bottom).toBeGreaterThan(viewportHeight)
+  } else {
+    expect(preview.next.top).toBeGreaterThanOrEqual(viewportHeight - 2)
+  }
   expect(await page.locator('.map-shell').evaluate((map) => map.getBoundingClientRect().height)).toBeGreaterThanOrEqual(viewportHeight / 2)
 
   await page.getByRole('button', { name: 'Wind' }).tap()

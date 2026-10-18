@@ -1362,6 +1362,11 @@ td small { color: var(--muted); font-size: 9px; }
   --scrubber-mobile: clamp(176px, calc(50svh - var(--table-peek-mobile)), 236px);
   --map-mobile: max(50svh, calc(100svh - var(--scrubber-mobile) - var(--table-peek-mobile) - env(safe-area-inset-bottom)));
 }
+/* Hoge telefoons (Pixel): ruimte genoeg voor de halve volgende rij als voorproef, en de kaart houdt de helft
+   (764 = 2 × (236 + 146)). Daaronder geen strookje van een paar pixels, maar precies één rij. */
+@media (min-height: 764px) {
+  :root { --table-peek-mobile: 146px; }
+}
 @media (max-width: 959px) {
   .app-shell { display: block; }
   .map-shell { height: var(--map-mobile); }
