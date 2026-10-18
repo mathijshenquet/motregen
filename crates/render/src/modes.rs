@@ -9,7 +9,7 @@ use rayon::prelude::*;
 use render_core::{
     clock::ClockTransition,
     constants::constants,
-    field_raster,
+    field_raster::{self, LineColor},
     mode_constants::{color, mode_constants},
     overlay::{ClockOptions, clock_panel_bounds, draw_overlay_title},
     projection::Projection,
@@ -122,7 +122,7 @@ impl Painter<'_> {
             (false, true) => &settings.dark_temperature,
             (false, false) => &settings.light_temperature,
         });
-        if !self.wind {
+        let fill = (!self.wind).then(|| {
             field_raster::fill(
                 &mut rgb,
                 &input.slice.field,
@@ -130,13 +130,19 @@ impl Painter<'_> {
                 self.colors,
                 &input.slice.rings,
                 input.slice.opacity,
-            );
-        }
+            )
+        });
+        let line_style = match &fill {
+            Some(fill) => LineColor::Isotherm {
+                fallback: line_color,
+                fill,
+            },
+            None => LineColor::Isobar(line_color),
+        };
         field_raster::lines(
             &mut rgb,
             &input.slice.segments,
-            line_color,
-            self.wind,
+            line_style,
             input.slice.opacity,
         );
         profile.composition_us += composition_started.elapsed().as_micros();
