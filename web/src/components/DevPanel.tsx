@@ -66,7 +66,7 @@ export default function DevPanel(props: Props) {
   return <details class="dev-panel" open data-testid="dev-panel">
     <summary>Dev-opties</summary>
     <Group title="Tabel" open>
-      <Control label="Dag/nacht-contrast" output={props.tableContrast} hint="Rail (standaard): neutrale rijen met links een strook in de kleur van de lucht, schemering op de echte tijden. Symbool: een maantje bij nachtrijen en een heel lichte koele tint. Sterren: sterretjes in nachtrijen. Breed: de hele tabel zachter getint. Smal: alleen de dagdelen en dag/nacht-rijen. Sterk: het oude contrast. Ook als link: ?dev&contrast=rail. U91b, vervalt 2026-11-01.">
+      <Control label="Dag/nacht-contrast" output={props.tableContrast} hint="Breed is standaard (PO 2026-10-18). Rail: neutrale rijen met links een strook in de kleur van de lucht, schemering op de echte tijden. Symbool: een maantje bij nachtrijen en een heel lichte koele tint. Sterren: sterretjes in nachtrijen. Breed (standaard): de hele tabel zachter getint. Smal: alleen de dagdelen en dag/nacht-rijen. Sterk: het oude contrast. Ook als link: ?dev&contrast=rail. U91b, vervalt 2026-11-01.">
         <select aria-label="Dag/nacht-contrast" value={props.tableContrast} onChange={(event) => props.onTableContrast(event.currentTarget.value as TableContrast)}>
           <For each={TABLE_CONTRASTS}>{(contrast) => <option value={contrast}>{contrast}</option>}</For>
         </select>

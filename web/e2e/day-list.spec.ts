@@ -33,16 +33,18 @@ test('the sliding table turns coarser after the hourly rows and loads the long r
   await page.goto('/')
   await settled(page)
   await expect(page.locator('.day-list')).toHaveCount(0)
-  await expect(page.locator('tr[data-grain="3h"]').first()).toBeAttached()
+  await expect(page.locator('tr[data-grain="part"]').first()).toBeAttached()
   expect(ecmwf).toEqual([])
 
-  // Na HARMONIE alleen dag-rijen uit de dagvelden (er zijn geen stappen); die liggen voorbij de tijdlijn.
-  const dayRow = page.locator('tr[data-grain="day"]').first()
+  // Na HARMONIE alleen dag-rijen uit de dagvelden (er zijn geen stappen); de laatste ligt voorbij de tijdlijn.
+  const dayRow = page.locator('tr[data-grain="day"]').last()
   await dayRow.evaluate((element) => element.scrollIntoView({ block: 'center' }))
   await expect.poll(() => ecmwf.length).toBeGreaterThan(0)
   // De dag staat in de rij zelf, geen losse kopbalk (PO 2026-10-17).
   await expect(page.locator('tr.day-heading-row')).toHaveCount(0)
-  await expect(dayRow.locator('.time-label span')).toHaveText(/^[a-z]{2} \d{1,2}$/i)
+  // Een dagrij noemt de dag ("Woensdag") met de datum eronder (PO 2026-10-18).
+  await expect(dayRow.locator('.time-label strong')).toHaveText(/^[A-Z][a-z]+dag$/)
+  await expect(dayRow.locator('.time-label span')).toHaveText(/^\d{1,2} [a-z]{3}\.?$/i)
   await expect(dayRow).toHaveClass(/beyond-timeline/)
   // Een ontbrekende chunk is geen laadtoestand: een streep, geen puntjes.
   await expect(dayRow.locator('.temperature-cell')).toHaveText('—')
@@ -52,8 +54,8 @@ test('the sliding table turns coarser after the hourly rows and loads the long r
   await page.waitForTimeout(300)
   expect(Math.abs(Number(await page.locator('.app-shell').getAttribute('data-epoch')) - cursor)).toBeLessThan(10 * 60_000)
 
-  // Een 3-uursrij binnen de tijdlijn zet de cursor op zijn begin.
-  const threeHours = page.locator('tr[data-grain="3h"]:not(.beyond-timeline)').first()
+  // Een dagdeel binnen de tijdlijn zet de cursor op zijn begin.
+  const threeHours = page.locator('tr[data-grain="part"]:not(.beyond-timeline)').first()
   const start = await threeHours.getAttribute('data-epoch')
   await threeHours.locator('.time-label').click()
   await expect.poll(async () => Math.round(Number(await page.locator('.app-shell').getAttribute('data-epoch')) / 60_000)).toBe(Math.round(Number(start) / 60_000))
@@ -78,10 +80,17 @@ test('under ?dev the hourly table keeps all hours with the day list below it, fi
   await expect(list.locator('.day-row').nth(3).locator('.day-max')).toHaveText('—')
 })
 
-test('night shows as a sky rail by default, and ?dev&contrast picks another cue directly (U91b)', async ({ page }) => {
+test('the table is tinted wide by default, and ?dev&contrast picks another cue directly (U91b)', async ({ page }) => {
   await page.goto('/')
   await settled(page)
   const table = page.locator('.forecast-table')
+  // Breed is de standaard (PO 2026-10-18): de hele tabel getint, zonder losse nachtcue.
+  await expect(page.locator('.forecast-panel')).toHaveAttribute('data-contrast', 'breed')
+  await expect(table).toHaveClass(/day-night-table/)
+  await expect(table).not.toHaveAttribute('data-night-cue', /.+/)
+
+  await page.goto('/?dev&contrast=rail')
+  await settled(page)
   await expect(table).toHaveAttribute('data-night-cue', 'rail')
   await expect(table).not.toHaveClass(/day-night-table/)
   expect(await page.locator('tr[data-epoch]').first().evaluate((row) => getComputedStyle(row).getPropertyValue('--rail'))).toMatch(/^linear-gradient/)

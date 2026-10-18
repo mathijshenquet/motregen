@@ -179,7 +179,6 @@ const CITY_TEMPERATURE_STEP_MS = 10 * 60_000
 // Temperatuurlijnen half zo zichtbaar als ISOLINE_LINE_OPACITY (0,8) (PO 2026-09-25 live, U34).
 
 // Terugglijden naar het begin bij opnieuw afspelen (PO 2026-09-25 live, U34).
-const PLAYBACK_REWIND_MS = 700
 // Binnen deze marge van het eind staat de opnieuw-knop in de grafiek.
 const PLAYBACK_END_MARGIN_MS = 60_000
 const PLAYBACK_TEMPO_HOURS = 8
@@ -1195,9 +1194,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const playbackRate = timelinePlaybackRate(frames, nowEpoch, PLAYBACK_TEMPO_HOURS)
     let previous = performance.now()
     let firstPlaybackTick = true
-    // Opnieuw afspelen vanaf het eind glijdt de tijdlijn terug naar het begin i.p.v. in één frame te springen:
-    // in de schuivende scrubber (U34) oogde die sprong als "de tijdlijn springt telkens terug".
-    let rewind: { from: number; startedAt: number } | undefined
     let waiting: { frame: number; since: number } | undefined
     const framePresent = (index: number) => client.hasFrame(frames[index]!.chunk, frames[index]!.frameIndex)
     let active = true
@@ -1233,16 +1229,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       // Vier ms speling voor de vsync-fase: op 60 Hz precies elke tweede vsync.
       if (elapsed < 1_000 / PLAYBACK_MAX_FPS - 4) return
       previous = now
-      if (rewind) {
-        const progress = Math.min(1, (now - rewind.startedAt) / PLAYBACK_REWIND_MS)
-        const eased = progress < 0.5 ? 2 * progress ** 2 : 1 - (2 - 2 * progress) ** 2 / 2
-        const nextCursor = timelineCursorAtEpoch(frames, rewind.from + (frames[0]!.epoch - rewind.from) * eased)
-        if (!renderPlaybackCursor(nextCursor, () => { if (progress >= 1) rewind = undefined })) rewind.startedAt += elapsed
-        return
-      }
       const epoch = timelineEpochAtCursor(frames, cursor())
-      // Afspelen vanaf het eind (de opnieuw-knop, of daar neergezet en hervat): eerst terug naar het begin.
-      if (!(epoch < lastEpoch)) { rewind = { from: epoch, startedAt: now }; return }
+      // Afspelen vanaf het eind (de opnieuw-knop, of daar neergezet en hervat): meteen naar het begin, zonder
+      // terugglijden (PO 2026-10-18). Staat dat frame nog niet klaar, dan probeert de volgende tik het opnieuw.
+      if (!(epoch < lastEpoch)) { renderPlaybackCursor(0); return }
       // De eerste tik haalt tijd besteed aan kaartopzet niet in als een cursorsprong.
       const playbackElapsed = firstPlaybackTick ? Math.min(elapsed, 1_000 / PLAYBACK_MAX_FPS) : elapsed
       const nextEpoch = epoch + playbackElapsed * playbackRate
@@ -3175,7 +3165,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const section = manifest()?.ecmwf
     return buildDayList(manifestNow(), hourlyInputs(), section?.days.length ? { section, values: ecmwfDayValues() } : undefined)
   })
-  const ladderHourlyEnd = createMemo(() => hourlyEnd(manifestNow()))
+  const ladderHourlyEnd = createMemo(() => hourlyEnd(manifestNow(), location()))
   const slotRows = createMemo(() => {
     if (dayListMode() || !manifest()) return []
     const now = manifestNow()
@@ -3183,7 +3173,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const steps = section?.steps?.length && stepChunks().size
       ? { intervals: section.steps.map((step) => ({ start: Date.parse(step.start), end: Date.parse(step.end) })), values: ecmwfStepValues() }
       : undefined
-    return buildSlotRows(now, buildLadder(now), {
+    return buildSlotRows(now, buildLadder(now, location()), {
       harmonieEpochs: tempTimeline().map((frame) => frame.epoch),
       hourly: hourlyInputs(),
       steps,
@@ -3875,7 +3865,7 @@ const DAY_LIST_STORAGE_KEY = 'motregen-dagenlijst'
 // zonder lichtheidsverschil, en toch het verloop van de dag met schemering op de echte tijden (PO 2026-10-17: "minder
 // op donkerte leunen"). Symbool en sterren zijn de andere niet-donkere tekens; breed, smal en sterk tinten de rijen.
 const TABLE_CONTRAST_STORAGE_KEY = 'motregen-dagnacht-contrast'
-const DEFAULT_TABLE_CONTRAST: TableContrast = 'rail'
+const DEFAULT_TABLE_CONTRAST: TableContrast = 'breed'
 
 // `?dev&contrast=rail` kiest een waarde direct (en bewaart hem), zodat de PO varianten per link kan vergelijken.
 function storedTableContrast(devMode: boolean): TableContrast {

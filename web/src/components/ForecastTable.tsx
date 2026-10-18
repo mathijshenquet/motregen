@@ -14,7 +14,7 @@ import { CALM_BAR_STOPS, cssRgb, paletteColor } from '../core/temperature-palett
 import WeatherIcon from './WeatherIcon'
 import WindReading from './WindReading'
 import { measurePerfPhase } from '../core/perf'
-import { formatNumber, formatTime, formatWeekdayDay, formatWeekdayShort } from '../core/locale'
+import { formatDayMonth, formatNumber, formatTime, formatWeekdayDay, formatWeekdayShort, formatWeekdayTitle } from '../core/locale'
 import { localMinutes, localTime } from '../core/days'
 import { sameFields } from '../core/stable'
 
@@ -521,8 +521,10 @@ export default function ForecastTable(props: Props) {
           'background-image': `linear-gradient(90deg, ${cssRgb(paletteColor(bottom, CALM_BAR_STOPS))}, ${cssRgb(paletteColor(top, CALM_BAR_STOPS))})`,
         }
       }
-      // De dag waarop het venster begint: een nacht 18–06 hoort bij die avond, net als de dagwissellijn.
-      const weekday = (row.slot.grain === '3h' ? formatWeekdayShort : formatWeekdayDay)(localTime(row.slot.date, 12))
+      // Een dagrij noemt de dag zelf ("Woensdag", "22 okt"); een dagdeel zijn naam met de dag eronder.
+      const noon = localTime(row.slot.date, 12)
+      const title = row.slot.grain === 'day' ? formatWeekdayTitle(noon) : row.slot.label
+      const weekday = row.slot.grain === 'day' ? formatDayMonth(noon) : formatWeekdayDay(noon)
       const selectable = row.slot.start <= (props.timelineEnd ?? Number.NEGATIVE_INFINITY)
       const overcast = () => ((values()?.cloud ?? 50) / 100 * 0.75).toFixed(3)
       rowSkies.set(row.slot.start, () => ({ daylight: span.daylight, overcast: 0 }))
@@ -564,7 +566,7 @@ export default function ForecastTable(props: Props) {
           onClick={selectSpan}
         >
           <td class="time-cell">
-            <Show when={selectable} fallback={<span class="time-label" title={row.slot.range || undefined}><strong>{row.slot.label}</strong><span><NightMark night={!span.daylight} />{weekday}</span></span>}>
+            <Show when={selectable} fallback={<span class="time-label" title={row.slot.range || undefined}><strong>{title}</strong><span classList={{ 'day-date': row.slot.grain === 'day' }}><NightMark night={!span.daylight} />{weekday}</span></span>}>
               <button
                 type="button"
                 class="time-label"
@@ -574,7 +576,7 @@ export default function ForecastTable(props: Props) {
                   selectSpan()
                   if (props.mobileTableOpen) props.onSelectMobileMode?.()
                 }}
-              ><strong>{row.slot.label}</strong><span><NightMark night={!span.daylight} />{weekday}</span></button>
+              ><strong>{title}</strong><span classList={{ 'day-date': row.slot.grain === 'day' }}><NightMark night={!span.daylight} />{weekday}</span></button>
             </Show>
           </td>
           <Show when={props.columns.weather}>

@@ -814,6 +814,8 @@ button.column-mode { width: 100%; cursor: pointer; }
 .rain-amount { color: var(--accent); font-size: 11px; font-weight: 720; line-height: 1.1; }
 .rain-amount small { font-size: 8.5px; font-weight: 600; }
 .time-label span { color: var(--muted); font-size: 10px; text-transform: capitalize; }
+/* "20 okt": de maand blijft klein, zoals in gewone Nederlandse tekst. */
+.time-label span.day-date { text-transform: none; }
 .forecast-table.day-night-table tr.night-hour { --surface: var(--table-night, #0a1820); --surface-soft: var(--table-night-soft, #112832); --text: #edf8fc; --muted: var(--table-night-muted, #91aab5); --row-ground: var(--surface); --line-strong: var(--line-strong-on-dark); --accent: var(--table-night-accent, #48c4e9); --accent-soft: var(--table-night-accent-soft, #123b49); color: var(--text); }
 .forecast-table.day-night-table tr.night-hour td { background: var(--surface); }
 .forecast-table.day-night-table tr.night-hour .weather-icon .weather-cloud { fill: var(--table-night-cloud, #607780); stroke: var(--table-night-cloud-edge, #adc2ca); }
