@@ -67,6 +67,31 @@ Gemeten op dezelfde stations en uren, via de gratis `historical-forecast`-API. H
 
 Open-Meteo zet per uur bijna altijd 0 of 60 minuten: een drempel op de uurgemiddelde DNI. Daardoor overschat het systematisch, met +5 tot +14 min/u en een dagsom +1,3 tot +3,4 u te hoog. Op hetzelfde HARMONIE-model (`knmi_seamless`) is S1 2,3 min/u beter. ICON-D2 is in de winter beter dan S1 (7,6 tegen 9,2), in de lente gelijk en in zomer en herfst slechter door zijn bias. **Google Weather API** is overgeslagen: die vraagt een Cloud-project met betaalaccount.
 
+### Vergelijking met de Zwitserse app
+
+De PO bedoelt vermoedelijk de **MeteoSwiss-app**. Die heeft een sectie "Sunshine Duration" met minuten zon per uur; in de app-API is dat het veld `sunshine1h`. Welk model de app voor Nederland gebruikt, is **niet zeker**:
+
+- De eigen modellen van MeteoSwiss, ICON-CH1 en ICON-CH2, dekken Nederland niet. Open-Meteo geeft voor De Bilt "No data is available for this location".
+- De app-API werkt met Zwitserse postcodes (`app-prod-ws.meteoswiss-app.ch/v2/plzDetail?plz=800100`). Met coördinaten in Nederland komt een lege grafiek terug. De storeteksten noemen alleen "alle Orte/PLZ in der Schweiz". Nederlandse plaatsen heb ik in de app dus niet kunnen vinden.
+- Toont de app Nederland toch, dan komt dat uit een Europees of globaal model. Volgens een apptest van de Tages-Anzeiger rekent MeteoSwiss zijn lokale verwachtingen mede op basis van ECMWF; dat maakt IFS de waarschijnlijkste. ICON-EU en ICON global zijn de andere kandidaten. We meten daarom alle vier.
+
+Hoe MeteoSwiss uit een model minuten zon maakt, is niet openbaar. De tabel geeft daarom per model twee varianten: de zonneschijnduur zoals Open-Meteo die afleidt (een drempel op de directe straling), en S1 op de uurstraling van datzelfde model, met dezelfde parameters als op HARMONIE. De app zit vermoedelijk ergens tussen die twee.
+
+00 UTC-runs, leads +4…+21, 64.732 stationsuren. Open-Meteo heeft hier een kortere lead (zie hierboven).
+
+| model | Open-Meteo-omrekening: MAE / bias (min/u) | dagsom MAE / bias (u) | S1 op straling van het model: MAE / bias (min/u) | dagsom MAE / bias (u) |
+| --- | ---: | ---: | ---: | ---: |
+| **HARMONIE (motregen, S1)** | — | — | **10,4 / +0,7** | **1,35 / +0,16** |
+| ECMWF IFS 9 km (`ecmwf_ifs`) | 15,5 / +13,4 | 3,30 / +3,23 | 11,6 / +7,6 | 1,99 / +1,82 |
+| ECMWF IFS 0,25° (`ecmwf_ifs025`) | 15,9 / +14,1 | 3,45 / +3,39 | 11,6 / +8,0 | 2,06 / +1,92 |
+| ICON-EU (`icon_eu`) | 12,4 / +6,7 | 2,08 / +1,62 | 9,8 / +0,5 | 1,14 / +0,11 |
+| ICON global (`icon_global`) | 12,9 / +7,7 | 2,23 / +1,86 | 10,1 / +1,0 | 1,20 / +0,25 |
+| klimatologie (B1) | 19,9 / −1,2 | 3,55 / −0,29 | | |
+
+Op de korte runs (+1…+3, dus gelijke lead) is het beeld hetzelfde: S1 op HARMONIE 10,5, S1 op ICON-EU 9,8, Open-Meteo `ecmwf_ifs` 14,9 min/u.
+
+**Conclusie.** Gebruikt de app voor Nederland ECMWF IFS, dan is S1 duidelijk nauwkeuriger: 10,4 tegen 11,6–15,5 min/u, en IFS geeft 1,8 tot 3,2 uur per dag te veel zon. Op ICON-EU hangt het af van de omrekening: met een DNI-drempel is ICON-EU slechter (12,4), met onze S1-omrekening iets beter dan HARMONIE (9,8 tegen 10,4), ook bij gelijke lead.
+
 ## Aanbeveling
 
 **Neem S1** als zonneschijnduur per uur. Daarvoor zijn er vier redenen:
@@ -103,10 +128,11 @@ Het script haalt KNMI-uren (2016 t/m 17 oktober 2026), het HARMONIE-archief en O
 1. **Waar tonen?** Kies uit: (a) per uur in de Lucht-kolom, (b) alleen een dagtotaal, (c) allebei. Voorstel: (c), met per uur een balk en het dagtotaal als getal.
 2. **Vorm:** minuten afgerond op 10, of klassen ("zonnig / af en toe zon / bewolkt")? Voorstel: minuten op 10 met een balk. Klassen verbergen het verschil tussen 20 en 40 minuten, en dat verschil zit wél in de data.
 3. **Zonnekaart in Lucht:** een eigen laag, of houden we de lichtfactor van MIP-34? Voorstel: geen aparte laag, omdat de lichtfactor al vrijwel hetzelfde laat zien.
-4. **ICON-D2:** in de winter is ICON-D2 beter voor zon. Een DWD-bron toevoegen is een aparte bronkeuze. Voorstel: niet nu; S1 op HARMONIE verslaat alle Open-Meteo-modellen over het jaar.
+4. **ICON-D2:** in de winter is ICON-D2 beter voor zon. Een DWD-bron toevoegen is een aparte bronkeuze. Voorstel: niet nu; S1 op HARMONIE verslaat alle Open-Meteo-modellen over het jaar. Kanttekening uit de vergelijking met de Zwitserse app: S1 op de ICON-EU-straling is 0,6–0,7 min/u beter dan S1 op HARMONIE.
 5. **Archief bewaren?** Het KNMI-archief van P1 begint nu bij januari 2026. Als dat archief doorschuift, kan de meting later niet meer vanaf nul worden herhaald. De HARMONIE-uittreksels per station zijn ≈ 24 MB. Bewaren we die als release-asset, of accepteren we dit risico?
 6. **Herkalibratie:** de parameters komen uit januari–oktober 2026. November en december ontbreken nog. Voorstel: in januari 2027 opnieuw fitten met `run.sh` en een verlengde datumreeks.
 
 ## Changelog
 
 - 2026-10-18 — concept (U95).
+- 2026-10-18 — vergelijking met de Zwitserse app (U95b): ICON-EU, ICON global en ECMWF IFS erbij.
