@@ -12,11 +12,10 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from scipy.optimize import minimize
 
 HERE = Path(__file__).parent
 DATA = HERE / "data"
-SUBSTEPS = 12
+SUBSTEPS = 30
 SOLAR_CONSTANT = 1361.0
 DNI_THRESHOLD = 120.0
 CLIMATOLOGY_YEARS = range(2016, 2026)
@@ -48,8 +47,8 @@ def erbs_diffuse_fraction(clearness: np.ndarray) -> np.ndarray:
     return np.where(k <= 0.22, 1 - 0.09 * k, np.where(k <= 0.80, middle, 0.165))
 
 
-def add_geometry(frame: pd.DataFrame) -> pd.DataFrame:
-    """Zongeometrie over het uur [T−1 u, T] in SUBSTEPS stappen (middens van 5 minuten)."""
+def add_geometry(frame: pd.DataFrame, sun_threshold_degrees: float) -> pd.DataFrame:
+    """Zongeometrie over het uur [T−1 u, T] in SUBSTEPS stappen (middens van 2 minuten)."""
     hour_end = (frame["hour_end"] - pd.Timestamp("1970-01-01")).dt.total_seconds().to_numpy()
     offsets = (np.arange(SUBSTEPS) + 0.5) / SUBSTEPS * 3600 - 3600
     epochs = hour_end[:, None] + offsets[None, :]
@@ -72,8 +71,8 @@ def add_geometry(frame: pd.DataFrame) -> pd.DataFrame:
     frame["mu_mean_up"] = np.where(sun_up.any(axis=1), np.where(sun_up, mu, 0).sum(axis=1) / np.maximum(sun_up.sum(axis=1), 1), 0)
     frame["clear_direct_normal"] = clear_direct_normal.mean(axis=1)
     frame["up_fraction"] = sun_up.mean(axis=1)
-    # Fractie van het uur waarin onbewolkte directe straling de WMO-drempel haalt: het maximum aan zon.
-    frame["possible"] = (clear_direct_normal > DNI_THRESHOLD).mean(axis=1)
+    # Fractie van het uur waarin KNMI bij heldere hemel zon telt: het maximum aan zon in dat uur.
+    frame["possible"] = (mu > np.sin(np.radians(sun_threshold_degrees))).mean(axis=1)
     return frame
 
 
@@ -114,6 +113,22 @@ def load_harmonie(directory: Path, variant: str) -> pd.DataFrame:
     harmonie["run_day"] = run_time.dt.normalize()
     harmonie["radiation"] = harmonie["radiation"].clip(lower=0)
     return harmonie
+
+
+def fit_sun_threshold(observations: pd.DataFrame, stations: pd.DataFrame) -> float:
+    """Zonshoogte waarboven KNMI-SQ zon telt, uit heldere uren rond zonsopkomst en -ondergang (alleen waarnemingen).
+
+    Heldere hemel volgens Haurwitz bereikt de WMO-drempel (DNI > 120 W/m²) pas bij ~5°; de KNMI-afleiding uit
+    globale straling telt eerder. Daarom fitten we de grens op het label zelf.
+    """
+    frame = observations[observations["hour_end"].dt.year == 2025].merge(stations[["station", "lon", "lat"]], on="station")
+    frame = add_geometry(frame, 0.0)
+    clear_index = frame["radiation_wm2"] / frame["clear_global"].clip(lower=1)
+    low_sun = (frame["mu_max"] > 0) & (frame["mu_max"] < np.sin(np.radians(12)))
+    edge = frame[low_sun & (clear_index > 0.85) & (frame["clear_global"] > 5)].reset_index(drop=True)
+    thresholds = np.round(np.arange(2.0, 6.01, 0.1), 1)
+    errors = [mae(60 * add_geometry(edge, threshold)["possible"].to_numpy(), edge["sunshine_min"].to_numpy()) for threshold in thresholds]
+    return float(thresholds[int(np.argmin(errors))])
 
 
 def climatology(observations: pd.DataFrame) -> pd.DataFrame:
@@ -171,9 +186,15 @@ def layered_cloud_estimate(frame: pd.DataFrame, high_weight: float, exponent: fl
     return 60 * frame["possible"].to_numpy() * open_line_of_sight ** max(exponent, 0.05)
 
 
-def fit(loss_of_parameters, start: list[float]) -> np.ndarray:
-    result = minimize(loss_of_parameters, start, method="Nelder-Mead", options={"xatol": 1e-4, "fatol": 1e-4, "maxiter": 2000})
-    return result.x
+def grid_fit(loss_of_parameters, first_axis: np.ndarray, second_axis: np.ndarray) -> np.ndarray:
+    """MAE is stuksgewijs vlak; een rooster vindt het globale minimum waar Nelder-Mead blijft hangen."""
+    best, best_loss = None, np.inf
+    for first in first_axis:
+        for second in second_axis:
+            loss = loss_of_parameters((first, second))
+            if loss < best_loss:
+                best, best_loss = (first, second), loss
+    return np.array(best)
 
 
 def mae(estimate: np.ndarray, truth: np.ndarray) -> float:
@@ -186,10 +207,16 @@ class Estimators:
     def __init__(self, train: pd.DataFrame):
         truth = train["sunshine_min"].to_numpy()
         radiation = train["radiation"].to_numpy()
-        self.ramp = fit(lambda p: mae(ramp_estimate(train, radiation, p[0], p[1]), truth), [0.4, 0.8])
+        self.ramp = grid_fit(
+            lambda p: mae(ramp_estimate(train, radiation, p[0], p[1]), truth) if p[1] > p[0] else np.inf,
+            np.arange(0.0, 0.91, 0.02), np.arange(0.3, 1.21, 0.02),
+        )
         thresholds = np.linspace(0.2, 1.0, 81)
         self.threshold = float(thresholds[np.argmin([mae(threshold_estimate(train, radiation, t), truth) for t in thresholds])])
-        self.layered = fit(lambda p: mae(layered_cloud_estimate(train, p[0], p[1]), truth), [0.5, 1.0])
+        self.layered = grid_fit(
+            lambda p: mae(layered_cloud_estimate(train, p[0], p[1]), truth),
+            np.arange(0.0, 1.01, 0.05), np.arange(0.2, 3.01, 0.05),
+        )
         ramp = ramp_estimate(train, radiation, *self.ramp)
         layered = layered_cloud_estimate(train, *self.layered)
         weights = np.linspace(0, 1, 101)
@@ -270,13 +297,13 @@ def lead_band(frame: pd.DataFrame) -> pd.Series:
     return pd.cut(frame["lead"], [0, 9, 15, 21], labels=["+4…+9", "+10…+15", "+16…+21"])
 
 
-def prepare(harmonie: pd.DataFrame, observations: pd.DataFrame, stations: pd.DataFrame, normals: pd.DataFrame) -> pd.DataFrame:
+def prepare(harmonie: pd.DataFrame, observations: pd.DataFrame, stations: pd.DataFrame, normals: pd.DataFrame, sun_threshold: float) -> pd.DataFrame:
     frame = harmonie.merge(observations, on=["station", "hour_end"], how="inner")
     frame = frame.merge(stations[["station", "lon", "lat"]], on="station")
     frame["month"] = frame["hour_end"].dt.month
     frame["hour"] = frame["hour_end"].dt.hour
     frame = frame.merge(normals, on=["station", "month", "hour"], how="inner")
-    frame = add_geometry(frame)
+    frame = add_geometry(frame, sun_threshold)
     frame = frame[frame["mu_max"] > 0].dropna(subset=["radiation", "cloud_total"]).reset_index(drop=True)
     return frame
 
@@ -285,6 +312,7 @@ def main() -> int:
     stations = load_stations()
     observations = load_observations(range(CLIMATOLOGY_YEARS.start, 2027))
     normals = climatology(observations)
+    sun_threshold = fit_sun_threshold(observations, stations)
     observations_2026 = observations[observations["hour_end"].dt.year == 2026]
     sunshine_stations = set(observations_2026["station"].unique())
     out = ["# U95 zonneschijnduur — meetresultaten", ""]
@@ -292,7 +320,7 @@ def main() -> int:
     frames = {}
     for variant in ["block", "point"]:
         harmonie = load_harmonie(DATA / "harmonie", variant)
-        frames[variant] = prepare(harmonie, observations_2026, stations, normals)
+        frames[variant] = prepare(harmonie, observations_2026, stations, normals, sun_threshold)
     frame = frames["block"]
     day_number = (frame["run_day"] - frame["run_day"].min()).dt.days
     train_mask = ((day_number // 2) % 2 == 0).to_numpy()
@@ -310,6 +338,7 @@ def main() -> int:
         "",
         "## Gefitte parameters",
         "",
+        f"- zon mogelijk boven zonshoogte {sun_threshold:.1f}° (gefit op heldere randuren 2025, alleen waarnemingen)",
         *[f"- {line}" for line in estimators.parameters()],
         "",
         "## Testset, alle leads",
@@ -346,14 +375,14 @@ def main() -> int:
         "",
     ]
 
-    out += openmeteo_section(estimators, observations_2026, stations, normals)
+    out += openmeteo_section(estimators, observations_2026, stations, normals, sun_threshold)
     text = "\n".join(out) + "\n"
     (HERE / "results.md").write_text(text)
     print(text)
     return 0
 
 
-def openmeteo_section(estimators: Estimators, observations: pd.DataFrame, stations: pd.DataFrame, normals: pd.DataFrame) -> list[str]:
+def openmeteo_section(estimators: Estimators, observations: pd.DataFrame, stations: pd.DataFrame, normals: pd.DataFrame, sun_threshold: float) -> list[str]:
     openmeteo = pd.read_csv(DATA / "openmeteo.csv")
     openmeteo["hour_end"] = pd.to_datetime(openmeteo["hour_end_utc"], format="%Y-%m-%dT%H")
     models = [column.removesuffix("_sunshine_min") for column in openmeteo.columns if column.endswith("_sunshine_min")]
@@ -362,7 +391,7 @@ def openmeteo_section(estimators: Estimators, observations: pd.DataFrame, statio
         ("harmonie-kort", "HARMONIE-runs 03/06/09/12/15/18 UTC om de 4 dagen, leads +1…+3 (zelfde korte termijn als Open-Meteo)"),
         ("harmonie", "00 UTC-runs, leads +4…+21, alle dagen (fit + test)"),
     ]:
-        frame = prepare(load_harmonie(DATA / directory, "block"), observations, stations, normals)
+        frame = prepare(load_harmonie(DATA / directory, "block"), observations, stations, normals, sun_threshold)
         frame = frame.merge(openmeteo.drop(columns="hour_end_utc"), on=["station", "hour_end"], how="inner")
         frame = frame.dropna(subset=[f"{model}_sunshine_min" for model in models]).reset_index(drop=True)
         estimates = estimators.apply(frame)
@@ -370,6 +399,7 @@ def openmeteo_section(estimators: Estimators, observations: pd.DataFrame, statio
         for model in models:
             selected[f"Open-Meteo {model}"] = frame[f"{model}_sunshine_min"].to_numpy()
         lines += [f"### {description}", "", f"{len(frame)} stationsuren.", "", *score_table(frame, selected), ""]
+        lines += ["Per seizoen (MAE / bias, min/u):", "", *segment_table(frame, selected, pd.Series(season(frame)), list(selected)), ""]
     lines += [
         "Open-Meteo-cijfers gelden voor hun eigen korte-termijnreeks; bij de 00 UTC-rij hebben zij dus een kortere "
         "lead dan HARMONIE. Fit-dagen tellen in deze sectie mee; de parameters hebben 1–2 vrijheidsgraden per schatter.",
