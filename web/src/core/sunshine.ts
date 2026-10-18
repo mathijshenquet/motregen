@@ -33,10 +33,8 @@ export function sunshineMinutes(
   return 60 * possible * Math.max(0, Math.min(1, ramp))
 }
 
-// Op 10 minuten: met een MAE van 10 min/u suggereert een fijner getal precisie die er niet is (MIP-38).
-const SUNSHINE_LABEL_STEP_MINUTES = 10
-
-export function sunshineLabel(minutes: number): string {
-  const rounded = Math.round(minutes / SUNSHINE_LABEL_STEP_MINUTES) * SUNSHINE_LABEL_STEP_MINUTES
+/** "40 min zon", afgerond op `stepMinutes`; onder een halve stap "geen zon". */
+export function sunshineLabel(minutes: number, stepMinutes: number): string {
+  const rounded = Math.round(minutes / stepMinutes) * stepMinutes
   return rounded === 0 ? 'geen zon' : `${rounded} min zon`
 }

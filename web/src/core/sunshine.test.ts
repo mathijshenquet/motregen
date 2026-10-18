@@ -34,10 +34,11 @@ describe('sunshineMinutes', () => {
 })
 
 describe('sunshineLabel', () => {
-  it('rounds to ten minutes', () => {
-    expect(sunshineLabel(34)).toBe('30 min zon')
-    expect(sunshineLabel(35)).toBe('40 min zon')
-    expect(sunshineLabel(59.1)).toBe('60 min zon')
-    expect(sunshineLabel(4)).toBe('geen zon')
+  it('rounds to the given step', () => {
+    expect(sunshineLabel(34, 10)).toBe('30 min zon')
+    expect(sunshineLabel(35, 10)).toBe('40 min zon')
+    expect(sunshineLabel(59.1, 10)).toBe('60 min zon')
+    expect(sunshineLabel(4, 10)).toBe('geen zon')
+    expect(sunshineLabel(33, 5)).toBe('35 min zon')
   })
 })

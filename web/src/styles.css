@@ -745,6 +745,19 @@ button { color: inherit; cursor: pointer; }
 .rain-bar.past { opacity: .72; }
 .rain-bar.pending { fill: color-mix(in srgb, var(--muted) 45%, transparent); animation: scrubber-pulse 1.4s ease-in-out infinite alternate; }
 @keyframes rain-bar-in { from { opacity: 0; } }
+/* Zonneschijnduur in Lucht (MIP-38); kleur en hoogte staan als constanten in HistogramScrubber.tsx. */
+.sun-bar { stroke-width: 1; paint-order: stroke; animation: rain-bar-in .45s ease-out both; }
+.sun-bar.past { opacity: .72; }
+.sun-markers { position: absolute; inset: 0; pointer-events: none; }
+/* Zon op en onder op de basislijn; de tijd staat aan de nachtkant, weg van de staven. */
+.sun-marker { position: absolute; bottom: 1px; display: flex; align-items: flex-end; gap: 2px; transform: translateX(-11px); color: rgba(255, 246, 228, .92); font-size: 10px; font-weight: 700; line-height: 1; text-shadow: 0 1px 3px rgba(20, 12, 30, .55); }
+.sun-marker.rise { flex-direction: row-reverse; transform: translateX(calc(-100% + 11px)); }
+.chart-plot .sun-marker .sun-glyph { position: static; margin: 0; flex: none; }
+.sun-marker .sun-glyph-horizon { stroke: rgba(255, 246, 228, .8); }
+.sun-marker span { padding-bottom: 1px; }
+.sun-markers:not(.on-sky) .sun-marker { color: var(--muted); text-shadow: none; }
+.sun-markers:not(.on-sky) .sun-glyph-horizon { stroke: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .sun-bar { animation: none; } }
 .hour-grid { position: absolute; inset: 0; pointer-events: none; }
 .hour-grid i { position: absolute; top: 0; bottom: 0; width: 1px; background: color-mix(in srgb, var(--line) 55%, transparent); }
 .day-grid { position: absolute; inset: 0; pointer-events: none; }

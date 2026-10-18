@@ -4,6 +4,7 @@ import { createSignal } from 'solid-js'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { TimelineFrame } from '../core/contract'
 import { rainColor } from '../core/rain-chart'
+import { solarElevationSin } from '../core/solar'
 import HistogramScrubber, { hourLabelStep, stickyKeyframes, wallClamp } from './HistogramScrubber'
 
 afterEach(cleanup)
@@ -283,13 +284,50 @@ describe('histogram scrubber', () => {
     expect(slider.getAttribute('data-scrubber-view')).toBe('air')
     expect(container.querySelectorAll('.rain-bar').length).toBeGreaterThan(0)
     const rain = container.querySelector<SVGGElement>('.rain-bars')!
-    // Alleen de volgorde wisselt (PO 2026-10-16): de regen blijft vol, een kopie van de wolken komt ervoor.
+    // In Lucht maakt de regen plaats voor de zonneschijnduur (MIP-38); een kopie van de wolken komt ervoor.
     const front = container.querySelector<SVGGElement>('.cloud-front')!
-    expect(Number(rain.style.opacity)).toBe(1)
+    expect(Number(rain.style.opacity)).toBe(0)
     expect(rain.compareDocumentPosition(front) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(container.querySelector('.cursor-readout')).toBeNull()
     // Waarden per laag bij de cursor; een lege laag (0 %) krijgt geen label.
     expect([...container.querySelectorAll('.cursor-tags span')].map((label) => label.textContent)).toEqual(['hoge wolken 80%', 'midden wolken 60%'])
+  })
+
+  it('replaces the rain with yellow sunshine bars in air, cross-fading with the mode tween (MIP-38)', () => {
+    const timeline = ['08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20'].map((hour) => frame(`2026-08-28T${hour}:00:00Z`, 'harmonie'))
+    const layers = { timeline: { high: timeline, mid: timeline, low: timeline }, values: { high: timeline.map(() => 0), mid: timeline.map(() => 0), low: timeline.map(() => 0) } }
+    // Zonnig tot 14 UTC, daarna bewolkt; de zon gaat in De Bilt rond 18:40 UTC onder.
+    const radiation = timeline.map((entry) => new Date(entry.epoch).getUTCHours() <= 14 ? 900 : 60)
+    const sinElevation = (epoch: number) => solarElevationSin(epoch, 5.18, 52.1)
+    const [mix, setMix] = createSignal({ wind: 0, air: 0, temperature: 0 })
+    const { container } = render(() => <HistogramScrubber
+      timeline={timeline}
+      values={timeline.map(() => 1)}
+      cursor={4}
+      now={timeline[0]!.epoch}
+      playing={false}
+      loading={false}
+      locationLabel="De Bilt"
+      onCursor={() => undefined}
+      onPlaying={() => undefined}
+      clouds={layers}
+      sky={{ radiation: { timeline, values: radiation }, sinElevation }}
+      mix={mix()}
+    />)
+    plotBounds(container)
+    expect(container.querySelector('.sun-bar')).toBeNull()
+
+    setMix({ wind: 0, air: 0.5, temperature: 0 })
+    expect(Number(container.querySelector<SVGGElement>('.rain-bars')!.style.opacity)).toBeCloseTo(0.5)
+    expect(Number(container.querySelector<SVGGElement>('.sun-bars')!.style.opacity)).toBeCloseTo(0.5)
+
+    setMix({ wind: 0, air: 1, temperature: 0 })
+    const bars = [...container.querySelectorAll<SVGRectElement>('.sun-bar')]
+    // Alleen de zonnige uren: 08–09 … 13–14 UTC (60 min) en het uur tot 15 UTC; daarna te weinig licht.
+    expect(bars.length).toBe(7)
+    expect(container.querySelector('.sun-readout')?.textContent).toBe('60 min zon')
+    expect(screen.getByRole('slider', { name: 'Tijd' }).getAttribute('aria-valuetext')).toContain('60 min zon')
+    expect([...container.querySelectorAll('.sun-marker')].map((marker) => marker.classList.contains('set'))).toEqual([true])
   })
 
   it('draws the sky behind every view once the cloud layers are in, and drops it when not expressive (U47)', () => {

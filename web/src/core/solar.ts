@@ -59,8 +59,13 @@ export function isSunUp(epoch: number, longitude: number, latitude: number): boo
 }
 
 export function sunEvents(start: number, end: number, longitude: number, latitude: number): SunEvent[] {
+  return sunEventsAlong(start, end, (epoch) => solarElevationSin(epoch, longitude, latitude))
+}
+
+/** Sunrises and sunsets between `start` and `end` for any sun-elevation function, same horizon as `isSunUp`. */
+export function sunEventsAlong(start: number, end: number, sinElevation: (epoch: number) => number): SunEvent[] {
   const step = 10 * 60_000
-  const above = (epoch: number) => isSunUp(epoch, longitude, latitude)
+  const above = (epoch: number) => sinElevation(epoch) > horizonSin
   const events: SunEvent[] = []
   let previous = start
   let previousAbove = above(start)

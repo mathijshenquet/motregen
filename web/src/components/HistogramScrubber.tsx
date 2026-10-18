@@ -6,6 +6,9 @@ import { classifyRain, RAIN_BANDS, rainChartMaximum, rainChartPosition, rainColo
 import type { RainLook } from '../core/rain-palette'
 import { SCRUBBER_CURSOR_FRACTION, SCRUBBER_VIEW_HOURS, seriesValueAt, timelineCursorAtEpoch, timelineEpochAtCursor, timelineZones } from '../core/time-model'
 import { cloudModification } from '../core/uv'
+import { sunEventsAlong } from '../core/solar'
+import { sunshineLabel, sunshineMinutes } from '../core/sunshine'
+import SunGlyph from './SunGlyph'
 import { summarizeWind, WIND_UNIT_LABELS, type WindUnit } from '../core/weather'
 import { BEAUFORT_STOPS, windColor } from '../core/wind-layer'
 import type { PaletteStops } from '../core/temperature-palette'
@@ -67,6 +70,13 @@ interface Props {
   temperature?: { timeline: TimelineFrame[]; values: Array<number | null>; airTimeline?: TimelineFrame[]; air?: Array<number | null>; stops?: PaletteStops }
 }
 
+// Zonneschijnduur in Lucht (MIP-38, U96): de knoppen om te tunen bij elkaar.
+const SUN_BAR_FILL = '#ffd84a'
+const SUN_BAR_STROKE = 'rgba(158, 98, 0, .55)'
+// Deel van de plothoogte voor een vol uur zon (60 min): lager dan vol, zodat de lucht erboven zichtbaar blijft.
+const SUN_CHART_HEIGHT_SHARE = 0.55
+// Afronding van de cursorwaarde: met een MAE van 10 min/u suggereert een fijner getal precisie die er niet is.
+const SUN_LABEL_STEP_MINUTES = 10
 const CLOUD_LAYER_LABELS = { high: 'hoge wolken', mid: 'midden wolken', low: 'lage wolken' } as const
 // Middens van de wolkenlagen als deel van de plothoogte: hoog op 1/6, dan steeds 1/4 lager, zodat de lage wolken
 // hoger staan dan bij drie gelijke stroken en er onderin ruimte blijft (PO 2026-10-16).
@@ -193,6 +203,10 @@ export default function HistogramScrubber(props: Props) {
   const cloudsFrontOpacity = () => baseOpacity() * Math.min(1, 2 * airMix())
   const coverOpacity = () => props.cloudCover ? Math.min(baseOpacity(), 1 - (props.mix?.temperature ?? 0)) : 0
   const baseVisible = createMemo(() => baseOpacity() > 0)
+  // In Lucht vervangen de zonstaven de regen (MIP-38); bij het wisselen vloeien ze in elkaar over.
+  const rainOpacity = () => baseOpacity() * (1 - airMix())
+  const sunOpacity = () => props.sky ? baseOpacity() * airMix() : 0
+  const sunVisible = createMemo(() => sunOpacity() > 0)
   const view = () => airMix() >= 0.5 ? 'air' : windMix() >= 0.5 ? 'wind' : temperatureMix() >= 0.5 ? 'temperature' : coverOpacity() >= 0.5 ? 'cover' : 'rain'
   // Binnenkomende weergave schuift een paar px omhoog terwijl hij invloeit.
   const layerStyle = (opacity: number) => ({ opacity, transform: `translateY(${((1 - opacity) * VIEW_SHIFT_PX).toFixed(2)}px)` })
@@ -226,6 +240,28 @@ export default function HistogramScrubber(props: Props) {
       const barWidth = Math.max(1.2, right - x - gap)
       return { x: (x + right - barWidth) / 2, width: barWidth, top: barTop(value), value: value ?? 0, pending: sample.pending, past: sample.epoch < props.now, epoch: sample.epoch }
     })
+  })
+  const sunTop = (minutes: number) => plotHeight() * (1 - SUN_CHART_HEIGHT_SHARE * Math.min(1, minutes / 60))
+  // Eén staaf per uurvak [T − 1 u, T] met het stralingsuurgemiddelde dat op T eindigt; geen staaf waar de zon onder is.
+  const sunBars = scrubMemo('zonstaven', () => {
+    const inputs = props.sky
+    if (!inputs || !sunVisible()) return []
+    const radiationByEpoch = new Map(inputs.radiation.timeline.map((frame, index) => [frame.epoch, inputs.radiation.values[index]]))
+    const gap = HOUR * pxPerMs() > 6 ? 1.5 : 1
+    const result: Array<{ x: number; width: number; top: number; minutes: number; past: boolean; end: number }> = []
+    for (let end = Math.ceil(timelineStart() / HOUR) * HOUR + HOUR; end <= timelineEnd(); end += HOUR) {
+      const minutes = sunshineMinutes(end, radiationByEpoch.get(end), inputs.sinElevation)
+      if (minutes == null || minutes <= 0) continue
+      const left = xAt(end - HOUR)
+      const width = Math.max(1.2, xAt(end) - left - gap)
+      result.push({ x: left + gap / 2, width, top: sunTop(minutes), minutes, past: end <= props.now, end })
+    }
+    return result
+  })
+  const sunMarkers = createMemo(() => {
+    const inputs = props.sky
+    if (!inputs || !sunVisible()) return []
+    return sunEventsAlong(timelineStart(), timelineEnd(), inputs.sinElevation).map((event) => ({ ...event, x: xAt(event.epoch) }))
   })
   // Geen y-as (PO 2026-09-25 live): de waarde staat bij de cursor, niet op hulplijnen.
   const cloudId = createUniqueId()
@@ -410,6 +446,11 @@ export default function HistogramScrubber(props: Props) {
     for (const sample of samples) if (Math.abs(sample.epoch - epoch) < Math.abs(nearest.epoch - epoch)) nearest = sample
     return nearest.value
   })
+  const cursorSun = createMemo(() => {
+    const end = Math.ceil(cursorEpoch() / HOUR) * HOUR
+    const bar = sunBars().find((candidate) => candidate.end === end)
+    return bar && { y: bar.top, text: sunshineLabel(bar.minutes, SUN_LABEL_STEP_MINUTES) }
+  })
   const cursorLayers = createMemo(() => {
     const clouds = props.clouds
     if (!clouds) return []
@@ -467,7 +508,9 @@ export default function HistogramScrubber(props: Props) {
     const epoch = cursorMinute()
     const time = formatTime(epoch)
     const value = cursorValue()
-    const rain = value == null ? 'geen data' : value < 0.05 ? 'droog' : `${formatRate(value)}, ${RAIN_BANDS.find((band) => band.key === classifyRain(value))!.label.toLowerCase()}`
+    const sun = cursorSun()
+    const rain = view() === 'air' ? sun?.text ?? 'geen zon'
+      : value == null ? 'geen data' : value < 0.05 ? 'droog' : `${formatRate(value)}, ${RAIN_BANDS.find((band) => band.key === classifyRain(value))!.label.toLowerCase()}`
     const source = cursorZone()?.label.toLowerCase()
     return `${(dayLabel(epoch, props.now) || 'vandaag').toLowerCase()} ${time}, ${rain}, ${source}`
   })
@@ -750,10 +793,15 @@ export default function HistogramScrubber(props: Props) {
               </g>
               <Show when={props.cloudCover}><line class="cloud-divider" style={{ opacity: coverOpacity() }} x1="0" x2={trackWidth()} y1={cloudHeight() + 1.5} y2={cloudHeight() + 1.5} /></Show>
             </Show>
-            <g class="rain-bars scrub-view" style={layerStyle(baseOpacity())}><Index each={bars()}>{(bar) => <Show
+            <g class="rain-bars scrub-view" style={layerStyle(rainOpacity())}><Index each={bars()}>{(bar) => <Show
               when={!bar().pending}
               fallback={<rect class="rain-bar pending" x={bar().x} y={plotHeight() - 2} width={bar().width} height="2" rx="1" />}
             ><rect class="rain-bar" classList={{ past: bar().past }} x={bar().x} y={bar().top} width={bar().width} height={plotHeight() - bar().top + 3} rx={Math.min(3, bar().width / 2)} fill={rainColor(bar().value, barRainLook(bar().epoch))} /></Show>}</Index></g>
+            <Show when={sunVisible()}>
+              <g class="sun-bars scrub-view" data-testid="sun-bars" style={layerStyle(sunOpacity())}><Index each={sunBars()}>{(bar) =>
+                <rect class="sun-bar" classList={{ past: bar().past }} x={bar().x} y={bar().top} width={bar().width} height={plotHeight() - bar().top + 3} rx={Math.min(3, bar().width / 2)} fill={SUN_BAR_FILL} stroke={SUN_BAR_STROKE} />
+              }</Index></g>
+            </Show>
             <Show when={layerBands().length && cloudsFrontOpacity() > 0}>
               <g class="cloud-section cloud-front" filter={`url(#${cloudId}-soft)`} style={{ opacity: cloudsFrontOpacity() }}><use href={`#${cloudId}-layers`} /></g>
             </Show>
@@ -784,6 +832,13 @@ export default function HistogramScrubber(props: Props) {
           {/* Korrel over lucht, wolken en regen: breekt de gladde verlopen (PO 2026-10-07 live). */}
           <Show when={skyVisible()}><div class="sky-grain" style={{ width: `${cloudWidth()}px`, opacity: skyStrength() }} /></Show>
           <div class="now-line" style={{ left: `${nowX()}px` }} />
+          <Show when={sunVisible()}>
+            <div class="sun-markers" classList={{ "on-sky": skyVisible() }} style={{ opacity: sunOpacity() }}><For each={sunMarkers()}>{(marker) =>
+              <div class="sun-marker" classList={{ rise: marker.kind === 'rise', set: marker.kind === 'set' }} style={{ left: `${marker.x}px` }}>
+                <SunGlyph /><span>{formatTime(marker.epoch)}</span>
+              </div>
+            }</For></div>
+          </Show>
           {/* "Nu" staat in de urenbalk (PO 2026-09-25 live); het uurlabel eronder wijkt. */}
           <div class="x-axis">
             {/* Middernacht krijgt geen uurlabel: het (sticky) daglabel markeert de dagwissel. */}
@@ -833,6 +888,11 @@ export default function HistogramScrubber(props: Props) {
             <span>{formatRate(cursorValue()!)}</span>
           </div>
         </Show>
+        <Show when={!props.loading && view() === 'air' && cursorSun()}>{(sun) =>
+          <div class="cursor-readout sun-readout" classList={{ tween: tween() }} style={{ left: `${cursorX()}px`, top: `${sun().y}px` }} aria-hidden="true">
+            <span>{sun().text}</span>
+          </div>
+        }</Show>
         <Show when={!props.loading && view() === 'temperature'}>
           <For each={cursorTemperature() ?? []}>{(reading) =>
             <div class="cursor-readout" classList={{ tween: tween(), 'gust-readout': reading.air, below: reading.below }} style={{ left: `${cursorX()}px`, top: `${reading.y}px` }} aria-hidden="true">
