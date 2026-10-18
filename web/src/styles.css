@@ -1158,7 +1158,8 @@ td small { color: var(--muted); font-size: 9px; }
   body { overflow: hidden; }
   .app-shell { height: 100dvh; min-height: 620px; grid-template: minmax(0, 1fr) / minmax(0, 1fr) minmax(400px, 470px); }
   .map-shell { grid-column: 1; grid-row: 1; }
-  .dashboard { grid-column: 2; grid-row: 1; overflow-y: auto; border-left: 1px solid var(--line); box-shadow: -8px 0 24px rgba(21, 51, 63, .07); z-index: 2; }
+  /* Naad tussen kaart en paneel: doorschijnend donker, zodat hij naast een nachtrij of nachtlucht niet licht oplicht. */
+  .dashboard { grid-column: 2; grid-row: 1; overflow-y: auto; border-left: 1px solid rgba(8, 21, 28, .32); box-shadow: -8px 0 24px rgba(21, 51, 63, .07); z-index: 2; }
   .sidebar-nav { position: sticky; top: 0; z-index: 4; padding-right: 24px; padding-left: 24px; }
   .current-weather { min-height: 113px; padding: 22px 24px; }
   .reading strong { font-size: 49px; }
@@ -1438,7 +1439,7 @@ td small { color: var(--muted); font-size: 9px; }
   body::before { display: none; }
   .app-shell { height: 100dvh; display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr) minmax(300px, 52%); }
   .map-shell { height: auto; grid-column: 1; grid-row: 1; }
-  .dashboard { grid-column: 2; grid-row: 1; overflow-y: auto; border-left: 1px solid var(--line); overscroll-behavior: contain; }
+  .dashboard { grid-column: 2; grid-row: 1; overflow-y: auto; border-left: 1px solid rgba(8, 21, 28, .32); overscroll-behavior: contain; }
   .scrubber { position: static; height: min(236px, 100dvh); padding-bottom: 8px; }
   .search-results { max-height: calc(100dvh - 76px); }
   .sidebar-nav { top: calc(100dvh - 50px); }
