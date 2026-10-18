@@ -19,6 +19,7 @@ SUBSTEPS = 30
 SOLAR_CONSTANT = 1361.0
 DNI_THRESHOLD = 120.0
 CLIMATOLOGY_YEARS = range(2016, 2026)
+SWISS_APP_CANDIDATES = ["icon_eu", "icon_global", "ecmwf_ifs", "ecmwf_ifs025"]
 
 
 # --- zonnestand (zelfde formules als web/src/core/solar.ts) ---------------------------------------------
@@ -409,6 +410,18 @@ def openmeteo_section(estimators: Estimators, observations: pd.DataFrame, statio
             selected[f"Open-Meteo {model}"] = frame[f"{model}_sunshine_min"].to_numpy()
         lines += [f"### {description}", "", f"{len(frame)} stationsuren.", "", *score_table(frame, selected), ""]
         lines += ["Per seizoen (MAE / bias, min/u):", "", *segment_table(frame, selected, pd.Series(season(frame)), list(selected)), ""]
+        candidates = {name: selected[name] for name in ["S1 k-overgang (gefit)", "B1 klimatologie"]}
+        for model in SWISS_APP_CANDIDATES:
+            candidates[f"Open-Meteo {model}"] = selected[f"Open-Meteo {model}"]
+            radiation = frame[f"{model}_radiation_wm2"].to_numpy(dtype=float)
+            candidates[f"S1 op straling {model}"] = estimators.apply(frame, radiation)["S1 k-overgang (gefit)"]
+        lines += [
+            "Kandidaten voor de MeteoSwiss-app buiten het ICON-CH-gebied: hun eigen zonneschijnduur (Open-Meteo) "
+            "naast S1 op hun eigen uurstraling, met dezelfde parameters als op HARMONIE.",
+            "",
+            *score_table(frame, candidates),
+            "",
+        ]
     lines += [
         "Open-Meteo-cijfers gelden voor hun eigen korte-termijnreeks; bij de 00 UTC-rij hebben zij dus een kortere "
         "lead dan HARMONIE. Fit-dagen tellen in deze sectie mee; de parameters hebben 1–2 vrijheidsgraden per schatter.",
