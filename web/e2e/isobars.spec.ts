@@ -37,7 +37,9 @@ test('wind focus draws labelled isobars under the particles; temperature focus d
     expect(level).toBeLessThan(1_060)
   }
   await expect(shell(page)).toHaveAttribute('data-isolines', '0')
-  // Isobaren liggen onder de windparticles: hun canvas komt eerder in de DOM.
+  // Isobaren liggen onder de windparticles: hun canvas komt eerder in de DOM. Zonder
+  // KHR_parallel_shader_compile (headless) mount de wind pas ~5 s na de start.
+  await expect(page.locator('.map-overlay-motregen-wind')).toBeAttached()
   expect(await page.evaluate(() => {
     const isobars = document.querySelector('.map-overlay-motregen-isobars'), wind = document.querySelector('.map-overlay-motregen-wind')
     return !!isobars && !!wind && !!(isobars.compareDocumentPosition(wind) & Node.DOCUMENT_POSITION_FOLLOWING)
@@ -61,8 +63,12 @@ test('wind focus draws labelled isobars under the particles; temperature focus d
 test('pinned wind focus shows isobars in the dark theme', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'één profiel volstaat voor de still')
   await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'reduce' })
-  // De app start licht tenzij de gebruiker een thema koos.
-  await page.addInitScript(() => localStorage.setItem('motregen-theme', 'dark'))
+  // De app start licht tenzij de gebruiker een thema koos. Onder Expressief volgt de kaart de
+  // zonnestand van de kaarttijd en niet het thema (PO 2026-10-08); uit, dan is de kaart donker.
+  await page.addInitScript(() => {
+    localStorage.setItem('motregen-theme', 'dark')
+    localStorage.setItem('motregen-expressive', 'off')
+  })
   await ready(page, [])
   await windHeading(page).click()
   await windHeading(page).blur()
