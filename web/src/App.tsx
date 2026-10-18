@@ -3788,9 +3788,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
                 focusMode.set(mode, source, active)
               } }}
             />
-            <Show when={manifest()?.ecmwf?.days.length}>
-              <p class="table-source">Dagen na morgen zijn gebaseerd op data en producten van het European Centre for Medium-Range Weather Forecasts (<a href="https://www.ecmwf.int" target="_blank" rel="noopener">ECMWF</a>), <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>, door motregen omgerekend naar dagwaarden.</p>
-            </Show>
+            <p class="table-source">
+              Waarnemingen en de verwachting tot en met morgen zijn gebaseerd op data van het <a href="https://dataplatform.knmi.nl" target="_blank" rel="noopener">KNMI</a><Show when={manifest()?.ecmwf?.days.length} fallback=".">, de verwachting vanaf overmorgen op data en producten van het <a href="https://www.ecmwf.int" target="_blank" rel="noopener">ECMWF</a>.</Show>
+              {' '}Licentie: <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>, bewerkt door motregen.
+            </p>
             {/* Pas na de eerste regen-draw: de lijst en zijn chunk horen niet bij het kritieke pad. */}
             <Show when={dayListMode() && manifest() && pointLoadsStarted()}>
               <DayList rows={dayRows()} windUnit={windUnit()} dayNight={expressive()} onNear={() => setLongRangeNear(true)} />
