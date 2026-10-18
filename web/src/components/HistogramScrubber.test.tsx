@@ -330,6 +330,22 @@ describe('histogram scrubber', () => {
     expect([...container.querySelectorAll('.sun-marker')].map((marker) => marker.classList.contains('set'))).toEqual([true])
   })
 
+  it('breaks the sunshine curve over hours whose radiation is not loaded yet instead of drawing a flat line', () => {
+    const timeline = ['08', '09', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19', '20'].map((hour) => frame(`2026-08-28T${hour}:00:00Z`, 'harmonie'))
+    const layers = { timeline: { high: timeline, mid: timeline, low: timeline }, values: { high: timeline.map(() => 0), mid: timeline.map(() => 0), low: timeline.map(() => 0) } }
+    // 12–14 UTC nog niet geladen: twee stukken curve, niets ertussen.
+    const radiation = timeline.map((entry) => [12, 13, 14].includes(new Date(entry.epoch).getUTCHours()) ? null : 700)
+    const { container } = render(() => <HistogramScrubber
+      timeline={timeline} values={timeline.map(() => 0)} cursor={2} now={timeline[0]!.epoch} playing={false} loading={false}
+      locationLabel="De Bilt" onCursor={() => undefined} onPlaying={() => undefined} clouds={layers}
+      sky={{ radiation: { timeline, values: radiation }, sinElevation: (epoch: number) => solarElevationSin(epoch, 5.18, 52.1) }}
+      mix={{ wind: 0, air: 1, temperature: 0 }}
+    />)
+    plotBounds(container)
+    // Twee vlakken en twee lijnen.
+    expect(container.querySelectorAll('.sun-bars path[d^="M"]').length).toBe(4)
+  })
+
   it('draws the sky behind every view once the cloud layers are in, and drops it when not expressive (U47)', () => {
     const timeline = ['14', '15', '16', '17', '18'].map((hour) => frame(`2026-08-28T${hour}:00:00Z`, 'harmonie'))
     const empty = { timeline: { high: timeline, mid: timeline, low: timeline }, values: { high: [], mid: [], low: [] } }

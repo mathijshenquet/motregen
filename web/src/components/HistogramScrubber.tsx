@@ -302,18 +302,26 @@ export default function HistogramScrubber(props: Props) {
     const radiationByEpoch = new Map(inputs.radiation.timeline.map((frame, index) => [frame.epoch, inputs.radiation.values[index]]))
     const runs: Array<Array<[number, number]>> = []
     let run: Array<[number, number]> = []
+    // Een uur zonder (nog niet geladen) straling breekt de curve: geen doorgetrokken lijn over ontbrekende uren.
+    let afterGap = false
     for (let start = Math.floor(timelineStart() / QUARTER) * QUARTER; start <= timelineEnd(); start += QUARTER) {
       const daylight = inputs.sinElevation(start) > Math.sin(SUNSHINE_SUN_ELEVATION_DEGREES * Math.PI / 180)
       if (!daylight) {
         if (run.length) { run.push([xAt(start), plotHeight()]); runs.push(run); run = [] }
+        afterGap = false
         continue
       }
-      if (!run.length) run.push([xAt(start), plotHeight()])
+      if (!run.length && !afterGap) run.push([xAt(start), plotHeight()])
       // Uurwaarden op het midden van hun uur: het kwartier dat op :15 begint ligt op :30 na zijn middenpunt.
       if (new Date(start).getUTCMinutes() === 15) {
         const end = start + 45 * 60_000
         const minutes = sunshineMinutes(end, radiationByEpoch.get(end), inputs.sinElevation)
         if (minutes != null) run.push([xAt(start + QUARTER), sunTop(minutes)])
+        else {
+          if (run.some(([, y]) => y < plotHeight())) runs.push(run)
+          run = []
+          afterGap = true
+        }
       }
     }
     if (run.length > 1) runs.push(run)
