@@ -15,6 +15,10 @@ Voer de opdrachten uit vanaf de repositoryroot, met de devenv-omgeving actief.
 4. Bekijk `pnpm changelog:post X.Y.Z @motregen_updates --dry-run`. Publiceer na opdracht
    met dezelfde opdracht zonder `--dry-run`. De poster maakt de opmaak en rondlopende
    tellerlinks automatisch. Push en uitrol zijn aparte stappen; uitrol vereist PO-akkoord.
+   Standaard is een release precies een reeks posts: per feature één bericht met beeld of clip
+   en bijschrift, zonder samenvattend tekstbericht (PO 2026-10-18). Elke notitie heeft dus media
+   nodig. Laat de PO eerst concepten kiezen in zijn privéchat (`MOTREGEN_SMOKE_CHAT_ID`, met
+   `--test`). `--met-tekst` en `--album` geven de oude opmaak met tekstbericht.
 5. Controleer de bijschriften, media en tellerlinks in Telegram. Bewaar de lokale
    `posted.json` met de echte bericht-id's en voortgang.
 

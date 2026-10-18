@@ -66,6 +66,19 @@ describe('Telegram publication', () => {
     await expect(postRelease(root, '0.1.0', '-100999', token, fetcher)).rejects.toThrow('past niet')
   })
 
+  it('posts one message per feature without a text message, and refuses a feature without media', async () => {
+    fixture(2)
+    const fetcher = vi.fn<typeof fetch>(captionSuccess).mockResolvedValueOnce(success({ message_id: 51 })).mockResolvedValueOnce(success({ message_id: 93 }))
+    await postRelease(root, '0.1.0', chat, token, fetcher, { layout: 'posts' })
+    expect(fetcher.mock.calls.map(([url]) => String(url).split('/').at(-1))).toEqual(['sendPhoto', 'sendPhoto', 'editMessageCaption', 'editMessageCaption'])
+    const edits = fetcher.mock.calls.slice(2).map(([, init]) => init!.body as FormData)
+    expect(edits.map((body) => body.get('message_id'))).toEqual(['51', '93'])
+    expect(state()).toMatchObject({ complete: true, text_sent: false, message_ids: [51, 93], layout: 'posts' })
+    rmSync(resolve(root, 'changes/v0.1.0/posted.json'))
+    fixture(0)
+    await expect(postRelease(root, '0.1.0', chat, token, fetcher, { layout: 'posts', dryRun: true })).rejects.toThrow('elke notitie')
+  })
+
   it('supports albums with independent captions and skips repeating the text after a known rejection', async () => {
     fixture(2)
     const fetcher = vi.fn<typeof fetch>(captionSuccess).mockResolvedValueOnce(success({ message_id: 20 })).mockResolvedValueOnce(new Response(JSON.stringify({ ok: false }), { status: 429 })).mockResolvedValueOnce(success([{ message_id: 21 }, { message_id: 22 }]))
