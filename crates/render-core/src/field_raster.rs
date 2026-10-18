@@ -31,7 +31,7 @@ pub fn fill(
     colors: &[f32],
     rings: &[f32],
     opacity: f64,
-) {
+) -> FillRaster {
     let size = &constants().size;
     let width = size.width;
     let height = size.height;
@@ -128,39 +128,19 @@ pub fn fill(
             filled[destination + 3] = (alpha * 255.0).round() as u8;
         }
     }
-    let horizontal_samples: Vec<_> = (0..width)
-        .map(|column| {
-            let position =
-                ((column as f64 + 0.5) * scale - 0.5).clamp(0.0, fill_width as f64 - 1.0);
-            let west = position.floor() as usize;
-            let east = (west + 1).min(fill_width - 1);
-            (west, east, (position - west as f64) as f32)
-        })
-        .collect();
+    let raster = FillRaster {
+        width: fill_width,
+        premultiplied: filled,
+        horizontal: (0..width)
+            .map(|column| FillTap::new(column, scale, fill_width))
+            .collect(),
+        vertical: (0..height)
+            .map(|row| FillTap::new(row, scale, fill_height))
+            .collect(),
+    };
     for row in 0..height {
-        let position_y = ((row as f64 + 0.5) * scale - 0.5).clamp(0.0, fill_height as f64 - 1.0);
-        let north = position_y.floor() as usize;
-        let south = (north + 1).min(fill_height - 1);
-        let vertical = (position_y - north as f64) as f32;
-        for (column, &(west, east, horizontal)) in horizontal_samples.iter().enumerate() {
-            let indexes = [
-                (north * fill_width + west) * 4,
-                (north * fill_width + east) * 4,
-                (south * fill_width + west) * 4,
-                (south * fill_width + east) * 4,
-            ];
-            let weights = [
-                (1.0 - horizontal) * (1.0 - vertical),
-                horizontal * (1.0 - vertical),
-                (1.0 - horizontal) * vertical,
-                horizontal * vertical,
-            ];
-            let mut rgba = [0.0f32; 4];
-            for corner in 0..4 {
-                for channel in 0..4 {
-                    rgba[channel] += filled[indexes[corner] + channel] as f32 * weights[corner];
-                }
-            }
+        for column in 0..width {
+            let rgba = raster.sample(column, row);
             let destination = (row * width + column) * 3;
             for channel in 0..3 {
                 rgb[destination + channel] = (rgb[destination + channel] as f32
@@ -170,20 +150,81 @@ pub fn fill(
             }
         }
     }
+    raster
 }
-pub fn lines(rgb: &mut [u8], segments: &[f32], color: [u8; 3], pressure: bool, opacity: f64) {
+
+/// The temperature fill at its own, lower resolution, premultiplied; sampled bilinearly like the app's fill texture.
+pub struct FillRaster {
+    width: usize,
+    premultiplied: Vec<u8>,
+    horizontal: Vec<FillTap>,
+    vertical: Vec<FillTap>,
+}
+
+#[derive(Clone, Copy)]
+struct FillTap {
+    near: usize,
+    far: usize,
+    weight: f32,
+}
+
+impl FillTap {
+    fn new(output: usize, scale: f64, fill_size: usize) -> Self {
+        let position = ((output as f64 + 0.5) * scale - 0.5).clamp(0.0, fill_size as f64 - 1.0);
+        let near = position.floor() as usize;
+        FillTap {
+            near,
+            far: (near + 1).min(fill_size - 1),
+            weight: (position - near as f64) as f32,
+        }
+    }
+}
+
+impl FillRaster {
+    /// Premultiplied RGBA in 0..=255 at an output pixel.
+    fn sample(&self, column: usize, row: usize) -> [f32; 4] {
+        let horizontal = self.horizontal[column];
+        let vertical = self.vertical[row];
+        let (west, east) = (1.0 - horizontal.weight, horizontal.weight);
+        let (north, south) = (1.0 - vertical.weight, vertical.weight);
+        let corners = [
+            (vertical.near, horizontal.near, west * north),
+            (vertical.near, horizontal.far, east * north),
+            (vertical.far, horizontal.near, west * south),
+            (vertical.far, horizontal.far, east * south),
+        ];
+        let mut rgba = [0.0f32; 4];
+        for (fill_row, fill_column, weight) in corners {
+            let index = (fill_row * self.width + fill_column) * 4;
+            for channel in 0..4 {
+                rgba[channel] += self.premultiplied[index + channel] as f32 * weight;
+            }
+        }
+        rgba
+    }
+}
+
+pub enum LineColor<'a> {
+    Isobar([u8; 3]),
+    /// The color of the band edge under the line, darkened; `fallback` where there is no fill.
+    Isotherm {
+        fallback: [u8; 3],
+        fill: &'a FillRaster,
+    },
+}
+
+pub fn lines(rgb: &mut [u8], segments: &[f32], color: LineColor, opacity: f64) {
     let size = &constants().size;
     let width = size.width;
     let height = size.height;
     let settings = &mode_constants().isoline;
     let half_width = settings.line_profile.half_width as f32;
     let opacity = opacity as f32;
-    let line_opacity = (if pressure {
-        settings.pressure_opacity
-    } else {
-        settings.temperature_opacity
+    let line_opacity = (match color {
+        LineColor::Isobar(_) => settings.pressure_opacity,
+        LineColor::Isotherm { .. } => settings.temperature_line_fill_opacity,
     } * settings.line_profile.alpha) as f32;
-    let color = color.map(f32::from);
+    let shade = settings.temperature_line_fill_shade as f32;
     let mut ink = vec![0.0f32; width * height];
 
     for segment in segments.chunks_exact(6) {
@@ -215,7 +256,20 @@ pub fn lines(rgb: &mut [u8], segments: &[f32], color: [u8; 3], pressure: bool, o
         if alpha == 0.0 {
             continue;
         }
-        for (channel, &color) in color.iter().enumerate() {
+        let pixel_color = match color {
+            LineColor::Isobar(fixed) => fixed.map(f32::from),
+            LineColor::Isotherm { fallback, fill } => {
+                let under = fill.sample(pixel % width, pixel / width);
+                if under[3] > 0.0 {
+                    std::array::from_fn(|channel| {
+                        (under[channel] / under[3] * shade).min(1.0) * 255.0
+                    })
+                } else {
+                    fallback.map(f32::from)
+                }
+            }
+        };
+        for (channel, &color) in pixel_color.iter().enumerate() {
             let index = pixel * 3 + channel;
             rgb[index] = (rgb[index] as f32 * (1.0 - alpha) + color * alpha).round() as u8;
         }

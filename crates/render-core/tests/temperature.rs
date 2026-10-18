@@ -2,7 +2,7 @@ use render_core::{
     constants::constants,
     field::Field,
     field_palette::Palette,
-    field_raster,
+    field_raster::{self, LineColor},
     mode_constants::mode_constants,
     projection::{Grid, Projection},
 };
@@ -90,5 +90,52 @@ fn uniform_temperature_paints_the_expected_band_and_preserves_no_data() {
         let mut rgb = original.clone();
         field_raster::fill(&mut rgb, &field, &projection, &colors, &[], opacity);
         assert_eq!(rgb, original);
+    }
+}
+
+#[test]
+fn isotherms_take_the_darkened_fill_color_and_fall_back_where_there_is_no_fill() {
+    let grid = Grid {
+        x0: 0.0,
+        y0: 8_000_000.0,
+        dx: 100_000.0,
+        dy: -100_000.0,
+        width: 20,
+        height: 20,
+    };
+    let projection = Projection::new(&grid);
+    let palette = Palette::new(0.0, 16.0).unwrap();
+    let colors = palette.bands();
+    let size = &constants().size;
+    let settings = &mode_constants().isoline;
+    let line_alpha = (settings.temperature_line_fill_opacity * settings.line_profile.alpha) as f32;
+    let shade = settings.temperature_line_fill_shade;
+    let row = size.height / 2;
+    let center = row as f32 + 0.5;
+    let segment = [100.0, center, 300.0, center, 1.0, 1.0];
+    let fallback = [10, 20, 30];
+    let band = palette.color(8.5);
+    let darkened_band = band.map(|channel| ((channel * shade).min(1.0) * 255.0) as f32);
+    for (value, expected_line) in [(8.5, darkened_band), (f32::NAN, fallback.map(f32::from))] {
+        let mut rgb = vec![120; size.width * size.height * 3];
+        let field = Field::prepare(vec![value; grid.width * grid.height], 20, 20, 0);
+        let fill = field_raster::fill(&mut rgb, &field, &projection, &colors, &[], 1.0);
+        let filled = rgb.clone();
+        let line = LineColor::Isotherm {
+            fallback,
+            fill: &fill,
+        };
+        field_raster::lines(&mut rgb, &segment, line, 1.0);
+        let offset = (row * size.width + 200) * 3;
+        for channel in 0..3 {
+            let under = filled[offset + channel] as f32;
+            let expected =
+                (under * (1.0 - line_alpha) + expected_line[channel] * line_alpha).round();
+            assert!(
+                rgb[offset + channel].abs_diff(expected as u8) <= 1,
+                "kanaal {channel}: {} tegen {expected}",
+                rgb[offset + channel]
+            );
+        }
     }
 }
