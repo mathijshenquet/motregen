@@ -105,11 +105,12 @@ test('mobile previews the heading and current row, then scrolls smoothly between
     const row = document.querySelector<HTMLElement>(`tr[data-epoch="${epoch}"]`)!
     return { current: row.getBoundingClientRect().toJSON(), next: row.nextElementSibling!.getBoundingClientRect().toJSON() }
   })
-  // U42: de preview toont circa 1,2 rij, dus de huidige rij heel en de volgende gedeeltelijk.
-  expect(preview.current.top).toBeLessThan(page.viewportSize()!.height)
-  expect(preview.current.bottom).toBeLessThanOrEqual(page.viewportSize()!.height)
-  expect(preview.next.top).toBeLessThan(page.viewportSize()!.height)
-  expect(preview.next.bottom).toBeGreaterThan(page.viewportSize()!.height)
+  // PO 2026-10-18: de preview toont de huidige rij heel en geen halve volgende; de kaart krijgt minstens de helft.
+  const viewportHeight = page.viewportSize()!.height
+  expect(preview.current.top).toBeLessThan(viewportHeight)
+  expect(preview.current.bottom).toBeLessThanOrEqual(viewportHeight)
+  expect(preview.next.top).toBeGreaterThanOrEqual(viewportHeight - 2)
+  expect(await page.locator('.map-shell').evaluate((map) => map.getBoundingClientRect().height)).toBeGreaterThanOrEqual(viewportHeight / 2)
 
   await page.getByRole('button', { name: 'Wind' }).tap()
   await expect.poll(() => page.locator('.app-shell').evaluate((shell) => Math.round(shell.scrollTop))).toBe(0)
