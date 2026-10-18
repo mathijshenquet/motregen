@@ -50,7 +50,7 @@ def erbs_diffuse_fraction(clearness: np.ndarray) -> np.ndarray:
 
 def add_geometry(frame: pd.DataFrame) -> pd.DataFrame:
     """Zongeometrie over het uur [T−1 u, T] in SUBSTEPS stappen (middens van 5 minuten)."""
-    hour_end = frame["hour_end"].astype("int64").to_numpy() / 1e9
+    hour_end = (frame["hour_end"] - pd.Timestamp("1970-01-01")).dt.total_seconds().to_numpy()
     offsets = (np.arange(SUBSTEPS) + 0.5) / SUBSTEPS * 3600 - 3600
     epochs = hour_end[:, None] + offsets[None, :]
     mu = solar_elevation_sin(epochs, frame["lon"].to_numpy()[:, None], frame["lat"].to_numpy()[:, None])
