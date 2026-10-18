@@ -345,7 +345,8 @@ button { color: inherit; cursor: pointer; }
 .about-body dd { margin: 0; }
 .about-legal { display: block; margin-top: 4px; color: var(--muted); font-size: 11px; line-height: 1.4; }
 /* ECMWF-voorwaarden: de vermelding hoort prominent bij de dagen die erop gebaseerd zijn, dus onder de tabel. */
-.table-source { margin: 0; padding: 14px max(16px, env(safe-area-inset-right)) 18px max(16px, env(safe-area-inset-left)); color: var(--muted); font-size: 11px; line-height: 1.45; text-align: center; }
+/* Voet in de kleur van een daghemel-kop (thead.day-hour zonder bewolking), op kophoogte, en tot de onderrand. */
+.table-source { margin: 0; padding: 18px max(16px, env(safe-area-inset-right)) calc(18px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); color: #3a525c; background: color-mix(in oklab, var(--table-day-bright) var(--table-day-mix, 44%), #fff); font-size: 11px; line-height: 1.45; text-align: center; }
 .table-source a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .about-body a { color: var(--accent); }
 .update-toast { position: fixed; right: max(16px, env(safe-area-inset-right)); bottom: max(16px, env(safe-area-inset-bottom)); z-index: 1100; padding: 9px 12px; border: 1px solid var(--line-strong); border-radius: 10px; color: var(--text); background: var(--surface-raised); box-shadow: var(--shadow); font-size: 13px; }
@@ -816,6 +817,8 @@ button.column-mode { width: 100%; cursor: pointer; }
 .time-label span { color: var(--muted); font-size: 10px; text-transform: capitalize; }
 /* "ochtend", "20 okt": klein, zoals in gewone Nederlandse tekst. */
 .time-label span.day-date { text-transform: none; }
+/* De dag boven een dagdeel: klein en gedempt, het dagdeel zelf is de titel. */
+.time-label strong .part-day { display: block; color: var(--muted); font-size: 10px; font-weight: 500; }
 .forecast-table.day-night-table tr.night-hour { --surface: var(--table-night, #0a1820); --surface-soft: var(--table-night-soft, #112832); --text: #edf8fc; --muted: var(--table-night-muted, #91aab5); --row-ground: var(--surface); --line-strong: var(--line-strong-on-dark); --accent: var(--table-night-accent, #48c4e9); --accent-soft: var(--table-night-accent-soft, #123b49); color: var(--text); }
 .forecast-table.day-night-table tr.night-hour td { background: var(--surface); }
 .forecast-table.day-night-table tr.night-hour .weather-icon .weather-cloud { fill: var(--table-night-cloud, #607780); stroke: var(--table-night-cloud-edge, #adc2ca); }
@@ -1174,7 +1177,7 @@ td small { color: var(--muted); font-size: 9px; }
   .dashboard { display: flex; flex-direction: column; overflow: hidden; }
   .dashboard > * { flex: none; }
   .forecast-panel { display: flex; min-height: 0; flex: 1 1 0; flex-direction: column; padding-bottom: 0; }
-  .table-scroll { min-height: 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; padding-bottom: 36px; scrollbar-width: auto; scrollbar-color: var(--line-strong) transparent; }
+  .table-scroll { min-height: 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: auto; scrollbar-color: var(--line-strong) transparent; }
   .table-scroll::-webkit-scrollbar { width: 12px; }
   .table-scroll::-webkit-scrollbar-thumb { border: 3px solid transparent; border-radius: 999px; background: var(--line-strong) padding-box; }
 }
@@ -1408,7 +1411,7 @@ td small { color: var(--muted); font-size: 9px; }
   .app-shell { position: fixed; inset: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; scroll-snap-type: y mandatory; }
   .map-shell { scroll-snap-align: start; }
   .dashboard { overflow: visible; }
-  .forecast-panel { position: relative; height: var(--shell-height, 100dvh); display: flex; flex-direction: column; padding: 0 0 env(safe-area-inset-bottom); overflow: visible; scroll-snap-align: start; touch-action: pan-y; }
+  .forecast-panel { position: relative; height: var(--shell-height, 100dvh); display: flex; flex-direction: column; padding: 0; overflow: visible; scroll-snap-align: start; touch-action: pan-y; }
   .table-scroll { min-height: 0; flex: 1 1 auto; overflow-y: hidden; overscroll-behavior-y: auto; touch-action: pan-y; }
   .table-scroll th { top: 0; }
   .forecast-table :is(.time-cell, .time-heading) { width: 20%; padding-right: 3px; }

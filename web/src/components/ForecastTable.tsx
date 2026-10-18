@@ -14,7 +14,7 @@ import { CALM_BAR_STOPS, cssRgb, paletteColor } from '../core/temperature-palett
 import WeatherIcon from './WeatherIcon'
 import WindReading from './WindReading'
 import { measurePerfPhase } from '../core/perf'
-import { formatDayMonth, formatNumber, formatTime, formatWeekdayShort, formatWeekdayTitle } from '../core/locale'
+import { formatDayMonth, formatNumber, formatTime, formatWeekdayLong, formatWeekdayTitle } from '../core/locale'
 import { localMinutes, localTime } from '../core/days'
 import { sameFields } from '../core/stable'
 
@@ -422,7 +422,7 @@ export default function ForecastTable(props: Props) {
               }}
             >
               <strong>{time(row.epoch)}</strong>
-              <span classList={{ 'now-label': row.kind === 'now' }}><NightMark night={!daylight()} />{row.kind === 'now' ? 'Nu' : formatWeekdayShort(row.epoch)}</span>
+              <span classList={{ 'now-label': row.kind === 'now' }}><NightMark night={!daylight()} />{row.kind === 'now' ? 'Nu' : formatWeekdayLong(row.epoch)}</span>
             </button>
           </td>
           <Show when={props.columns.weather}>
@@ -505,12 +505,12 @@ export default function ForecastTable(props: Props) {
         }
       }
       // Leest als "Maandag ochtend" en "Woensdag 22 okt": de dag boven, het dagdeel of de datum eronder (PO 2026-10-18).
-      // Onder de kopregel van zijn dag: "Nacht", of dag en dagdeel op twee gelijke regels ("Dinsdag / Ochtend", proef
-      // PO 2026-10-18); een dagrij "Woensdag" met de datum.
+      // Onder de kopregel van zijn dag: "Nacht", of het dagdeel met de dag klein erboven ("maandag / Ochtend", PO
+      // 2026-10-18); een dagrij "Woensdag" met de datum.
       const noon = localTime(row.slot.date, 12)
       const dayName = formatWeekdayTitle(noon)
       const title = () => row.slot.grain === 'day' || row.slot.label === 'Nacht' ? (row.slot.grain === 'day' ? dayName : 'Nacht')
-        : <>{dayName}<br />{row.slot.label}</>
+        : <><small class="part-day">{dayName}</small>{row.slot.label}</>
       const weekday = row.slot.grain === 'day' ? formatDayMonth(noon) : ''
       const selectable = row.slot.start <= (props.timelineEnd ?? Number.NEGATIVE_INFINITY)
       const overcast = () => ((values()?.cloud ?? 50) / 100 * 0.75).toFixed(3)
