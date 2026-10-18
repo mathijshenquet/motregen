@@ -123,7 +123,7 @@ Per seizoen (MAE / bias, min/u):
 | Open-Meteo ecmwf_ifs | 8.5 / +5.3 | 12.4 / +10.0 | 18.0 / +16.4 | 18.0 / +15.7 |
 | Open-Meteo ecmwf_ifs025 | 9.3 / +7.0 | 12.9 / +11.0 | 17.6 / +15.9 | 18.5 / +16.9 |
 
-Kandidaten voor de MeteoSwiss-app buiten het ICON-CH-gebied: hun eigen zonneschijnduur (Open-Meteo) naast S1 op hun eigen uurstraling, met dezelfde parameters als op HARMONIE.
+Kandidaten voor de MeteoSwiss-app buiten het ICON-CH-gebied, plus icon_d2 (U95c): hun eigen zonneschijnduur (Open-Meteo) naast S1 op hun eigen uurstraling, met dezelfde parameters als op HARMONIE.
 
 | schatter | MAE (min/u) | bias (min/u) | vaardigheid t.o.v. B1 | MAE dagsom (u) | bias dagsom (u) |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -137,6 +137,8 @@ Kandidaten voor de MeteoSwiss-app buiten het ICON-CH-gebied: hun eigen zonneschi
 | S1 op straling ecmwf_ifs | 10.9 | +6.7 | +0.45 | 1.82 | +1.63 |
 | Open-Meteo ecmwf_ifs025 | 15.0 | +13.2 | +0.25 | 3.25 | +3.19 |
 | S1 op straling ecmwf_ifs025 | 11.0 | +7.2 | +0.45 | 1.90 | +1.74 |
+| Open-Meteo icon_d2 | 10.7 | +5.9 | +0.46 | 1.70 | +1.42 |
+| S1 op straling icon_d2 | 8.7 | +0.3 | +0.57 | 0.99 | +0.07 |
 
 ### 00 UTC-runs, leads +4…+21, alle dagen (fit + test)
 
@@ -170,7 +172,7 @@ Per seizoen (MAE / bias, min/u):
 | Open-Meteo ecmwf_ifs | 12.4 / +9.2 | 13.4 / +11.0 | 17.8 / +16.3 | 17.4 / +15.7 |
 | Open-Meteo ecmwf_ifs025 | 13.0 / +10.7 | 14.2 / +12.3 | 17.7 / +16.0 | 17.8 / +16.4 |
 
-Kandidaten voor de MeteoSwiss-app buiten het ICON-CH-gebied: hun eigen zonneschijnduur (Open-Meteo) naast S1 op hun eigen uurstraling, met dezelfde parameters als op HARMONIE.
+Kandidaten voor de MeteoSwiss-app buiten het ICON-CH-gebied, plus icon_d2 (U95c): hun eigen zonneschijnduur (Open-Meteo) naast S1 op hun eigen uurstraling, met dezelfde parameters als op HARMONIE.
 
 | schatter | MAE (min/u) | bias (min/u) | vaardigheid t.o.v. B1 | MAE dagsom (u) | bias dagsom (u) |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -184,6 +186,100 @@ Kandidaten voor de MeteoSwiss-app buiten het ICON-CH-gebied: hun eigen zonneschi
 | S1 op straling ecmwf_ifs | 11.6 | +7.6 | +0.42 | 1.99 | +1.82 |
 | Open-Meteo ecmwf_ifs025 | 15.9 | +14.1 | +0.20 | 3.45 | +3.39 |
 | S1 op straling ecmwf_ifs025 | 11.6 | +8.0 | +0.42 | 2.06 | +1.92 |
+| Open-Meteo icon_d2 | 10.7 | +5.3 | +0.46 | 1.65 | +1.27 |
+| S1 op straling icon_d2 | 8.9 | +0.2 | +0.55 | 1.07 | +0.04 |
 
 Open-Meteo-cijfers gelden voor hun eigen korte-termijnreeks; bij de 00 UTC-rij hebben zij dus een kortere lead dan HARMONIE. Fit-dagen tellen in deze sectie mee; de parameters hebben 1–2 vrijheidsgraden per schatter.
+
+## Zwitserland: SwissMetNet tegen ICON-CH (U95c)
+
+12 SwissMetNet-stations, uur-einde 2026-01-09 t/m 2026-10-15, zon boven de horizon; 46866 stationsuren. Regio's: Plateau BAS, BER, GVE, LUZ, PAY, SMA; Berg DAV, JUN, SAE; Zuid LUG, MAG, OTL.
+Waarheid: sre000h0 (zonneschijnsensor, WMO-drempel op directe straling), niet afgeleid uit globale straling zoals KNMI-SQ. Modellen: Open-Meteo historical-forecast (korte termijn, zoals in de NL-sectie hierboven). S1 met de NL-parameters (k-grenzen en 4,2°-grens), zonder terreinhorizon.
+
+Cellen: MAE / bias / vaardigheid t.o.v. klimatologie (min/u). Klimatologie = gemiddelde sre000h0 per station, maand en uur, 2016–2025.
+
+| schatter | Zwitserland (n=46866) | Plateau (n=23522) | Berg (n=11754) | Zuid (n=11590) |
+| --- | ---: | ---: | ---: | ---: |
+| B1 klimatologie | 20.0 / -4.2 / +0.00 | 20.3 / -5.1 / +0.00 | 20.0 / -3.6 / +0.00 | 19.1 / -3.1 / +0.00 |
+| Open-Meteo meteoswiss_icon_ch1 | 8.8 / -1.3 / +0.56 | 8.7 / -2.7 / +0.57 | 10.0 / +3.0 / +0.50 | 7.8 / -2.8 / +0.59 |
+| S1 op straling meteoswiss_icon_ch1 | 10.7 / +6.0 / +0.46 | 9.3 / +4.2 / +0.54 | 15.2 / +12.4 / +0.24 | 8.9 / +3.1 / +0.54 |
+| Open-Meteo meteoswiss_icon_ch2 | 8.7 / -0.5 / +0.56 | 8.7 / -2.0 / +0.57 | 9.7 / +3.3 / +0.52 | 7.7 / -1.2 / +0.60 |
+| S1 op straling meteoswiss_icon_ch2 | 10.7 / +6.4 / +0.46 | 9.6 / +4.9 / +0.53 | 14.4 / +11.7 / +0.28 | 9.3 / +4.2 / +0.51 |
+| Open-Meteo icon_d2 | 11.9 / +10.6 / +0.40 | 10.2 / +8.5 / +0.50 | 16.4 / +15.5 / +0.18 | 10.6 / +9.9 / +0.44 |
+| S1 op straling icon_d2 | 10.3 / +6.5 / +0.48 | 8.9 / +4.3 / +0.56 | 14.2 / +12.0 / +0.29 | 9.1 / +5.5 / +0.52 |
+| Open-Meteo icon_eu | 12.6 / +10.9 / +0.37 | 11.3 / +9.1 / +0.45 | 17.3 / +15.8 / +0.13 | 10.7 / +9.5 / +0.44 |
+| S1 op straling icon_eu | 10.8 / +5.7 / +0.46 | 9.4 / +3.6 / +0.54 | 14.7 / +11.5 / +0.26 | 9.7 / +4.3 / +0.49 |
+| S1 op gemeten straling (plafond) | 6.1 / +5.0 / +0.69 | 5.5 / +4.5 / +0.73 | 9.0 / +7.8 / +0.55 | 4.4 / +3.1 / +0.77 |
+
+Dagsommen (alle Zwitserse stations):
+
+| schatter | MAE (min/u) | bias (min/u) | vaardigheid t.o.v. B1 | MAE dagsom (u) | bias dagsom (u) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| B1 klimatologie | 20.0 | -4.2 | +0.00 | 3.59 | -0.98 |
+| Open-Meteo meteoswiss_icon_ch1 | 8.8 | -1.3 | +0.56 | 1.32 | -0.30 |
+| S1 op straling meteoswiss_icon_ch1 | 10.7 | +6.0 | +0.46 | 1.76 | +1.40 |
+| Open-Meteo meteoswiss_icon_ch2 | 8.7 | -0.5 | +0.56 | 1.26 | -0.11 |
+| S1 op straling meteoswiss_icon_ch2 | 10.7 | +6.4 | +0.46 | 1.80 | +1.50 |
+| Open-Meteo icon_d2 | 11.9 | +10.6 | +0.40 | 2.53 | +2.47 |
+| S1 op straling icon_d2 | 10.3 | +6.5 | +0.48 | 1.76 | +1.52 |
+| Open-Meteo icon_eu | 12.6 | +10.9 | +0.37 | 2.64 | +2.53 |
+| S1 op straling icon_eu | 10.8 | +5.7 | +0.46 | 1.73 | +1.34 |
+| S1 op gemeten straling (plafond) | 6.1 | +5.0 | +0.69 | 1.22 | +1.16 |
+
+Per seizoen, Plateau (MAE / bias, min/u):
+
+| schatter | winter (n=3220) | lente (n=7918) | zomer (n=8905) | herfst (n=3479) |
+| --- | ---: | ---: | ---: | ---: |
+| B1 klimatologie | 17.9 / +2.5 | 22.1 / -6.4 | 19.2 / -5.5 | 21.5 / -8.0 |
+| Open-Meteo meteoswiss_icon_ch1 | 7.5 / -1.4 | 8.4 / -1.9 | 9.1 / -3.4 | 9.3 / -3.7 |
+| S1 op straling meteoswiss_icon_ch1 | 12.0 / +8.9 | 9.3 / +4.8 | 8.6 / +2.1 | 8.9 / +4.1 |
+| Open-Meteo meteoswiss_icon_ch2 | 7.6 / -1.3 | 8.6 / -1.1 | 9.0 / -2.5 | 8.9 / -3.3 |
+| S1 op straling meteoswiss_icon_ch2 | 12.5 / +9.4 | 9.6 / +5.6 | 8.8 / +2.9 | 8.9 / +4.5 |
+| Open-Meteo icon_d2 | 11.2 / +8.8 | 10.9 / +9.2 | 9.7 / +8.4 | 9.2 / +7.0 |
+| S1 op straling icon_d2 | 11.4 / +8.3 | 9.0 / +5.1 | 8.2 / +2.5 | 8.3 / +3.4 |
+| Open-Meteo icon_eu | 14.0 / +10.9 | 11.1 / +9.2 | 10.9 / +9.1 | 10.1 / +7.1 |
+| S1 op straling icon_eu | 12.2 / +7.8 | 8.9 / +4.1 | 9.1 / +2.1 | 8.9 / +2.2 |
+| S1 op gemeten straling (plafond) | 8.1 / +7.8 | 5.6 / +4.7 | 4.6 / +3.2 | 5.2 / +4.1 |
+
+Hergefit op Zwitserse even dagen: k_laag = 0.60, k_hoog = 0.84. Meting op de oneven dagen:
+
+| schatter | Zwitserland (n=23414) | Plateau (n=11758) | Berg (n=5879) | Zuid (n=5777) |
+| --- | ---: | ---: | ---: | ---: |
+| B1 klimatologie | 19.7 / -3.9 / +0.00 | 20.0 / -4.7 / +0.00 | 19.7 / -2.8 / +0.00 | 18.9 / -3.6 / +0.00 |
+| Open-Meteo meteoswiss_icon_ch1 | 9.2 / -1.2 / +0.53 | 9.1 / -2.7 / +0.54 | 10.6 / +3.5 / +0.46 | 8.1 / -3.0 / +0.57 |
+| S1 op straling meteoswiss_icon_ch1, k-grenzen hergefit op CH | 10.0 / +2.1 / +0.49 | 8.8 / -0.1 / +0.56 | 13.7 / +8.9 / +0.31 | 8.6 / -0.4 / +0.55 |
+
+### Naast elkaar: Nederland en Zwitserland (MAE / vaardigheid t.o.v. klimatologie)
+
+Nederland = de korte HARMONIE-set (+1…+3) hierboven; Zwitserland = alle dagen van dezelfde periode.
+
+| schatter | Nederland (n=32446) | Zwitserland (n=46866) | Plateau (n=23522) | Berg (n=11754) | Zuid (n=11590) |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| landsmodel via Open-Meteo (knmi_seamless / meteoswiss_icon_ch1) | 12.8 / +0.36 | 8.8 / +0.56 | 8.7 / +0.57 | 10.0 / +0.50 | 7.8 / +0.59 |
+| S1 op straling landsmodel (HARMONIE / ICON-CH1) | 10.5 / +0.48 | 10.7 / +0.46 | 9.3 / +0.54 | 15.2 / +0.24 | 8.9 / +0.54 |
+| Open-Meteo icon_d2 (zelfde model) | 10.7 / +0.46 | 11.9 / +0.40 | 10.2 / +0.50 | 16.4 / +0.18 | 10.6 / +0.44 |
+| S1 op straling icon_d2 | 8.7 / +0.57 | 10.3 / +0.48 | 8.9 / +0.56 | 14.2 / +0.29 | 9.1 / +0.52 |
+| B1 klimatologie | 20.0 | 20.0 | 20.3 | 20.0 | 19.1 |
+
+### De MeteoSwiss-app zelf (steekproef)
+
+59 app-runs (2026101600…2026101810 UTC), uur-einde 2026-10-16 06 t/m 2026-10-18 11 UTC, 12 stations, 10698 run×stationsuren met zon boven de horizon. Uren vóór de runtijd zijn weggelaten. Elke valid-uur telt per run mee, dus de uren zijn sterk gecorreleerd: dit is een steekproef van een paar dagen, geen klimatologie. Open-Meteo is hier steeds hun korte-termijnreeks, dus bij lange app-leads geen eerlijke tegenhanger.
+
+| schatter | Zwitserland (n=10698) | Plateau (n=5280) | Berg (n=2709) | Zuid (n=2709) |
+| --- | ---: | ---: | ---: | ---: |
+| MeteoSwiss-app (sre000h0) | 6.8 / -3.0 / +0.66 | 2.7 / -0.6 / +0.86 | 11.7 / -6.0 / +0.46 | 10.0 / -4.7 / +0.50 |
+| S1 op app-straling (gre000h0) | 6.2 / +2.3 / +0.69 | 3.7 / +2.2 / +0.81 | 9.5 / +3.4 / +0.56 | 7.9 / +1.4 / +0.60 |
+| Open-Meteo meteoswiss_icon_ch1 (zelfde uren) | 5.0 / -2.0 / +0.75 | 2.9 / -1.0 / +0.85 | 6.2 / -0.6 / +0.71 | 8.0 / -5.4 / +0.60 |
+| S1 op straling meteoswiss_icon_ch1 (zelfde uren) | 7.0 / +3.9 / +0.65 | 4.6 / +3.0 / +0.76 | 10.9 / +8.3 / +0.49 | 7.6 / +1.4 / +0.62 |
+| B1 klimatologie | 19.9 / +7.7 / +0.00 | 19.1 / +16.2 / +0.00 | 21.4 / -5.6 / +0.00 | 19.9 / +4.4 / +0.00 |
+
+Per lead (alle stations, MAE / bias):
+
+| schatter | +1…+12 (n=4032) | +13…+24 (n=2736) | +25…+48 (n=3330) | > +48 (n=600) |
+| --- | ---: | ---: | ---: | ---: |
+| MeteoSwiss-app (sre000h0) | 9.0 / -3.6 | 5.6 / -2.7 | 5.5 / -2.9 | 4.5 / -0.6 |
+| S1 op app-straling (gre000h0) | 8.6 / +3.6 | 5.3 / +2.1 | 4.4 / +1.1 | 4.8 / +1.5 |
+| Open-Meteo meteoswiss_icon_ch1 (zelfde uren) | 8.1 / -4.0 | 3.9 / -1.8 | 2.7 / -0.3 | 2.3 / +1.2 |
+| S1 op straling meteoswiss_icon_ch1 (zelfde uren) | 9.5 / +5.0 | 5.7 / +2.8 | 5.1 / +3.3 | 5.9 / +5.4 |
+| B1 klimatologie | 19.5 / +3.5 | 19.4 / +7.7 | 20.2 / +10.9 | 22.5 / +18.0 |
 

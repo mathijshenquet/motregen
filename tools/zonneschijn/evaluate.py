@@ -1,7 +1,8 @@
 """Zonneschijnduur per uur uit HARMONIE: schatters fitten en valideren tegen KNMI-stationsuren.
 
 Invoer (zie fetch_*.py): data/stations.csv, data/obs-<jaar>.csv, data/harmonie/, data/harmonie-kort/,
-data/openmeteo.csv. Schrijft results.md naast dit script en print hetzelfde.
+data/openmeteo.csv; voor Zwitserland (U95c) data/stations-ch.csv, data/obs-ch.csv, data/openmeteo-ch.csv en
+meteoswiss-app/. Schrijft results.md naast dit script en print hetzelfde.
 
 Waarheid is KNMI-SQ per uurvak (0,1 u resolutie, door KNMI berekend uit 10-minuten globale straling).
 Een uur telt mee als de zon er ergens in boven de horizon staat. Fit op de even rundagen, meet op de oneven.
@@ -20,6 +21,8 @@ SOLAR_CONSTANT = 1361.0
 DNI_THRESHOLD = 120.0
 CLIMATOLOGY_YEARS = range(2016, 2026)
 SWISS_APP_CANDIDATES = ["icon_eu", "icon_global", "ecmwf_ifs", "ecmwf_ifs025"]
+SWISS_MODELS = ["meteoswiss_icon_ch1", "meteoswiss_icon_ch2", "icon_d2", "icon_eu"]
+SWISS_REGIONS = ["Plateau", "Berg", "Zuid"]
 
 
 # --- zonnestand (zelfde formules als web/src/core/solar.ts) ---------------------------------------------
@@ -231,6 +234,10 @@ class Estimators:
             f"S5 combinatie: {self.blend:.2f} × S1 + {1 - self.blend:.2f} × S4",
         ]
 
+    def s1(self, frame: pd.DataFrame, radiation: np.ndarray) -> np.ndarray:
+        """Alleen S1, voor frames zonder bewolkingsvelden (Zwitserland)."""
+        return ramp_estimate(frame, radiation, *self.ramp)
+
     def apply(self, frame: pd.DataFrame, radiation: np.ndarray | None = None) -> dict[str, np.ndarray]:
         radiation = frame["radiation"].to_numpy() if radiation is None else radiation
         ramp = ramp_estimate(frame, radiation, *self.ramp)
@@ -385,14 +392,19 @@ def main() -> int:
         "",
     ]
 
-    out += openmeteo_section(estimators, observations_2026, stations, normals, sun_threshold)
+    openmeteo_lines, netherlands_short = openmeteo_section(estimators, observations_2026, stations, normals, sun_threshold)
+    out += openmeteo_lines
+    out += swiss_section(estimators, sun_threshold, netherlands_short)
     text = "\n".join(out) + "\n"
     (HERE / "results.md").write_text(text)
     print(text)
     return 0
 
 
-def openmeteo_section(estimators: Estimators, observations: pd.DataFrame, stations: pd.DataFrame, normals: pd.DataFrame, sun_threshold: float) -> list[str]:
+def openmeteo_section(
+    estimators: Estimators, observations: pd.DataFrame, stations: pd.DataFrame, normals: pd.DataFrame, sun_threshold: float
+) -> tuple[list[str], tuple[pd.DataFrame, dict[str, np.ndarray]]]:
+    """Geeft naast de tekst de korte HARMONIE-set terug (frame en schattingen) voor de naast-elkaar-tabel van U95c."""
     openmeteo = pd.read_csv(DATA / "openmeteo.csv")
     openmeteo["hour_end"] = pd.to_datetime(openmeteo["hour_end_utc"], format="%Y-%m-%dT%H")
     models = [column.removesuffix("_sunshine_min") for column in openmeteo.columns if column.endswith("_sunshine_min")]
@@ -405,18 +417,26 @@ def openmeteo_section(estimators: Estimators, observations: pd.DataFrame, statio
         frame = frame.merge(openmeteo.drop(columns="hour_end_utc"), on=["station", "hour_end"], how="inner")
         frame = frame.dropna(subset=[f"{model}_sunshine_min" for model in models]).reset_index(drop=True)
         estimates = estimators.apply(frame)
+        if directory == "harmonie-kort":
+            short = (frame, {
+                "B1 klimatologie": estimates["B1 klimatologie"],
+                "S1 op landsmodel": estimates["S1 k-overgang (gefit)"],
+                "landsmodel via Open-Meteo": frame["knmi_seamless_sunshine_min"].to_numpy(),
+                "icon_d2 via Open-Meteo": frame["icon_d2_sunshine_min"].to_numpy(),
+                "S1 op icon_d2": estimators.apply(frame, frame["icon_d2_radiation_wm2"].to_numpy(dtype=float))["S1 k-overgang (gefit)"],
+            })
         selected = {name: estimates[name] for name in ["S1 k-overgang (gefit)", "S4 wolkenlagen (gefit)", "S5 combinatie S1/S4 (gefit)", "B1 klimatologie"]}
         for model in models:
             selected[f"Open-Meteo {model}"] = frame[f"{model}_sunshine_min"].to_numpy()
         lines += [f"### {description}", "", f"{len(frame)} stationsuren.", "", *score_table(frame, selected), ""]
         lines += ["Per seizoen (MAE / bias, min/u):", "", *segment_table(frame, selected, pd.Series(season(frame)), list(selected)), ""]
         candidates = {name: selected[name] for name in ["S1 k-overgang (gefit)", "B1 klimatologie"]}
-        for model in SWISS_APP_CANDIDATES:
+        for model in [*SWISS_APP_CANDIDATES, "icon_d2"]:
             candidates[f"Open-Meteo {model}"] = selected[f"Open-Meteo {model}"]
             radiation = frame[f"{model}_radiation_wm2"].to_numpy(dtype=float)
             candidates[f"S1 op straling {model}"] = estimators.apply(frame, radiation)["S1 k-overgang (gefit)"]
         lines += [
-            "Kandidaten voor de MeteoSwiss-app buiten het ICON-CH-gebied: hun eigen zonneschijnduur (Open-Meteo) "
+            "Kandidaten voor de MeteoSwiss-app buiten het ICON-CH-gebied, plus icon_d2 (U95c): hun eigen zonneschijnduur (Open-Meteo) "
             "naast S1 op hun eigen uurstraling, met dezelfde parameters als op HARMONIE.",
             "",
             *score_table(frame, candidates),
@@ -427,7 +447,204 @@ def openmeteo_section(estimators: Estimators, observations: pd.DataFrame, statio
         "lead dan HARMONIE. Fit-dagen tellen in deze sectie mee; de parameters hebben 1–2 vrijheidsgraden per schatter.",
         "",
     ]
+    return lines, short
+
+
+# --- Zwitserland (U95c) ----------------------------------------------------------------------------------
+
+def load_swiss() -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """SwissMetNet-stations, -uren en klimatologie."""
+    stations = pd.read_csv(DATA / "stations-ch.csv")
+    observations = pd.read_csv(DATA / "obs-ch.csv")
+    observations["hour_end"] = pd.to_datetime(observations["hour_end_utc"], format="%Y-%m-%dT%H")
+    observations = observations.drop(columns="hour_end_utc")
+    normals = climatology(observations)
+    return stations, observations, normals
+
+
+def swiss_frame(frame: pd.DataFrame, stations: pd.DataFrame, normals: pd.DataFrame, sun_threshold: float) -> pd.DataFrame:
+    frame = frame.merge(stations[["station", "lon", "lat", "region"]], on="station")
+    frame["month"] = frame["hour_end"].dt.month
+    frame["hour"] = frame["hour_end"].dt.hour
+    frame = frame.merge(normals, on=["station", "month", "hour"], how="inner")
+    frame = add_geometry(frame, sun_threshold)
+    return frame[frame["mu_max"] > 0].reset_index(drop=True)
+
+
+def region_table(frame: pd.DataFrame, estimates: dict[str, np.ndarray], names: list[str]) -> list[str]:
+    """MAE / vaardigheid per regio; vaardigheid t.o.v. de klimatologie van dezelfde uren."""
+    truth = frame["sunshine_min"].to_numpy()
+    masks = {"Zwitserland": np.ones(len(frame), bool), **{region: (frame["region"] == region).to_numpy() for region in SWISS_REGIONS}}
+    lines = [
+        "| schatter | " + " | ".join(f"{name} (n={int(mask.sum())})" for name, mask in masks.items()) + " |",
+        "| --- |" + " ---: |" * len(masks),
+    ]
+    for name in names:
+        cells = []
+        for mask in masks.values():
+            error = mae(estimates[name][mask], truth[mask])
+            reference = mae(estimates["B1 klimatologie"][mask], truth[mask])
+            cells.append(f"{error:.1f} / {np.mean(estimates[name][mask] - truth[mask]):+.1f} / {1 - error / reference:+.2f}")
+        lines.append(f"| {name} | " + " | ".join(cells) + " |")
     return lines
+
+
+def swiss_section(estimators: Estimators, sun_threshold: float, netherlands_short: tuple[pd.DataFrame, dict[str, np.ndarray]]) -> list[str]:
+    stations, observations, normals = load_swiss()
+    openmeteo = pd.read_csv(DATA / "openmeteo-ch.csv")
+    openmeteo["hour_end"] = pd.to_datetime(openmeteo["hour_end_utc"], format="%Y-%m-%dT%H")
+    openmeteo = openmeteo.drop(columns="hour_end_utc")
+    period = (observations["hour_end"] > "2026-01-09") & (observations["hour_end"] <= "2026-10-16")
+    frame = observations[period].merge(openmeteo, on=["station", "hour_end"], how="inner")
+    frame = frame.dropna(subset=[f"{model}_{kind}" for model in SWISS_MODELS for kind in ["sunshine_min", "radiation_wm2"]])
+    frame = swiss_frame(frame, stations, normals, sun_threshold)
+    frame["run_day"] = frame["hour_end"].dt.normalize()
+
+    estimates = {"B1 klimatologie": frame["climatology"].to_numpy()}
+    for model in SWISS_MODELS:
+        estimates[f"Open-Meteo {model}"] = frame[f"{model}_sunshine_min"].to_numpy()
+        radiation = frame[f"{model}_radiation_wm2"].to_numpy(dtype=float)
+        estimates[f"S1 op straling {model}"] = estimators.s1(frame, radiation)
+    estimates["S1 op gemeten straling (plafond)"] = estimators.s1(frame, frame["radiation_wm2"].to_numpy(dtype=float))
+    names = list(estimates)
+
+    lines = [
+        "## Zwitserland: SwissMetNet tegen ICON-CH (U95c)",
+        "",
+        f"{frame['station'].nunique()} SwissMetNet-stations, uur-einde {frame['hour_end'].min():%Y-%m-%d} t/m "
+        f"{frame['hour_end'].max():%Y-%m-%d}, zon boven de horizon; {len(frame)} stationsuren. Regio's: "
+        + "; ".join(f"{region} " + ", ".join(stations.loc[stations['region'] == region, 'station']) for region in SWISS_REGIONS) + ".",
+        "Waarheid: sre000h0 (zonneschijnsensor, WMO-drempel op directe straling), niet afgeleid uit globale straling zoals "
+        "KNMI-SQ. Modellen: Open-Meteo historical-forecast (korte termijn, zoals in de NL-sectie hierboven). S1 met de "
+        "NL-parameters (k-grenzen en 4,2°-grens), zonder terreinhorizon.",
+        "",
+        "Cellen: MAE / bias / vaardigheid t.o.v. klimatologie (min/u). Klimatologie = gemiddelde sre000h0 per station, "
+        f"maand en uur, {CLIMATOLOGY_YEARS.start}–{CLIMATOLOGY_YEARS.stop - 1}.",
+        "",
+        *region_table(frame, estimates, names),
+        "",
+        "Dagsommen (alle Zwitserse stations):",
+        "",
+        *score_table(frame, estimates),
+        "",
+        "Per seizoen, Plateau (MAE / bias, min/u):",
+        "",
+    ]
+    plateau = (frame["region"] == "Plateau").to_numpy()
+    plateau_frame = frame[plateau].reset_index(drop=True)
+    plateau_estimates = {name: estimate[plateau] for name, estimate in estimates.items()}
+    lines += [*segment_table(plateau_frame, plateau_estimates, pd.Series(season(plateau_frame)), names), ""]
+
+    lines += refit_lines(frame, sun_threshold)
+    lines += side_by_side(frame, estimates, netherlands_short)
+    lines += app_section(estimators, stations, observations, normals, openmeteo, sun_threshold)
+    return lines
+
+
+def refit_lines(frame: pd.DataFrame, sun_threshold: float) -> list[str]:
+    """Hoeveel kost het dat S1 op KNMI-SQ is gefit? k-grenzen opnieuw op even Zwitserse dagen, gemeten op oneven."""
+    day_number = (frame["run_day"] - frame["run_day"].min()).dt.days
+    train_mask = (day_number % 2 == 0).to_numpy()
+    train, test = frame[train_mask].reset_index(drop=True), frame[~train_mask].reset_index(drop=True)
+    radiation = train["meteoswiss_icon_ch1_radiation_wm2"].to_numpy(dtype=float)
+    truth = train["sunshine_min"].to_numpy()
+    low, high = grid_fit(
+        lambda p: mae(ramp_estimate(train, radiation, p[0], p[1]), truth) if p[1] > p[0] else np.inf,
+        np.arange(0.0, 0.91, 0.02), np.arange(0.3, 1.21, 0.02),
+    )
+    test_radiation = test["meteoswiss_icon_ch1_radiation_wm2"].to_numpy(dtype=float)
+    estimates = {
+        "B1 klimatologie": test["climatology"].to_numpy(),
+        "Open-Meteo meteoswiss_icon_ch1": test["meteoswiss_icon_ch1_sunshine_min"].to_numpy(),
+        "S1 op straling meteoswiss_icon_ch1, k-grenzen hergefit op CH": ramp_estimate(test, test_radiation, low, high),
+    }
+    return [
+        f"Hergefit op Zwitserse even dagen: k_laag = {low:.2f}, k_hoog = {high:.2f}. Meting op de oneven dagen:",
+        "",
+        *region_table(test, estimates, list(estimates)),
+        "",
+    ]
+
+
+def side_by_side(frame: pd.DataFrame, estimates: dict[str, np.ndarray], netherlands_short: tuple[pd.DataFrame, dict[str, np.ndarray]]) -> list[str]:
+    """Elk land met zijn eigen landsmodel: HARMONIE/knmi_seamless in NL, ICON-CH1 in CH; icon_d2 als zelfde model in beide."""
+    netherlands_frame, netherlands = netherlands_short
+    rows = {
+        "landsmodel via Open-Meteo (knmi_seamless / meteoswiss_icon_ch1)": ("landsmodel via Open-Meteo", "Open-Meteo meteoswiss_icon_ch1"),
+        "S1 op straling landsmodel (HARMONIE / ICON-CH1)": ("S1 op landsmodel", "S1 op straling meteoswiss_icon_ch1"),
+        "Open-Meteo icon_d2 (zelfde model)": ("icon_d2 via Open-Meteo", "Open-Meteo icon_d2"),
+        "S1 op straling icon_d2": ("S1 op icon_d2", "S1 op straling icon_d2"),
+        "B1 klimatologie": ("B1 klimatologie", "B1 klimatologie"),
+    }
+    columns = {"Nederland": (netherlands_frame, netherlands, None)}
+    columns["Zwitserland"] = (frame, estimates, np.ones(len(frame), bool))
+    for region in SWISS_REGIONS:
+        columns[region] = (frame, estimates, (frame["region"] == region).to_numpy())
+    lines = [
+        "### Naast elkaar: Nederland en Zwitserland (MAE / vaardigheid t.o.v. klimatologie)",
+        "",
+        "Nederland = de korte HARMONIE-set (+1…+3) hierboven; Zwitserland = alle dagen van dezelfde periode.",
+        "",
+        "| schatter | " + " | ".join(f"{name} (n={len(data[0]) if mask is None else int(mask.sum())})" for name, data in columns.items() for mask in [data[2]]) + " |",
+        "| --- |" + " ---: |" * len(columns),
+    ]
+    for label, (netherlands_name, swiss_name) in rows.items():
+        cells = []
+        for country, (data, country_estimates, mask) in columns.items():
+            name = netherlands_name if country == "Nederland" else swiss_name
+            mask = np.ones(len(data), bool) if mask is None else mask
+            truth = data["sunshine_min"].to_numpy()[mask]
+            error = mae(country_estimates[name][mask], truth)
+            reference = mae(country_estimates["B1 klimatologie"][mask], truth)
+            cells.append(f"{error:.1f}" if label == "B1 klimatologie" else f"{error:.1f} / {1 - error / reference:+.2f}")
+        lines.append(f"| {label} | " + " | ".join(cells) + " |")
+    return lines + [""]
+
+
+def app_section(
+    estimators: Estimators, stations: pd.DataFrame, observations: pd.DataFrame, normals: pd.DataFrame,
+    openmeteo: pd.DataFrame, sun_threshold: float,
+) -> list[str]:
+    """Steekproef van wat de app echt toonde (MeteoSwiss bewaart ~2 dagen; zie fetch_app.py)."""
+    paths = sorted((HERE / "meteoswiss-app").glob("*.csv.gz"))
+    if not paths:
+        return []
+    app = pd.concat([pd.read_csv(path, dtype={"run": str}) for path in paths], ignore_index=True)
+    app["hour_end"] = pd.to_datetime(app["hour_end_utc"], format="%Y-%m-%dT%H")
+    app["run_time"] = pd.to_datetime(app["run"], format="%Y%m%d%H")
+    app["lead"] = (app["hour_end"] - app["run_time"]).dt.total_seconds() / 3600
+    app = app[app["lead"] >= 1].rename(columns={"sunshine_min": "app_sunshine_min", "radiation_wm2": "app_radiation_wm2"})
+    frame = app.drop(columns="hour_end_utc").merge(observations, on=["station", "hour_end"], how="inner")
+    frame = frame.merge(openmeteo, on=["station", "hour_end"], how="left")
+    frame = swiss_frame(frame, stations, normals, sun_threshold)
+    frame = frame.dropna(subset=["meteoswiss_icon_ch1_sunshine_min", "meteoswiss_icon_ch1_radiation_wm2"]).reset_index(drop=True)
+    if frame.empty:
+        return []
+    frame["run_day"] = frame["run"] + frame["hour_end"].dt.strftime("%Y%m%d")
+    estimates = {
+        "MeteoSwiss-app (sre000h0)": frame["app_sunshine_min"].to_numpy(dtype=float),
+        "S1 op app-straling (gre000h0)": estimators.s1(frame, frame["app_radiation_wm2"].to_numpy(dtype=float)),
+        "Open-Meteo meteoswiss_icon_ch1 (zelfde uren)": frame["meteoswiss_icon_ch1_sunshine_min"].to_numpy(),
+        "S1 op straling meteoswiss_icon_ch1 (zelfde uren)": estimators.s1(frame, frame["meteoswiss_icon_ch1_radiation_wm2"].to_numpy(dtype=float)),
+        "B1 klimatologie": frame["climatology"].to_numpy(),
+    }
+    leads = pd.cut(frame["lead"], [0, 12, 24, 48, 200], labels=["+1…+12", "+13…+24", "+25…+48", "> +48"])
+    return [
+        "### De MeteoSwiss-app zelf (steekproef)",
+        "",
+        f"{frame['run'].nunique()} app-runs ({frame['run'].min()}…{frame['run'].max()} UTC), uur-einde "
+        f"{frame['hour_end'].min():%Y-%m-%d %H} t/m {frame['hour_end'].max():%Y-%m-%d %H} UTC, {frame['station'].nunique()} stations, "
+        f"{len(frame)} run×stationsuren met zon boven de horizon. Uren vóór de runtijd zijn weggelaten. Elke valid-uur telt "
+        "per run mee, dus de uren zijn sterk gecorreleerd: dit is een steekproef van een paar dagen, geen klimatologie. "
+        "Open-Meteo is hier steeds hun korte-termijnreeks, dus bij lange app-leads geen eerlijke tegenhanger.",
+        "",
+        *region_table(frame, estimates, list(estimates)),
+        "",
+        "Per lead (alle stations, MAE / bias):",
+        "",
+        *segment_table(frame, estimates, leads, list(estimates)),
+        "",
+    ]
 
 
 if __name__ == "__main__":
