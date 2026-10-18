@@ -1,7 +1,5 @@
 export const MAP_FOCUS_SATURATION = 0.55
 export const TEMPERATURE_LINE_OPACITY = 0.4
-/** Lichte lijnen op de nachtkaart springen meer in het oog dan donkere op de dagkaart (PO 2026-10-18). */
-export const TEMPERATURE_LINE_OPACITY_NIGHT = 0.22
 export const ISOBAR_LINE_OPACITY = 0.27
 
 export function isolineWidthCss(zoom: number): number {
