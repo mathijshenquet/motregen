@@ -963,6 +963,13 @@ td small { color: var(--muted); font-size: 9px; }
   .forecast-table[data-hover="weather"] :is(.weather-heading, .weather-cell) {
     box-shadow: inset 0 0 0 999px color-mix(in srgb, var(--accent-soft) 22%, transparent);
   }
+  /* In de kop vervangt de laag anders de onderlijn van th (ook een inset-schaduw): die gaat er bovenop mee. */
+  .forecast-table[data-hover="temperature"] .temperature-heading,
+  .forecast-table[data-hover="wind"] .wind-heading,
+  .forecast-table[data-hover="air"] .air-heading,
+  .forecast-table[data-hover="weather"] .weather-heading {
+    box-shadow: inset 0 -1px 0 var(--line-strong), inset 0 0 0 999px color-mix(in srgb, var(--accent-soft) 22%, transparent);
+  }
 }
 .forecast-table.day-night-table tr.sun-row:is(.sunset-row, .sunrise-row) .sun-glyph-horizon { stroke: rgba(255, 247, 235, .86); }
 .forecast-table.day-night-table tr.sun-row:is(.sunset-row, .sunrise-row) .sun-glyph-rays { stroke: #ffe29a; }
