@@ -54,6 +54,16 @@ pub fn clock_state(epoch: i64) -> ClockState {
     }
 }
 
+/// The clock `draw_clock` shows: a still holds its own time instead of rolling to the next five minutes.
+pub fn shown_state(epoch: i64, still: bool) -> ClockState {
+    let mut state = clock_state(epoch);
+    if still {
+        state.from = clock_text(epoch).0;
+        state.progress = 0.0;
+    }
+    state
+}
+
 fn digit_width(text: &mut Text) -> usize {
     ('0'..='9')
         .map(|digit| text.width(&digit.to_string(), 58).ceil() as usize)
@@ -75,11 +85,7 @@ pub fn draw_clock(
     still: bool,
 ) {
     let (left, top) = position;
-    let mut state = clock_state(epoch);
-    if still {
-        state.from = clock_text(epoch).0;
-        state.progress = 0.0;
-    }
+    let state = shown_state(epoch, still);
     let width = digit_width(text);
     let height = 56;
     let progress = transition.animation_progress(state.progress);

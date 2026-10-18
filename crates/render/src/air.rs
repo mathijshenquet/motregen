@@ -4,7 +4,8 @@
 use crate::{
     data::{Dataset, Raster},
     encode::{Video, jpeg},
-    renderer::{FileMedia, Media, Profile, frame_plans, plates},
+    frame_cache::{Identity, Key, KeyBuilder, ModeCache, Parts, Prediction},
+    renderer::{FileMedia, FramePlan, Media, Options, Profile, frame_plans, plates},
 };
 use anyhow::{Context, Result, ensure};
 use rayon::prelude::*;
@@ -18,7 +19,7 @@ use render_core::{
     constants::constants,
     field::Field,
     mode_constants::mode_constants,
-    overlay::{ClockOptions, draw_overlay_title},
+    overlay::{ClockOptions, clock_appearance, draw_overlay_title},
     projection::{Grid, Projection},
     temperature::{TemperaturePair, draw_temperature},
     text::Text,
@@ -100,19 +101,62 @@ struct Sources<'a> {
     rain_grid: Grid,
 }
 
-impl Sources<'_> {
+impl<'a> Sources<'a> {
     /// `cloudMotionAt`: de regenbeweging van het regenframepaar rond `epoch`.
     fn motion_at(&mut self, epoch: i64) -> Result<Option<(usize, usize, Vec<i8>)>> {
+        let Some((left, right)) = self.motion_pair(epoch) else {
+            return Ok(None);
+        };
+        self.rain.motion(&left, &right)
+    }
+
+    fn motion_pair(&self, epoch: i64) -> Option<(TimelineFrame, TimelineFrame)> {
         let frames = &self.rain.frames;
         if frames.len() < 2 || epoch < frames[0].epoch || epoch > frames.last().unwrap().epoch {
-            return Ok(None);
+            return None;
         }
         let blend = frame_blend(frames, epoch);
         let right_index = blend.right.max(1);
         let left_index = blend.left.min(right_index - 1);
-        let left = frames[left_index].clone();
-        let right = frames[right_index].clone();
-        self.rain.motion(&left, &right)
+        Some((frames[left_index].clone(), frames[right_index].clone()))
+    }
+
+    /// Every source frame `hour` reads, mirrored from it for the frame cache (MIP-37).
+    fn hour_key(&mut self, frame: &TimelineFrame, cache: &ModeCache) -> Result<Option<Prediction>> {
+        let epoch = frame.epoch;
+        let mut key = cache.key();
+        key.number(epoch).source(self.cloud.identity(frame)?);
+        for dataset in [&mut self.low, &mut self.mid, &mut self.high] {
+            key_blend(dataset, epoch, &mut key)?;
+        }
+        key_blend(&mut self.radiation, epoch, &mut key)?;
+        key_blend(&mut self.radiation, epoch + HOUR, &mut key)?;
+        match self.motion_pair(epoch) {
+            Some((left, right)) => match self.rain.motion_frame(&left, &right)? {
+                Some(motion) => key.source(self.rain.motion_identity(&motion)?),
+                None => key.flag(false),
+            },
+            None => key.flag(false),
+        };
+        Ok(key.finish())
+    }
+
+    fn datasets(&mut self) -> [&mut Dataset<'a>; 6] {
+        [
+            &mut self.cloud,
+            &mut self.low,
+            &mut self.mid,
+            &mut self.high,
+            &mut self.radiation,
+            &mut self.rain,
+        ]
+    }
+
+    fn take_touched(&mut self) -> Vec<Option<Identity>> {
+        self.datasets()
+            .into_iter()
+            .flat_map(|dataset| dataset.take_touched())
+            .collect()
     }
 
     fn motion_view<'b>(
@@ -180,6 +224,26 @@ impl Sources<'_> {
     }
 }
 
+/// The frames `load_blend` reads at `epoch`, or that it reads nothing.
+fn key_blend(dataset: &mut Dataset, epoch: i64, key: &mut KeyBuilder) -> Result<()> {
+    let (Some(first), Some(last)) = (dataset.frames.first(), dataset.frames.last()) else {
+        key.flag(false);
+        return Ok(());
+    };
+    if epoch < first.epoch || epoch > last.epoch {
+        key.flag(false);
+        return Ok(());
+    }
+    let blend = frame_blend(&dataset.frames, epoch);
+    let left = dataset.frames[blend.left].clone();
+    let right = dataset.frames[blend.right].clone();
+    key.flag(true)
+        .real(blend.mix)
+        .source(dataset.identity(&left)?)
+        .source(dataset.identity(&right)?);
+    Ok(())
+}
+
 /// Kaarttijd → fractionele index in de wolkentijdlijn en de dekking aan de randen, zoals `timelineCursorAtEpoch` en
 /// `timelineCoverage` met de isolijnvervaging.
 fn cloud_time(frames: &[TimelineFrame], epoch: i64) -> (f64, f64) {
@@ -204,7 +268,7 @@ struct Input {
 }
 
 struct Output {
-    rgb: Vec<u8>,
+    rgb: Option<Vec<u8>>,
     loop_frame: bool,
     still: Option<FileMedia>,
     profile: Profile,
@@ -300,12 +364,68 @@ impl Painter<'_> {
             None
         };
         Ok(Output {
-            rgb,
+            rgb: input.loop_frame.then_some(rgb),
             loop_frame: input.loop_frame,
             still,
             profile,
         })
     }
+}
+
+/// One planned map time: everything cheap is known, the cloud hours and temperatures load only for a miss.
+struct Planned {
+    plan: FramePlan,
+    cloud: CloudFrame,
+    coverage: f64,
+    night: bool,
+    hour_indices: Vec<usize>,
+    prediction: Option<Prediction>,
+    hit: Option<(Key, Option<Vec<u8>>)>,
+}
+
+/// The cloud hours `render_fill` reads around fractional index `time`.
+fn hour_indices(time: f64, depth: usize) -> Vec<usize> {
+    let base = time.floor() as isize;
+    (base - 1..=base + 2)
+        .map(|index| index.clamp(0, depth as isize - 1) as usize)
+        .collect()
+}
+
+fn temperature_epoch(temperatures: &Dataset, epoch: i64) -> i64 {
+    ((epoch + 300_000).div_euclid(600_000) * 600_000).clamp(
+        temperatures.frames[0].epoch,
+        temperatures.frames.last().unwrap().epoch,
+    )
+}
+
+fn cached_output(planned: &Planned, cache: &ModeCache, directory: &Path) -> Result<Output> {
+    let (key, rgb) = planned
+        .hit
+        .as_ref()
+        .context("Cached air frame without hit")?;
+    let still = if planned.plan.still {
+        let file = format!("air-{}.jpg", planned.plan.epoch);
+        let bytes = cache.copy_still(*key, &directory.join(&file))?;
+        Some(FileMedia {
+            file,
+            kind: "photo",
+            epoch: planned.plan.epoch,
+            bytes,
+            width: constants().size.width,
+            height: constants().size.height,
+        })
+    } else {
+        None
+    };
+    Ok(Output {
+        rgb: rgb
+            .as_ref()
+            .map(|compressed| cache.restore(*key, compressed))
+            .transpose()?,
+        loop_frame: planned.plan.loop_frame,
+        still,
+        profile: Profile::default(),
+    })
 }
 
 /// Vuldoel en grof stromingsraster zoals de kaartlaag ze kiest: `ISOLINE_FILL_RESOLUTION` CSS-pixels, de stroming
@@ -336,9 +456,11 @@ pub fn render(
     basemap_directory: &Path,
     out_directory: &Path,
     manifest: &Manifest,
-    clock: Option<ClockTransition>,
+    options: Options,
 ) -> Result<Media> {
     let started = Instant::now();
+    let clock = options.clock;
+    let cache = options.cache.map(|cache| cache.mode("air"));
     let now = epoch(&manifest.now)?;
     let loop_plan = &mode_constants().loops.air;
     let mut rain = Dataset::new(data_directory, manifest, "rain_rate")?;
@@ -380,21 +502,95 @@ pub fn render(
     let plans = frame_plans(&loop_epochs, &still_epochs);
     let first = plans.first().context("Empty air plan")?.epoch;
     let last = plans.last().unwrap().epoch;
+    if cache.is_some() {
+        for dataset in sources.datasets() {
+            dataset.touched = Some(Vec::new());
+        }
+        temperatures.touched = Some(Vec::new());
+    }
     let preparation_started = Instant::now();
     let drift = sources.drift(now, first, last)?;
-    let mut hours: Vec<Option<Arc<CloudHour>>> = vec![None; cloud_frames.len()];
-    let mut inputs = Vec::with_capacity(plans.len());
-    for plan in &plans {
+    sources.take_touched();
+    let mut hour_keys: Vec<Option<Option<Prediction>>> =
+        (0..cloud_frames.len()).map(|_| None).collect();
+    let mut planned = Vec::with_capacity(plans.len());
+    for &plan in &plans {
         let (time, coverage) = cloud_time(&cloud_frames, plan.epoch);
-        let base = time.floor() as isize;
-        for index in base - 1..=base + 2 {
-            let index = index.clamp(0, cloud_frames.len() as isize - 1) as usize;
-            if hours[index].is_none() {
-                hours[index] = Some(Arc::new(sources.hour(&cloud_frames[index])?));
+        let night = dark(plan.epoch);
+        let cloud = cloud_frame(&cloud_grid, &cloud_epochs, &drift, time, night);
+        let indices = hour_indices(time, cloud_frames.len());
+        let mut prediction = None;
+        let mut hit = None;
+        if let Some(cache) = &cache {
+            let mut key = cache.key();
+            key.bytes(format!("{clock:?}").as_bytes())
+                .number(plan.epoch)
+                .bytes(
+                    clock_appearance(
+                        plan.epoch,
+                        ClockOptions {
+                            transition: clock,
+                            still: plan.still,
+                        },
+                    )
+                    .as_bytes(),
+                )
+                .flag(plan.epoch <= now)
+                .real(cloud.time)
+                .real(cloud.phase)
+                .flag(night)
+                .real(coverage);
+            for anchor in cloud.anchors {
+                key.real(anchor);
+            }
+            for &index in &indices {
+                if hour_keys[index].is_none() {
+                    hour_keys[index] = Some(sources.hour_key(&cloud_frames[index], cache)?);
+                }
+                match hour_keys[index].as_ref().unwrap() {
+                    Some(hour) => key.include(hour),
+                    None => key.source(None),
+                };
+            }
+            let temperature_time = temperature_epoch(&temperatures, plan.epoch);
+            key_blend(&mut temperatures, temperature_time, &mut key)?;
+            prediction = key.finish();
+            if let Some(prediction) = &prediction {
+                let parts = Parts {
+                    rgb: plan.loop_frame,
+                    still: plan.still,
+                    state: false,
+                };
+                hit = cache
+                    .lookup(prediction.key, parts)?
+                    .map(|found| (prediction.key, found.rgb));
             }
         }
-        let night = dark(plan.epoch);
-        inputs.push((*plan, time, coverage, night));
+        planned.push(Planned {
+            plan,
+            cloud,
+            coverage,
+            night,
+            hour_indices: indices,
+            prediction,
+            hit,
+        });
+    }
+    // Wolkenuren alleen voor frames die gerenderd moeten worden; een uur dat buiten zijn sleutel las, wordt niet bewaard.
+    let mut hours: Vec<Option<Arc<CloudHour>>> = vec![None; cloud_frames.len()];
+    let mut verified_hours = vec![true; cloud_frames.len()];
+    for entry in planned.iter().filter(|entry| entry.hit.is_none()) {
+        for &index in &entry.hour_indices {
+            if hours[index].is_some() {
+                continue;
+            }
+            sources.take_touched();
+            hours[index] = Some(Arc::new(sources.hour(&cloud_frames[index])?));
+            let touched = sources.take_touched();
+            if let (Some(cache), Some(Some(prediction))) = (&cache, &hour_keys[index]) {
+                verified_hours[index] = cache.verify(prediction, &touched);
+            }
+        }
     }
     let hours = Arc::new(hours);
     let preparation_us = preparation_started.elapsed().as_micros();
@@ -447,7 +643,12 @@ pub fn render(
                     }
                     if frame.loop_frame {
                         let started = Instant::now();
-                        video.frame(&frame.rgb)?;
+                        video.frame(
+                            frame
+                                .rgb
+                                .as_deref()
+                                .context("Air loop frame without pixels")?,
+                        )?;
                         profile.ffmpeg_wait_us += started.elapsed().as_micros();
                     }
                 }
@@ -458,33 +659,64 @@ pub fn render(
             Ok((files, bytes, loop_ms, profile))
         });
         let production = (|| -> Result<()> {
-            for batch in inputs.chunks(batch_size) {
-                let frames = batch
-                    .iter()
-                    .map(|&(plan, time, coverage, night)| -> Result<Input> {
-                        let temperature_epoch =
-                            ((plan.epoch + 300_000).div_euclid(600_000) * 600_000).clamp(
-                                temperatures.frames[0].epoch,
-                                temperatures.frames.last().unwrap().epoch,
-                            );
-                        Ok(Input {
-                            epoch: plan.epoch,
-                            still: plan.still,
-                            loop_frame: plan.loop_frame,
-                            night,
-                            cloud: cloud_frame(&cloud_grid, &cloud_epochs, &drift, time, night),
-                            coverage,
-                            hours: Arc::clone(&hours),
-                            temperatures: load_blend(&mut temperatures, temperature_epoch)?,
-                        })
-                    })
-                    .collect::<Result<Vec<_>>>()?;
-                let outputs = frames
-                    .par_iter()
-                    .map(|input| {
-                        painter
-                            .frame(input, temporary.path())
-                            .with_context(|| format!("Rendering air map time {}", input.epoch))
+            for batch in planned.chunks(batch_size) {
+                let mut works = Vec::with_capacity(batch.len());
+                for entry in batch {
+                    if entry.hit.is_some() {
+                        works.push((entry, None));
+                        continue;
+                    }
+                    temperatures.take_touched();
+                    let temperature_time = temperature_epoch(&temperatures, entry.plan.epoch);
+                    let input = Input {
+                        epoch: entry.plan.epoch,
+                        still: entry.plan.still,
+                        loop_frame: entry.plan.loop_frame,
+                        night: entry.night,
+                        cloud: entry.cloud,
+                        coverage: entry.coverage,
+                        hours: Arc::clone(&hours),
+                        temperatures: load_blend(&mut temperatures, temperature_time)?,
+                    };
+                    let touched = temperatures.take_touched();
+                    let storable = match (&cache, &entry.prediction) {
+                        (Some(cache), Some(prediction)) => {
+                            cache.verify(prediction, &touched)
+                                && entry
+                                    .hour_indices
+                                    .iter()
+                                    .all(|&index| verified_hours[index])
+                        }
+                        _ => false,
+                    };
+                    works.push((entry, Some((input, storable))));
+                }
+                let outputs = works
+                    .into_par_iter()
+                    .map(|(entry, work)| -> Result<Output> {
+                        let Some((input, storable)) = work else {
+                            return cached_output(entry, cache.as_ref().unwrap(), temporary.path());
+                        };
+                        let output = painter
+                            .frame(&input, temporary.path())
+                            .with_context(|| format!("Rendering air map time {}", input.epoch))?;
+                        if let Some(cache) = &cache {
+                            let prediction = entry.prediction.as_ref().filter(|_| storable);
+                            cache.rendered(prediction);
+                            if let Some(prediction) = prediction {
+                                let still = output
+                                    .still
+                                    .as_ref()
+                                    .map(|file| temporary.path().join(&file.file));
+                                cache.store(
+                                    prediction,
+                                    output.rgb.as_deref(),
+                                    still.as_deref(),
+                                    None,
+                                )?;
+                            }
+                        }
+                        Ok(output)
                     })
                     .collect::<Result<Vec<_>>>()?;
                 sender.send(outputs).context("Air video writer stopped")?;
@@ -551,6 +783,7 @@ pub fn render(
         total_ms: started.elapsed().as_millis(),
         profile: total,
         files,
+        cache: cache.map(|cache| cache.finish(&[])).transpose()?,
     };
     fs::write(
         temporary.path().join("media.json"),

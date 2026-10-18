@@ -1,5 +1,5 @@
 use std::{
-    path::PathBuf,
+    path::{Path, PathBuf},
     sync::mpsc::{self, Receiver, SyncSender, TryRecvError},
     thread,
     time::{Duration, Instant},
@@ -11,6 +11,7 @@ use motregen_ingest::{
     api::{ApiClient, RemoteFile},
     cams, ecmwf,
     env_file::read_env_file_key,
+    feels_reference::FeelsHours,
     pipeline::{
         AROME_DATASET, AROME_VERSION, NOWCAST_DATASET, NOWCAST_VERSION, RTCOR_DATASET,
         RTCOR_VERSION, SEAMLESS_DATASET, SEAMLESS_VERSION, UV_DATASET, UV_VERSION,
@@ -208,6 +209,12 @@ struct Daemon {
     last_seamless_check: Option<Instant>,
     last_uv_check: Option<Instant>,
     manifest_dirty: bool,
+    feels_hours: FeelsHours,
+}
+
+/// Outside `.ingest-cache`, whose download pruning would drop it by age.
+fn feels_hours_path(data_dir: &Path) -> PathBuf {
+    data_dir.join(".ingest-state/feels-hours.json")
 }
 
 impl Daemon {
@@ -219,6 +226,7 @@ impl Daemon {
         };
         let api = ApiClient::new(api_key, config.api_base.clone())?;
         let cache_root = config.data_dir.join(".ingest-cache");
+        let feels_hours = FeelsHours::load(&feels_hours_path(&config.data_dir));
         let seamless_worker =
             SeamlessWorker::new(api.clone(), cache_root.clone(), config.nowcast_minutes)?;
         Ok(Self {
@@ -243,6 +251,7 @@ impl Daemon {
             last_seamless_check: None,
             last_uv_check: None,
             manifest_dirty: false,
+            feels_hours,
         })
     }
 
@@ -485,7 +494,7 @@ impl Daemon {
             .refresh(&self.config.data_dir, chrono::Utc::now())
     }
 
-    fn publish(&self) -> Result<()> {
+    fn publish(&mut self) -> Result<()> {
         let rtcor = self.rtcor.as_ref().context("RTCOR is not ready")?;
         if self.arome.is_empty() {
             anyhow::bail!("AROME is not ready");
@@ -508,6 +517,12 @@ impl Daemon {
         chunks.extend(self.uv.iter());
         chunks.extend(self.cams.chunks.iter());
         chunks.extend(self.ecmwf.chunks.iter());
+        let checked_at = chrono::Utc::now();
+        let harmonie: Vec<_> = self.arome.iter().chain(&self.arome_history).collect();
+        if let Err(error) = self.feels_hours.record(&harmonie, checked_at) {
+            warn!(error = %format!("{error:#}"), "feels-like day range not updated");
+        }
+        let feels_reference = self.feels_hours.reference(checked_at);
         let manifest = publish_with_feeds(
             &self.config.data_dir,
             now,
@@ -515,6 +530,7 @@ impl Daemon {
             self.config.prune_age,
             self.cams.section.clone(),
             self.ecmwf.section.clone(),
+            feels_reference,
         )?;
         info!(
             chunks = manifest.chunks.len(),
@@ -711,6 +727,7 @@ mod tests {
             last_seamless_check: None,
             last_uv_check: None,
             manifest_dirty: false,
+            feels_hours: FeelsHours::load(&feels_hours_path(&data_dir)),
         }
     }
 

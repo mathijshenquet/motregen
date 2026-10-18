@@ -110,6 +110,10 @@ pub struct Palette {
     pub cold: f64,
     pub warm: f64,
     pub minimum_span: f64,
+    pub overflow_step: f64,
+    pub overflow_steps: usize,
+    pub overflow_cold: String,
+    pub overflow_warm: String,
 }
 
 /// Wolkenkaart (U92), uit `cloud-map.ts`, `cloud-section.ts` en `isolines.ts`.

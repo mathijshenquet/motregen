@@ -770,6 +770,8 @@ in
         MOTREGEN_DATA_DIR = caddyDataDir;
       } // lib.optionalAttrs botRenders {
         MOTREGEN_RUST_RENDERER = lib.concatStringsSep "," cfg.bot.rustModes;
+        # MIP-37: frames over generaties hergebruiken; de renderer ruimt zelf op (LRU, harde grens).
+        MOTREGEN_FRAME_CACHE = "/var/cache/motregen-bot/frames";
         MOTREGEN_RUST_BASEMAP_DIR = "${self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-render}/share/motregen-render/basemaps";
       } // lib.optionalAttrs botNeedsBrowser {
         PLAYWRIGHT_BROWSERS_PATH = "${pkgs.playwright-driver.browsers}";

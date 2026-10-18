@@ -44,11 +44,12 @@ export function modeConstants() {
       light_pressure: isoline.isolineColor('light', 'pressure'), dark_pressure: isoline.isolineColor('dark', 'pressure') },
     labels: { spacing: labels.LABEL_SPACING_PX, distance: labels.LABEL_MIN_DISTANCE_PX, maximum: labels.MAX_LABEL_ANCHORS },
     saturation: map.MAP_FOCUS_SATURATION, bounds: NETHERLANDS_FLANDERS_BOUNDS,
-    palette: { ramp: palette.TEMPERATURE_RAMP, cold: palette.COLD_ANCHOR_C, warm: palette.WARM_ANCHOR_C, minimum_span: palette.MIN_SPAN_C },
-    palette_fixtures: [[-25,-5],[-5,5],[7,14],[20,30],[28,35]].map(([min,max]) => {
-      const range = palette.paletteRange(min!, max!)!
-      return { min, max, range, colors: Array.from({ length: 81 }, (_, index) => palette.bandColor(index - 30, 1, palette.paletteStops(range))) }
-    }),
+    palette: { ramp: palette.TEMPERATURE_RAMP, cold: palette.COLD_ANCHOR_C, warm: palette.WARM_ANCHOR_C, minimum_span: palette.MIN_SPAN_C,
+      overflow_step: palette.OVERFLOW_STEP_C, overflow_steps: palette.OVERFLOW_STEPS, overflow_cold: palette.OVERFLOW_COLD, overflow_warm: palette.OVERFLOW_WARM },
+    palette_fixtures: [[-25,-5],[-5,5],[7,14],[20,30],[28,35]].flatMap(([min,max]) => [false, true].map((overflow) => {
+      const range = overflow ? palette.referenceRange({ day: '2026-10-17', min: min!, max: max! })! : palette.paletteRange(min!, max!)!
+      return { min, max, range: { overflow, ...range }, colors: Array.from({ length: 81 }, (_, index) => palette.bandColor(index - 30, 1, palette.paletteStops(range))) }
+    })),
   }
 }
 

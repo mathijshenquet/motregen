@@ -108,6 +108,8 @@
           assert !(combined.environment ? MOTREGEN_CHROMIUM_PATH);
           assert !(combined.environment ? PLAYWRIGHT_BROWSERS_PATH);
           assert combined.environment.MOTREGEN_RUST_RENDERER == "weather,feels,wind,air";
+          assert combined.environment.MOTREGEN_FRAME_CACHE == "/var/cache/motregen-bot/frames";
+          assert !(poller.environment ? MOTREGEN_FRAME_CACHE);
           assert combined.environment.MOTREGEN_RUST_BASEMAP_DIR == "${self.packages.${system}.motregen-render}/share/motregen-render/basemaps";
           assert combined.serviceConfig.CPUQuota == "200%";
           assert combined.serviceConfig.MemoryHigh == "infinity";

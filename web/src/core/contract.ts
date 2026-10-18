@@ -28,6 +28,14 @@ export interface Manifest {
   now: string
   chunks: ManifestChunk[]
   ecmwf?: EcmwfSection
+  /** MIP-37: gevoelstemperatuur over NL gisteren (lokaal), het vaste paletbereik; ontbreekt bij een koude start. */
+  feels_reference?: FeelsReference
+}
+
+export interface FeelsReference {
+  day: string
+  min: number
+  max: number
 }
 
 /**

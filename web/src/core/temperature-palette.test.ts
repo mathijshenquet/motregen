@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { bandColor, fillColor, fillSample, paletteColor, paletteRange, paletteStops, rampKnots, TEMPERATURE_RAMP, type Rgb } from './temperature-palette'
+import {
+  bandColor, fillColor, fillSample, OVERFLOW_COLD, OVERFLOW_STEPS, OVERFLOW_WARM, PALETTE_STOPS, paletteColor, paletteRange, paletteStops, rampKnots,
+  referenceRange, TEMPERATURE_RAMP, type Rgb,
+} from './temperature-palette'
 
 const hex = (color: Rgb) => `#${color.map((channel) => Math.round(channel * 255).toString(16).padStart(2, '0')).join('')}`
 const ramp = (index: number) => TEMPERATURE_RAMP[index]!
@@ -150,6 +153,51 @@ describe('fading line: the two band colours mix with the same factor', () => {
         expect(jump).toBeLessThan(0.1 * base)
         previous = current
       }
+    }
+  })
+})
+
+describe('yesterday as reference (MIP-37)', () => {
+  const reference = { day: '2026-10-17', min: 6.4, max: 13.2 }
+
+  it('takes its range from yesterday, at least 8 °C wide, and marks it as overflowing', () => {
+    expect(referenceRange(reference)).toEqual({ low: 6, high: 14, overflow: true })
+    expect(referenceRange(undefined)).toBeUndefined()
+    expect(referenceRange({ ...reference, min: Number.NaN })).toBeUndefined()
+  })
+
+  it('keeps the ramp inside the range and the old clamping without a reference', () => {
+    const range = referenceRange(reference)!
+    const plain = paletteStops({ low: range.low, high: range.high })
+    for (let temperature = range.low; temperature <= range.high; temperature += 0.25) {
+      expect(paletteColor(temperature, paletteStops(range))).toEqual(paletteColor(temperature, plain))
+    }
+    expect(paletteColor(-20, plain)).toEqual(paletteColor(range.low, plain))
+  })
+
+  it('steps outside the range per 2 °C towards deep blue and red, and stops after four steps', () => {
+    const stops = paletteStops(referenceRange(reference)!)
+    const below = [5, 3, 1, -1].map((temperature) => paletteColor(temperature, stops))
+    const above = [15, 17, 19, 21].map((temperature) => paletteColor(temperature, stops))
+    expect(paletteColor(4.5, stops)).toEqual(below[0])
+    expect(paletteColor(15.9, stops)).toEqual(above[0])
+    for (let step = 1; step < OVERFLOW_STEPS; step++) {
+      expect(distance(below[step]!, below[step - 1]!)).toBeGreaterThan(0.02)
+      expect(distance(above[step]!, above[step - 1]!)).toBeGreaterThan(0.02)
+    }
+    expect(hex(below[3]!)).toBe(OVERFLOW_COLD)
+    expect(hex(above[3]!)).toBe(OVERFLOW_WARM)
+    expect(paletteColor(-30, stops)).toEqual(below[3])
+    expect(paletteColor(45, stops)).toEqual(above[3])
+    expect(bluish(below[3]!)).toBe(true)
+    expect(above[3]![0]).toBeGreaterThan(3 * Math.max(above[3]![1], above[3]![2]))
+  })
+
+  it('fits the shader uniforms and stays strictly increasing', () => {
+    for (const range of [{ low: 6, high: 14 }, { low: -8, high: 30 }, { low: 18, high: 31 }]) {
+      const stops = paletteStops({ ...range, overflow: true })
+      expect(stops.length).toBeLessThanOrEqual(PALETTE_STOPS)
+      for (let index = 1; index < stops.length; index++) expect(stops[index]![0]).toBeGreaterThan(stops[index - 1]![0])
     }
   })
 })

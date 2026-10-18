@@ -3,6 +3,7 @@ import { NATIVE_VIEW } from './native-view.js'
 import { FRAME_PIXELS } from './config.js'
 import { createHash } from 'node:crypto'
 import type { PresetMode } from '../web/src/core/presets.js'
+import type { FeelsReference } from '../web/src/core/contract.js'
 import { telegramStartParameter } from '../web/src/core/telegram-presets.js'
 import { videoSettings } from './video-settings.js'
 import { LOOP_TIMING } from './sequences.js'
@@ -60,6 +61,7 @@ export interface StillManifest {
   now: string
   version: number
   chunks: Array<{ url: string; times: string[]; field?: string }>
+  feels_reference?: FeelsReference
 }
 
 export function stillEpoch(manifest: StillManifest, hour: StillHour): number {

@@ -9,6 +9,16 @@ pub struct Manifest {
     pub generated: String,
     pub now: String,
     pub chunks: Vec<Chunk>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feels_reference: Option<FeelsReference>,
+}
+
+/// MIP-37: feels-like range over NL on the previous local calendar day, published by the ingest.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub struct FeelsReference {
+    pub day: String,
+    pub min: f64,
+    pub max: f64,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

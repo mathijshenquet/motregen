@@ -1,10 +1,10 @@
 use crate::{
     air, modes,
-    renderer::{self, Media},
+    renderer::{self, Media, Options},
     shared,
 };
 use anyhow::{Context, Result, ensure};
-use render_core::{clock::ClockTransition, constants::constants, time::Manifest};
+use render_core::{constants::constants, time::Manifest};
 use serde::Serialize;
 use std::{collections::BTreeMap, fs, path::Path, sync::atomic::Ordering, thread, time::Instant};
 
@@ -27,7 +27,7 @@ pub fn render(
     out_directory: &Path,
     manifest: &Manifest,
     requested: &[String],
-    clock: Option<ClockTransition>,
+    options: Options,
 ) -> Result<AllMedia> {
     let started = Instant::now();
     let mut selected: Vec<&'static str> = Vec::new();
@@ -59,7 +59,7 @@ pub fn render(
                             basemap_directory,
                             &destination,
                             manifest,
-                            clock,
+                            options,
                         )
                     } else if mode == "air" {
                         air::render(
@@ -67,7 +67,7 @@ pub fn render(
                             basemap_directory,
                             &destination,
                             manifest,
-                            clock,
+                            options,
                         )
                     } else {
                         modes::render(
@@ -76,7 +76,7 @@ pub fn render(
                             &destination,
                             manifest,
                             mode == "wind",
-                            clock,
+                            options,
                         )
                     }
                 })

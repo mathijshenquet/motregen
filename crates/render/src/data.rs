@@ -16,6 +16,8 @@ use std::{
     time::Instant,
 };
 
+use crate::frame_cache::{Identity, Source};
+
 #[derive(Debug)]
 pub struct Raster {
     pub grid: Grid,
@@ -29,12 +31,15 @@ pub struct Dataset<'a> {
     manifest: &'a Manifest,
     pub frames: Vec<TimelineFrame>,
     headers: HashMap<usize, HeaderIndex>,
+    contexts: HashMap<usize, Identity>,
     cache: Vec<((usize, usize), Arc<Raster>)>,
     rain: bool,
     pub sampling_us: u128,
     pub decode_us: u128,
     pub loaded: usize,
     pub limit_to_view: bool,
+    /// Identities of every frame `load` returned since the last `take`; `None` when the frame cache is off.
+    pub touched: Option<Vec<Option<Identity>>>,
 }
 
 impl<'a> Dataset<'a> {
@@ -45,13 +50,141 @@ impl<'a> Dataset<'a> {
             manifest,
             frames,
             headers: HashMap::new(),
+            contexts: HashMap::new(),
             cache: Vec::new(),
             rain: field == "rain_rate",
             sampling_us: 0,
             decode_us: 0,
             loaded: 0,
             limit_to_view: false,
+            touched: None,
         })
+    }
+
+    /// Everything outside the compressed member that decoding depends on.
+    fn context(&mut self, chunk: usize) -> Result<Identity> {
+        if let Some(context) = self.contexts.get(&chunk) {
+            return Ok(*context);
+        }
+        let header = &self.header(chunk)?.header;
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(&serde_json::to_vec(&(
+            &header.field,
+            &header.source,
+            &header.grid,
+            &header.quant,
+            &header.pred,
+            &header.dict,
+            &header.motion_grid,
+        ))?);
+        let context = *hasher.finalize().as_bytes();
+        self.contexts.insert(chunk, context);
+        Ok(context)
+    }
+
+    /// The blur a rain frame gets and, when limited to the view, the warp margin of that region.
+    fn rain_sampling(&self, frame: &TimelineFrame) -> Result<(Sampling, Option<f64>)> {
+        let blur = blur(frame.epoch - epoch(&self.manifest.now)?);
+        let source = &self.manifest.chunks[frame.chunk_index].source;
+        let cell_width = if source == "harmonie" {
+            constants().sampling.harmonie_cell_width
+        } else {
+            constants().sampling.radar_cell_width
+        };
+        let sampling = Sampling {
+            kind: 3,
+            taps: blur.taps,
+            cell_width,
+            sigma: blur.sigma,
+        };
+        if !self.limit_to_view {
+            return Ok((sampling, None));
+        }
+        let position = self
+            .frames
+            .iter()
+            .position(|candidate| candidate == frame)
+            .context("Frame outside timeline")?;
+        let interval = |left: usize, right: usize| {
+            (self.frames[right].epoch - self.frames[left].epoch) as f64 / 60_000.0
+        };
+        let cap = warp_limit(interval(position.saturating_sub(1), position))
+            .cap_cells
+            .max(
+                warp_limit(interval(
+                    position,
+                    (position + 1).min(self.frames.len() - 1),
+                ))
+                .cap_cells,
+            );
+        Ok((sampling, Some(cap)))
+    }
+
+    /// Content identity of a decoded (and for rain: filtered) frame; `None` for chunks without member hashes.
+    pub fn identity(&mut self, frame: &TimelineFrame) -> Result<Option<Source>> {
+        let Some(member) = self.header(frame.chunk_index)?.header.frames[frame.frame_index]
+            .hash
+            .clone()
+        else {
+            return Ok(None);
+        };
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(b"frame");
+        hasher.update(&self.context(frame.chunk_index)?);
+        hasher.update(member.as_bytes());
+        if self.rain {
+            let (sampling, cap) = self.rain_sampling(frame)?;
+            hasher.update(&(sampling.kind as u64).to_le_bytes());
+            hasher.update(&(sampling.taps as u64).to_le_bytes());
+            hasher.update(&sampling.cell_width.to_le_bytes());
+            hasher.update(&sampling.sigma.to_le_bytes());
+            hasher.update(&cap.unwrap_or(f64::NAN).to_le_bytes());
+        }
+        Ok(Some(Source {
+            identity: *hasher.finalize().as_bytes(),
+            volatile: self.volatile(frame),
+        }))
+    }
+
+    /// Nowcast and seamless are replaced every 5 and 15 minutes; radar and models stay.
+    fn volatile(&self, frame: &TimelineFrame) -> bool {
+        matches!(
+            self.manifest.chunks[frame.chunk_index].source.as_str(),
+            "nowcast" | "seamless"
+        )
+    }
+
+    pub fn motion_identity(&mut self, frame: &TimelineFrame) -> Result<Option<Source>> {
+        let Some(member) = self.header(frame.chunk_index)?.header.frames[frame.frame_index]
+            .motion
+            .as_ref()
+            .and_then(|motion| motion.hash.clone())
+        else {
+            return Ok(None);
+        };
+        let mut hasher = blake3::Hasher::new();
+        hasher.update(b"motion");
+        hasher.update(&self.context(frame.chunk_index)?);
+        hasher.update(member.as_bytes());
+        Ok(Some(Source {
+            identity: *hasher.finalize().as_bytes(),
+            volatile: self.volatile(frame),
+        }))
+    }
+
+    pub fn take_touched(&mut self) -> Vec<Option<Identity>> {
+        self.touched
+            .as_mut()
+            .map(std::mem::take)
+            .unwrap_or_default()
+    }
+
+    fn touch(&mut self, frame: &TimelineFrame) -> Result<()> {
+        if self.touched.is_some() {
+            let identity = self.identity(frame)?.map(|source| source.identity);
+            self.touched.as_mut().unwrap().push(identity);
+        }
+        Ok(())
     }
 
     fn path(&self, chunk: usize) -> Result<PathBuf> {
@@ -127,6 +260,7 @@ impl<'a> Dataset<'a> {
     }
 
     pub fn load(&mut self, frame: &TimelineFrame) -> Result<Arc<Raster>> {
+        self.touch(frame)?;
         let key = (frame.chunk_index, frame.frame_index);
         if let Some((_, raster)) = self.cache.iter().find(|(cached, _)| *cached == key) {
             return Ok(Arc::clone(raster));
@@ -167,37 +301,8 @@ impl<'a> Dataset<'a> {
         self.loaded += 1;
         if self.rain {
             let started = Instant::now();
-            let blur = blur(frame.epoch - epoch(&self.manifest.now)?);
-            let source = &self.manifest.chunks[frame.chunk_index].source;
-            let cell_width = if source == "harmonie" {
-                constants().sampling.harmonie_cell_width
-            } else {
-                constants().sampling.radar_cell_width
-            };
-            let sampling = Sampling {
-                kind: 3,
-                taps: blur.taps,
-                cell_width,
-                sigma: blur.sigma,
-            };
-            values = if self.limit_to_view {
-                let position = self
-                    .frames
-                    .iter()
-                    .position(|candidate| candidate == frame)
-                    .unwrap();
-                let interval = |left: usize, right: usize| {
-                    (self.frames[right].epoch - self.frames[left].epoch) as f64 / 60_000.0
-                };
-                let cap = warp_limit(interval(position.saturating_sub(1), position))
-                    .cap_cells
-                    .max(
-                        warp_limit(interval(
-                            position,
-                            (position + 1).min(self.frames.len() - 1),
-                        ))
-                        .cap_cells,
-                    );
+            let (sampling, cap) = self.rain_sampling(frame)?;
+            values = if let Some(cap) = cap {
                 let (columns, rows) = Projection::new(&grid).sampling_region(&grid, cap);
                 sampling.filter_region(&values, grid.width, grid.height, columns, rows)
             } else {
@@ -260,11 +365,12 @@ impl<'a> Dataset<'a> {
             .is_some_and(|frame| frame.motion.is_some()))
     }
 
-    pub fn motion(
+    /// The frame whose motion member warps `left` towards `right`.
+    pub fn motion_frame(
         &mut self,
         left: &TimelineFrame,
         right: &TimelineFrame,
-    ) -> Result<Option<(usize, usize, Vec<i8>)>> {
+    ) -> Result<Option<TimelineFrame>> {
         if left.epoch >= right.epoch {
             return Ok(None);
         }
@@ -299,9 +405,21 @@ impl<'a> Dataset<'a> {
                 None
             }
         };
-        let Some(frame) = selected else {
+        Ok(selected)
+    }
+
+    pub fn motion(
+        &mut self,
+        left: &TimelineFrame,
+        right: &TimelineFrame,
+    ) -> Result<Option<(usize, usize, Vec<i8>)>> {
+        let Some(frame) = self.motion_frame(left, right)? else {
             return Ok(None);
         };
+        if self.touched.is_some() {
+            let identity = self.motion_identity(&frame)?.map(|source| source.identity);
+            self.touched.as_mut().unwrap().push(identity);
+        }
         let range = self
             .header(frame.chunk_index)?
             .motion_range(frame.frame_index)?;
@@ -363,6 +481,7 @@ mod tests {
                 field: "rain_rate".into(),
                 times,
             }],
+            feels_reference: None,
         };
         (directory, manifest)
     }
