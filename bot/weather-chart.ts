@@ -93,7 +93,7 @@ export function weatherSvg(place: SearchPlace, series: WeatherSeries): string {
     const start = Math.max(0, xAt(startEpoch))
     const end = Math.min(plotWidth, xAt(endEpoch))
     if (end <= start) continue
-    const label = { rtcor: 'radar', nowcast: 'nowcast', seamless: 'naadloos', harmonie: 'HARMONIE', uv: 'UV', ecmwf: 'ECMWF' }[frame.source]
+    const label = { rtcor: 'radar', nowcast: 'nowcast', seamless: 'naadloos', harmonie: 'HARMONIE', uv: 'UV', ecmwf: 'ECMWF', icon_d2: 'ICON-D2' }[frame.source]
     elements.push(`<line x1="${start + 1}" x2="${end - 1}" y1="${bottom + 8}" y2="${bottom + 8}" stroke="${palette.accent}" stroke-opacity="${frame.source === 'rtcor' ? '.4' : '.8'}" stroke-width="2"/>`)
     if (end - start > 40) elements.push(`<text x="${(start + end) / 2}" y="${bottom + 26}" font-size="11" text-anchor="middle" fill="${palette.muted}">${label}</text>`)
   }

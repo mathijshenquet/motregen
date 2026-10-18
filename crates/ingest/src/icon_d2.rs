@@ -58,7 +58,7 @@ pub fn hour_ends(run: DateTime<Utc>) -> Vec<String> {
 }
 
 pub fn is_run_time(run: DateTime<Utc>) -> bool {
-    run.hour() % RUN_INTERVAL_HOURS == 0
+    run.hour().is_multiple_of(RUN_INTERVAL_HOURS)
         && run.minute() == 0
         && run.second() == 0
         && run.timestamp_subsec_nanos() == 0
