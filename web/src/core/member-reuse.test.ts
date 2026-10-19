@@ -87,7 +87,9 @@ afterEach(() => vi.unstubAllGlobals())
 function stubNetwork() {
   class DecodeWorker {
     onmessage?: (event: MessageEvent) => void
-    postMessage(message: { id: number; bytes: ArrayBuffer; expectedLength: number; pred?: PredFrameSpec }): void {
+    postMessage(sent: { id: number; bytes: ArrayBuffer; expectedLength: number; pred?: PredFrameSpec }, transfer: Transferable[] = []): void {
+      // Zoals een echte worker: overgedragen buffers zijn daarna in de pagina losgekoppeld.
+      const message = structuredClone(sent, { transfer })
       const frame = decodeFrame(new Uint8Array(message.bytes), message.expectedLength, message.pred)
       queueMicrotask(() => this.onmessage?.({ data: { id: message.id, frame: frame.slice().buffer } } as MessageEvent))
     }
@@ -140,6 +142,18 @@ describe('frames op inhoudshash (U93)', () => {
     const laterFrames = await open.getFrames(later, allFrames(later))
     for (let index = 0; index < laterFrames.length - 1; index++) expect(laterFrames[index]).toBe(earlierFrames[index + 1])
     expect(laterFrames.at(-1)).toEqual(reopenedFrames.at(-1))
+  })
+
+  it('decodeert frames met dezelfde inhoud één keer, ook uit IndexedDB (nachturen zonder straling)', async () => {
+    const twins = members.slice(0, 4).map((member, index) => index === 2 ? { ...member, frame: members[1]!.frame } : member)
+    const chunk = manifestChunk(`chunks/rtcor-twins-1200-h3-${generation}.mrf`, writeChunk(twins, 'twins'))
+    stubNetwork()
+    const first = await newClient().getFrames(chunk, allFrames(chunk))
+    await allStored([...new Set(memberHashes(chunk))])
+
+    const reopened = await newClient().getFrames(chunk, allFrames(chunk))
+    expect(reopened[2]).toBe(reopened[1])
+    expect(reopened).toEqual(first)
   })
 
   it('haalt ontbrekende frames op zonder de aanwezige ertussen mee te nemen', async () => {

@@ -223,11 +223,16 @@ export class MrfClient {
     const header = await this.getHeader(chunk)
     const uniqueIndexes = [...new Set(frameIndexes)]
     for (const index of uniqueIndexes) if (!header.frames[index]) throw new Error('Frame-index buiten bereik')
+    // Frames met dezelfde inhoud (bijv. nachturen zonder straling) delen hun sleutel: één decode, anders dragen twee
+    // decodes dezelfde opgeslagen bytes over aan een worker en vindt de tweede een losgekoppelde buffer.
+    const claimed = new Set<string>()
     const missing = uniqueIndexes.filter((index) => {
       const key = this.keyOf(url, index)
       if (this.frames.get(key)) return false
       this.registerInterest(key, signal)
-      return !this.framePromises.has(key)
+      if (this.framePromises.has(key) || claimed.has(key)) return false
+      claimed.add(key)
+      return true
     })
 
     if (usesMemberHashes(url, header)) {
