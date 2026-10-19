@@ -1,5 +1,20 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-10-19 07:40 CEST — v0.4.0 live: zon in Lucht, ICON-D2, /lucht, framecache (Claude, w9)
+
+1. In main (cd39172, tag v0.4.0): U92 Lucht in de bot, U93 radar-CAS, U94, U96 zon in Lucht (+ PO-iteratie: gevulde
+   monotone curve, wolkenlabels links, cursor op de curve, curve breekt bij ongeladen uren), U97 framecache +
+   Gevoel-referentie gisteren, U98 e2e-reparaties, U99 ICON-D2 (MIP-39), tabelladder 01–01, isolijnkleur.
+2. Gate op 75225ca/d457c98: alles exit 0 behalve clippy all-targets (drop in framecache-test, gerepareerd) en
+   focus.spec:264 (scrolde in het nog sluitende versheidspaneel; wacht nu op dicht, 3× groen).
+3. Prod: nixos-upgrade 14,6 min, Result=success. ICON-D2-job 30 s, 185 MB down, 146 kB gepubliceerd;
+   `radiation_direct` in het manifest. Bot rendert `air`. Lucht live bekeken (Europe/Amsterdam): zon op 08:10, curve
+   vanaf ~09:00 op ICON-D2.
+4. Changelog: PO-tekst punchy; nieuw veld `alleen: telegram` (botfeature niet op de sitepagina). Gepost 22, 23.
+5. Open: `feels_reference` ontbreekt tot de ingest een volle gisteren heeft (state begint 2026-10-18 23:00 UTC →
+   eerste referentie 2026-10-21); in een browser buiten Europe/Amsterdam staan zon op en luchtkleur 2 u verschoven
+   (headless UTC-run); bot-generatie op de VM 70–127 s tijdens de backfill — morgen opnieuw kijken.
+
 ## 2026-10-18 13:20 CEST — changelog per feature, links gerepareerd, pagina per datum (Claude, w9)
 
 1. PO: release = één TG-post per feature met clip, geen tekstbericht, geen versienummers voor gebruikers. v0.3.0
