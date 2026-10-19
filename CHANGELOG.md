@@ -1,14 +1,32 @@
 # Changelog
 
+## v0.4.0 — 2026-10-19
+
+### Zien hoeveel zon je krijgt (nieuw)
+
+In Lucht zie je nu hoeveel zon er komt: een gele curve met de minuten zon per uur.
+
+[morgen in Bergen op Zoom](changes/media/zon-in-lucht.mp4)
+
+### Wolken in Telegram met /lucht (nieuw)
+
+Met /lucht stuurt de bot een film en kaartbeelden van de wolken, net als de modus Lucht in de app.
+
+[de Lucht-film uit de bot, vrijdagochtend](changes/media/lucht-in-telegram.mp4)
+
 ## v0.3.0 — 2026-10-18
+
+### Tien dagen vooruit (nieuw)
+
+De tabel bij je plek loopt nu tien dagen vooruit: vandaag per uur, de twee dagen daarna per dagdeel en daarna per dag, met temperatuur, neerslag en wind. De eerste dagen komen uit de KNMI-verwachting, de dagen daarna uit de Europese ECMWF-verwachting.
+
+[door de tabel scrollen](changes/media/tien-dagen-tabel.mp4)
 
 ### Afspelen stopt aan het eind (beter)
 
 De regenfilm speelt nu één keer af en stopt aan het eind, in plaats van steeds opnieuw te beginnen. Met Opnieuw in de grafiek speel je hem nog een keer af.
 
-### Tien dagen vooruit (nieuw)
-
-De tabel bij je plek loopt nu tien dagen vooruit: vandaag per uur, de twee dagen daarna per dagdeel en daarna per dag, met temperatuur, neerslag en wind. De eerste dagen komen uit de KNMI-verwachting, de dagen daarna uit de Europese ECMWF-verwachting.
+[tik op Opnieuw](changes/media/afspelen-opnieuw.mp4)
 
 ## v0.2.0 — 2026-10-16
 
