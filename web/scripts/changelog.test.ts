@@ -165,6 +165,19 @@ describe('local releases', () => {
     expect(() => readRelease(root, '0.1.1')).toThrow('volgorde')
   })
 
+  it('keeps Telegram-only notes off the public page', () => {
+    note(RELEASABLE)
+    write('changes/pending/bot.md', `---\ntitle: Alleen in de bot\nkind: nieuw\nalleen: telegram\n${RELEASABLE}---\nIets voor Telegram.\n`)
+    commitFixture()
+    release(root, 'patch')
+    expect(readNote(root, 'v0.1.1', 'bot.md').alleen).toBe('telegram')
+    const html = renderChangelogPage(root, { name: 'motregen.nl', canonicalOrigin: 'https://motregen.nl' })
+    expect(html).toContain('Regen beter zichtbaar')
+    expect(html).not.toContain('Alleen in de bot')
+    write('changes/v0.1.1/bot.md', `---\ntitle: X\nkind: nieuw\nalleen: site\n${RELEASABLE}---\nX.\n`)
+    expect(() => readNote(root, 'v0.1.1', 'bot.md')).toThrow('alleen')
+  })
+
   it('renders inline media with captions and muted video controls', () => {
     video('short.mp4', 1)
     mediaNote('changes/media/short.mp4')

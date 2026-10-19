@@ -6,8 +6,9 @@ export const repositoryRoot = resolve(import.meta.dirname, '..')
 export const versionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/
 export const maxMediaBytes = 2_000_000
 export interface ChangeMedia { file: string; caption: string }
-/** `goedgekeurd`: datum waarop de PO het beeld koos (emoji op een concept); `tools/release.sh` eist hem. */
-export interface ChangeNote { slug: string; title: string; kind: 'nieuw' | 'beter' | 'opgelost'; body: string; media: ChangeMedia[]; goedgekeurd?: string }
+/** `goedgekeurd`: datum waarop de PO het beeld koos (emoji op een concept); `tools/release.sh` eist hem.
+ * `alleen: telegram`: een botfeature die niet op de changelogpagina van de site hoort (PO 2026-10-19). */
+export interface ChangeNote { slug: string; title: string; kind: 'nieuw' | 'beter' | 'opgelost'; body: string; media: ChangeMedia[]; goedgekeurd?: string; alleen?: 'telegram' }
 export interface Release { version: string; date: string; notes: ChangeNote[] }
 
 function scalar(value: string): string {
@@ -85,11 +86,12 @@ export function validateMedia(root: string, media: ChangeMedia, probe = true): v
 export function readNote(root: string, directory: string, slug: string, probe = true): ChangeNote {
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*\.md$/.test(slug) || slug === 'index.md') throw new Error(`Ongeldige notitienaam: ${slug}`)
   const { header, body } = fields(readFileSync(resolve(root, 'changes', directory, slug), 'utf8'))
-  exactFields(header, ['title', 'kind', 'media', 'goedgekeurd'])
+  exactFields(header, ['title', 'kind', 'media', 'goedgekeurd', 'alleen'])
   const title = requiredText(header.title, 'titel', 160)
   const goedgekeurd = header.goedgekeurd === undefined ? undefined : String(header.goedgekeurd)
   if (goedgekeurd !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(goedgekeurd)) throw new Error(`${slug}: goedgekeurd moet JJJJ-MM-DD zijn`)
   if (!['nieuw', 'beter', 'opgelost'].includes(String(header.kind))) throw new Error(`Onbekend soort: ${header.kind}`)
+  if (header.alleen !== undefined && header.alleen !== 'telegram') throw new Error(`${slug}: alleen kent alleen 'telegram'`)
   requiredText(body, 'notitie', 1500)
   const media = (header.media ?? []) as ChangeMedia[]
   if (!Array.isArray(media)) throw new Error('media moet een lijst zijn')
@@ -99,7 +101,7 @@ export function readNote(root: string, directory: string, slug: string, probe = 
     requiredText(item.caption, 'bijschrift', 1024)
     validateMedia(root, item, probe)
   }
-  return { slug, title, kind: header.kind as ChangeNote['kind'], body, media, ...(goedgekeurd && { goedgekeurd }) }
+  return { slug, title, kind: header.kind as ChangeNote['kind'], body, media, ...(goedgekeurd && { goedgekeurd }), ...(header.alleen === 'telegram' && { alleen: 'telegram' as const }) }
 }
 
 export function noteFiles(root: string, directory: string): string[] {

@@ -13,7 +13,8 @@ en zonder versienummer (PO 2026-10-18; versies zijn intern).
    Papercuts en interne optimalisaties krijgen geen notitie. `pnpm changelog:check` weigert een notitie zonder media.
 2. **Concepten naar de PO.** Stuur per feature één of twee concepten met het voorgestelde bijschrift naar de privéchat
    van de PO (`MOTREGEN_SMOKE_CHAT_ID` in `.env`). De PO kiest met een emoji-reactie en meldt zijn keuze; verwerk
-   tekstwijzigingen in de notitie en zet `goedgekeurd: JJJJ-MM-DD`.
+   tekstwijzigingen in de notitie en zet `goedgekeurd: JJJJ-MM-DD`. Houd de tekst punchy: één korte zin (PO
+   2026-10-19). Een feature die alleen de bot raakt krijgt `alleen: telegram` en staat dan niet op de changelogpagina.
 3. **Release.** Vanuit een schone werkboom `tools/release.sh patch --dry-run`, dan zonder `--dry-run`. Het script
    weigert notities zonder `goedgekeurd`. Controleer datum en volgorde in `changes/vX.Y.Z/index.md`: de belangrijkste
    feature eerst.
