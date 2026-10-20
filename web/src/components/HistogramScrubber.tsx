@@ -67,9 +67,11 @@ const CLOUD_LAYER_LABELS = { high: 'hoge wolken', mid: 'midden wolken', low: 'la
 const CLOUD_COVER_SHARE = 0.3
 const HOUR = 3_600_000
 const HAZE_OPACITY = 0.5
-// Elke strook begint lager en telt op bij de vorige: zo neemt de nevel naar de horizon toe.
-const HAZE_BAND_COUNT = 16
-const HAZE_BANDS = Array.from({ length: HAZE_BAND_COUNT }, (_, index) => ({ from: 0.45 + 0.55 * index / HAZE_BAND_COUNT, opacity: 0.075 }))
+// De nevel begint op deze hoogte (deel van het plot) en neemt naar de horizon toe tot HAZE_MASK_BOTTOM. Eén laag
+// met een masker: de eerdere 16 gestapelde stroken van elk ~0,4 % dekking werden elk op 8 bit afgerond en sprongen
+// dan samen, wat harde verticale banen gaf (PO 2026-10-16).
+const HAZE_TOP = 0.45
+const HAZE_MASK_BOTTOM = 0.9
 // Straal van de schemergloed als deel van de plothoogte (hoogstens één uur breed).
 const DUSK_RADIUS_SHARE = 0.62
 // Gedeeld met het laadvenster in App (U49), dat alleen laadt wat hier in beeld is.
@@ -172,7 +174,10 @@ export default function HistogramScrubber(props: Props) {
   const windMix = () => props.wind ? props.mix ? props.mix.wind : 1 : 0
   const temperatureMix = () => props.temperature ? props.mix ? props.mix.temperature : 1 : 0
   const baseOpacity = () => 1 - Math.max(windMix(), temperatureMix())
-  const rainOpacity = () => baseOpacity() * (1 - 0.65 * airMix())
+  // De wolkenlagen staan achter de regen (Weer) of er een kopie vóór (Lucht). Bij het wisselen komt de voorste
+  // kopie op terwijl de achterste nog vol staat, en gaat die pas daarna weg: geen dip in de wolken en geen sprong.
+  const cloudsBehindOpacity = () => baseOpacity() * Math.min(1, 2 * (1 - airMix()))
+  const cloudsFrontOpacity = () => baseOpacity() * Math.min(1, 2 * airMix())
   const coverOpacity = () => props.cloudCover ? Math.min(baseOpacity(), 1 - (props.mix?.temperature ?? 0)) : 0
   const baseVisible = createMemo(() => baseOpacity() > 0)
   const view = () => airMix() >= 0.5 ? 'air' : windMix() >= 0.5 ? 'wind' : temperatureMix() >= 0.5 ? 'temperature' : coverOpacity() >= 0.5 ? 'cover' : 'rain'
@@ -642,7 +647,7 @@ export default function HistogramScrubber(props: Props) {
               <rect width={cloudWidth()} height={plotHeight()} fill={`url(#${cloudId}-sky)`} />
               <rect width={cloudWidth()} height={plotHeight()} fill={`url(#${cloudId}-depth)`} />
               {/* Oplopend naar de horizon in stroken: een SVG-masker over de hele baan bleek hier niet te werken. */}
-              <For each={HAZE_BANDS}>{(band) => <rect y={plotHeight() * band.from} width={cloudWidth()} height={plotHeight() * (1 - band.from)} fill={`url(#${cloudId}-haze)`} opacity={band.opacity} />}</For>
+              <rect y={plotHeight() * HAZE_TOP} width={cloudWidth()} height={plotHeight() * (1 - HAZE_TOP)} fill={`url(#${cloudId}-haze)`} mask={`url(#${cloudId}-haze-mask)`} />
               {/* Index, niet For: bij elke aanvulling van de reeksen zijn dit nieuwe objecten; per positie bijwerken
                   zet alleen gewijzigde attributen, For bouwde alle knopen opnieuw (72 000 knopen in 12 s, U58). */}
               <Index each={dusks()}>{(dusk) => <g class="dusk" style={{ opacity: dusk().strength }}>
@@ -657,11 +662,8 @@ export default function HistogramScrubber(props: Props) {
               <Index each={strokes()}>{(stroke) => <path class="sky-stroke" classList={{ light: stroke().light }} d={stroke().path} style={{ '--strength': stroke().strength }} />}</Index>
               <For each={stars()}>{(star) => <circle class="sky-star" cx={star.x} cy={star.y} r={star.radius} opacity={star.brightness} />}</For>
             </g></Show>
-            {/* In Lucht blijft regen context: achter de wolkenlagen en getweend naar 35% dekking. */}
-            <g class="rain-bars scrub-view" style={layerStyle(rainOpacity())}><Index each={bars()}>{(bar) => <Show
-              when={!bar().pending}
-              fallback={<rect class="rain-bar pending" x={bar().x} y={plotHeight() - 2} width={bar().width} height="2" rx="1" />}
-            ><rect class="rain-bar" classList={{ past: bar().past }} x={bar().x} y={bar().top} width={bar().width} height={plotHeight() - bar().top + 3} rx={Math.min(3, bar().width / 2)} fill={rainColor(bar().value, barRainLook(bar().epoch))} /></Show>}</Index></g>
+            {/* Wolken en regen staan in Weer én Lucht; alleen de volgorde verschilt (PO 2026-10-16): in Weer de regen vóór
+                de wolken, in Lucht een kopie van de wolkenlagen vóór de regen. */}
             <Show when={cloudBands().length}>
               <defs>
                 <filter id={`${cloudId}-soft`} x="-5%" y="-30%" width="110%" height="160%"><feGaussianBlur stdDeviation="0.9" /></filter>
@@ -674,6 +676,10 @@ export default function HistogramScrubber(props: Props) {
                 <linearGradient id={`${cloudId}-haze`} class="sky-haze-gradient" gradientUnits="userSpaceOnUse" x1="0" x2={cloudWidth()} y1="0" y2="0">
                   <Index each={sky()}>{(stop) => <stop offset={stop().offset} stop-opacity={(HAZE_OPACITY * stop().daylight * (1 - stop().darkness)).toFixed(3)} />}</Index>
                 </linearGradient>
+                <linearGradient id={`${cloudId}-haze-fade`} x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="0" /><stop offset="1" stop-color="#fff" stop-opacity={HAZE_MASK_BOTTOM} /></linearGradient>
+                <mask id={`${cloudId}-haze-mask`} maskUnits="userSpaceOnUse" x="0" y={plotHeight() * HAZE_TOP} width={cloudWidth()} height={plotHeight() * (1 - HAZE_TOP)}>
+                  <rect y={plotHeight() * HAZE_TOP} width={cloudWidth()} height={plotHeight() * (1 - HAZE_TOP)} fill={`url(#${cloudId}-haze-fade)`} />
+                </mask>
                 <linearGradient id={`${cloudId}-veil`} class="ruler-veil-gradient" gradientUnits="userSpaceOnUse" x1="0" x2={cloudWidth()} y1="0" y2="0">
                   <Index each={sky()}>{(stop) => <stop offset={stop().offset} classList={{ night: stop().daylight < RULER_NIGHT_DAYLIGHT }} />}</Index>
                 </linearGradient>
@@ -689,13 +695,21 @@ export default function HistogramScrubber(props: Props) {
                     <For each={coverBands().find((band) => band.key === key)?.paths}>{(path) => <><path d={path} fill={`url(#${cloudId}-${key})`} /><path class="cloud-shadow" d={path} fill={`url(#${cloudId}-shadow)`} /></>}</For>
                   </g>}</For>
                 </g>
-                <g class="scrub-view" style={{ opacity: baseOpacity() * airMix() }}>
+                {/* Het id zit op de binnengroep: <use> kloont ook inline stijl, en de dekking hier is in Lucht 0. */}
+                <g class="scrub-view" style={{ opacity: cloudsBehindOpacity() }}><g class="cloud-layers" id={`${cloudId}-layers`}>
                   <For each={layerBands().map((band) => band.key)}>{(key) => <g class="cloud-band" data-layer={key}>
                     <For each={layerBands().find((band) => band.key === key)?.paths}>{(path) => <><path d={path} fill={`url(#${cloudId}-${key})`} /><path class="cloud-shadow" d={path} fill={`url(#${cloudId}-shadow)`} /></>}</For>
                   </g>}</For>
-                </g>
+                </g></g>
               </g>
               <Show when={props.cloudCover}><line class="cloud-divider" style={{ opacity: coverOpacity() }} x1="0" x2={trackWidth()} y1={cloudHeight() + 1.5} y2={cloudHeight() + 1.5} /></Show>
+            </Show>
+            <g class="rain-bars scrub-view" style={layerStyle(baseOpacity())}><Index each={bars()}>{(bar) => <Show
+              when={!bar().pending}
+              fallback={<rect class="rain-bar pending" x={bar().x} y={plotHeight() - 2} width={bar().width} height="2" rx="1" />}
+            ><rect class="rain-bar" classList={{ past: bar().past }} x={bar().x} y={bar().top} width={bar().width} height={plotHeight() - bar().top + 3} rx={Math.min(3, bar().width / 2)} fill={rainColor(bar().value, barRainLook(bar().epoch))} /></Show>}</Index></g>
+            <Show when={layerBands().length && cloudsFrontOpacity() > 0}>
+              <g class="cloud-section cloud-front" filter={`url(#${cloudId}-soft)`} style={{ opacity: cloudsFrontOpacity() }}><use href={`#${cloudId}-layers`} /></g>
             </Show>
             <Show when={temperatureMix() > 0 && temperatureChart()}>{(chart) => <g class="temperature-chart scrub-view" data-testid="temperature-chart" style={layerStyle(temperatureMix())}>
               <defs>

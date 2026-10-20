@@ -11,10 +11,10 @@ test('air shows the cloud layers under the rain and adds the map veil', async ({
   // De synthetische dag heeft een front: alle drie lagen tekenen iets.
   for (const layer of ['high', 'mid', 'low']) await expect(section.locator(`[data-layer=${layer}] path`).first()).toBeAttached()
   await expect(page.locator('.rain-bar:not(.pending)').first()).toBeAttached()
-  // De hemel (U47) staat achter elke weergave zodra de wolkenlagen er zijn; de lagen zelf alleen in Lucht.
+  // De hemel (U47) staat achter elke weergave zodra de wolkenlagen er zijn; de lagen ook in Weer, achter de regen (PO 2026-10-16).
   await expect(page.getByTestId('sky')).toBeAttached()
   const layers = section.locator('.scrub-view').last()
-  await expect(layers).toHaveCSS('opacity', '0')
+  await expect(layers).toHaveCSS('opacity', '1')
 
   const clouds = page.getByRole('button', { name: 'Lucht' })
   await clouds.click()
@@ -23,7 +23,9 @@ test('air shows the cloud layers under the rain and adds the map veil', async ({
   await expect(surface).toHaveAttribute('data-scrubber-view', 'air')
   await expect(page.locator('.rain-bar:not(.pending)').first()).toBeAttached()
   await expect(page.locator('.map-overlay-motregen-cloud-veil')).toBeAttached()
-  await expect(layers).toHaveCSS('opacity', '1')
+  // In Lucht liggen dezelfde lagen vóór de regen; de kopie erachter is dan uit.
+  await expect(page.locator('.cloud-front')).toHaveCSS('opacity', '1')
+  await expect(layers).toHaveCSS('opacity', '0')
 
   // Stilstaand beeld: pauzeren en de cursor op een vast punt.
   await surface.focus()
