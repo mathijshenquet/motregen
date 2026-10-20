@@ -147,3 +147,37 @@ DCT K=64                135     68    102    115     30888    0.24   2.51
      (in-kaart, kost weer een kaartrender per pass). Onveranderd in U13; beslissing staat open.
 - Niet gedaan: z9- en donker-thema-shots, Firefox-vectorshots, video. Voorstellen niet gebouwd:
   DCT-coëfficiënten in de ingest, isolijnen vooruitrekenen in de Rust-backend (zie boven).
+
+## 2026-09-24 ~15:00 — PO-preview + grootte van geserialiseerde isolijnen
+- Preview van deze tip voor de PO: http://ageq-mthq:4313/?dev&perf=1 (tailnet-IPv4
+  100.108.127.86:4313, `/data` → prod). Stoppen na de review.
+- Grootte per snede (`web/tmp/sizes.ts`, 14 echte uurframes, 1 °C, lusjes < 60 km weggelaten,
+  medianen, bytes):
+  ```
+  tol   lijnen punten | f32 raw  zstd | u16 raw  zstd | Δint8 raw  zstd | veld u8 raw  zstd
+  0.25  112   8822    |  70576  61588 |  35288  30749 |  18342   15523 |  47025   12868
+  0.05  112   9975    |  79800  69773 |  39900  35165 |  20648   17528 |  47025   12868
+  ```
+  Ook de compactste codering (int8-delta's op 1/64 cel + zstd, ~15,5 kB) is groter dan het veld
+  dat de lijnen oplevert (u8 + zstd, ~12,9 kB; de echte MRF-quant kan afwijken). Geometrie per
+  sub-uurstap vermenigvuldigt dat nog.
+
+## 2026-09-24 ~15:20 — isolijnen als spline (weinig steunpunten): grootte, en afwijking van de spec
+- PO bedoelde de berekende splines, niet de velden. Meting `web/tmp/spline-sizes.ts` (6 uurframes,
+  referentie = exacte contour op tol 0,01 cel, lusjes < 60 km weg): Douglas-Peucker-steunpunten
+  met per contour de grootste epsilon waarbij de centripetale Catmull-Rom < maxDev van de
+  referentie blijft; int8-delta's op 1/64 cel + zstd. Medianen per snede:
+  ```
+  maxDev  (m)   dichte punten  steunpunten  bytes raw  zstd
+  0,02 cel  73      17380          8978       19358    15832
+  0,05 cel 182      17380          5832       13574    11655
+  0,10 cel 364      17380          3979       10290     8997
+  ```
+  Als spline dus ~9–12 kB per snede: ongeveer even groot als het veld (~12,9 kB u8+zstd).
+  0,05 cel ≈ 0,25 CSS-px op z6 maar ~2 px op z9.
+- **Afwijking van de spec (niet eerder gemeld):** route C zegt "lijnen als Catmull-Rom/B-splines
+  tekenen". Gebouwd is: Newton-punten + kromming-adaptieve verdichting (elk punt exact op de
+  lijn), getekend als polylijn (capsulesegmenten). Bij tol 0,25 px is dat visueel gelijk aan een
+  spline, maar de spline-representatie met weinig steunpunten zit er niet in. Die zou ~2–3×
+  minder punten/segmenten geven; de trace-kosten blijven gelijk, want de fit heeft de exacte
+  punten nodig.
