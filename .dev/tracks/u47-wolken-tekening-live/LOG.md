@@ -213,3 +213,13 @@
   `pnpm build` → 0; `MOTREGEN_E2E_PORT=4377 MOTREGEN_E2E_DATA_PORT=8377 pnpm e2e
   e2e/cloud-section.spec.ts e2e/focus.spec.ts e2e/table.spec.ts e2e/usage.spec.ts --project desktop`
   → E2E-EXIT: 0 (14 passed, 4 skipped: touch/mobiel). Stills lucht-regen en weer-nu → SHOT-EXIT 0, bekeken.
+
+## 2026-10-07 16:55 — slot: gemerged op main
+- U47 staat op main als 158f3f8 ("merge track/u47-wolken-tekening-live"), na een onafhankelijke gate van
+  de orkestrator (typecheck 0, 449 unit, build 0, presets/cloud-section e2e groen). Branch-tip bij de
+  merge: ce6b0b5.
+- Preview op 4350 gestopt (`ss` toont geen listener meer).
+- PR #83 stond bij het afsluiten nog als OPEN/draft op GitHub; de merge is lokaal op main gedaan.
+- Open punten gaan mee naar de finishing-pane (zie de afsluitingsentry en de PR): stap 4 vibe-woord,
+  contrast en tekenkosten ongemeten, twee donkerteschalen (tabel/hemel), Weer zonder wolkenlagen als
+  PO-afwijking van U42, grader-render zonder licht, MIP-18 "nacht: geen lichtfactor" niet aangepast.
