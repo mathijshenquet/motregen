@@ -132,6 +132,43 @@ De droge snapshot geeft hetzelfde beeld met minder radarbytes: bij 210 regio's 9
 Bestanden alleen voor regio's met minstens één plaats: zeeregio's krijgen geen bestand (bij 210 regio's 148 van de
 210). Een locatie op zee of buiten het kader valt terug op het huidige pad.
 
+### Opslag en schrijfvolume op prod
+
+Baseline (gemeten op prod 2026-11-09 ~13:20): `/var/lib/motregen/chunks` is 108 MB live in 347 bestanden, met een
+opruimvenster van 6 u, dus ≈ 430 MB per dag geschreven (per 6 u: rtcor 48 MB, nowcast 25 MB, harmonie 24 MB,
+seamless 9 MB). Twee retenties voor de regiobestanden:
+
+1. **6 u-venster**, zoals de chunks;
+2. **nieuwste + 1 run** per groep. Meer bewaren heeft geen nut, want elke run bevat de hele reeks.
+
+Ververst: radar 288×, HARMONIE 24× en extra 96× per dag (UV elke 15 min; ICON-D2 valt daarbinnen). Bereik = nat–droog;
+% = bovenop de baseline; client = gemiddeld per locatie, als % van de 2.358–2.740 kB die de telefoon nu koud ophaalt
+vóór het histogram (§1).
+
+| regio's | variant | live, 6 u-venster | live, nieuwste + 1 run | geschreven per dag | live bestanden (6 u / nieuwste + 1) | client per locatie (% van nu) |
+| ---: | --- | ---: | ---: | ---: | ---: | ---: |
+| 49 | midden | 16 MB (+15 %) | 0,9 MB (+0,9 %) | 64 MB (+15 %) | 3.876 / 228 (+1.117 / +66 %) | 1,0–1,1 kB (0,04–0,05 %) |
+| 49 | alle gridpunten | 26–53 MB (+24–49 %) | 3,5–4,7 MB (+3,2–4,4 %) | 103–214 MB (+24–50 %) | 3.876 / 228 (+1.117 / +66 %) | 37,2–53,4 kB (1,4–2,3 %) |
+| 100 | midden | 30 MB (+27 %) | 1,7 MB (+1,6 %) | 119 MB (+28 %) | 7.242 / 426 (+2.087 / +123 %) | 1,0–1,1 kB (0,04–0,05 %) |
+| 100 | alle gridpunten | 37–58 MB (+34–54 %) | 4,0–5,1 MB (+3,7–4,7 %) | 148–233 MB (+34–54 %) | 7.242 / 426 (+2.087 / +123 %) | 19,0–26,6 kB (0,69–1,1 %) |
+| 210 | midden | 62 MB (+57 %) | 3,6 MB (+3,4 %) | 247 MB (+58 %) | 15.096 / 888 (+4.350 / +256 %) | 1,0–1,1 kB (0,04–0,05 %) |
+| 210 | alle gridpunten | 68–87 MB (+63–81 %) | 5,8–6,6 MB (+5,4–6,1 %) | 274–350 MB (+64–81 %) | 15.096 / 888 (+4.350 / +256 %) | 9,8–13,5 kB (0,36–0,57 %) |
+| 399 | midden | 109 MB (+101 %) | 6,4 MB (+5,9 %) | 436 MB (+101 %) | 26.622 / 1.566 (+7.672 / +451 %) | 1,0–1,1 kB (0,04–0,05 %) |
+| 399 | alle gridpunten | 115–125 MB (+107–116 %) | 8,6–8,8 MB (+7,9–8,2 %) | 462–502 MB (+107–117 %) | 26.622 / 1.566 (+7.672 / +451 %) | 6,0–7,9 kB (0,22–0,34 %) |
+| 810 | midden | 214 MB (+198 %) | 13 MB (+12 %) | 856 MB (+199 %) | 52.224 / 3.072 (+15.050 / +885 %) | 1,0–1,1 kB (0,04–0,05 %) |
+| 810 | alle gridpunten | 214–223 MB (+198–206 %) | 13 MB (+12 %) | 856–891 MB (+199–207 %) | 52.224 / 3.072 (+15.050 / +885 %) | 3,5–4,5 kB (0,13–0,19 %) |
+
+- **Opslag is op schijf gerekend, in 4 KiB-blokken** (ext4-standaard; de blokgrootte op prod niet nagekeken). Een
+  midden-bestand is 150–700 B en neemt toch een heel blok in; ook bij alle gridpunten is het droge radarbestand
+  gemiddeld 170 B. De blokken zijn daardoor het grootste deel van de kosten: bij alle gridpunten en 210 regio's is de
+  data zelf 49–144 MB per dag, op schijf 274–350 MB. Daarom kost midden op schijf bijna evenveel als alle
+  gridpunten.
+- **Het 6 u-venster is de dure retentie**: bij 210 regio's +63–81 % opslag en 15.096 bestanden live (nu 347). Met
+  nieuwste + 1 run is het +5,4–6,1 % en 888 bestanden. Het schrijfvolume (+64–81 % per dag) hangt niet van de
+  retentie af.
+- Met nieuwste + 1 run krijgt een client met een radarmanifest van meer dan ≈ 10 min oud een 404 op het
+  regiobestand. Hij valt dan terug op het huidige pad of haalt eerst een nieuw manifest; zie A5.
+
 ### Fout per veld (natte snapshot, op 6.997 plaatsen; alle gridpunten: overal 0)
 
 | regio's | variant | regen: droog/nat omgeslagen | regen: MAE als nat | gevoel MAE / p95 | temp. MAE | wind MAE / andere Bft-klasse | stoten MAE | zon MAE / p95 | bewolking MAE / p95 |
@@ -163,22 +200,27 @@ het 6 km-raster (in EPSG:3857; ≈ 3,7 km echt).
 
 ## 3. De knie
 
-| variant | per locatie | 4G-tijd na manifest | gevoel MAE | wind, andere klasse | regen omgeslagen |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| nu (hele rasters), telefoon 4G koud | 2.358–2.740 kB | 7,6–11,3 s tot histogram (gemeten, incl. decoderen) | 0 | 0 | 0 |
-| midden, 210 regio's | 1,1 kB | 61 ms | 0,58 °C | 24 % | 2,9 % |
-| midden, 810 regio's | 1,1 kB | 61 ms | 0,38 °C | 17 % | 1,8 % |
-| **alle gridpunten, 210 regio's** | **13,5 kB (p95 29,9 kB)** | **70 ms (p95 76 ms)** | **0** | **0** | **0** |
-| alle gridpunten, 49 regio's | 53,4 kB (p95 158 kB) | 97 ms (p95 159 ms) | 0 | 0 | 0 |
-| alle gridpunten, 810 regio's | 4,5 kB (p95 7,9 kB) | 63 ms (p95 64 ms) | 0 | 0 | 0 |
+| variant | client per locatie (% van nu) | 4G-tijd na manifest | gevoel MAE | wind, andere klasse | regen omgeslagen | extra live op prod: nieuwste + 1 / 6 u-venster | extra geschreven per dag |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| nu (hele rasters), telefoon 4G koud | 2.358–2.740 kB (100 %) | 7,6–11,3 s tot histogram (gemeten, incl. decoderen) | 0 | 0 | 0 | 108 MB live (baseline) | 430 MB (baseline) |
+| midden, 210 regio's | 1,0–1,1 kB (0,04–0,05 %) | 61 ms | 0,58 °C | 24 % | 2,9 % | 3,6 MB (+3,4 %) / 62 MB (+57 %) | 247 MB (+58 %) |
+| midden, 810 regio's | 1,0–1,1 kB (0,04–0,05 %) | 61 ms | 0,38 °C | 17 % | 1,8 % | 13 MB (+12 %) / 214 MB (+198 %) | 856 MB (+199 %) |
+| **alle gridpunten, 210 regio's** | **9,8–13,5 kB (0,4–0,6 %); p95 nat 29,9 kB** | **70 ms (p95 76 ms)** | **0** | **0** | **0** | **5,8–6,6 MB (+5,4–6,1 %)** / 68–87 MB (+63–81 %) | **274–350 MB (+64–81 %)** |
+| alle gridpunten, 49 regio's | 37–53 kB (1,4–2,3 %); p95 nat 158 kB | 97 ms (p95 159 ms) | 0 | 0 | 0 | 3,5–4,7 MB (+3,2–4,4 %) / 26–53 MB (+24–49 %) | 103–214 MB (+24–50 %) |
+| alle gridpunten, 810 regio's | 3,5–4,5 kB (0,1–0,2 %); p95 nat 7,9 kB | 63 ms (p95 64 ms) | 0 | 0 | 0 | 13 MB (+12 %) / 214–223 MB (+198–206 %) | 856–891 MB (+199–207 %) |
 
-(Regiovarianten: natte snapshot; 4G-tijd = model van §2, zonder decodeertijd; die is voor 13 kB zstd geschat op enkele ms, niet
-gemeten op de telefoon.)
+(Bereiken = nat–droog. Fout en 4G-tijd: natte snapshot; 4G-tijd = model van §2, zonder decodeertijd; die is voor 13 kB
+zstd geschat op enkele ms, niet gemeten op de telefoon. Opslag en schrijfvolume op schijf in 4 KiB-blokken, % bovenop
+de prod-baseline; alle regiogroottes in §2.)
 
 **Er is geen afweging tussen bytes en fout:** alle varianten zitten binnen één RTT. De midden-variant bespaart
 12 kB (≈ 10 ms op 4G) en kost daarvoor een halve graad en een kwart andere Beaufort-getallen. Binnen "alle
 gridpunten" is de knie de regiogrootte: boven ~200 regio's is een bestand RTT-gedomineerd (70 → 63 ms bij 3,5× zoveel
 bestanden); onder ~100 regio's wordt het natte radarbestand groot (p95 111 kB bij 49 regio's, 40 kB bij 100).
+
+**Opslag trekt de knie naar minder regio's, niet naar meer.** Schrijfvolume en het 6 u-venster groeien vrijwel
+lineair met het aantal bestanden, door de 4 KiB-blokken: van +64–81 % bij 210 naar +199–207 % bij 810 regio's, voor
+7 ms. Met nieuwste + 1 run blijft de live opslag klein (+5–6 % bij 210 regio's); het schrijfvolume blijft +64–81 %.
 
 ## 4. Bronnen, gebruik in de client, kosten in de ingest
 
@@ -205,7 +247,7 @@ inclusief het uitknippen; natte snapshot):
 
 | groep | ritme | bestanden per run | bytes per run | zstd-19 per run | per dag |
 | --- | --- | ---: | ---: | ---: | ---: |
-| radar | 5 min | 148 | 348 kB (droog 25 kB) | 3,8 s | 42.624 bestanden, ≈ 100 MB, ≈ 18 min CPU |
+| radar | 5 min | 148 | 348 kB (droog 25 kB) | 3,8 s | 42.624 bestanden, ≈ 100 MB data (op schijf ≈ 175–248 MB), ≈ 18 min CPU |
 | harmonie | 1 u | 148 | 1.583 kB | 2,1 s | 3.552 bestanden, ≈ 38 MB, < 1 min CPU |
 | extra | 15 min–3 u | 148 | 60 kB | 0,2 s | verwaarloosbaar |
 
@@ -220,6 +262,7 @@ inclusief het uitknippen; natte snapshot):
 1. **Alle gridpunten, 210 regio's (zijde ≈ 25 km), drie groepen (radar, harmonie, extra), later ECMWF als vierde.**
    Fout 0 (de client leest zijn eigen cel), 13,5 kB per locatie op een natte dag (p95 30 kB), 70 ms op 4G na het
    manifest. Nu: 2,4–2,7 MB en 7,6–11,3 s tot het histogram op de telefoon, warm nog 7,5–11 s.
+   **Retentie nieuwste + 1 run**: +5,8–6,6 MB live (+5,4–6,1 %) en +274–350 MB geschreven per dag (+64–81 %).
 2. **Geen midden- of gemiddelde-variant.** Die bespaart ≈ 10 ms en kost een halve graad en een kwart andere
    Beaufort-getallen.
 3. **Eerst meten, dan bouwen**: de bouw in twee tracks. Ingest (`crates/ingest`: regiobestanden en de
@@ -236,3 +279,8 @@ A3. Zeeregio's krijgen geen bestand; een locatie op zee valt terug op het huidig
 Noordzeekust en de Waddenzee met een rand meenemen?
 A4. Los van deze MIP: op desktop laden Gevoel en Wind de afgelopen uren pas na 30 s (§1 punt 3; de scrubber na 8 s en
 na 35 s: `docs/perf/u102/desktop-gevoel-08s-scrubber.png`, `…-35s-scrubber.png`). Wil je dat als kleine fix vóór de regiobestanden?
+A5. Regiobestanden bewaren als nieuwste + 1 run (+5–6 % opslag), of 6 u zoals de chunks (+63–81 %)? Bij nieuwste +
+1 run krijgt een client met een manifest van > 10 min oud een 404 en valt hij terug. En wil je de 4 KiB-blokken
+terugwinnen met één bestand per groep per run (alle regio's achter elkaar, de client leest zijn deel met een
+range-request)? Dat haalt het schrijfvolume van 274–350 naar 49–144 MB per dag, maar is een ander ontwerp (niet
+gemeten).

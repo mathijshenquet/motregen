@@ -16,6 +16,7 @@ import { summarizeWind } from '../src/core/weather.js'
 // Het NL+Vlaanderen-kader van het 6 km-detailgrid (docs/pollen.md, `DETAIL_GRID`), in EPSG:3857-meters.
 const FRAME = { west: 258_000, east: 834_000, north: 7_132_000, south: 6_502_000 }
 const EARTH_RADIUS = 6_378_137
+const DISK_BLOCK_BYTES = 4096
 // Schaal van EPSG:3857 bij het midden van het kader (≈ 52,1° N): 1 kaartmeter = cos(φ) echte meter.
 const FRAME_SCALE = Math.cos(2 * Math.atan(Math.exp(((FRAME.north + FRAME.south) / 2) / EARTH_RADIUS)) - Math.PI / 2)
 
@@ -304,6 +305,9 @@ function fileSizes(cubes: Map<Field, Cube>, regions: Regions) {
         meanBytes: Math.round(sizes.reduce((sum, size) => sum + size, 0) / Math.max(1, sizes.length)),
         p95Bytes: percentile(sorted, 0.95),
         totalBytes: sizes.reduce((sum, size) => sum + size, 0),
+        // Op schijf neemt elk bestand hele blokken in (ext4: 4 KiB); bij regiobestanden van een paar honderd bytes
+        // is dat de echte opslag.
+        diskBytes: sizes.reduce((sum, size) => sum + Math.ceil(size / DISK_BLOCK_BYTES) * DISK_BLOCK_BYTES, 0),
         encodeMs: Math.round(performance.now() - started),
       }
     }

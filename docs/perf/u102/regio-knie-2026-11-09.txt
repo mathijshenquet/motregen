@@ -1,76 +1,76 @@
 
-## devdata 2026-09-30 (nat) (nu 2026-09-30T07:10:00Z), 6997 plaatsen in het kader
+## ~/data/motregen-devdata/data (nu 2026-09-30T07:10:00Z), 6997 plaatsen in het kader
 velden: rain_rate 576×630×142, temp_c 96×105×52, feels_like_c 96×105×52, wind_u_ms 96×105×52, wind_v_ms 96×105×52, gust_ms 96×105×52, radiation 72×79×52, cloud_frac 36×40×52, cloud_low 36×40×52, cloud_mid 36×40×52, cloud_high 36×40×52, uv 115×126×3, uv_clear 115×126×59
 
 ### 49 regio's (7×7, zijde 52.9 km), 38 met een plaats
 fout (reeks van het regiomidden): regen droog/nat omgeslagen in 4,5 % van de tijdstappen (nat in 10,7 %), MAE nat 0,71 mm/u, p95 nat 3,32 mm/u; gevoel MAE 0,77 °C, p95 2,40 °C; temperatuur MAE 0,69 °C, p95 2,10 °C; wind MAE 0,33 Bft, andere Bft-klasse in 32,0 %; windstoten MAE 0,42 Bft; zon MAE 5,0 min/u, p95 21,5 min/u (daguren); bewolking MAE 6,72 %, p95 44,49 %; uv MAE 0,02 UV-index, p95 0,05 UV-index
 fout (regiogemiddelde): regen droog/nat omgeslagen in 4,9 % van de tijdstappen (nat in 12,0 %), MAE nat 0,54 mm/u, p95 nat 2,19 mm/u; gevoel MAE 0,67 °C, p95 1,88 °C; temperatuur MAE 0,62 °C, p95 1,82 °C; wind MAE 0,28 Bft, andere Bft-klasse in 27,8 %; windstoten MAE 0,36 Bft; zon MAE 4,6 min/u, p95 18,1 min/u (daguren); bewolking MAE 6,44 %, p95 35,78 %; uv MAE 0,02 UV-index, p95 0,05 UV-index
-bestand radar: midden 149 B (p95 197 B), alle gridpunten 11366 B (p95 110826 B); per run 38 bestanden, 5646 / 431890 B, zstd-19 3 / 3177 ms
-bestand harmonie: midden 700 B (p95 725 B), alle gridpunten 41172 B (p95 46309 B); per run 38 bestanden, 26609 / 1564539 B, zstd-19 24 / 2070 ms
-bestand extra: midden 216 B (p95 221 B), alle gridpunten 813 B (p95 1040 B); per run 38 bestanden, 8219 / 30904 B, zstd-19 2 / 212 ms
+bestand radar: midden 149 B (p95 197 B), alle gridpunten 11366 B (p95 110826 B); per run 38 bestanden, 5646 / 431890 B, zstd-19 4 / 2629 ms
+bestand harmonie: midden 700 B (p95 725 B), alle gridpunten 41172 B (p95 46309 B); per run 38 bestanden, 26609 / 1564539 B, zstd-19 23 / 1555 ms
+bestand extra: midden 216 B (p95 221 B), alle gridpunten 813 B (p95 1040 B); per run 38 bestanden, 8219 / 30904 B, zstd-19 2 / 176 ms
 
 ### 100 regio's (10×10, zijde 37.0 km), 71 met een plaats
 fout (reeks van het regiomidden): regen droog/nat omgeslagen in 3,4 % van de tijdstappen (nat in 10,0 %), MAE nat 0,67 mm/u, p95 nat 2,94 mm/u; gevoel MAE 0,67 °C, p95 2,10 °C; temperatuur MAE 0,60 °C, p95 1,80 °C; wind MAE 0,29 Bft, andere Bft-klasse in 27,9 %; windstoten MAE 0,37 Bft; zon MAE 4,0 min/u, p95 18,0 min/u (daguren); bewolking MAE 5,60 %, p95 37,80 %; uv MAE 0,02 UV-index, p95 0,05 UV-index
 fout (regiogemiddelde): regen droog/nat omgeslagen in 3,8 % van de tijdstappen (nat in 10,9 %), MAE nat 0,51 mm/u, p95 nat 2,12 mm/u; gevoel MAE 0,58 °C, p95 1,60 °C; temperatuur MAE 0,52 °C, p95 1,53 °C; wind MAE 0,25 Bft, andere Bft-klasse in 24,6 %; windstoten MAE 0,32 Bft; zon MAE 3,8 min/u, p95 15,7 min/u (daguren); bewolking MAE 5,35 %, p95 31,42 %; uv MAE 0,02 UV-index, p95 0,05 UV-index
-bestand radar: midden 147 B (p95 182 B), alle gridpunten 4887 B (p95 40368 B); per run 71 bestanden, 10467 / 346984 B, zstd-19 3 / 2915 ms
-bestand harmonie: midden 701 B (p95 718 B), alle gridpunten 21146 B (p95 23775 B); per run 71 bestanden, 49764 / 1501393 B, zstd-19 49 / 2039 ms
-bestand extra: midden 217 B (p95 223 B), alle gridpunten 559 B (p95 687 B); per run 71 bestanden, 15410 / 39720 B, zstd-19 7 / 219 ms
+bestand radar: midden 147 B (p95 182 B), alle gridpunten 4887 B (p95 40368 B); per run 71 bestanden, 10467 / 346984 B, zstd-19 3 / 2510 ms
+bestand harmonie: midden 701 B (p95 718 B), alle gridpunten 21146 B (p95 23775 B); per run 71 bestanden, 49764 / 1501393 B, zstd-19 41 / 1570 ms
+bestand extra: midden 217 B (p95 223 B), alle gridpunten 559 B (p95 687 B); per run 71 bestanden, 15410 / 39720 B, zstd-19 4 / 159 ms
 
 ### 210 regio's (14×15, zijde 25.5 km), 148 met een plaats
 fout (reeks van het regiomidden): regen droog/nat omgeslagen in 2,9 % van de tijdstappen (nat in 9,6 %), MAE nat 0,56 mm/u, p95 nat 2,60 mm/u; gevoel MAE 0,58 °C, p95 1,80 °C; temperatuur MAE 0,53 °C, p95 1,50 °C; wind MAE 0,25 Bft, andere Bft-klasse in 24,1 %; windstoten MAE 0,32 Bft; zon MAE 3,1 min/u, p95 14,1 min/u (daguren); bewolking MAE 4,38 %, p95 29,92 %; uv MAE 0,01 UV-index, p95 0,05 UV-index
 fout (regiogemiddelde): regen droog/nat omgeslagen in 2,9 % van de tijdstappen (nat in 10,2 %), MAE nat 0,46 mm/u, p95 nat 1,96 mm/u; gevoel MAE 0,49 °C, p95 1,36 °C; temperatuur MAE 0,44 °C, p95 1,32 °C; wind MAE 0,21 Bft, andere Bft-klasse in 21,2 %; windstoten MAE 0,28 Bft; zon MAE 2,9 min/u, p95 12,3 min/u (daguren); bewolking MAE 4,24 %, p95 25,92 %; uv MAE 0,02 UV-index, p95 0,04 UV-index
-bestand radar: midden 147 B (p95 177 B), alle gridpunten 2352 B (p95 17480 B); per run 148 bestanden, 21820 / 348133 B, zstd-19 8 / 3765 ms
-bestand harmonie: midden 699 B (p95 719 B), alle gridpunten 10699 B (p95 11939 B); per run 148 bestanden, 103517 / 1583495 B, zstd-19 91 / 2074 ms
-bestand extra: midden 217 B (p95 222 B), alle gridpunten 406 B (p95 494 B); per run 148 bestanden, 32140 / 60135 B, zstd-19 11 / 168 ms
+bestand radar: midden 147 B (p95 177 B), alle gridpunten 2352 B (p95 17480 B); per run 148 bestanden, 21820 / 348133 B, zstd-19 5 / 2794 ms
+bestand harmonie: midden 699 B (p95 719 B), alle gridpunten 10699 B (p95 11939 B); per run 148 bestanden, 103517 / 1583495 B, zstd-19 83 / 1723 ms
+bestand extra: midden 217 B (p95 222 B), alle gridpunten 406 B (p95 494 B); per run 148 bestanden, 32140 / 60135 B, zstd-19 8 / 155 ms
 
 ### 399 regio's (19×21, zijde 18.5 km), 261 met een plaats
 fout (reeks van het regiomidden): regen droog/nat omgeslagen in 2,3 % van de tijdstappen (nat in 9,2 %), MAE nat 0,47 mm/u, p95 nat 2,21 mm/u; gevoel MAE 0,47 °C, p95 1,50 °C; temperatuur MAE 0,42 °C, p95 1,20 °C; wind MAE 0,21 Bft, andere Bft-klasse in 20,8 %; windstoten MAE 0,27 Bft; zon MAE 2,4 min/u, p95 11,3 min/u (daguren); bewolking MAE 3,49 %, p95 24,02 %; uv MAE 0,01 UV-index, p95 0,05 UV-index
 fout (regiogemiddelde): regen droog/nat omgeslagen in 2,4 % van de tijdstappen (nat in 9,7 %), MAE nat 0,41 mm/u, p95 nat 1,77 mm/u; gevoel MAE 0,42 °C, p95 1,19 °C; temperatuur MAE 0,38 °C, p95 1,13 °C; wind MAE 0,19 Bft, andere Bft-klasse in 18,6 %; windstoten MAE 0,24 Bft; zon MAE 2,3 min/u, p95 10,0 min/u (daguren); bewolking MAE 3,55 %, p95 22,05 %; uv MAE 0,01 UV-index, p95 0,04 UV-index
-bestand radar: midden 146 B (p95 169 B), alle gridpunten 1076 B (p95 7510 B); per run 261 bestanden, 38179 / 280763 B, zstd-19 7 / 3050 ms
-bestand harmonie: midden 700 B (p95 719 B), alle gridpunten 6519 B (p95 7171 B); per run 261 bestanden, 182767 / 1701437 B, zstd-19 155 / 1700 ms
-bestand extra: midden 217 B (p95 222 B), alle gridpunten 338 B (p95 381 B); per run 261 bestanden, 56646 / 88128 B, zstd-19 19 / 157 ms
+bestand radar: midden 146 B (p95 169 B), alle gridpunten 1076 B (p95 7510 B); per run 261 bestanden, 38179 / 280763 B, zstd-19 8 / 2621 ms
+bestand harmonie: midden 700 B (p95 719 B), alle gridpunten 6519 B (p95 7171 B); per run 261 bestanden, 182767 / 1701437 B, zstd-19 146 / 1602 ms
+bestand extra: midden 217 B (p95 222 B), alle gridpunten 338 B (p95 381 B); per run 261 bestanden, 56646 / 88128 B, zstd-19 14 / 144 ms
 
 ### 810 regio's (27×30, zijde 13.0 km), 512 met een plaats
 fout (reeks van het regiomidden): regen droog/nat omgeslagen in 1,8 % van de tijdstappen (nat in 9,1 %), MAE nat 0,38 mm/u, p95 nat 1,76 mm/u; gevoel MAE 0,38 °C, p95 1,20 °C; temperatuur MAE 0,34 °C, p95 1,20 °C; wind MAE 0,17 Bft, andere Bft-klasse in 16,7 %; windstoten MAE 0,21 Bft; zon MAE 1,8 min/u, p95 8,9 min/u (daguren); bewolking MAE 2,50 %, p95 16,93 %; uv MAE 0,01 UV-index, p95 0,05 UV-index
 fout (regiogemiddelde): regen droog/nat omgeslagen in 1,8 % van de tijdstappen (nat in 9,3 %), MAE nat 0,35 mm/u, p95 nat 1,50 mm/u; gevoel MAE 0,35 °C, p95 1,03 °C; temperatuur MAE 0,32 °C, p95 0,97 °C; wind MAE 0,16 Bft, andere Bft-klasse in 15,5 %; windstoten MAE 0,21 Bft; zon MAE 1,8 min/u, p95 8,0 min/u (daguren); bewolking MAE 2,62 %, p95 17,32 %; uv MAE 0,01 UV-index, p95 0,04 UV-index
-bestand radar: midden 146 B (p95 170 B), alle gridpunten 604 B (p95 3295 B); per run 512 bestanden, 74974 / 309194 B, zstd-19 23 / 2680 ms
-bestand harmonie: midden 702 B (p95 721 B), alle gridpunten 3600 B (p95 4308 B); per run 512 bestanden, 359237 / 1843049 B, zstd-19 321 / 1827 ms
-bestand extra: midden 217 B (p95 223 B), alle gridpunten 287 B (p95 323 B); per run 512 bestanden, 111124 / 146985 B, zstd-19 30 / 150 ms
+bestand radar: midden 146 B (p95 170 B), alle gridpunten 604 B (p95 3295 B); per run 512 bestanden, 74974 / 309194 B, zstd-19 14 / 2517 ms
+bestand harmonie: midden 702 B (p95 721 B), alle gridpunten 3600 B (p95 4308 B); per run 512 bestanden, 359237 / 1843049 B, zstd-19 282 / 1659 ms
+bestand extra: midden 217 B (p95 223 B), alle gridpunten 287 B (p95 323 B); per run 512 bestanden, 111124 / 146985 B, zstd-19 30 / 141 ms
 
-## live 2026-11-09 (droog) (nu 2026-11-09T10:15:00Z), 6997 plaatsen in het kader
+## ~/data/motregen-u102/live-20261109 (nu 2026-11-09T10:15:00Z), 6997 plaatsen in het kader
 velden: rain_rate 576×630×142, temp_c 96×105×52, feels_like_c 96×105×52, wind_u_ms 96×105×52, wind_v_ms 96×105×52, gust_ms 96×105×52, radiation 72×79×52, radiation_direct 72×79×48, cloud_frac 36×40×52, cloud_low 36×40×52, cloud_mid 36×40×52, cloud_high 36×40×52, uv 115×126×11, uv_clear 115×126×48
 
 ### 49 regio's (7×7, zijde 52.9 km), 38 met een plaats
 fout (reeks van het regiomidden): regen droog/nat omgeslagen in 1,2 % van de tijdstappen (nat in 7,0 %), MAE nat 0,52 mm/u, p95 nat 1,65 mm/u; gevoel MAE 0,92 °C, p95 2,70 °C; temperatuur MAE 0,72 °C, p95 2,10 °C; wind MAE 0,37 Bft, andere Bft-klasse in 34,6 %; windstoten MAE 0,42 Bft; zon MAE 3,5 min/u, p95 20,0 min/u (daguren); bewolking MAE 7,91 %, p95 54,33 %; uv MAE 0,02 UV-index, p95 0,09 UV-index
 fout (regiogemiddelde): regen droog/nat omgeslagen in 1,3 % van de tijdstappen (nat in 7,5 %), MAE nat 0,42 mm/u, p95 nat 1,20 mm/u; gevoel MAE 0,79 °C, p95 2,15 °C; temperatuur MAE 0,67 °C, p95 1,99 °C; wind MAE 0,33 Bft, andere Bft-klasse in 32,4 %; windstoten MAE 0,38 Bft; zon MAE 3,1 min/u, p95 17,5 min/u (daguren); bewolking MAE 8,08 %, p95 43,14 %; uv MAE 0,02 UV-index, p95 0,08 UV-index
-bestand radar: midden 142 B (p95 143 B), alle gridpunten 1099 B (p95 13319 B); per run 38 bestanden, 5400 / 41770 B, zstd-19 1 / 1814 ms
-bestand harmonie: midden 611 B (p95 646 B), alle gridpunten 34260 B (p95 39457 B); per run 38 bestanden, 23213 / 1301873 B, zstd-19 31 / 1759 ms
-bestand extra: midden 274 B (p95 282 B), alle gridpunten 1802 B (p95 2315 B); per run 38 bestanden, 10425 / 68489 B, zstd-19 3 / 249 ms
+bestand radar: midden 142 B (p95 143 B), alle gridpunten 1099 B (p95 13319 B); per run 38 bestanden, 5400 / 41770 B, zstd-19 2 / 1568 ms
+bestand harmonie: midden 611 B (p95 646 B), alle gridpunten 34260 B (p95 39457 B); per run 38 bestanden, 23213 / 1301873 B, zstd-19 23 / 1480 ms
+bestand extra: midden 274 B (p95 282 B), alle gridpunten 1802 B (p95 2315 B); per run 38 bestanden, 10425 / 68489 B, zstd-19 3 / 230 ms
 
 ### 100 regio's (10×10, zijde 37.0 km), 71 met een plaats
 fout (reeks van het regiomidden): regen droog/nat omgeslagen in 1,0 % van de tijdstappen (nat in 6,8 %), MAE nat 0,43 mm/u, p95 nat 1,40 mm/u; gevoel MAE 0,84 °C, p95 2,40 °C; temperatuur MAE 0,65 °C, p95 2,10 °C; wind MAE 0,32 Bft, andere Bft-klasse in 30,9 %; windstoten MAE 0,39 Bft; zon MAE 2,9 min/u, p95 17,6 min/u (daguren); bewolking MAE 6,21 %, p95 43,31 %; uv MAE 0,02 UV-index, p95 0,09 UV-index
 fout (regiogemiddelde): regen droog/nat omgeslagen in 1,0 % van de tijdstappen (nat in 7,2 %), MAE nat 0,36 mm/u, p95 nat 1,08 mm/u; gevoel MAE 0,71 °C, p95 1,96 °C; temperatuur MAE 0,59 °C, p95 1,74 °C; wind MAE 0,30 Bft, andere Bft-klasse in 29,1 %; windstoten MAE 0,35 Bft; zon MAE 2,7 min/u, p95 15,1 min/u (daguren); bewolking MAE 6,36 %, p95 35,68 %; uv MAE 0,02 UV-index, p95 0,07 UV-index
-bestand radar: midden 142 B (p95 143 B), alle gridpunten 332 B (p95 165 B); per run 71 bestanden, 10106 / 23606 B, zstd-19 2 / 1714 ms
-bestand harmonie: midden 610 B (p95 646 B), alle gridpunten 17625 B (p95 20528 B); per run 71 bestanden, 43304 / 1251386 B, zstd-19 55 / 1847 ms
-bestand extra: midden 274 B (p95 283 B), alle gridpunten 1072 B (p95 1378 B); per run 71 bestanden, 19453 / 76102 B, zstd-19 6 / 252 ms
+bestand radar: midden 142 B (p95 143 B), alle gridpunten 332 B (p95 165 B); per run 71 bestanden, 10106 / 23606 B, zstd-19 3 / 1384 ms
+bestand harmonie: midden 610 B (p95 646 B), alle gridpunten 17625 B (p95 20528 B); per run 71 bestanden, 43304 / 1251386 B, zstd-19 41 / 1505 ms
+bestand extra: midden 274 B (p95 283 B), alle gridpunten 1072 B (p95 1378 B); per run 71 bestanden, 19453 / 76102 B, zstd-19 5 / 204 ms
 
 ### 210 regio's (14×15, zijde 25.5 km), 148 met een plaats
 fout (reeks van het regiomidden): regen droog/nat omgeslagen in 0,8 % van de tijdstappen (nat in 6,7 %), MAE nat 0,34 mm/u, p95 nat 1,16 mm/u; gevoel MAE 0,75 °C, p95 2,40 °C; temperatuur MAE 0,60 °C, p95 1,80 °C; wind MAE 0,30 Bft, andere Bft-klasse in 28,9 %; windstoten MAE 0,37 Bft; zon MAE 2,3 min/u, p95 14,2 min/u (daguren); bewolking MAE 4,84 %, p95 33,46 %; uv MAE 0,01 UV-index, p95 0,05 UV-index
 fout (regiogemiddelde): regen droog/nat omgeslagen in 0,7 % van de tijdstappen (nat in 6,9 %), MAE nat 0,30 mm/u, p95 nat 0,93 mm/u; gevoel MAE 0,61 °C, p95 1,74 °C; temperatuur MAE 0,50 °C, p95 1,49 °C; wind MAE 0,26 Bft, andere Bft-klasse in 25,3 %; windstoten MAE 0,30 Bft; zon MAE 2,1 min/u, p95 11,9 min/u (daguren); bewolking MAE 4,85 %, p95 29,33 %; uv MAE 0,02 UV-index, p95 0,06 UV-index
-bestand radar: midden 142 B (p95 143 B), alle gridpunten 170 B (p95 160 B); per run 148 bestanden, 21016 / 25220 B, zstd-19 4 / 1615 ms
-bestand harmonie: midden 611 B (p95 644 B), alle gridpunten 8941 B (p95 10280 B); per run 148 bestanden, 90393 / 1323269 B, zstd-19 104 / 2153 ms
-bestand extra: midden 274 B (p95 283 B), alle gridpunten 691 B (p95 832 B); per run 148 bestanden, 40622 / 102250 B, zstd-19 16 / 249 ms
+bestand radar: midden 142 B (p95 143 B), alle gridpunten 170 B (p95 160 B); per run 148 bestanden, 21016 / 25220 B, zstd-19 4 / 1314 ms
+bestand harmonie: midden 611 B (p95 644 B), alle gridpunten 8941 B (p95 10280 B); per run 148 bestanden, 90393 / 1323269 B, zstd-19 85 / 1712 ms
+bestand extra: midden 274 B (p95 283 B), alle gridpunten 691 B (p95 832 B); per run 148 bestanden, 40622 / 102250 B, zstd-19 11 / 199 ms
 
 ### 399 regio's (19×21, zijde 18.5 km), 261 met een plaats
 fout (reeks van het regiomidden): regen droog/nat omgeslagen in 0,5 % van de tijdstappen (nat in 6,6 %), MAE nat 0,28 mm/u, p95 nat 0,96 mm/u; gevoel MAE 0,62 °C, p95 1,80 °C; temperatuur MAE 0,47 °C, p95 1,50 °C; wind MAE 0,25 Bft, andere Bft-klasse in 24,2 %; windstoten MAE 0,30 Bft; zon MAE 1,9 min/u, p95 11,8 min/u (daguren); bewolking MAE 3,89 %, p95 27,56 %; uv MAE 0,01 UV-index, p95 0,05 UV-index
 fout (regiogemiddelde): regen droog/nat omgeslagen in 0,6 % van de tijdstappen (nat in 6,7 %), MAE nat 0,25 mm/u, p95 nat 0,78 mm/u; gevoel MAE 0,53 °C, p95 1,55 °C; temperatuur MAE 0,42 °C, p95 1,27 °C; wind MAE 0,22 Bft, andere Bft-klasse in 22,2 %; windstoten MAE 0,27 Bft; zon MAE 1,8 min/u, p95 10,4 min/u (daguren); bewolking MAE 4,02 %, p95 25,79 %; uv MAE 0,01 UV-index, p95 0,05 UV-index
-bestand radar: midden 142 B (p95 143 B), alle gridpunten 155 B (p95 155 B); per run 261 bestanden, 37087 / 40405 B, zstd-19 10 / 1899 ms
-bestand harmonie: midden 609 B (p95 644 B), alle gridpunten 5351 B (p95 6065 B); per run 261 bestanden, 158867 / 1396533 B, zstd-19 197 / 1923 ms
-bestand extra: midden 275 B (p95 283 B), alle gridpunten 518 B (p95 618 B); per run 261 bestanden, 71662 / 135131 B, zstd-19 25 / 211 ms
+bestand radar: midden 142 B (p95 143 B), alle gridpunten 155 B (p95 155 B); per run 261 bestanden, 37087 / 40405 B, zstd-19 7 / 1184 ms
+bestand harmonie: midden 609 B (p95 644 B), alle gridpunten 5351 B (p95 6065 B); per run 261 bestanden, 158867 / 1396533 B, zstd-19 148 / 1563 ms
+bestand extra: midden 275 B (p95 283 B), alle gridpunten 518 B (p95 618 B); per run 261 bestanden, 71662 / 135131 B, zstd-19 19 / 183 ms
 
 ### 810 regio's (27×30, zijde 13.0 km), 512 met een plaats
 fout (reeks van het regiomidden): regen droog/nat omgeslagen in 0,4 % van de tijdstappen (nat in 6,5 %), MAE nat 0,21 mm/u, p95 nat 0,73 mm/u; gevoel MAE 0,51 °C, p95 1,80 °C; temperatuur MAE 0,38 °C, p95 1,20 °C; wind MAE 0,20 Bft, andere Bft-klasse in 20,0 %; windstoten MAE 0,25 Bft; zon MAE 1,4 min/u, p95 9,3 min/u (daguren); bewolking MAE 2,79 %, p95 19,29 %; uv MAE 0,01 UV-index, p95 0,05 UV-index
 fout (regiogemiddelde): regen droog/nat omgeslagen in 0,4 % van de tijdstappen (nat in 6,6 %), MAE nat 0,20 mm/u, p95 nat 0,65 mm/u; gevoel MAE 0,46 °C, p95 1,37 °C; temperatuur MAE 0,35 °C, p95 1,07 °C; wind MAE 0,19 Bft, andere Bft-klasse in 18,9 %; windstoten MAE 0,23 Bft; zon MAE 1,4 min/u, p95 8,3 min/u (daguren); bewolking MAE 2,92 %, p95 19,69 %; uv MAE 0,01 UV-index, p95 0,04 UV-index
-bestand radar: midden 142 B (p95 143 B), alle gridpunten 145 B (p95 147 B); per run 512 bestanden, 72718 / 74331 B, zstd-19 20 / 1777 ms
-bestand harmonie: midden 607 B (p95 635 B), alle gridpunten 2973 B (p95 3640 B); per run 512 bestanden, 310960 / 1522081 B, zstd-19 432 / 2156 ms
-bestand extra: midden 275 B (p95 283 B), alle gridpunten 406 B (p95 472 B); per run 512 bestanden, 140644 / 207757 B, zstd-19 51 / 265 ms
+bestand radar: midden 142 B (p95 143 B), alle gridpunten 145 B (p95 147 B); per run 512 bestanden, 72718 / 74331 B, zstd-19 13 / 1162 ms
+bestand harmonie: midden 607 B (p95 635 B), alle gridpunten 2973 B (p95 3640 B); per run 512 bestanden, 310960 / 1522081 B, zstd-19 291 / 1641 ms
+bestand extra: midden 275 B (p95 283 B), alle gridpunten 406 B (p95 472 B); per run 512 bestanden, 140644 / 207757 B, zstd-19 37 / 205 ms
