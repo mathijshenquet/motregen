@@ -86,8 +86,16 @@ export class WindsockLayer {
   draws = 0
   private readonly mapRendered = () => { if (this.camera() !== this.drawnCamera) this.draw() }
   private readonly resized = () => { this.layoutDirty = true; this.draw() }
-  /** Plaatsnamen staan pas vast als de kaart stilvalt: dan nog één keer opnieuw indelen. */
-  private readonly idle = () => { this.layoutDirty = true; this.draw() }
+  /** Plaatsnamen staan pas vast als de kaart stilvalt: dan één keer opnieuw indelen per nieuwe camerastand. */
+  private readonly idle = () => {
+    const camera = this.camera()
+    if (camera === this.idleCamera) return
+    this.idleCamera = camera
+    this.layoutDirty = true
+    this.draw()
+  }
+  private idleCamera = ''
+  private layoutCamera = ''
   /** Laatste interactie (performance.now()), voor het wuifbudget. */
   private lastActivity = performance.now()
   private inView = true
@@ -144,8 +152,10 @@ export class WindsockLayer {
   }
 
   setField(field: WindsockField | undefined): void {
-    // Een nieuwe kaarttijd (scrubben, afspelen) is kijken: het wuifbudget begint opnieuw.
-    if (field !== this.field) this.lastActivity = performance.now()
+    // App roept dit bij elke laagtekening aan, vaak met hetzelfde veld in een nieuw object: alleen een andere
+    // kaarttijd (scrubben, afspelen) telt als kijken en zet het wuifbudget terug.
+    if (sameField(field, this.field)) return
+    this.lastActivity = performance.now()
     this.field = field
     this.draw()
   }
@@ -223,7 +233,13 @@ export class WindsockLayer {
     let fluttering = false
     let settling = false
     const size = mapLabelSize(window.innerWidth, window.innerHeight, this.options.regime)
-    if (this.layoutDirty || started - this.lastLayout >= LAYOUT_INTERVAL_MS) this.layout(size, started)
+    // Indelen bij een nieuwe stand (pin, plekken, stilstand) of tijdens bewegen hooguit om de LAYOUT_INTERVAL_MS.
+    if (this.layoutDirty || (this.drawnCamera !== this.layoutCamera && started - this.lastLayout >= LAYOUT_INTERVAL_MS)) {
+      this.layoutCamera = this.drawnCamera
+      this.layout(size, started)
+      recordPerfPhase('windsock-layout', performance.now() - started)
+    }
+    const drawStarted = performance.now()
     for (const sock of this.socks) {
       if (!sock.placed) continue
       const screen = this.map.project([sock.place.lng, sock.place.lat])
@@ -243,9 +259,10 @@ export class WindsockLayer {
       this.drawnCount++
       this.drawnMaxStrength = Math.max(this.drawnMaxStrength, strength)
     }
-    recordPerfPhase('windsock-draw', performance.now() - started, { socks: this.drawnCount, fluttering })
+    recordPerfPhase('windsock-draw', performance.now() - drawStarted, { socks: this.drawnCount, fluttering })
     const summary = `${this.drawnCount}|${Math.round(this.drawnMaxStrength * 10) / 10}`
     if (this.canvas.dataset.socks !== summary) this.canvas.dataset.socks = summary
+    this.canvas.dataset.draws = String(this.draws)
     if ((fluttering || settling) && this.inView && document.visibilityState !== 'hidden') this.scheduleFlutter(started, this.flutterFps(started))
   }
 
@@ -311,6 +328,16 @@ export class WindsockLayer {
 export function windsockDevOptions(params: URLSearchParams): Omit<WindsockLayerOptions, 'reducedMotion' | 'pin'> {
   const factor = Number(params.get('windfactor'))
   return { speedFactor: Number.isFinite(factor) && factor > 0 ? factor : 1, regime: mapLabelRegime(params) }
+}
+
+function sameField(next: WindsockField | undefined, current: WindsockField | undefined): boolean {
+  if (!next || !current) return next === current
+  const [a, b] = [next.grid, current.grid]
+  const sameGrid = a === b || (a.x0 === b.x0 && a.y0 === b.y0 && a.dx === b.dx && a.dy === b.dy && a.width === b.width && a.height === b.height)
+  return sameGrid && next.slices.every((slice, index) => {
+    const other = current.slices[index]!
+    return slice.left === other.left && slice.right === other.right && slice.mix === other.mix
+  })
 }
 
 /** Een rechte zak, alleen om de badgemaat te bepalen (die hangt niet van de vorm af). */

@@ -1,0 +1,20 @@
+== :4377 16.29, 31.37, 35.88
+storm, trilling: zakken|max-Bft 24|9.1; windsock-draw 156 tekeningen in 10 s (venster 326), p50 1.00 ms, p95 4.00 ms; pagina-fps 31.5; hoofdthread bezet 88 %
+data (max ~5 Bft): zakken|max-Bft 24|5.6; windsock-draw 153 tekeningen in 10 s (venster 320), p50 1.00 ms, p95 4.00 ms; pagina-fps 32; hoofdthread bezet 87 %
+stil > 30 s: zakken|max-Bft 24|5.6; windsock-draw -145 tekeningen in 10 s (venster 752), p50 0.80 ms, p95 3.20 ms; pagina-fps 30.5; hoofdthread bezet 88 %
+tabel in beeld: zakken|max-Bft 0|0; windsock-draw 0 tekeningen in 10 s (venster 167), p50 0.80 ms, p95 1.20 ms; pagina-fps 60; hoofdthread bezet 5 %
+== :4378 20.75, 28.72, 34.44
+storm, trilling: zakken|max-Bft 26|9.1; windsock-draw 144 tekeningen in 10 s (venster 302), p50 2.10 ms, p95 6.70 ms; pagina-fps 29; hoofdthread bezet 91 %
+data (max ~5 Bft): zakken|max-Bft 26|5.6; windsock-draw 145 tekeningen in 10 s (venster 306), p50 2.00 ms, p95 6.70 ms; pagina-fps 29; hoofdthread bezet 89 %
+stil > 30 s: zakken|max-Bft 26|5.6; windsock-draw -159 tekeningen in 10 s (venster 670), p50 0.80 ms, p95 5.10 ms; pagina-fps 31; hoofdthread bezet 87 %
+tabel in beeld: zakken|max-Bft 0|0; windsock-draw 0 tekeningen in 10 s (venster 160), p50 0.90 ms, p95 2.40 ms; pagina-fps 60; hoofdthread bezet 5 %
+== :4377 19.27, 25.98, 32.84
+storm, trilling: zakken|max-Bft 24|9.1; windsock-draw 151 tekeningen in 10 s (venster 310), p50 1.30 ms, p95 4.20 ms; pagina-fps 29; hoofdthread bezet 88 %
+data (max ~5 Bft): zakken|max-Bft 24|5.6; windsock-draw 151 tekeningen in 10 s (venster 317), p50 1.10 ms, p95 4.30 ms; pagina-fps 29; hoofdthread bezet 88 %
+stil > 30 s: zakken|max-Bft 24|5.6; windsock-draw -146 tekeningen in 10 s (venster 751), p50 0.70 ms, p95 3.10 ms; pagina-fps 31.5; hoofdthread bezet 87 %
+tabel in beeld: zakken|max-Bft 0|0; windsock-draw 0 tekeningen in 10 s (venster 168), p50 0.80 ms, p95 1.60 ms; pagina-fps 60; hoofdthread bezet 15 %
+== :4378 22.74, 24.95, 31.71
+storm, trilling: zakken|max-Bft 26|9.1; windsock-draw 141 tekeningen in 10 s (venster 306), p50 1.80 ms, p95 6.80 ms; pagina-fps 28.1; hoofdthread bezet 91 %
+data (max ~5 Bft): zakken|max-Bft 26|5.6; windsock-draw 142 tekeningen in 10 s (venster 292), p50 1.90 ms, p95 6.70 ms; pagina-fps 29; hoofdthread bezet 90 %
+stil > 30 s: zakken|max-Bft 26|5.6; windsock-draw -170 tekeningen in 10 s (venster 662), p50 0.80 ms, p95 5.20 ms; pagina-fps 26.6; hoofdthread bezet 91 %
+tabel in beeld: zakken|max-Bft 0|0; windsock-draw 0 tekeningen in 10 s (venster 163), p50 1.00 ms, p95 3.60 ms; pagina-fps 60; hoofdthread bezet 6 %
