@@ -2,7 +2,6 @@
 //! app en de bot (`bot/render-windsock-fixtures.ts`) en moet hier op afronding na terugkomen.
 
 use render_core::{
-    mode_constants::mode_constants,
     projection::Grid,
     windsock::{self, Cut, Interleaved, Point, WindSlice, WindsockField},
 };
@@ -14,7 +13,7 @@ struct Fixtures {
     shapes: Vec<ShapeCase>,
     field: FieldFixture,
     flow: Vec<FlowCase>,
-    flutter: Vec<FlutterCase>,
+    motions: Vec<MotionCase>,
     fills: Vec<FillCase>,
     beaufort: BeaufortCase,
 }
@@ -79,11 +78,17 @@ struct FlowCase {
 }
 
 #[derive(Deserialize)]
-struct FlutterCase {
-    strength: f64,
+struct MotionCase {
+    target: f64,
+    force: f64,
+    elapsed: f64,
+    snap: bool,
     seconds: f64,
-    phase: f64,
-    bends: Option<Vec<f64>>,
+    moving: bool,
+    heading: windsock::Spring,
+    strength: windsock::Spring,
+    wave: f64,
+    bends: Vec<f64>,
 }
 
 #[derive(Deserialize)]
@@ -230,13 +235,22 @@ fn sampling_streamline_and_lag_match_the_app() {
 }
 
 #[test]
-fn flutter_matches_the_app() {
-    let flutter = &mode_constants().windsock.flutter;
-    for case in fixtures().flutter {
+fn momentum_and_sway_match_the_app_frame_by_frame() {
+    let mut motion = windsock::SockMotion::default();
+    for (index, case) in fixtures().motions.into_iter().enumerate() {
+        let moving = windsock::advance_sock(&mut motion, case.target, case.force, case.elapsed, case.snap);
+        assert_eq!(moving, case.moving, "stap {index}: beweegt");
+        let heading = motion.heading.unwrap();
+        let strength = motion.strength.unwrap();
+        close(heading.value, case.heading.value, &format!("stap {index}: richting"));
+        close(heading.velocity, case.heading.velocity, &format!("stap {index}: draaisnelheid"));
+        close(strength.value, case.strength.value, &format!("stap {index}: kracht"));
+        close(strength.velocity, case.strength.velocity, &format!("stap {index}: krachtsnelheid"));
+        close(motion.wave, case.wave, &format!("stap {index}: golf"));
         close_list(
-            windsock::flutter_bends(flutter, case.strength, case.seconds, case.phase),
-            &case.bends,
-            "trilling",
+            Some(windsock::sway_bends(strength.value.max(0.0), motion.wave, case.seconds, 1.7)),
+            &Some(case.bends),
+            &format!("stap {index}: wuiven"),
         );
     }
 }
