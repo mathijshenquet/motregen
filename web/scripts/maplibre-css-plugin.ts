@@ -1,9 +1,9 @@
 import type { Plugin } from 'vite'
 
-// U109: de app maakt geen MapLibre-controls, popups of markers (attributionControl: false). Hun regels in
-// maplibre-gl.css (69 kB, waarvan 51 kB SVG-data-URI's) blokkeren alleen de eerste render. De kaart-,
-// canvas- en hoekcontainerregels blijven: die elementen maakt MapLibre altijd.
-const UNUSED = /\.maplibregl-ctrl(?![\w-])|\.maplibregl-ctrl-(?!(?:top|bottom)-(?:left|right)(?![\w-]))[\w-]+|\.maplibregl-(?:popup|marker|user-location)(?![\w-]|-[\w-])|\.maplibregl-(?:popup|marker|user-location)-[\w-]+/
+// U109: de app maakt geen MapLibre-controls of popups (attributionControl: false). Hun regels in
+// maplibre-gl.css (69 kB, waarvan 51 kB SVG-data-URI's) blokkeren alleen de eerste render. Kaart-, canvas-,
+// hoekcontainer- en markerregels blijven: die elementen bestaan wel (locatiepin, temperatuurgetallen).
+const UNUSED = /\.maplibregl-ctrl(?![\w-])|\.maplibregl-ctrl-(?!(?:top|bottom)-(?:left|right)(?![\w-]))[\w-]+|\.maplibregl-(?:popup|user-location)(?![\w])|\.maplibregl-(?:popup|user-location)-[\w-]+/
 
 function closingBrace(css: string, open: number): number {
   let depth = 0

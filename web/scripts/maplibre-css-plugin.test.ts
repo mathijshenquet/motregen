@@ -9,14 +9,14 @@ describe('stripUnusedMaplibreCss', () => {
   const stripped = stripUnusedMaplibreCss(css)
 
   it('houdt kaart-, canvas- en hoekcontainerregels', () => {
-    for (const selector of ['.maplibregl-map', '.maplibregl-canvas', '.maplibregl-canvas-container.maplibregl-interactive', '.maplibregl-ctrl-top-left', '.maplibregl-ctrl-bottom-right', '.maplibregl-boxzoom', '.maplibregl-cooperative-gesture-screen']) {
+    for (const selector of ['.maplibregl-map', '.maplibregl-canvas', '.maplibregl-canvas-container.maplibregl-interactive', '.maplibregl-ctrl-top-left', '.maplibregl-ctrl-bottom-right', '.maplibregl-boxzoom', '.maplibregl-cooperative-gesture-screen', '.maplibregl-marker']) {
       expect(stripped, selector).toContain(selector)
     }
   })
 
-  it('laat controls, popups, markers en hun SVG-iconen weg', () => {
+  it('laat controls, popups en hun SVG-iconen weg', () => {
     expect(stripped).not.toMatch(/\.maplibregl-ctrl(?![\w-])/)
-    expect(stripped).not.toMatch(/\.maplibregl-(?:popup|marker|user-location)/)
+    expect(stripped).not.toMatch(/\.maplibregl-(?:popup|user-location)/)
     expect(stripped).not.toContain('data:image/svg')
     expect(stripped.length).toBeLessThan(css.length / 4)
   })
