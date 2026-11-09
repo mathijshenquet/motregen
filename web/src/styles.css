@@ -1393,6 +1393,14 @@ td small { color: var(--muted); font-size: 9px; }
 .isoline-label-dark span { text-shadow: 0 0 2px #102027, 0 0 2px #102027, 0 0 3px #102027; }
 /* Puntlabel (U100-proef): de waarde tussen de lijnen, rechtop en iets lichter dan een lijnlabel. */
 .isoline-point-label { font-weight: 500; }
+/* Temperatuurgetal op een plek (U100 ronde 3, ?dev&templabels=): eilandje in de kaartstijl, dekt de lijn eronder af. */
+.temperature-number { pointer-events: none; line-height: 1; white-space: nowrap; }
+.temperature-number span {
+  display: block; padding: 3px 6px; border-radius: 999px;
+  font-size: var(--isoline-label-size, 13px); font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+}
+.temperature-number-light span { background: rgb(255 255 255 / .86); color: #102630; box-shadow: 0 0 0 1px rgb(16 38 48 / .16), 0 1px 2px rgb(16 38 48 / .18); }
+.temperature-number-dark span { background: rgb(16 32 39 / .86); color: #f3fbfd; box-shadow: 0 0 0 1px rgb(243 251 253 / .18), 0 1px 2px rgb(0 0 0 / .35); }
 
 /* Mobiel (U14/U42): het eerste scherm is kaart + scrubber + een voorproef van de tabel. De kleine
    viewportmaat houdt die geometrie vast terwijl de Firefox/Safari-browserbalk animeert. */

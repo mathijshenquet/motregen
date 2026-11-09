@@ -9,6 +9,8 @@ export interface TraceRequest {
   /** Tijdvenster: 0 lineair, 1 kubische B-spline (zoals de shader). */
   window: number
   step: number
+  /** Niveaus op k·step + offset (U100-proef); standaard 0. */
+  offset?: number
   toleranceCells: number
   ringKm: number
 }
@@ -41,7 +43,7 @@ export class TraceCore {
     const fields = weights.map(({ index }) => this.fields[index])
     if (!fields.length || fields.some((field) => !field)) return undefined
     const slice = fields.length === 1 ? fields[0]! : blendSlice(fields as PreparedField[], weights.map(({ weight }) => weight))
-    const contours = traceContours(slice, this.grid, { step: request.step, toleranceCells: request.toleranceCells })
+    const contours = traceContours(slice, this.grid, { step: request.step, offset: request.offset, toleranceCells: request.toleranceCells })
     const { data, stats } = buildSegments(contours, { ringKm: request.ringKm })
     const points = contours.reduce((sum, contour) => sum + contour.points.length / 2, 0)
     const rings = shortRings(contours, request.ringKm, request.toleranceCells)

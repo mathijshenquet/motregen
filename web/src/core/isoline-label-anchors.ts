@@ -45,13 +45,13 @@ export function clampLabelTuning(key: keyof LabelTuning, value: number): number 
 }
 
 /** URL (`?dev&labelgrootte=13`) gaat voor opslag; alles buiten de range wordt geklemd. */
-export function loadLabelTuning(search: string, storage: Pick<Storage, 'getItem'>): LabelTuning {
+export function loadLabelTuning(search: string, storage?: Pick<Storage, 'getItem'>, defaults: LabelTuning = DEFAULT_LABEL_TUNING): LabelTuning {
   const params = new URLSearchParams(search)
-  const tuning = { ...DEFAULT_LABEL_TUNING }
+  const tuning = { ...defaults }
   for (const key of Object.keys(DEFAULT_LABEL_TUNING) as Array<keyof LabelTuning>) {
     let raw = params.get(LABEL_TUNING_PARAMETERS[key])
     if (raw === null) {
-      try { raw = storage.getItem(`motregen-dev-${LABEL_TUNING_PARAMETERS[key]}`) } catch { raw = null }
+      try { raw = storage?.getItem(`motregen-dev-${LABEL_TUNING_PARAMETERS[key]}`) ?? null } catch { raw = null }
     }
     if (raw !== null && raw !== '') tuning[key] = clampLabelTuning(key, Number(raw))
   }

@@ -31,6 +31,7 @@ import { FrameBatcher } from './core/frame-batcher'
 import { latestRadarEpoch, type RefreshState } from './core/freshness'
 import { adaptiveIsobarStep, PRESSURE_EXTREMUM_KM, pressureExtrema, blendFrames, blurField, TEMPERATURE_ISOLINE_STEP, fieldRangeInView, ISOBAR_STEP_HPA, isolineBlurPasses, isolineFrameWeights, type WeightedFrame, ISOLINE_EDGE_FADE_MS, FIXED_SCALE_FILL_OPACITY, ISOLINE_FILL_OPACITY, ISOLINE_RING_KM, ISOLINE_WINDOW, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineKind } from './core/isolines'
 import { IsolineLabels } from './core/isoline-labels'
+import { lookLabelTuning, TEMPERATURE_LABEL_PLANS, temperatureLabelLook, TemperatureNumbers, type IsolineLabelling } from './core/temperature-numbers'
 import { sliceWeights } from './core/isoline-spline'
 import { TraceCore } from './core/isoline-tracer'
 import { prepareField, type PreparedField } from './core/isoline-field'
@@ -124,7 +125,7 @@ interface IsolineSet extends IsolineSetConfig {
   layer?: IsolineLayer
   overlay?: LayerOverlay
   layerKey: string
-  labels?: IsolineLabels
+  labels?: IsolineLabelling
   labelRounds: number
   fields: Array<PreparedField | undefined>
   time: number
@@ -612,9 +613,14 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const mobileWindDevice = matchMedia('(pointer: coarse), (max-width: 499px)').matches
   const [temperatureRange, setTemperatureRange] = createSignal<PaletteRange | undefined>()
   let temperatureRangeKey = ''
-  // U100: vast is standaard; relatief (MIP-37) is een instelling. Stills (bot-vergelijking) altijd vast.
   // ?dev-proef U100: isolijnlabels (grootte, afstand langs de lijn, puntlabels); zonder ?dev het huidige beeld.
-  const [labelTuning, setLabelTuning] = createSignal<LabelTuning>(devMode ? loadLabelTuning(window.location.search, localStorage) : DEFAULT_LABEL_TUNING)
+  // Ronde 3 (`templabels=`): waar de getallen staan; die vergelijking start van 13 px zonder opgeslagen schuiven.
+  const temperatureLabelVariant = devMode ? temperatureLabelLook(window.location.search) : undefined
+  const temperatureLabelPlan = TEMPERATURE_LABEL_PLANS[temperatureLabelVariant ?? 'lijn']
+  const [labelTuning, setLabelTuning] = createSignal<LabelTuning>(!devMode ? DEFAULT_LABEL_TUNING
+    : temperatureLabelVariant ? loadLabelTuning(window.location.search, undefined, lookLabelTuning(window.innerWidth, window.innerHeight))
+      : loadLabelTuning(window.location.search, localStorage))
+  // U100: vast is standaard; relatief (MIP-37) is een instelling. Stills (bot-vergelijking) altijd vast.
   const [temperatureScale, setTemperatureScale] = createSignal<TemperatureScale>(stillMode ? 'vast' : loadTemperatureScale())
   const temperatureStops = createMemo(() => {
     if (temperatureScale() === 'vast') return FIXED_SCALE_STOPS
@@ -1850,7 +1856,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
 
   function isolineStyle(): IsolineStyle {
-    return { step: TEMPERATURE_ISOLINE_STEP, fill: temperatureScale() === 'vast' ? FIXED_SCALE_FILL_OPACITY : ISOLINE_FILL_OPACITY, fillSmooth: false, palette: temperatureStops(), color: hexColor(isolineColor(mapSurfaceTheme())), lineOpacity: TEMPERATURE_LINE_FILL_OPACITY, lineFromFill: TEMPERATURE_LINE_FILL_SHADE }
+    return { step: TEMPERATURE_ISOLINE_STEP, fill: temperatureScale() === 'vast' ? FIXED_SCALE_FILL_OPACITY : ISOLINE_FILL_OPACITY, fillSmooth: false, offset: temperatureLabelPlan.offset, palette: temperatureStops(), color: hexColor(isolineColor(mapSurfaceTheme())), lineOpacity: TEMPERATURE_LINE_FILL_OPACITY, lineFromFill: TEMPERATURE_LINE_FILL_SHADE }
   }
 
   /** Isobaren: één egale lijnkleur, geen vulling en geen vervaging, zoals op een weerkaart (PO U35). */
@@ -2141,7 +2147,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         set.fields = []
         set.labels?.clear()
         if (set.kind !== 'cloud') {
-          set.labels = new IsolineLabels(renderedMap, grid, mapSurfaceTheme(), () => reducedMotion.matches, set.kind, labelTuning)
+          const numbers = set.kind === 'temperature' ? temperatureLabelPlan.numbers : undefined
+          set.labels = numbers
+            ? new TemperatureNumbers(renderedMap, grid, mapSurfaceTheme(), () => reducedMotion.matches, { numbers }, labelTuning, () => marker?.getLngLat())
+            : new IsolineLabels(renderedMap, grid, mapSurfaceTheme(), () => reducedMotion.matches, set.kind, labelTuning)
         }
         set.key = ''
         // Labels schuiven mee op exact de snede die de lijnen net kregen (zelfde cadans).
