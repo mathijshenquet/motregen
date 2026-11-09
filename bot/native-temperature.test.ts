@@ -1,8 +1,7 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { NativeTemperatureData } from './native-temperature.js'
 import { NativeRainData } from './native-rain.js'
-import { prepareField } from '../web/src/core/isoline-field.js'
-import { adaptiveIsobarStep, ISOLINE_RING_KM } from '../web/src/core/isolines.js'
+import { ISOLINE_RING_KM } from '../web/src/core/isolines.js'
 import { shortRings } from '../web/src/core/isoline-contours.js'
 import type { Grid, MrfHeader } from '../web/src/core/contract.js'
 import type { StillManifest } from './stills.js'
@@ -33,15 +32,19 @@ it('uses the right raster at an exact hour and applies the app’s temporal spli
   expect((await data.slice(Date.parse(times[0]!) - 1200000)).opacity).toBe(0)
 })
 
-it('starts pressure hysteresis at the app’s four-hPa step', async () => {
-  const pressureManifest = { ...manifest, chunks: [{ ...manifest.chunks[0]!, field: 'pressure_hpa' }] } as StillManifest
-  const pressureHeader = { ...header, quant: [1001, 1005, 1009, 1013] }
-  const codes = Uint8Array.from({ length: 16 }, (_, index) => index % 4)
-  vi.spyOn(NativeRainData.prototype, 'frame').mockResolvedValue({ grid, left: codes, right: codes, mix: 1, leftHeader: pressureHeader, rightHeader: pressureHeader, intervalMinutes: 60 })
-  const data = new NativeTemperatureData('https://fixture.test', pressureManifest, 'pressure')
-  vi.spyOn(data, 'field').mockResolvedValue(prepareField({ width: 4, height: 4, values: Float32Array.from(codes, (code) => pressureHeader.quant[code]!) }))
-  expect(adaptiveIsobarStep(1001, 1013)).toBe(2)
-  expect(adaptiveIsobarStep(1001, 1013, 4)).toBe(4)
+it('turns u and v into the continuous Beaufort field and colours band k as Beaufort class k', async () => {
+  const windManifest = { ...manifest, chunks: ['wind_u_ms', 'wind_v_ms'].map((field) => ({ ...manifest.chunks[0]!, url: `${field}.mrf`, field })) } as StillManifest
+  // u = 6, v = 8: 10 m/s, in 5 Bft (8,0–10,8 m/s).
+  const windHeader = { ...header, quant: Array.from({ length: 256 }, (_, index) => index === 255 ? null : index) }
+  vi.spyOn(NativeRainData.prototype, 'frame').mockImplementation(async function (this: NativeRainData) {
+    const value = this.timeline[0]!.chunk.url.startsWith('wind_u') ? 6 : 8
+    return { grid, left: new Uint8Array(16).fill(value), right: new Uint8Array(16).fill(value), mix: 1, leftHeader: windHeader, rightHeader: windHeader, intervalMinutes: 60 }
+  })
+  const data = new NativeTemperatureData('https://fixture.test', windManifest, 'wind')
   await data.prepare()
-  expect((await data.slice(Date.parse(now))).step).toBe(4)
+  const slice = await data.slice(Date.parse(now))
+  expect(slice.kind).toBe('wind')
+  expect(slice.labelLines).toBeUndefined()
+  for (const value of slice.field.values) expect(value).toBeCloseTo(5 + (10 - 8) / (10.8 - 8), 1)
+  expect([...slice.colors.subarray((128 + 5) * 3, (128 + 5) * 3 + 3)].map((channel) => Math.round(channel * 255))).toEqual([0x5a, 0xa5, 0x47])
 })

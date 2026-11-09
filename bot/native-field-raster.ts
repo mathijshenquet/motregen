@@ -8,7 +8,8 @@ import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import type { Grid } from '../web/src/core/contract.js'
 import { ISOLINE_FILL_OPACITY, ISOLINE_FILL_RESOLUTION, isolineColor } from '../web/src/core/isolines.js'
-import { TEMPERATURE_LINE_OPACITY, ISOBAR_LINE_OPACITY, isolineWidthCss, lineProfile } from '../web/src/core/map-presentation.js'
+import { TEMPERATURE_LINE_OPACITY, isolineWidthCss, lineProfile } from '../web/src/core/map-presentation.js'
+import { WIND_FILL_OPACITY } from '../web/src/core/wind-beaufort.js'
 import { NATIVE_VIEW } from './native-view.js'
 import { FRAME, FRAME_PIXELS } from './config.js'
 import { nativeProjection } from './native-projection.js'
@@ -81,7 +82,7 @@ export class NativeFieldRaster {
   }
 
   async compose(base: Buffer, slice: RasterSlice, night: boolean): Promise<Buffer> {
-    if (base.length !== this.size.width * this.size.height * 3 || (slice.kind === 'temperature' && (slice.field.values.length !== this.grid.width * this.grid.height || slice.field.valid.length !== slice.field.values.length))) throw new Error('Ongeldige veldframemaat')
+    if (base.length !== this.size.width * this.size.height * 3 || slice.field.values.length !== this.grid.width * this.grid.height || slice.field.valid.length !== slice.field.values.length) throw new Error('Ongeldige veldframemaat')
     await this.prepare()
     if (this.output) throw new Error('Veldworker verwerkt al een frame')
     const rgb = Buffer.alloc(base.length)
@@ -89,17 +90,17 @@ export class NativeFieldRaster {
     void received.catch(() => undefined)
     const header = Buffer.alloc(48)
     header.writeFloatLE(slice.opacity, 0); header.writeUInt32LE(night ? 1 : 0, 4)
-    header.writeUInt32LE(slice.segments.length / 6, 8); header.writeUInt32LE(slice.kind === 'temperature' && slice.rings ? 1 : 0, 12)
-    header.writeUInt32LE(slice.kind === 'pressure' ? 1 : 0, 16)
+    // Bytes 16–19 zijn vrij sinds de isobaren uit de windfilm gingen (U101).
+    header.writeUInt32LE(slice.segments.length / 6, 8); header.writeUInt32LE(slice.rings ? 1 : 0, 12)
     const profile = lineProfile(isolineWidthCss(NATIVE_VIEW.zoom) * FRAME.scale)
-    header.writeFloatLE(slice.kind === 'pressure' ? 0 : ISOLINE_FILL_OPACITY, 20)
-    header.writeFloatLE((slice.kind === 'pressure' ? ISOBAR_LINE_OPACITY : TEMPERATURE_LINE_OPACITY) * profile.alpha, 24)
+    header.writeFloatLE(slice.kind === 'wind' ? WIND_FILL_OPACITY : ISOLINE_FILL_OPACITY, 20)
+    header.writeFloatLE(TEMPERATURE_LINE_OPACITY * profile.alpha, 24)
     header.writeFloatLE(profile.halfWidth, 28)
     const color = Number.parseInt(isolineColor(night ? 'dark' : 'light', slice.kind).slice(1), 16)
     for (let channel = 0; channel < 3; channel++) header.writeFloatLE((color >> ((2 - channel) * 8)) & 255, 32 + channel * 4)
     header.writeFloatLE(ISOLINE_FILL_RESOLUTION / FRAME.scale, 44)
     await this.write(header); await this.write(base)
-    const fields = slice.kind === 'temperature' ? [slice.field.values, slice.field.valid, slice.colors, slice.segments, ...(slice.rings ? [slice.rings] : [])] : [slice.segments]
+    const fields = [slice.field.values, slice.field.valid, slice.colors, slice.segments, ...(slice.rings ? [slice.rings] : [])]
     for (const field of fields) await this.write(Buffer.from(field.buffer, field.byteOffset, field.byteLength))
     await received
     return rgb

@@ -96,3 +96,37 @@ export function windsockHeadings(field: WindsockField, x: number, y: number, cur
   }
   return bends.map((bend) => base + Math.max(-MAX_BEND_DEGREES, Math.min(MAX_BEND_DEGREES, bend)))
 }
+
+/** Trilling bij harde wind: vanaf `start` Bft, uitslag aan de staart en frequentie groeien met de windkracht. */
+export interface WindsockFlutter {
+  start: number
+  /** Uitslag aan de staart in graden: bij de drempel, en de groei per Bft daarboven. */
+  amplitude: number
+  amplitudePerForce: number
+  maxAmplitude: number
+  /** Golven per seconde: bij de drempel, en de groei per Bft. */
+  frequency: number
+  frequencyPerForce: number
+}
+
+export const WINDSOCK_FLUTTERS = {
+  zacht: { start: 6, amplitude: 3, amplitudePerForce: 2, maxAmplitude: 12, frequency: 1.2, frequencyPerForce: 0.25 },
+  normaal: { start: 6, amplitude: 5, amplitudePerForce: 3, maxAmplitude: 20, frequency: 1.6, frequencyPerForce: 0.4 },
+  sterk: { start: 6, amplitude: 8, amplitudePerForce: 4, maxAmplitude: 28, frequency: 2, frequencyPerForce: 0.6 },
+} as const satisfies Record<string, WindsockFlutter>
+export type WindsockFlutterName = keyof typeof WINDSOCK_FLUTTERS
+export const DEFAULT_WINDSOCK_FLUTTER: WindsockFlutterName = 'normaal'
+
+/** Hoek per asstuk door de trilling: een golf die van mond naar staart loopt en naar de staart aanzwelt. */
+export function flutterBends(flutter: WindsockFlutter, strength: number, seconds: number, phase: number): number[] | undefined {
+  if (strength < flutter.start) return undefined
+  const above = strength - flutter.start
+  const amplitude = Math.min(flutter.maxAmplitude, flutter.amplitude + flutter.amplitudePerForce * above)
+  const frequency = flutter.frequency + flutter.frequencyPerForce * above
+  // Vloeiend inzetten over de eerste halve Bft, anders springt de zak bij de drempel.
+  const onset = Math.min(1, above * 2)
+  return Array.from({ length: WINDSOCK_SAMPLES + 1 }, (_, index) => {
+    const t = index / WINDSOCK_SAMPLES
+    return onset * amplitude * t ** 1.3 * Math.sin(2 * Math.PI * (frequency * seconds - 1.1 * t) + phase)
+  })
+}

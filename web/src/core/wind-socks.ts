@@ -1,44 +1,10 @@
 import type { Map as MapLibreMap } from 'maplibre-gl'
 import { beaufortScale } from './wind-beaufort.js'
-import { uprightTextAngle, WINDSOCK_BANDS, WINDSOCK_SAMPLES, windsockBand, windsockOutline, windsockShape, type Point, type WindsockShape } from './wind-glyph.js'
-import { DEFAULT_WINDSOCK_CURVATURE, sampleWind, WINDSOCK_CURVATURES, windsockHeadings, type WindsockCurvature, type WindsockField } from './windsock-flow.js'
+import { DEFAULT_WINDSOCK_BADGE, WINDSOCK_BADGE_POSITIONS, WINDSOCK_BANDS, windsockBadge, windsockBand, windsockOutline, windsockShape, type Point, type WindsockBadgePosition, type WindsockShape } from './wind-glyph.js'
+import { DEFAULT_WINDSOCK_CURVATURE, DEFAULT_WINDSOCK_FLUTTER, flutterBends, sampleWind, WINDSOCK_CURVATURES, WINDSOCK_FLUTTERS, windsockHeadings, type WindsockCurvature, type WindsockField, type WindsockFlutter, type WindsockFlutterName } from './windsock-flow.js'
 import type { TemperaturePlace } from './temperature.js'
 import { windValue, type WindUnit } from './weather.js'
 import { recordPerfPhase } from './perf.js'
-
-/** Trilling bij harde wind: vanaf `start` Bft, uitslag aan de staart en frequentie groeien met de windkracht. */
-export interface WindsockFlutter {
-  start: number
-  /** Uitslag aan de staart in graden: bij de drempel, en de groei per Bft daarboven. */
-  amplitude: number
-  amplitudePerForce: number
-  maxAmplitude: number
-  /** Golven per seconde: bij de drempel, en de groei per Bft. */
-  frequency: number
-  frequencyPerForce: number
-}
-
-export const WINDSOCK_FLUTTERS = {
-  zacht: { start: 6, amplitude: 3, amplitudePerForce: 2, maxAmplitude: 12, frequency: 1.2, frequencyPerForce: 0.25 },
-  normaal: { start: 6, amplitude: 5, amplitudePerForce: 3, maxAmplitude: 20, frequency: 1.6, frequencyPerForce: 0.4 },
-  sterk: { start: 6, amplitude: 8, amplitudePerForce: 4, maxAmplitude: 28, frequency: 2, frequencyPerForce: 0.6 },
-} as const satisfies Record<string, WindsockFlutter>
-export type WindsockFlutterName = keyof typeof WINDSOCK_FLUTTERS
-export const DEFAULT_WINDSOCK_FLUTTER: WindsockFlutterName = 'normaal'
-
-/** Hoek per asstuk door de trilling: een golf die van mond naar staart loopt en naar de staart aanzwelt. */
-export function flutterBends(flutter: WindsockFlutter, strength: number, seconds: number, phase: number): number[] | undefined {
-  if (strength < flutter.start) return undefined
-  const above = strength - flutter.start
-  const amplitude = Math.min(flutter.maxAmplitude, flutter.amplitude + flutter.amplitudePerForce * above)
-  const frequency = flutter.frequency + flutter.frequencyPerForce * above
-  // Vloeiend inzetten over de eerste halve Bft, anders springt de zak bij de drempel.
-  const onset = Math.min(1, above * 2)
-  return Array.from({ length: WINDSOCK_SAMPLES + 1 }, (_, index) => {
-    const t = index / WINDSOCK_SAMPLES
-    return onset * amplitude * t ** 1.3 * Math.sin(2 * Math.PI * (frequency * seconds - 1.1 * t) + phase)
-  })
-}
 
 interface Sock {
   place: TemperaturePlace
@@ -56,13 +22,11 @@ export const WINDSOCK_FLUTTER_FPS = 30
 
 const MERCATOR_RADIUS = 6378137
 const ORANGE = '#f2661c', WHITE = '#fbfbf8', INK = '#17242b'
-const LABEL_STROKE = '#a33a0b'
-/** Op deze plek langs de as staat het getal: in het brede deel, maar los van de hoepel. */
-const LABEL_AT = 0.42
 
 export interface WindsockLayerOptions {
   curvature: WindsockCurvature
   flutter: WindsockFlutter | undefined
+  badge: WindsockBadgePosition
   reducedMotion: () => boolean
   /** Alleen `?dev&windfactor=`: vermenigvuldigt de wind van de zakken, om harde wind te bekijken. */
   speedFactor: number
@@ -203,8 +167,15 @@ export class WindsockLayer {
   }
 
   private drawSock(context: CanvasRenderingContext2D, x: number, y: number, shape: WindsockShape, label: string): void {
+    const badge = windsockBadge(shape, this.options.badge, label)
     context.save()
     context.translate(x, y)
+    context.save()
+    // De zak wordt rond de badge weggeknipt: alles behalve de cirkel.
+    const outside = new Path2D()
+    outside.rect(-200, -200, 400, 400)
+    outside.arc(badge.x, badge.y, badge.cutRadius, 0, Math.PI * 2)
+    context.clip(outside, 'evenodd')
     const outline = new Path2D(polygon(windsockOutline(shape)))
     context.lineJoin = 'round'
     // Zachte schaduw en een lichte rand houden de zak los van de vlakken, op lichte en donkere kaart.
@@ -237,18 +208,24 @@ export class WindsockLayer {
     context.lineWidth = 1.4
     context.stroke()
     context.fill()
-    const index = Math.round(LABEL_AT * WINDSOCK_SAMPLES)
-    const [labelX, labelY] = shape.axis[index]!
-    context.translate(labelX, labelY)
-    context.rotate(uprightTextAngle(shape.headings[index]!) * Math.PI / 180)
-    context.font = `800 ${label.length > 2 ? 11 : 12.5}px ${this.fontFamily}`
+    context.restore()
+    const circle = new Path2D()
+    circle.arc(badge.x, badge.y, badge.radius, 0, Math.PI * 2)
+    context.save()
+    context.translate(0, 1.3)
+    context.fillStyle = 'rgba(0, 0, 0, 0.22)'
+    context.fill(circle)
+    context.restore()
+    context.fillStyle = '#fff'
+    context.fill(circle)
+    context.strokeStyle = INK
+    context.lineWidth = 1.1
+    context.stroke(circle)
+    context.font = `800 ${badge.fontPx}px ${this.fontFamily}`
     context.textAlign = 'center'
     context.textBaseline = 'middle'
-    context.strokeStyle = LABEL_STROKE
-    context.lineWidth = 3
-    context.strokeText(label, 0, 0.5)
-    context.fillStyle = '#fff'
-    context.fillText(label, 0, 0.5)
+    context.fillStyle = ORANGE
+    context.fillText(label, badge.x, badge.y + 0.5)
     context.restore()
   }
 
@@ -288,12 +265,13 @@ function stablePhase(name: string): number {
   return (hash >>> 0) % 628 / 100
 }
 
-/** Dev-knoppen van ronde 3 (`?dev&kromming=`, `&fladder=`, `&windfactor=`); zonder knop de gekozen defaults. */
+/** Dev-knoppen van ronde 3 (`?dev&kromming=`, `&fladder=`, `&badge=`, `&windfactor=`); zonder knop de gekozen defaults. */
 export function windsockDevOptions(params: URLSearchParams): Omit<WindsockLayerOptions, 'reducedMotion'> {
   const curvature = WINDSOCK_CURVATURES.find((name) => name === params.get('kromming')) ?? DEFAULT_WINDSOCK_CURVATURE
   const flutterName = params.get('fladder')
   const flutter = flutterName === 'uit' ? undefined
     : WINDSOCK_FLUTTERS[flutterName && flutterName in WINDSOCK_FLUTTERS ? flutterName as WindsockFlutterName : DEFAULT_WINDSOCK_FLUTTER]
   const factor = Number(params.get('windfactor'))
-  return { curvature, flutter, speedFactor: Number.isFinite(factor) && factor > 0 ? factor : 1 }
+  const badge = WINDSOCK_BADGE_POSITIONS.find((name) => name === params.get('badge')) ?? DEFAULT_WINDSOCK_BADGE
+  return { curvature, flutter, badge, speedFactor: Number.isFinite(factor) && factor > 0 ? factor : 1 }
 }

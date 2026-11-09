@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { uprightTextAngle, WINDSOCK_SAMPLES, windsockShape, windsockSvg } from './wind-glyph'
+import { WINDSOCK_SAMPLES, windsockBadge, windsockShape, windsockSvg } from './wind-glyph'
 
 const straight = (degrees: number) => Array<number>(WINDSOCK_SAMPLES + 1).fill(degrees)
 const tipOf = (strength: number, degrees = 0) => windsockShape(strength, straight(degrees), 'kaart').axis.at(-1)!
@@ -33,12 +33,13 @@ describe('windzak', () => {
   })
 })
 
-describe('getal op de zak', () => {
-  it('staat langs de as en nooit ondersteboven', () => {
-    expect(uprightTextAngle(90)).toBe(0) // zak naar het oosten: tekst gewoon horizontaal
-    expect(uprightTextAngle(270)).toBe(0) // naar het westen: geflipt, niet op zijn kop
-    expect(uprightTextAngle(0)).toBe(-90)
-    expect(uprightTextAngle(180)).toBe(90)
-    for (let heading = -360; heading <= 720; heading += 7) expect(Math.abs(uprightTextAngle(heading))).toBeLessThanOrEqual(90)
+describe('badge met het getal', () => {
+  it('staat midden op de zak of over de mond, en houdt drie cijfers binnen de cirkel', () => {
+    const shape = windsockShape(5, straight(90), 'kaart')
+    const middle = windsockBadge(shape, 'midden', '5')
+    expect(middle.x).toBeCloseTo(shape.axis[WINDSOCK_SAMPLES / 2]![0], 6)
+    expect(middle.cutRadius).toBeGreaterThan(middle.radius)
+    expect(windsockBadge(shape, 'mond', '5')).toMatchObject({ x: 0, y: 0 })
+    expect(windsockBadge(shape, 'midden', '104').fontPx).toBeLessThan(middle.fontPx)
   })
 })

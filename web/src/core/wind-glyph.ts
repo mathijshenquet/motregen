@@ -70,12 +70,45 @@ export function windsockOutline(shape: WindsockShape): Point[] {
   return [...shape.left, ...shape.right.slice().reverse()]
 }
 
-/** Draaiing van tekst langs de as, zo dat hij nooit ondersteboven staat (flip voorbij 90°). */
-export function uprightTextAngle(headingDegrees: number): number {
-  let angle = ((headingDegrees - 90) % 360 + 540) % 360 - 180
-  if (angle > 90) angle -= 180
-  else if (angle < -90) angle += 180
-  return angle
+/**
+ * De rand, `margin` naar buiten geschoven, ook voorbij mond en staart: een omlijning of halo als vlak, voor
+ * renderers zonder lijnen (de bot).
+ */
+export function windsockInflated(shape: WindsockShape, margin: number): Point[] {
+  const last = shape.axis.length - 1
+  const grow = (points: readonly Point[]): Point[] => points.map(([x, y], index) => {
+    const [axisX, axisY] = shape.axis[index]!
+    const length = Math.hypot(x - axisX, y - axisY) || 1
+    const heading = shape.headings[index]! * Math.PI / 180
+    // Mond en staart schuiven ook langs de as naar buiten.
+    const along = index === 0 ? -margin : index === last ? margin : 0
+    return [x + (x - axisX) / length * margin + Math.sin(heading) * along, y + (y - axisY) / length * margin - Math.cos(heading) * along]
+  })
+  return [...grow(shape.left), ...grow(shape.right).reverse()]
+}
+
+/** Waar de badge met het getal op de zak staat: over de mond bij de mast (standaard: de zak blijft heel), of midden op de as. */
+export const WINDSOCK_BADGE_POSITIONS = ['midden', 'mond'] as const
+export type WindsockBadgePosition = typeof WINDSOCK_BADGE_POSITIONS[number]
+export const DEFAULT_WINDSOCK_BADGE: WindsockBadgePosition = 'mond'
+
+export interface WindsockBadge {
+  x: number
+  y: number
+  radius: number
+  /** De zak wordt tot hier weggeknipt: de badge plus een smalle kier, zodat ze elkaar niet raken. */
+  cutRadius: number
+  fontPx: number
+}
+
+/**
+ * Witte badge met het getal, rechtop (PO 2026-11-09, U101 punt 7: het meedraaiende getal op de banden was niet
+ * leesbaar). De plek volgt de zak; drie cijfers (km/u) krijgen een kleinere letter in dezelfde cirkel.
+ */
+export function windsockBadge(shape: WindsockShape, position: WindsockBadgePosition, label: string): WindsockBadge {
+  const [x, y] = shape.axis[position === 'mond' ? 0 : WINDSOCK_SAMPLES / 2]!
+  const radius = 9.5
+  return { x, y, radius, cutRadius: radius + 2, fontPx: label.length > 2 ? 10 : 13 }
 }
 
 const round = (value: number) => Math.round(value * 100) / 100

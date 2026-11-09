@@ -3,10 +3,13 @@ import { NativeText, type TextPlacement } from './native-text.js'
 import { FRAME, FRAME_PIXELS } from './config.js'
 import { nativeProjection } from './native-projection.js'
 import { projectToLevel, type SliceSample } from '../web/src/core/isoline-spline.js'
-import { isolineColor } from '../web/src/core/isolines.js'
+import { isolineColor, type IsolineKind } from '../web/src/core/isolines.js'
 import { ringFadeAt, shortRings } from '../web/src/core/isoline-contours.js'
 import type { TemperatureSlice } from './native-temperature.js'
 import type { NativeTheme } from './native-map.js'
+
+/** De Rust-fixtures (render-isoline-fixtures.ts) leggen ook drukisolijnen vast; de films gebruiken die niet meer. */
+type LabelSlice = Omit<TemperatureSlice, 'kind'> & { kind: IsolineKind }
 
 // A second projection during drawing changes new anchors relative to the app's single placement step.
 interface Anchor { column: number; row: number; level: number; sample: SliceSample }
@@ -16,12 +19,12 @@ export class NativeIsolineLabels {
   private labelKey?: string
   private step?: number
   constructor(private readonly text = new NativeText()) {}
-  async draw(rgb: Buffer, slice: TemperatureSlice, theme: NativeTheme): Promise<Buffer> {
+  async draw(rgb: Buffer, slice: LabelSlice, theme: NativeTheme): Promise<Buffer> {
     for (const label of this.place(slice, theme)) await this.text.draw(rgb, label.text, label.screenX, label.screenY, label.angle, label.color, label.theme, label.opacity)
     return rgb
   }
 
-  place(slice: TemperatureSlice, theme: NativeTheme): TextPlacement[] {
+  place(slice: LabelSlice, theme: NativeTheme): TextPlacement[] {
     if (slice.step !== this.step) { this.anchors = []; this.step = slice.step }
     const projection = nativeProjection(slice.grid)
     const fieldSlice = slice.labelSlice ?? { width: slice.grid.width, height: slice.grid.height, fields: [slice.field], weights: [1] }

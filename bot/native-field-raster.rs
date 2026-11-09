@@ -62,7 +62,6 @@ fn main() -> io::Result<()> {
             Err(error) if error.kind() == io::ErrorKind::UnexpectedEof => break,
             Err(error) => return Err(error),
         }
-        let pressure = u32::from_le_bytes(header[16..20].try_into().unwrap()) != 0;
         let opacity = f32::from_le_bytes(header[0..4].try_into().unwrap());
         let fill_opacity = f32::from_le_bytes(header[20..24].try_into().unwrap());
         let line_opacity = f32::from_le_bytes(header[24..28].try_into().unwrap());
@@ -78,28 +77,16 @@ fn main() -> io::Result<()> {
         let has_rings = u32::from_le_bytes(header[12..16].try_into().unwrap()) != 0;
         let mut rgb = vec![0; width * height * 3];
         input.read_exact(&mut rgb)?;
-        let values = if pressure {
-            Vec::new()
-        } else {
-            floats(&mut input, grid_width * grid_height)?
-        };
-        let valid = if pressure {
-            Vec::new()
-        } else {
-            floats(&mut input, grid_width * grid_height)?
-        };
-        let colors = if pressure {
-            Vec::new()
-        } else {
-            floats(&mut input, 256 * 3)?
-        };
+        let values = floats(&mut input, grid_width * grid_height)?;
+        let valid = floats(&mut input, grid_width * grid_height)?;
+        let colors = floats(&mut input, 256 * 3)?;
         let segments = floats(&mut input, segment_count * 6)?;
         let rings = if has_rings {
             floats(&mut input, grid_width * grid_height * 2)?
         } else {
             Vec::new()
         };
-        if !pressure {
+        {
             let scale = f32::from_le_bytes(header[44..48].try_into().unwrap()) as f64;
             let fill_width = (width as f64 * scale).round().max(1.0) as usize;
             let fill_height = (height as f64 * scale).round().max(1.0) as usize;
