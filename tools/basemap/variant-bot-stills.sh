@@ -7,7 +7,7 @@ cd "$(dirname "$0")/../.."
 data="$1"; plates="$2"; out="$3"
 cargo build --release -p render --quiet
 mkdir -p "$out"
-for variant in nu licht licht-rivieren atlas; do
+for variant in ${MOTREGEN_KAART_VARIANTEN:-nu strak diagram diagram-wegen}; do
   for mode in weather wind; do
     rm -rf "$out/render/$variant-$mode"; mkdir -p "$out/render/$variant-$mode"
     target/release/motregen-render --data-dir "$data" --basemap-dir "$plates/$variant" --mode "$mode" \

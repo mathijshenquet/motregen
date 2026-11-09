@@ -7,7 +7,7 @@ import { join } from 'node:path'
 // De worker bekijkt de beelden zelf. Gebruik: pnpm exec tsx scripts/basemap-variant-shots.ts ORIGIN OUT_DIR [variant…]
 const [origin, outDir, ...requested] = process.argv.slice(2)
 if (!origin || !outDir) throw new Error('usage: pnpm exec tsx scripts/basemap-variant-shots.ts ORIGIN OUT_DIR [variant…]')
-const variants = requested.length ? requested : ['nu', 'licht', 'licht-rivieren', 'atlas']
+const variants = requested.length ? requested : ['nu', 'strak', 'diagram', 'diagram-wegen']
 mkdirSync(outDir, { recursive: true })
 
 const DEVICES = {
@@ -15,11 +15,14 @@ const DEVICES = {
   desktop: { viewport: { width: 1280, height: 800 }, deviceScaleFactor: 1 },
 } as const
 // Rivierland rond Waal/Lek/Maas: daar viel de oude kaart uiteen.
-const VIEWS = [
+// Plus de Wadden op z7/z8 (PO-bug strak: eilanden weg).
+const VIEWS: Array<{ zoom: number; lng: number; lat: number; tag?: string }> = [
   { zoom: 6, lng: 5.3, lat: 52.2 },
   { zoom: 7, lng: 5.3, lat: 52.0 },
   { zoom: 8, lng: 5.5, lat: 51.9 },
   { zoom: 10, lng: 5.25, lat: 51.93 },
+  { zoom: 7, lng: 5.4, lat: 53.2, tag: 'wadden' },
+  { zoom: 8, lng: 5.6, lat: 53.35, tag: 'wadden' },
 ]
 const MODES = ['Gevoel', 'Wind']
 
@@ -31,7 +34,7 @@ async function shoot(browser: Browser, variant: string, device: keyof typeof DEV
     localStorage.setItem('motregen-theme', theme)
     // Vast licht of donker: anders volgt de kaart na zonsondergang de kaarttijd.
     localStorage.setItem('motregen-expressive', 'off')
-    localStorage.setItem('motregen-map-view', JSON.stringify(view))
+    localStorage.setItem('motregen-map-view', JSON.stringify({ zoom: view.zoom, lng: view.lng, lat: view.lat }))
   }, { theme, view })
   const page = await context.newPage()
   page.setDefaultTimeout(90_000)
@@ -41,7 +44,7 @@ async function shoot(browser: Browser, variant: string, device: keyof typeof DEV
   if (mode) await page.getByRole('button', { name: mode, exact: true }).first().click()
   await page.waitForLoadState('networkidle')
   await page.waitForTimeout(2500)
-  const name = `${variant}-${device}-${theme}-z${view.zoom}${mode ? `-${mode.toLowerCase()}` : ''}.png`
+  const name = `${variant}-${device}-${theme}-z${view.zoom}${view.tag ? `-${view.tag}` : ''}${mode ? `-${mode.toLowerCase()}` : ''}.png`
   await page.locator('.map-shell').screenshot({ path: join(outDir, name) })
   await context.close()
   return name
@@ -50,7 +53,7 @@ async function shoot(browser: Browser, variant: string, device: keyof typeof DEV
 // Koud laden op de telefoon: alle requests van de context (ook uit workers), kaarttegels apart geteld.
 async function coldMapBytes(browser: Browser, variant: string, view?: typeof VIEWS[number]) {
   const context = await browser.newContext({ ...DEVICES.telefoon, serviceWorkers: 'block' })
-  if (view) await context.addInitScript((view) => localStorage.setItem('motregen-map-view', JSON.stringify(view)), view)
+  if (view) await context.addInitScript((view) => localStorage.setItem('motregen-map-view', JSON.stringify({ zoom: view.zoom, lng: view.lng, lat: view.lat })), view)
   let tiles = 0
   let styles = 0
   let requests = 0
@@ -68,11 +71,16 @@ async function coldMapBytes(browser: Browser, variant: string, view?: typeof VIE
   return { variant, view: view ? `z${view.zoom}` : 'start', tileBytes: tiles, rangeRequests: requests, styleBytes: styles }
 }
 
+// Close-ups: MOTREGEN_KAART_VIEWS='[{"zoom":11,"lng":4.83,"lat":52.24,"tag":"uithoorn"}]' vervangt de vaste views (zonder
+// Gevoel/Wind); MOTREGEN_KAART_DEVICES en MOTREGEN_KAART_THEMES beperken de reeks.
+const views: typeof VIEWS = process.env.MOTREGEN_KAART_VIEWS ? JSON.parse(process.env.MOTREGEN_KAART_VIEWS) : VIEWS
+const devices = (process.env.MOTREGEN_KAART_DEVICES?.split(' ') ?? Object.keys(DEVICES)) as Array<keyof typeof DEVICES>
+const themes = (process.env.MOTREGEN_KAART_THEMES?.split(' ') ?? ['light', 'dark']) as Array<'light' | 'dark'>
 for (const variant of process.env.SKIP_SHOTS ? [] : variants) {
-  for (const device of Object.keys(DEVICES) as Array<keyof typeof DEVICES>) {
-    for (const theme of ['light', 'dark'] as const) {
-      for (const view of VIEWS) console.log(await shoot(browser, variant, device, theme, view))
-      if (device === 'desktop') for (const mode of MODES) console.log(await shoot(browser, variant, device, theme, VIEWS[1]!, mode))
+  for (const device of devices) {
+    for (const theme of themes) {
+      for (const view of views) console.log(await shoot(browser, variant, device, theme, view))
+      if (device === 'desktop' && !process.env.MOTREGEN_KAART_VIEWS) for (const mode of MODES) console.log(await shoot(browser, variant, device, theme, VIEWS[1]!, mode))
     }
   }
 }

@@ -6,13 +6,16 @@ export type { MapTheme } from './map-theme.js'
 
 const styleNames: Record<MapTheme, string> = { light: 'licht', dark: 'donker' }
 
-/** U108-proef (`?dev&kaart=`, eigenaar U108, vervalt 2026-11-23): stijlvarianten uit `public/dev-kaart/`. */
-export const BASEMAP_VARIANTS = ['nu', 'licht', 'licht-rivieren', 'atlas'] as const
+/**
+ * U108 (`?dev&kaart=`, eigenaar U108, vervalt 2026-11-23): stijlvarianten uit `public/dev-kaart/`. De standaard is
+ * `diagram` (MIP-42); `nu` is de kaart van daarvoor.
+ */
+export const BASEMAP_VARIANTS = ['diagram', 'nu', 'strak', 'diagram-wegen'] as const
 
 export function basemapVariant(search: string): typeof BASEMAP_VARIANTS[number] | undefined {
   const params = new URLSearchParams(search)
   if (!params.has('dev')) return undefined
-  return BASEMAP_VARIANTS.find((name) => name !== 'nu' && name === params.get('kaart'))
+  return BASEMAP_VARIANTS.find((name) => name !== 'diagram' && name === params.get('kaart'))
 }
 const cache = new Map<MapTheme, Promise<StyleSpecification>>()
 const glyphs = new Map<string, Promise<ArrayBuffer>>()

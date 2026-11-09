@@ -1,11 +1,11 @@
 {
   "version": 8,
-  "name": "motregen — donker — atlas",
+  "name": "motregen — licht — diagram-wegen",
   "glyphs": "/basemap/fonts/{fontstack}/{range}.pbf",
   "sources": {
     "basemap": {
       "type": "vector",
-      "url": "pmtiles:///data/basemap/nl-0e0be41b91fefb0f.pmtiles",
+      "url": "pmtiles:///data/basemap/nl-bdc61e3eaf011f44.pmtiles",
       "attribution": "© <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>"
     }
   },
@@ -14,41 +14,8 @@
       "id": "background",
       "type": "background",
       "paint": {
-        "background-color": "#1c2a31"
+        "background-color": "#f8f4f0"
       }
-    },
-    {
-      "id": "park",
-      "type": "fill",
-      "source": "basemap",
-      "source-layer": "landcover",
-      "paint": {
-        "fill-color": "#1f3029",
-        "fill-opacity": 0.55,
-        "fill-outline-color": "rgba(0,0,0,0)",
-        "fill-antialias": false
-      },
-      "filter": [
-        "all",
-        [
-          "==",
-          [
-            "get",
-            "class"
-          ],
-          "park"
-        ],
-        [
-          "<=",
-          [
-            "get",
-            "detail_minzoom"
-          ],
-          [
-            "zoom"
-          ]
-        ]
-      ]
     },
     {
       "id": "landuse_residential",
@@ -57,28 +24,27 @@
       "source-layer": "landcover",
       "maxzoom": 12,
       "filter": [
-        "all",
+        "==",
         [
-          "==",
-          [
-            "get",
-            "class"
-          ],
-          "urban"
+          "get",
+          "class"
         ],
-        [
-          "<=",
+        "urban"
+      ],
+      "paint": {
+        "fill-color": [
+          "interpolate",
           [
-            "get",
-            "detail_minzoom"
+            "linear"
           ],
           [
             "zoom"
-          ]
-        ]
-      ],
-      "paint": {
-        "fill-color": "#202f36",
+          ],
+          9,
+          "hsla(0,3%,85%,0.84)",
+          12,
+          "hsla(35,57%,88%,0.49)"
+        ],
         "fill-outline-color": "rgba(0,0,0,0)",
         "fill-antialias": false
       }
@@ -89,84 +55,18 @@
       "source": "basemap",
       "source-layer": "landcover",
       "filter": [
-        "all",
-        [
-          "==",
-          [
-            "get",
-            "class"
-          ],
-          "wood"
-        ],
-        [
-          "<=",
-          [
-            "get",
-            "detail_minzoom"
-          ],
-          [
-            "zoom"
-          ]
-        ]
-      ],
-      "paint": {
-        "fill-antialias": false,
-        "fill-color": "#1d322a",
-        "fill-opacity": 0.5,
-        "fill-outline-color": "rgba(0,0,0,0)"
-      }
-    },
-    {
-      "id": "landcover_grass",
-      "type": "fill",
-      "source": "basemap",
-      "source-layer": "landcover",
-      "filter": [
-        "all",
-        [
-          "==",
-          [
-            "get",
-            "class"
-          ],
-          "grass"
-        ],
-        [
-          "<=",
-          [
-            "get",
-            "detail_minzoom"
-          ],
-          [
-            "zoom"
-          ]
-        ]
-      ],
-      "paint": {
-        "fill-antialias": false,
-        "fill-color": "#213429",
-        "fill-opacity": 0.35,
-        "fill-outline-color": "rgba(0,0,0,0)"
-      }
-    },
-    {
-      "id": "landcover_wetland",
-      "type": "fill",
-      "source": "basemap",
-      "source-layer": "landcover",
-      "minzoom": 12,
-      "filter": [
         "==",
         [
           "get",
           "class"
         ],
-        "wetland"
+        "wood"
       ],
       "paint": {
-        "fill-color": "#1f3229",
+        "fill-antialias": false,
+        "fill-color": "hsla(98,61%,72%,0.7)",
         "fill-opacity": 0.8,
-        "fill-antialias": false
+        "fill-outline-color": "rgba(0,0,0,0)"
       }
     },
     {
@@ -188,7 +88,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#3d5f72",
+        "line-color": "rgb(158,189,255)",
         "line-width": [
           "interpolate",
           [
@@ -198,17 +98,17 @@
             "zoom"
           ],
           5,
-          0.68,
+          0.8,
           6,
-          0.94,
+          1.1,
           7,
-          1.27,
+          1.5,
           8,
-          1.61,
+          1.9,
           10,
-          2.21,
+          2.6,
           12,
-          2.89
+          3.4
         ]
       }
     },
@@ -231,7 +131,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#3d5f72",
+        "line-color": "rgb(158,189,255)",
         "line-width": [
           "interpolate",
           [
@@ -241,13 +141,13 @@
             "zoom"
           ],
           7,
-          0.42,
+          0.5,
           8,
-          0.68,
+          0.8,
           10,
-          1.19,
+          1.4,
           12,
-          1.7
+          2
         ],
         "line-opacity": [
           "interpolate",
@@ -283,7 +183,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#3d5f72",
+        "line-color": "rgb(158,189,255)",
         "line-width": [
           "interpolate",
           [
@@ -293,11 +193,11 @@
             "zoom"
           ],
           9,
-          0.34,
+          0.4,
           10,
-          0.68,
+          0.8,
           12,
-          1.1
+          1.3
         ],
         "line-opacity": [
           "interpolate",
@@ -320,62 +220,21 @@
       "source": "basemap",
       "source-layer": "water",
       "paint": {
-        "fill-color": "#0d1820",
-        "fill-outline-color": "#0d1820"
+        "fill-color": "rgb(158,189,255)"
       }
     },
     {
-      "id": "landcover_sand",
-      "type": "fill",
-      "source": "basemap",
-      "source-layer": "landcover",
-      "filter": [
-        "all",
-        [
-          "==",
-          [
-            "get",
-            "class"
-          ],
-          "sand"
-        ],
-        [
-          "<=",
-          [
-            "get",
-            "detail_minzoom"
-          ],
-          [
-            "zoom"
-          ]
-        ]
-      ],
-      "paint": {
-        "fill-color": "#38352c",
-        "fill-outline-color": "rgba(0,0,0,0)",
-        "fill-antialias": false
-      }
-    },
-    {
-      "id": "boundary_2_ribbon",
+      "id": "road_motorway",
       "type": "line",
       "source": "basemap",
-      "source-layer": "boundary",
-      "filter": [
-        "==",
-        [
-          "get",
-          "admin_level"
-        ],
-        2
-      ],
+      "source-layer": "road",
+      "minzoom": 6,
       "layout": {
         "line-join": "round",
         "line-cap": "round"
       },
       "paint": {
-        "line-color": "#3a3045",
-        "line-opacity": 0.7,
+        "line-color": "#d9c9a8",
         "line-width": [
           "interpolate",
           [
@@ -384,12 +243,27 @@
           [
             "zoom"
           ],
-          4,
-          2.5,
+          6,
+          0.5,
           8,
-          5,
+          0.9,
+          10,
+          1.4,
           12,
-          8
+          2.2
+        ],
+        "line-opacity": [
+          "interpolate",
+          [
+            "linear"
+          ],
+          [
+            "zoom"
+          ],
+          6,
+          0.5,
+          7,
+          0.9
         ]
       }
     },
@@ -410,8 +284,8 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#71697b",
-        "line-opacity": 0.8,
+        "line-color": "#68676a",
+        "line-opacity": 0.85,
         "line-width": [
           "interpolate",
           [
@@ -421,9 +295,9 @@
             "zoom"
           ],
           4,
-          0.6,
+          0.8,
           11,
-          1.2
+          1.6
         ]
       }
     },
@@ -453,8 +327,8 @@
         ]
       ],
       "paint": {
-        "line-color": "#6f7f86",
-        "line-opacity": 0.6,
+        "line-color": "#687e85",
+        "line-opacity": 0.72,
         "line-width": [
           "interpolate",
           [
@@ -646,10 +520,10 @@
         ]
       },
       "paint": {
-        "text-color": "#d2cbc0",
+        "text-color": "#000",
         "text-halo-blur": 1,
-        "text-halo-color": "#1c2a31",
-        "text-halo-width": 1.2
+        "text-halo-color": "#fff",
+        "text-halo-width": 1
       }
     },
     {
@@ -824,10 +698,10 @@
         ]
       },
       "paint": {
-        "text-color": "#d2cbc0",
+        "text-color": "#000",
         "text-halo-blur": 1,
-        "text-halo-color": "#1c2a31",
-        "text-halo-width": 1.2
+        "text-halo-color": "#fff",
+        "text-halo-width": 1
       }
     },
     {
@@ -884,8 +758,8 @@
         ]
       },
       "paint": {
-        "text-color": "#95a2a5",
-        "text-halo-color": "#1c2a31",
+        "text-color": "#657375",
+        "text-halo-color": "#f8f4f0",
         "text-halo-width": 1
       }
     },
@@ -1063,10 +937,10 @@
         ]
       },
       "paint": {
-        "text-color": "#d2cbc0",
+        "text-color": "#000",
         "text-halo-blur": 1,
-        "text-halo-color": "#1c2a31",
-        "text-halo-width": 1.2
+        "text-halo-color": "#fff",
+        "text-halo-width": 1
       }
     }
   ]

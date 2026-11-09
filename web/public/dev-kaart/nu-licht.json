@@ -1,11 +1,11 @@
 {
   "version": 8,
-  "name": "motregen — licht — atlas",
+  "name": "motregen — licht",
   "glyphs": "/basemap/fonts/{fontstack}/{range}.pbf",
   "sources": {
     "basemap": {
       "type": "vector",
-      "url": "pmtiles:///data/basemap/nl-0e0be41b91fefb0f.pmtiles",
+      "url": "pmtiles:///data/basemap/nl-91e2043db5c73799.pmtiles",
       "attribution": "© <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>"
     }
   },
@@ -14,7 +14,7 @@
       "id": "background",
       "type": "background",
       "paint": {
-        "background-color": "#f4f0e6"
+        "background-color": "#f8f4f0"
       }
     },
     {
@@ -23,8 +23,8 @@
       "source": "basemap",
       "source-layer": "landcover",
       "paint": {
-        "fill-color": "#dfe6cf",
-        "fill-opacity": 0.55,
+        "fill-color": "#d8e8c8",
+        "fill-opacity": 0.7,
         "fill-outline-color": "rgba(0,0,0,0)",
         "fill-antialias": false
       },
@@ -87,9 +87,9 @@
             "zoom"
           ],
           9,
-          "#ece6da",
+          "hsla(0,3%,85%,0.84)",
           12,
-          "#ece2d3"
+          "hsla(35,57%,88%,0.49)"
         ],
         "fill-outline-color": "rgba(0,0,0,0)",
         "fill-antialias": false
@@ -123,8 +123,8 @@
       ],
       "paint": {
         "fill-antialias": false,
-        "fill-color": "#d6dfc2",
-        "fill-opacity": 0.6,
+        "fill-color": "hsla(98,61%,72%,0.7)",
+        "fill-opacity": 0.4,
         "fill-outline-color": "rgba(0,0,0,0)"
       }
     },
@@ -156,8 +156,8 @@
       ],
       "paint": {
         "fill-antialias": false,
-        "fill-color": "#dee5cc",
-        "fill-opacity": 0.45,
+        "fill-color": "rgba(176, 213, 154, 1)",
+        "fill-opacity": 0.3,
         "fill-outline-color": "rgba(0,0,0,0)"
       }
     },
@@ -176,154 +176,9 @@
         "wetland"
       ],
       "paint": {
-        "fill-color": "#dde6d6",
+        "fill-color": "#d8e8c8",
         "fill-opacity": 0.8,
         "fill-antialias": false
-      }
-    },
-    {
-      "id": "river_1",
-      "type": "line",
-      "source": "basemap",
-      "source-layer": "waterway",
-      "minzoom": 5,
-      "filter": [
-        "==",
-        [
-          "get",
-          "rank"
-        ],
-        1
-      ],
-      "layout": {
-        "line-cap": "round",
-        "line-join": "round"
-      },
-      "paint": {
-        "line-color": "#89abc1",
-        "line-width": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          5,
-          0.68,
-          6,
-          0.94,
-          7,
-          1.27,
-          8,
-          1.61,
-          10,
-          2.21,
-          12,
-          2.89
-        ]
-      }
-    },
-    {
-      "id": "river_2",
-      "type": "line",
-      "source": "basemap",
-      "source-layer": "waterway",
-      "minzoom": 7,
-      "filter": [
-        "==",
-        [
-          "get",
-          "rank"
-        ],
-        2
-      ],
-      "layout": {
-        "line-cap": "round",
-        "line-join": "round"
-      },
-      "paint": {
-        "line-color": "#89abc1",
-        "line-width": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          7,
-          0.42,
-          8,
-          0.68,
-          10,
-          1.19,
-          12,
-          1.7
-        ],
-        "line-opacity": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          7,
-          0.5,
-          8,
-          1
-        ]
-      }
-    },
-    {
-      "id": "river_3",
-      "type": "line",
-      "source": "basemap",
-      "source-layer": "waterway",
-      "minzoom": 9,
-      "filter": [
-        "==",
-        [
-          "get",
-          "rank"
-        ],
-        3
-      ],
-      "layout": {
-        "line-cap": "round",
-        "line-join": "round"
-      },
-      "paint": {
-        "line-color": "#89abc1",
-        "line-width": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          9,
-          0.34,
-          10,
-          0.68,
-          12,
-          1.1
-        ],
-        "line-opacity": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          9,
-          0.5,
-          10,
-          1
-        ]
       }
     },
     {
@@ -332,7 +187,7 @@
       "source": "basemap",
       "source-layer": "water",
       "paint": {
-        "fill-color": "#bed3df"
+        "fill-color": "rgb(158,189,255)"
       }
     },
     {
@@ -362,46 +217,9 @@
         ]
       ],
       "paint": {
-        "fill-color": "#efe5c7",
+        "fill-color": "rgba(247, 239, 195, 1)",
         "fill-outline-color": "rgba(0,0,0,0)",
         "fill-antialias": false
-      }
-    },
-    {
-      "id": "boundary_2_ribbon",
-      "type": "line",
-      "source": "basemap",
-      "source-layer": "boundary",
-      "filter": [
-        "==",
-        [
-          "get",
-          "admin_level"
-        ],
-        2
-      ],
-      "layout": {
-        "line-join": "round",
-        "line-cap": "round"
-      },
-      "paint": {
-        "line-color": "#e2cfd9",
-        "line-opacity": 0.7,
-        "line-width": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          4,
-          2.5,
-          8,
-          5,
-          12,
-          8
-        ]
       }
     },
     {
@@ -421,8 +239,8 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#8e7f8a",
-        "line-opacity": 0.8,
+        "line-color": "#68676a",
+        "line-opacity": 0.85,
         "line-width": [
           "interpolate",
           [
@@ -432,9 +250,9 @@
             "zoom"
           ],
           4,
-          0.6,
+          0.8,
           11,
-          1.2
+          1.6
         ]
       }
     },
@@ -464,8 +282,8 @@
         ]
       ],
       "paint": {
-        "line-color": "#a99f95",
-        "line-opacity": 0.65,
+        "line-color": "#687e85",
+        "line-opacity": 0.72,
         "line-width": [
           "interpolate",
           [
@@ -657,10 +475,10 @@
         ]
       },
       "paint": {
-        "text-color": "#40382f",
+        "text-color": "#000",
         "text-halo-blur": 1,
-        "text-halo-color": "#f4f0e6",
-        "text-halo-width": 1.2
+        "text-halo-color": "#fff",
+        "text-halo-width": 1
       }
     },
     {
@@ -835,10 +653,10 @@
         ]
       },
       "paint": {
-        "text-color": "#40382f",
+        "text-color": "#000",
         "text-halo-blur": 1,
-        "text-halo-color": "#f4f0e6",
-        "text-halo-width": 1.2
+        "text-halo-color": "#fff",
+        "text-halo-width": 1
       }
     },
     {
@@ -895,8 +713,8 @@
         ]
       },
       "paint": {
-        "text-color": "#a09386",
-        "text-halo-color": "#f4f0e6",
+        "text-color": "#657375",
+        "text-halo-color": "#f8f4f0",
         "text-halo-width": 1
       }
     },
@@ -1074,10 +892,10 @@
         ]
       },
       "paint": {
-        "text-color": "#40382f",
+        "text-color": "#000",
         "text-halo-blur": 1,
-        "text-halo-color": "#f4f0e6",
-        "text-halo-width": 1.2
+        "text-halo-color": "#fff",
+        "text-halo-width": 1
       }
     }
   ]

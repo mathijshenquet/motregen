@@ -33,7 +33,7 @@ niet-nul exitstatus. `media.json` verschijnt pas na succesvolle afronding van de
 ## Basiskaartinvoer
 
 De zeven gegenereerde bronbestanden in `crates/render/assets/basemaps/` worden met het renderpakket geïnstalleerd
-in `$out/share/motregen-render/basemaps` (samen 701.083 bytes). Nix kopieert ze; bouwen en renderen starten geen
+in `$out/share/motregen-render/basemaps` (samen 555.423 bytes; sinds MIP-42 de `diagram`-kaart). Nix kopieert ze; bouwen en renderen starten geen
 Chromium. Ververs ze vanuit een lokaal gemaakte native botcache die bij het huidige `NATIVE_VIEW`,
 `FRAME_PIXELS` en regenrooster hoort. De meest recent gemaakte plaat per thema wordt overgenomen:
 

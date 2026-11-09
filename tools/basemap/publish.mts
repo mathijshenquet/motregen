@@ -39,7 +39,8 @@ for (let zoom = header.minZoom; zoom <= header.maxZoom; zoom++) {
       compressedSizes.push(compressedSize)
       const vector = new VectorTile(new Pbf(new Uint8Array(tile.data)))
       for (const [name, layer] of Object.entries(vector.layers) as Array<[string, any]>) {
-        if (!['water', 'landcover', 'boundary', 'place'].includes(name)) throw new Error(`Onverwachte laag: ${name}`)
+        // waterway: rivier- en kanaallijnen (MIP-42).
+        if (!['water', 'landcover', 'boundary', 'place', 'waterway'].includes(name)) throw new Error(`Onverwachte laag: ${name}`)
         layers.add(name)
         for (let index = 0; index < layer.length; index++) {
           const feature = layer.feature(index)
@@ -54,7 +55,7 @@ for (let zoom = header.minZoom; zoom <= header.maxZoom; zoom++) {
   compressedSizes.sort((left, right) => left - right)
   zooms.push({ zoom, tiles: sizes.length, compressedBytes: compressedSizes.reduce((sum, size) => sum + size, 0), p50CompressedBytes: compressedSizes[Math.ceil(compressedSizes.length / 2) - 1], maxCompressedBytes: compressedSizes.at(-1), decodedBytes: sizes.reduce((sum, size) => sum + size, 0), p50Bytes: sizes[Math.ceil(sizes.length / 2) - 1], maxBytes: sizes.at(-1) })
 }
-if (layers.size !== 4) throw new Error(`Ontbrekende lagen: ${[...layers]}`)
+if (!['water', 'landcover', 'boundary', 'place'].every((name) => layers.has(name))) throw new Error(`Ontbrekende lagen: ${[...layers]}`)
 console.log(`Archiefgroei t.o.v. U59: ${((bytes.length / budget.bytes - 1) * 100).toFixed(2)} %; +25 %-gate geldt voor gemeten koude kaartbytes`)
 const metadata = { filename, sha256, bytes: bytes.length, minzoom: header.minZoom, maxzoom: header.maxZoom, bounds: [header.minLon, header.minLat, header.maxLon, header.maxLat], zooms }
 const output = resolve(root, process.env.MOTREGEN_BASEMAP_OUTPUT ?? 'tools/basemap/tiles')

@@ -1,0 +1,19 @@
+{
+  "filename": "nl-e44c7d3ce88034d7.pmtiles",
+  "sha256": "e44c7d3ce88034d724746eac751264350d860749576971cb2c64fb28cd369618",
+  "bytes": 19582038,
+  "base": "nl-91e2043db5c73799.pmtiles",
+  "replaced": [
+    {
+      "layer": "landcover",
+      "from": 5,
+      "to": 9
+    },
+    {
+      "layer": "water",
+      "from": 5,
+      "to": 8
+    }
+  ],
+  "changedTiles": 853
+}
