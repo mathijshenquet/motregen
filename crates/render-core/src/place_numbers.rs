@@ -1,7 +1,7 @@
 //! Gevoelsgetallen in de film (U107), zoals `TemperatureNumbers` in de app (U100 "plekken-half"): een heel getal op
 //! vaste plekken naast de plaatsnaam, op een schijf in de kleur van zijn band; de isolijnen liggen op x,5 °C, dus het
 //! getal klopt altijd met het vlak eronder. Plaatsing met de ladder van het kaartregime tegen het naammasker, de
-//! klok en eerdere getallen. De plek hangt aan de breedte van `00°`, zodat een getal binnen een film niet verspringt.
+//! klok, het voetpaneel en eerdere getallen. De plek hangt aan de breedte van `00°`, zodat een getal binnen een film niet verspringt.
 
 use crate::{
     constants::constants,
@@ -43,12 +43,12 @@ pub fn draw_place_numbers(
         .round() as i32;
     let box_height = ((size + 6.0).ceil() * scale).round() as i32;
     let step = f64::from(box_height);
-    let clock = Rect {
-        left: clock[0] as i32,
-        top: clock[1] as i32,
-        right: clock[2] as i32,
-        bottom: clock[3] as i32,
-    };
+    let chrome = [clock, crate::overlay::footer_bounds()].map(|[left, top, right, bottom]| Rect {
+        left: left as i32,
+        top: top as i32,
+        right: right as i32,
+        bottom: bottom as i32,
+    });
     let projection = banded.projection;
     let column_at =
         |x: f64| projection.columns[0] + (projection.columns[1] - projection.columns[0]) * x;
@@ -77,7 +77,9 @@ pub fn draw_place_numbers(
                 && rect.right <= frame.width as i32 - margin
                 && rect.bottom <= frame.height as i32 - margin;
             let free = inside
-                && !rect.intersects(&clock.grown((4.0 * scale).round() as i32))
+                && chrome
+                    .iter()
+                    .all(|panel| !rect.intersects(&panel.grown((4.0 * scale).round() as i32)))
                 && taken
                     .iter()
                     .all(|other| !rect.intersects(&other.grown((3.0 * scale).round() as i32)))
