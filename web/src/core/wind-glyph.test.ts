@@ -43,3 +43,13 @@ describe('badge met het getal', () => {
     expect(windsockBadge(shape, 'midden', '104').fontPx).toBeLessThan(middle.fontPx)
   })
 })
+
+describe('zakstijl', () => {
+  it('kent de vijf varianten plus de huidige en valt anders terug op de zak', async () => {
+    const { windsockStyleName, WINDSOCK_STYLE_NAMES } = await import('./wind-sock-styles')
+    expect(WINDSOCK_STYLE_NAMES).toEqual(['zak', 'gravure', 'emaille', 'windwijzer', 'wimpel', 'glans'])
+    expect(windsockStyleName('emaille')).toBe('emaille')
+    expect(windsockStyleName('onbekend')).toBe('zak')
+    expect(windsockStyleName(null)).toBe('zak')
+  })
+})

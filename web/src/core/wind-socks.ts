@@ -1,11 +1,12 @@
 import type { Map as MapLibreMap } from 'maplibre-gl'
 import { beaufortScale } from './wind-beaufort.js'
-import { DEFAULT_WINDSOCK_BADGE, WINDSOCK_BADGE_POSITIONS, WINDSOCK_BANDS, windsockBadge, windsockBand, windsockOutline, windsockShape, type Point, type WindsockBadgePosition, type WindsockShape } from './wind-glyph.js'
+import { DEFAULT_WINDSOCK_BADGE, WINDSOCK_BADGE_POSITIONS, windsockBadge, windsockShape, type WindsockBadgePosition, type WindsockShape } from './wind-glyph.js'
 import { DEFAULT_WINDSOCK_CURVATURE, DEFAULT_WINDSOCK_FLUTTER, flutterBends, sampleWind, windsockPhase, WINDSOCK_CURVATURES, WINDSOCK_FLUTTERS, windsockHeadings, type WindsockCurvature, type WindsockField, type WindsockFlutter, type WindsockFlutterName } from './windsock-flow.js'
 import type { TemperaturePlace } from './temperature.js'
 import { windValue, type WindUnit } from './weather.js'
 import { recordPerfPhase } from './perf.js'
 import { WINDSOCK_ANCHOR_OFFSETS } from './windsock-anchors.js'
+import { drawStyledSock, windsockStyleName, type WindsockStyleName } from './wind-sock-styles.js'
 
 interface Sock {
   place: TemperaturePlace
@@ -24,12 +25,12 @@ interface Sock {
 export const WINDSOCK_FLUTTER_FPS = 30
 
 const MERCATOR_RADIUS = 6378137
-const ORANGE = '#f2661c', WHITE = '#fbfbf8', INK = '#17242b'
 
 export interface WindsockLayerOptions {
   curvature: WindsockCurvature
   flutter: WindsockFlutter | undefined
   badge: WindsockBadgePosition
+  style: WindsockStyleName
   reducedMotion: () => boolean
   /** Alleen `?dev&windfactor=`: vermenigvuldigt de wind van de zakken, om harde wind te bekijken. */
   speedFactor: number
@@ -159,7 +160,7 @@ export class WindsockLayer {
       if (flutterBend) fluttering = true
       const headings = compass.map((heading, index) => heading - bearing + (flutterBend?.[index] ?? 0))
       const shape = windsockShape(strength, headings, 'kaart')
-      this.drawSock(context, screen.x + sock.offset[0], screen.y + sock.offset[1], shape, String(windValue(speed, this.unit)))
+      this.drawSock(context, screen.x + sock.offset[0], screen.y + sock.offset[1], shape, String(windValue(speed, this.unit)), strength, sock.phase, seconds)
       this.drawnCount++
       this.drawnMaxStrength = Math.max(this.drawnMaxStrength, strength)
     }
@@ -169,66 +170,13 @@ export class WindsockLayer {
     if (fluttering) this.scheduleFlutter(started)
   }
 
-  private drawSock(context: CanvasRenderingContext2D, x: number, y: number, shape: WindsockShape, label: string): void {
-    const badge = windsockBadge(shape, this.options.badge, label)
+  private drawSock(context: CanvasRenderingContext2D, x: number, y: number, shape: WindsockShape, label: string, strength: number, phase: number, seconds: number): void {
     context.save()
     context.translate(x, y)
-    context.save()
-    // De zak wordt rond de badge weggeknipt: alles behalve de cirkel.
-    const outside = new Path2D()
-    outside.rect(-200, -200, 400, 400)
-    outside.arc(badge.x, badge.y, badge.cutRadius, 0, Math.PI * 2)
-    context.clip(outside, 'evenodd')
-    const outline = new Path2D(polygon(windsockOutline(shape)))
-    context.lineJoin = 'round'
-    // Zachte schaduw en een lichte rand houden de zak los van de vlakken, op lichte en donkere kaart.
-    context.save()
-    context.translate(0, 1.3)
-    context.strokeStyle = 'rgba(0, 0, 0, 0.22)'
-    context.lineWidth = 3.5
-    context.stroke(outline)
-    context.restore()
-    context.strokeStyle = this.dark ? 'rgba(255, 255, 255, 0.55)' : 'rgba(255, 255, 255, 0.9)'
-    context.lineWidth = 3.2
-    context.stroke(outline)
-    for (let band = 0; band < WINDSOCK_BANDS; band++) {
-      context.fillStyle = band % 2 ? WHITE : ORANGE
-      context.fill(new Path2D(polygon(windsockBand(shape, band))))
-    }
-    context.strokeStyle = INK
-    context.lineWidth = 1.1
-    context.stroke(outline)
-    context.lineWidth = 2
-    context.lineCap = 'round'
-    context.beginPath()
-    context.moveTo(...shape.left[0]!)
-    context.lineTo(...shape.right[0]!)
-    context.stroke()
-    context.beginPath()
-    context.arc(0, 0, 2.4, 0, Math.PI * 2)
-    context.fillStyle = INK
-    context.strokeStyle = '#fff'
-    context.lineWidth = 1.4
-    context.stroke()
-    context.fill()
-    context.restore()
-    const circle = new Path2D()
-    circle.arc(badge.x, badge.y, badge.radius, 0, Math.PI * 2)
-    context.save()
-    context.translate(0, 1.3)
-    context.fillStyle = 'rgba(0, 0, 0, 0.22)'
-    context.fill(circle)
-    context.restore()
-    context.fillStyle = '#fff'
-    context.fill(circle)
-    context.strokeStyle = INK
-    context.lineWidth = 1.1
-    context.stroke(circle)
-    context.font = `800 ${badge.fontPx}px ${this.fontFamily}`
-    context.textAlign = 'center'
-    context.textBaseline = 'middle'
-    context.fillStyle = ORANGE
-    context.fillText(label, badge.x, badge.y + 0.5)
+    drawStyledSock(this.options.style, {
+      context, shape, badge: windsockBadge(shape, this.options.badge, label), label, strength, phase, seconds,
+      dark: this.dark, fontFamily: this.fontFamily,
+    })
     context.restore()
   }
 
@@ -257,12 +205,7 @@ export class WindsockLayer {
   }
 }
 
-function polygon(points: readonly Point[]): string {
-  return `M${points.map(([x, y]) => `${x} ${y}`).join('L')}Z`
-}
-
-
-/** Dev-knoppen van ronde 3 (`?dev&kromming=`, `&fladder=`, `&badge=`, `&windfactor=`); zonder knop de gekozen defaults. */
+/** Dev-knoppen van ronde 3 en 4 (`?dev&kromming=`, `&fladder=`, `&badge=`, `&zakstijl=`, `&windfactor=`); zonder knop de defaults. */
 export function windsockDevOptions(params: URLSearchParams): Omit<WindsockLayerOptions, 'reducedMotion'> {
   const curvature = WINDSOCK_CURVATURES.find((name) => name === params.get('kromming')) ?? DEFAULT_WINDSOCK_CURVATURE
   const flutterName = params.get('fladder')
@@ -270,5 +213,5 @@ export function windsockDevOptions(params: URLSearchParams): Omit<WindsockLayerO
     : WINDSOCK_FLUTTERS[flutterName && flutterName in WINDSOCK_FLUTTERS ? flutterName as WindsockFlutterName : DEFAULT_WINDSOCK_FLUTTER]
   const factor = Number(params.get('windfactor'))
   const badge = WINDSOCK_BADGE_POSITIONS.find((name) => name === params.get('badge')) ?? DEFAULT_WINDSOCK_BADGE
-  return { curvature, flutter, badge, speedFactor: Number.isFinite(factor) && factor > 0 ? factor : 1 }
+  return { curvature, flutter, badge, style: windsockStyleName(params.get('zakstijl')), speedFactor: Number.isFinite(factor) && factor > 0 ? factor : 1 }
 }
