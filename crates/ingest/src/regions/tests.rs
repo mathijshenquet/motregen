@@ -297,3 +297,37 @@ fn prune_removes_staging_leftovers() {
     prune_groups(directory.path(), &[]).unwrap();
     assert!(!staging.exists());
 }
+
+#[test]
+fn frame_list_maps_frames_to_their_slot() {
+    let window = Window {
+        column: 3,
+        row: 4,
+        width: 2,
+        height: 1,
+    };
+    let file = RegionFile {
+        header: FileHeader {
+            version: FORMAT_VERSION,
+            group: Group::Radar,
+            region: 0,
+            chunks: vec![ChunkEntry {
+                url: "chunks/a.mrf".to_owned(),
+                source: "rtcor".to_owned(),
+                field: "rain_rate".to_owned(),
+                run: "r".to_owned(),
+                table: "t".to_owned(),
+                window,
+                frames: 2,
+                frame_indexes: Some(vec![2, 5]),
+                offset: 0,
+                motion: None,
+            }],
+        },
+        payload: vec![10, 11, 20, 21],
+    };
+    assert_eq!(file.value(0, 3, 4, 2), Some(10));
+    assert_eq!(file.value(0, 3, 4, 5), Some(11));
+    assert_eq!(file.value(0, 4, 4, 5), Some(21));
+    assert_eq!(file.value(0, 3, 4, 0), None);
+}

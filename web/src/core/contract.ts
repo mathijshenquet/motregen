@@ -30,6 +30,23 @@ export interface Manifest {
   ecmwf?: EcmwfSection
   /** MIP-37: gevoelstemperatuur over NL gisteren (lokaal), het vaste paletbereik; ontbreekt bij een koude start. */
   feels_reference?: FeelsReference
+  /** MIP-40: puntreeksen per regio (docs/regiobestanden.md); ontbreekt zonder de ingestvlag. */
+  regions?: RegionsSection
+}
+
+export interface RegionsSection {
+  version: number
+  crs: string
+  west: number
+  east: number
+  north: number
+  south: number
+  columns: number
+  rows: number
+  /** Regio's met een bestand, `id = rij × columns + kolom`. */
+  present: number[]
+  tables?: string
+  groups: Array<{ name: string; url: string; chunks: string[] }>
 }
 
 export interface FeelsReference {

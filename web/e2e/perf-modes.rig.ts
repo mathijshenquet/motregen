@@ -119,7 +119,7 @@ async function measureVisit(browser: Browser, context: BrowserContext, profileId
     if (manifest && state.trace) {
       const wanted = histogramFrames(manifest, mode)
       wantedFrames = wanted.length
-      histogram = framesCompleteMs(wanted, state.trace)
+      histogram = framesCompleteMs(wanted, state.trace, true)
       map = framesCompleteMs(mapFrames(manifest, mode), state.trace)
     }
     settled = histogram.completeMs !== null && state.tableCompleteMs !== null && map.completeMs !== null

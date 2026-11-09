@@ -3,6 +3,9 @@
 //!
 //! cargo run --release -p motregen-ingest --bin motregen-regions -- --data-dir <map> [--sidecar <map>/ecmwf.json]
 //!     [--level 19] [--out <map>] [--verify]
+//!
+//! Met `--out` is `<out>` daarna zelf een datamap: `regions/`, `manifest.json` (het invoermanifest plus de sectie
+//! `regions`) en `chunks` als link naar de invoer, om de client lokaal tegen regiobestanden te draaien.
 
 use std::{
     collections::HashMap,
@@ -15,7 +18,10 @@ use anyhow::{Context, Result, ensure};
 use clap::Parser;
 use motregen_ingest::{
     publisher::{Manifest, ManifestChunk, ProducedChunk, produced_chunk},
-    regions::{self, BuiltGroup, Group, RegionGrid, process_cpu_ms, read_region_file},
+    regions::{
+        self, BuiltGroup, Group, RegionGrid, RegionsGroup, RegionsSection, process_cpu_ms,
+        read_region_file,
+    },
 };
 use serde::Deserialize;
 
@@ -29,7 +35,7 @@ struct Args {
     sidecar: Vec<PathBuf>,
     #[arg(long, default_value_t = regions::DEFAULT_ZSTD_LEVEL)]
     level: i32,
-    /// Schrijf de generaties naar <out>/regions/.
+    /// Schrijf de generaties naar <out>/regions/, plus manifest.json met de sectie regions en een link chunks/.
     #[arg(long)]
     out: Option<PathBuf>,
     /// Vergelijk elke cel, elk frame en elk bewegingsblok in de bestanden met het raster.
@@ -142,7 +148,16 @@ fn main() -> Result<()> {
         tables: tables.clone(),
     })?;
     if let Some(out) = &args.out {
-        regions::write_tables(out, &tables)?;
+        let name = regions::write_tables(out, &tables)?;
+        let section = RegionsSection::new(
+            &grid,
+            Some(name),
+            built_groups
+                .iter()
+                .map(|(built, _)| RegionsGroup::of(built))
+                .collect(),
+        );
+        write_manifest(&args.data_dir, out, &section)?;
     }
     println!();
     println!("Per locatie (som van het gemiddelde bestand per groep): {per_location} B");
@@ -177,6 +192,21 @@ fn main() -> Result<()> {
                 built.group.name()
             );
         }
+    }
+    Ok(())
+}
+
+fn write_manifest(data_dir: &Path, out: &Path, section: &RegionsSection) -> Result<()> {
+    let mut manifest: serde_json::Value =
+        serde_json::from_slice(&fs::read(data_dir.join("manifest.json"))?)?;
+    manifest
+        .as_object_mut()
+        .context("manifest is not an object")?
+        .insert("regions".to_owned(), serde_json::to_value(section)?);
+    fs::write(out.join("manifest.json"), serde_json::to_vec(&manifest)?)?;
+    let chunks = out.join("chunks");
+    if chunks.symlink_metadata().is_err() {
+        std::os::unix::fs::symlink(fs::canonicalize(data_dir.join("chunks"))?, &chunks)?;
     }
     Ok(())
 }

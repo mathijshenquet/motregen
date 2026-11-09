@@ -230,6 +230,10 @@ pub struct ChunkEntry {
     pub table: String,
     pub window: Window,
     pub frames: u32,
+    /// Welke frames van de chunk erin staan, als het er minder zijn dan alle; zonder lijst `0..frames`. De ingest
+    /// schrijft nu altijd alle frames; de client leest de lijst al, zodat dat later kan veranderen.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frame_indexes: Option<Vec<u32>>,
     /// Byte-offset in de payload; per cel (rij voor rij in het venster) `frames` bytes in tijdvolgorde.
     pub offset: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -274,6 +278,12 @@ impl RegionFile {
     /// De gekwantiseerde byte van `frame` in cel (column, row) van het chunkraster, zoals het raster hem heeft.
     pub fn value(&self, chunk: usize, column: u32, row: u32, frame: usize) -> Option<u8> {
         let entry = self.header.chunks.get(chunk)?;
+        let frame = match &entry.frame_indexes {
+            Some(indexes) => indexes
+                .iter()
+                .position(|&candidate| candidate as usize == frame)?,
+            None => frame,
+        };
         if !entry.window.contains(column, row) || frame >= entry.frames as usize {
             return None;
         }
@@ -475,6 +485,7 @@ pub fn build_group(
                 table: table.clone(),
                 window,
                 frames: decoded.frames.len() as u32,
+                frame_indexes: None,
                 offset,
                 motion,
             });
@@ -693,6 +704,35 @@ pub struct RegionsSection {
     pub groups: Vec<RegionsGroup>,
 }
 
+impl RegionsSection {
+    /// `tables` is de bestandsnaam uit `write_tables`.
+    pub fn new(grid: &RegionGrid, tables: Option<String>, groups: Vec<RegionsGroup>) -> Self {
+        Self {
+            version: FORMAT_VERSION,
+            crs: "EPSG:3857".to_owned(),
+            west: grid.west,
+            east: grid.east,
+            north: grid.north,
+            south: grid.south,
+            columns: grid.columns,
+            rows: grid.rows,
+            present: grid.present.clone(),
+            tables: tables.map(|name| format!("{DIRECTORY}/{name}")),
+            groups,
+        }
+    }
+}
+
+impl RegionsGroup {
+    pub fn of(built: &BuiltGroup) -> Self {
+        Self {
+            name: built.group.name().to_owned(),
+            url: format!("{DIRECTORY}/{}/", built.directory()),
+            chunks: built.chunks.clone(),
+        }
+    }
+}
+
 /// Houdt per groep de laatst geschreven generatie bij, zodat een ongewijzigde groep niet opnieuw wordt gebouwd.
 pub struct RegionWriter {
     grid: RegionGrid,
@@ -770,12 +810,8 @@ impl RegionWriter {
                             .map(|(before, after)| after - before),
                         "region files written"
                     );
-                    let entry = RegionsGroup {
-                        name: group.name().to_owned(),
-                        url: format!("{DIRECTORY}/{}/", built.directory()),
-                        chunks: built.chunks,
-                    };
-                    self.written.insert(group, (entry, built.tables));
+                    self.written
+                        .insert(group, (RegionsGroup::of(&built), built.tables));
                 }
                 Err(error) => {
                     warn!(group = group.name(), error = %format!("{error:#}"), "region files not written; group left out of the manifest");
@@ -821,22 +857,14 @@ impl RegionWriter {
             Ok(_) => {}
             Err(error) => warn!(error = %format!("{error:#}"), "region pruning failed"),
         }
-        RegionsSection {
-            version: FORMAT_VERSION,
-            crs: "EPSG:3857".to_owned(),
-            west: self.grid.west,
-            east: self.grid.east,
-            north: self.grid.north,
-            south: self.grid.south,
-            columns: self.grid.columns,
-            rows: self.grid.rows,
-            present: self.grid.present.clone(),
-            tables: tables.map(|name| format!("{DIRECTORY}/{name}")),
-            groups: Group::ALL
+        RegionsSection::new(
+            &self.grid,
+            tables,
+            Group::ALL
                 .into_iter()
                 .filter_map(|group| self.written.get(&group).map(|(entry, _)| entry.clone()))
                 .collect(),
-        }
+        )
     }
 }
 

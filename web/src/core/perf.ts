@@ -281,6 +281,8 @@ export interface LoadTraceSnapshot {
   requests: LoadRequestTrace[]
   frames: LoadFrameTrace[]
   marks: LoadMarkTrace[]
+  /** Frames waarvan de puntwaarde zonder decoderen binnenkwam (regiobestanden, MIP-40). */
+  points?: Array<{ url: string; frameIndex: number; t: number }>
 }
 
 /** Laadtijdlijn voor het Playwright-laadprofiel (U1); goedkoop genoeg om altijd aan te staan. */
@@ -288,6 +290,7 @@ export class LoadTrace {
   private readonly requests: LoadRequestTrace[] = []
   private readonly frames = new Map<string, LoadFrameTrace>()
   private readonly marks: LoadMarkTrace[] = []
+  private readonly points = new Map<string, { url: string; frameIndex: number; t: number }>()
   private nextId = 0
 
   constructor(private readonly now: () => number) {}
@@ -326,12 +329,17 @@ export class LoadTrace {
     if (trace) trace.decodedMs ??= this.now()
   }
 
+  pointRead(url: string, frameIndex: number): void {
+    const key = `${url}#${frameIndex}`
+    if (!this.points.has(key) && this.points.size < loadTraceCapacity) this.points.set(key, { url, frameIndex, t: this.now() })
+  }
+
   mark(mark: DistributiveOmit<LoadMarkTrace, 't'>): void {
     if (this.marks.length < loadTraceCapacity) this.marks.push({ ...mark, t: this.now() } as LoadMarkTrace)
   }
 
   snapshot(): LoadTraceSnapshot {
-    return { requests: this.requests.map((trace) => ({ ...trace })), frames: [...this.frames.values()].map((trace) => ({ ...trace })), marks: [...this.marks] }
+    return { requests: this.requests.map((trace) => ({ ...trace })), frames: [...this.frames.values()].map((trace) => ({ ...trace })), marks: [...this.marks], points: [...this.points.values()] }
   }
 }
 

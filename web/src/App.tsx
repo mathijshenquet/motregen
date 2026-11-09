@@ -45,6 +45,7 @@ import { pointValue, pointValueBilinear, projectPoint as project } from './core/
 import { buildDayList, ecmwfDayChunks, localDate, type HourlyDayInputs, type Sample } from './core/days'
 import { buildLadder, buildSlotRows, ecmwfStepChunks, hourlyEnd } from './core/ladder'
 import { rainBetween, rainPatch, type RainPatch } from './core/rain-point-detail'
+import { RegionPoints, type RegionChunk } from './core/region-points'
 import { selectPairMotion } from './core/motion-selection'
 import { findCataloguePlace, isInPlaceZone, loadPlaces, namedCataloguePlace, nearestPlace, places, rememberPlace, rememberSearchedPlace } from './core/places'
 import type { PlaceIdentity, PlaceMemory } from './core/place-memory'
@@ -376,6 +377,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   // Krap apparaat (U49): puntreeksen alleen voor wat scrubber en tabel nu tonen, niet vooruit.
   const inViewOnly = decode.pointSeries === 'in-view'
   const client = initialClient ?? new MrfClient(manifestUrl, perf.loads, decode)
+  // MIP-40: met een sectie `regions` in het manifest lezen histogram, tabel en dagenlijst eerst uit regiobestanden.
+  const regionPoints = new RegionPoints(manifestUrl.href, async (url) => {
+    const response = await fetch(url, { priority: 'high' } as RequestInit & { priority: FetchPriority })
+    return response.ok ? new Uint8Array(await response.arrayBuffer()) : undefined
+  })
   const [manifest, setManifest] = createSignal<Manifest>()
   const [manifestRefresh, setManifestRefresh] = createSignal<RefreshState>()
   const timeline = createMemo(() => manifest() ? buildTimeline(manifest()!) : [])
@@ -1078,6 +1084,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const state = previousState ? newPointLoadState(previousState.point, rain.values, rain.loaded) : undefined
     if (state && previousState) state.rainPatches = previousState.rainPatches
     pointLoad = state
+    if (state) void keepRegionRainPatches(state, nextManifest, nextRain)
     batch(() => {
       setManifest(nextManifest)
       setCursor(nextCursor)
@@ -2424,6 +2431,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
     const request = state.request
     pointLoad = state
+    void keepRegionRainPatches(state, manifest(), timeline())
     if (cachedRain.complete && cachedForecast.every((series) => series.complete)) {
       state.full = Promise.resolve()
       setRainSeries([...state.rainValues])
@@ -2496,6 +2504,25 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     return `${new URL(frame.chunk.url, manifestUrl).href}#${frame.frameIndex}`
   }
 
+  /** Regenpatches voor de tussenbalken uit de regiobestanden, zodra die er zijn; wat ontbreekt komt van de kaartframes. */
+  async function keepRegionRainPatches(state: PointLoadState, current: Manifest | undefined, frames: TimelineFrame[]): Promise<void> {
+    const [x, y] = project(state.point.lng, state.point.lat)
+    let kept = false
+    await Promise.all([...new Set(frames.map((frame) => frame.chunk))].map(async (chunk) => {
+      const region = await regionPoints.chunk(current, chunk.url, x, y)
+      if (!region || state.request !== pointRequest) return
+      for (const frame of frames) {
+        const key = rainFrameKey(frame)
+        if (frame.chunk !== chunk || state.rainPatches.has(key)) continue
+        const patch = region.patch(frame.frameIndex, x, y)
+        if (!patch) continue
+        state.rainPatches.set(key, patch)
+        kept = true
+      }
+    }))
+    if (kept && state.request === pointRequest) setRainDetailMotionVersion((version) => version + 1)
+  }
+
   function keepRainPatch(state: PointLoadState, key: string, header: MrfHeader, decoded: Uint8Array): void {
     if (state.rainPatches.has(key)) return
     const [x, y] = project(state.point.lng, state.point.lat)
@@ -2524,7 +2551,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       const pairKey = `${leftKey}|${rightKey}`
       if (left && right && !rainDetailMotions.has(pairKey)) {
         rainDetailMotions.set(pairKey, 'laden')
-        void loadPairMotion(frame, next)
+        void loadPointPairMotion(state!, frame, next)
           .then((motion) => rainDetailMotions.set(pairKey, motion ?? null), () => rainDetailMotions.set(pairKey, null))
           .then(() => setRainDetailMotionVersion((version) => version + 1))
       }
@@ -2538,6 +2565,19 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       })
     })
   })
+
+  /** Als `loadPairMotion`, maar eerst uit de regiobestanden van de plek; alleen voor de tussenbalken. */
+  async function loadPointPairMotion(state: PointLoadState, left: TimelineFrame, right: TimelineFrame): Promise<MotionField | undefined> {
+    if (left.epoch >= right.epoch) return undefined
+    const [x, y] = project(state.point.lng, state.point.lat)
+    const current = manifest()
+    const [leftRegion, rightRegion] = await Promise.all([regionPoints.chunk(current, left.chunk.url, x, y), regionPoints.chunk(current, right.chunk.url, x, y)])
+    const regionOf = (frame: TimelineFrame) => frame.chunk.url === left.chunk.url ? leftRegion : rightRegion
+    if (leftRegion?.hasMotion(left.frameIndex) === undefined || rightRegion?.hasMotion(right.frameIndex) === undefined) return loadPairMotion(left, right)
+    const selected = selectPairMotion(left, right, (frame) => regionOf(frame)?.hasMotion(frame.frameIndex) === true)
+    if (!selected) return undefined
+    return regionOf(selected.frame)?.motion(selected.frame.frameIndex, x, y) ?? client.getMotion(selected.frame.chunk, selected.frame.frameIndex)
+  }
 
   function newPointLoadState(
     point: { lng: number; lat: number },
@@ -2701,6 +2741,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     signal?: AbortSignal,
   ): Promise<Array<number | null>> {
     const [x, y] = project(point.lng, point.lat)
+    const current = manifest()
     const chunks = new Map<ManifestChunk, Array<{ position: number; frameIndex: number }>>()
     for (const position of [...new Set(indexes)]) {
       const frame = frames[position]!
@@ -2709,7 +2750,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       entries.push({ position, frameIndex: frame.frameIndex })
       chunks.set(frame.chunk, entries)
     }
-    await Promise.all([...chunks].map(async ([chunk, entries]) => {
+    await Promise.all([...chunks].map(async ([chunk, wanted]) => {
+      const region = await regionPoints.chunk(current, chunk.url, x, y)
+      const entries = region ? readRegionValues(region, chunk, wanted, x, y, values, progress) : wanted
+      if (!entries.length) return
       const header = await client.getHeader(chunk)
       const positions = new Map<number, number[]>()
       for (const entry of entries) positions.set(entry.frameIndex, [...(positions.get(entry.frameIndex) ?? []), entry.position])
@@ -2720,6 +2764,33 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       }, layer, signal)
     }))
     return values
+  }
+
+  /** Vult wat het regiobestand heeft en geeft de rest terug voor het raster. */
+  function readRegionValues(
+    region: RegionChunk,
+    chunk: ManifestChunk,
+    wanted: Array<{ position: number; frameIndex: number }>,
+    x: number,
+    y: number,
+    values: Array<number | null>,
+    progress?: (values: Array<number | null>, loaded: number[]) => void,
+  ): Array<{ position: number; frameIndex: number }> {
+    const url = new URL(chunk.url, manifestUrl).href
+    const rest: Array<{ position: number; frameIndex: number }> = []
+    const loaded: number[] = []
+    for (const entry of wanted) {
+      const value = region.value(entry.frameIndex, x, y)
+      if (value === undefined) {
+        rest.push(entry)
+        continue
+      }
+      values[entry.position] = value
+      loaded.push(entry.position)
+      perf.loads.pointRead(url, entry.frameIndex)
+    }
+    if (loaded.length) progress?.(values, loaded)
+    return rest
   }
 
   function enqueueRain(state: PointLoadState, indexes: number[], priority: FetchPriority, layer: LoadLayer, reason: string): Promise<void> {
@@ -3150,8 +3221,14 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       const wanted = key()
       if (!longRangeNear() || !wanted || untrack(loaded)?.key === wanted) return
       const [x, y] = project(location().lng, location().lat)
+      const current = manifest()
       void Promise.all([...chunks()].map(async ([field, chunk]) => {
         try {
+          const region = await regionPoints.chunk(current, chunk.url, x, y)
+          if (region) {
+            const values = chunk.times.map((_, index) => field === 'day_wind_dir' ? region.value(index, x, y) : region.bilinear(index, x, y))
+            if (values.every((value) => value !== undefined)) return [field, values as Array<number | null>] as const
+          }
           const header = await client.getHeader(chunk)
           const frames = await client.getFrames(chunk, chunk.times.map((_, index) => index), 'low', undefined, 'L2')
           // Richting in graden mengt niet: 359° en 1° zouden 180° worden.

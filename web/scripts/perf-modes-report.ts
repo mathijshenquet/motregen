@@ -53,8 +53,8 @@ export function mapBufferFrames(manifest: Manifest, mode: MapMode, epoch = Date.
   })
 }
 
-export type DataSource = 'manifest' | 'rtcor' | 'nowcast' | 'seamless' | 'harmonie' | 'icon_d2' | 'ecmwf' | 'uv' | 'basemap' | 'plaatsen' | 'app' | 'overig'
-export const DATA_SOURCES: readonly DataSource[] = ['manifest', 'rtcor', 'nowcast', 'seamless', 'harmonie', 'icon_d2', 'ecmwf', 'uv', 'basemap', 'plaatsen', 'app', 'overig']
+export type DataSource = 'manifest' | 'rtcor' | 'nowcast' | 'seamless' | 'harmonie' | 'icon_d2' | 'ecmwf' | 'uv' | 'basemap' | 'plaatsen' | 'regio' | 'app' | 'overig'
+export const DATA_SOURCES: readonly DataSource[] = ['manifest', 'rtcor', 'nowcast', 'seamless', 'harmonie', 'icon_d2', 'ecmwf', 'uv', 'basemap', 'plaatsen', 'regio', 'app', 'overig']
 
 const CHUNK_SOURCES = ['rtcor', 'nowcast', 'seamless', 'harmonie', 'icon_d2', 'ecmwf', 'uv'] as const
 
@@ -70,6 +70,7 @@ export function classifyRequest(url: string): DataSource {
     if (chunk[1]!.startsWith('icon-d2-')) return 'icon_d2'
     if (chunk[1]!.startsWith('uv_clear-')) return 'uv'
   }
+  if (path.includes('/regions/')) return 'regio'
   if (/\/plaatsen[^/]*\.json$/.test(path)) return 'plaatsen'
   if (/\.(?:pmtiles|pbf|mvt)$/.test(path) || path.includes('/tiles/') || path.includes('/basemap/') || path.endsWith('style.json') || path.includes('/fonts/') || path.includes('/sprites/')) return 'basemap'
   if (/\.(?:js|mjs|ts|tsx|css|html|woff2?|svg|png|webmanifest|wasm|gz)$/.test(path) || path === '/' || !path.includes('.')) return 'app'
@@ -121,12 +122,19 @@ export function histogramFrames(manifest: Manifest, mode: MapMode, window: Epoch
     .map((frame) => ({ url: frame.chunk.url, frameIndex: frame.frameIndex, field, epoch: frame.epoch })))
 }
 
-/** Moment (ms sinds timeOrigin) waarop het laatste gevraagde frame gedecodeerd was; null als er één ontbreekt. */
-export function framesCompleteMs(wanted: readonly WantedFrame[], trace: LoadTraceSnapshot): { completeMs: number | null; missing: WantedFrame[] } {
+/**
+ * Moment (ms sinds timeOrigin) waarop het laatste gevraagde frame gedecodeerd was; null als er één ontbreekt. Met
+ * `points` telt ook een puntwaarde uit een regiobestand (MIP-40): voor het histogram, niet voor de kaart.
+ */
+export function framesCompleteMs(wanted: readonly WantedFrame[], trace: LoadTraceSnapshot, points = false): { completeMs: number | null; missing: WantedFrame[] } {
   const decoded = new Map<string, number>()
   for (const frame of trace.frames) {
     if (frame.decodedMs === undefined) continue
     decoded.set(`${pathOf(frame.url)}#${frame.frameIndex}`, frame.decodedMs)
+  }
+  for (const point of points ? trace.points ?? [] : []) {
+    const key = `${pathOf(point.url)}#${point.frameIndex}`
+    decoded.set(key, Math.min(decoded.get(key) ?? Infinity, point.t))
   }
   let completeMs = 0
   const missing: WantedFrame[] = []
