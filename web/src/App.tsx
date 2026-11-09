@@ -871,6 +871,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     let initialData: Manifest | undefined
     let eagerHeadersAllowed = false
     let eagerHeadersStarted = false
+    let firstRainFrames: Array<Promise<unknown>> = []
     const startEagerHeaders = () => {
       if (!eagerHeadersAllowed || !initialData || eagerHeadersStarted) return
       eagerHeadersStarted = true
@@ -899,7 +900,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       // (koude PO-opname 2026-10-07: eerste regen-decode pas op 1,9 s, 0,85 s na de kaart).
       // U89, PO 2026-10-17: Eerste regen blijft vast vroeg.
       const firstIndex = Math.floor(presetCursor ?? nowIndex)
-      for (const frame of frames.slice(firstIndex, firstIndex + 2)) void load(frame).catch(() => undefined)
+      firstRainFrames = frames.slice(firstIndex, firstIndex + 2).map((frame) => load(frame).catch(() => undefined))
       setManifest(data)
       initialData = data
       startEagerHeaders()
@@ -991,6 +992,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
             // De kaartheader en eerste tegels gaan vóór de ongebruikte HARMONIE-headers.
             eagerHeadersAllowed = true
             startEagerHeaders()
+            // U109: in Lucht de wolkenbytes direct erachteraan, niet pas na mapReady; kaart en eerste regenframes houden
+            // voorrang (de decoders ordenen alleen op tijd, dus anders schoven de wolken warm voor de regen).
+            // Alleen met het ruime decodebudget: op de telefoon (in-view) won het niets en kwam de warme kaart later.
+            if (!stillMode && !inViewOnly && focusPinned() === 'air') void Promise.all(firstRainFrames).then(() => { if (focusPinned() === 'air') prefetchCloudAtCursor() })
           }
           basemapTileSeen = true
           replaceMapStartWhenComplete()
@@ -1920,6 +1925,25 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     for (const index of isolineLayerIndices(blend.left + blend.mix, frames.length, ISOLINE_WINDOW)) {
       void preparedIsolineField(temperatureIsolines, frames[index]!).catch(() => undefined)
     }
+  }
+
+  /**
+   * U109: start in Lucht. De wolkenvelden wachtten op mapReady; de bytes van de uurlagen rond de cursor gaan al bij
+   * de eerste basiskaarttegel de lijn op (vanaf het manifest maakte de warme telefoonkaart trager). Alleen laden en
+   * decoderen in de worker, het voorbereiden van het veld blijft bij de eerste tekenbeurt.
+   */
+  function prefetchCloudAtCursor(): void {
+    const epoch = selectedEpoch()
+    const frames = cloudTimeline()
+    if (!frames.length) return
+    const blend = frameBlend(frames, epoch)
+    const wanted = isolineLayerIndices(blend.left + blend.mix, frames.length, ISOLINE_WINDOW).map((index) => frames[index]!)
+    for (const layerFrames of [...CLOUD_LAYERS.map((layer) => cloudTimelines()[layer]), radiationTimeline()]) {
+      if (!layerFrames.length) continue
+      const at = frameBlend(layerFrames, epoch)
+      wanted.push(layerFrames[at.left]!, layerFrames[at.right]!)
+    }
+    for (const frame of wanted) void load(frame).catch(() => undefined)
   }
 
   async function cloudMotionAt(epoch: number, frames = timeline()): Promise<{ grid: Grid; field: MotionField } | undefined> {

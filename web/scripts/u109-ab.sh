@@ -6,7 +6,8 @@ set -euo pipefail
 dist_a=$(realpath "$1"); dist_b=$(realpath "$2"); out=$(realpath -m "$3")
 repeat=${4:-3}; profiles=${5:-telefoon,desktop}; modes=${6:-weer}
 data=${MOTREGEN_DATA_ORIGIN:-https://motregen.nl/data}
-port_a=${U109_PORT_A:-4488}; port_b=${U109_PORT_B:-4489}
+# Buiten 4400–4899: die reeks hashen de rigs per worktree, een bezette poort zou andermans server meten.
+port_a=${U109_PORT_A:-4911}; port_b=${U109_PORT_B:-4912}
 mkdir -p "$out"
 pids=()
 cleanup() { for pid in "${pids[@]}"; do kill -- "-$pid" 2>/dev/null || true; done; }
@@ -16,8 +17,12 @@ for side in a b; do
   setsid env MOTREGEN_DATA_ORIGIN="$data" pnpm exec vite preview --outDir "${!dist_var}" --host 127.0.0.1 --port "${!port_var}" --strictPort >"$out/preview-$side.log" 2>&1 &
   pids+=($!)
 done
-for port in "$port_a" "$port_b"; do
-  for _ in $(seq 60); do curl -sf -o /dev/null "http://127.0.0.1:$port/" && break; sleep 0.5; done
+for side in a b; do
+  port_var=port_$side
+  for _ in $(seq 60); do curl -sf -o /dev/null "http://127.0.0.1:${!port_var}/" && break; sleep 0.5; done
+  if grep -q "already in use" "$out/preview-$side.log" || ! kill -0 "${pids[$([[ $side == a ]] && echo 0 || echo 1)]}" 2>/dev/null; then
+    echo "U109-AB preview $side op poort ${!port_var} niet zelf gestart (bezet?)" >&2; exit 2
+  fi
 done
 for run in $(seq "$repeat"); do
   for side in A B; do

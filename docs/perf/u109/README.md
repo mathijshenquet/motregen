@@ -287,3 +287,32 @@ plaats van zelf opnieuw als zstd-3 te coderen. Na uitrol:
    `/basemap/*` "Brotli" voorrang geven boven zstd (of zstd uitzetten voor die paden).
 2. Idem voor `/basemap/fonts/Noto%20Sans%20Regular/0-255.pbf` (verwacht br, 31,8 kB, `cache-control: public,
    max-age=86400`). Cloudflare comprimeert `application/x-protobuf` zelf niet, dus hier geeft hij de origin-br door.
+
+### Stap 2: race in de vroege regenaanvraag
+
+Instrumentatie: `perf.loads` markeert nu het openen van de IndexedDB-bytecache en elke member-lookup (`kind:
+'store'`); `scripts/u109-race.ts` toont per bezoek wanneer de eerste regenframes gevraagd en klaar zijn.
+
+Telefoon Weer ×6 vóór de fix (H0): koud run 1 opende de cache pas op 1.012 ms, liep na 655 ms in de time-out van
+250 ms en zette de cache daarmee **de hele sessie** uit; frames pas op 1.978 ms. Warm begon de lookup in 2/6 runs
+laat (669–767 ms) of duurde 0,35–1,7 s.
+
+Fix (90d2f0a): de cache opent al in `startup.ts`, vóór de app de hoofddraad bezet, en een te laat geopende database
+wordt alsnog gebruikt. Na de fix (H1) ×6: nooit meer een time-out, openen op 138–290 ms, koude frame-aanvraag altijd
+op 413–616 ms. Over: in 3/6 warme runs verwerkt de pagina de headerrespons (op netwerkniveau ~230 ms klaar) pas na
+~1 s, achter de app-evaluatie (405 ms) en MapLibre-rAF-frames. ttfp-mediaan H0 → H1: koud 3.404 → 3.650 ms, warm
+2.465 → 2.411 ms (n = 6, load 5–15: binnen de ruis). Vervolg: header, IDB-lookup en decode van de eerste frames in
+de zstd-worker, zodat de hoofddraad alleen het gedecodeerde frame ontvangt.
+
+### Stap 3: wolken in Lucht eerder
+
+| variant | wanneer | desktop koud wolken / kaart | desktop warm | telefoon koud | telefoon warm |
+| --- | --- | --- | --- | --- | --- |
+| J | bij het manifest | −290 / +215 ms | −1.034 / −41 ms | −1.828 / −177 ms | +178 / **+442 ms** |
+| K | bij de eerste basiskaarttegel | −431 / −47 ms | +329 / −88 ms | −2.299 / −439 ms | **+4.404 / +655 ms** |
+| L | tegel én eerste twee regenframes | −467 / −9 ms | −225 / −31 ms | +1.005 / −365 ms | +584 / **+1.289 ms** |
+
+(Mediaan ×3, gepaard tegen H1; `tmp/u109/abLucht{,2,4}`, load 9–25.) Op de telefoon concurreren de wolkendecodes met
+de regen (de decoderij ordent alleen op tijd, niet op laag), en warm kwam de kaart in alle drie varianten later.
+Daarom staat de prefetch (L) alleen aan met het ruime decodebudget (desktop, niet `in-view`); de telefoon houdt het
+oude gedrag. Desktop: wolken koud 2.704 → 2.237 ms, warm 2.790 → 2.565 ms, basiskaart gelijk (906 → 897, 616 → 585 ms).
