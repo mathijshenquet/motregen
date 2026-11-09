@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/* Kaartgetallen (U107, docs/kaartstijl.md): dezelfde letter als de plaatsnamen van de basiskaart, alleen de tekens
+   die getallen gebruiken (tools/fonts/build.sh). */
+@font-face {
+  font-family: "Noto Sans Kaart";
+  src: url("./assets/fonts/noto-sans-kaart.woff2") format("woff2");
+  font-weight: 400 800;
+  font-display: swap;
+}
+
 :root {
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
   color: #102630;
@@ -153,25 +162,101 @@ button { color: inherit; cursor: pointer; }
   font-size: 12px;
 }
 
-.rain-isoline-legend {
+.map-legend {
   position: absolute;
   z-index: 10;
-  left: 0;
-  bottom: 0;
+  right: calc(12px + 44px + 8px + env(safe-area-inset-right));
+  bottom: var(--legend-bottom);
+  max-width: calc(100% - 12px - 44px - 8px - 12px);
+  min-height: 44px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  padding: 2px 7px;
-  border-radius: 0 4px 0 0;
-  background: color-mix(in srgb, var(--surface-raised) 82%, transparent);
+  padding: 6px 10px;
+  border: 1px solid color-mix(in srgb, var(--line-strong) 75%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
+  box-shadow: var(--shadow);
   color: var(--text);
   font-size: 11px;
   line-height: 1.4;
   pointer-events: none;
 }
-.rain-isoline-legend span { display: inline-flex; align-items: center; gap: 4px; }
-.rain-isoline-legend i { display: inline-block; width: 12px; height: 9px; border-left: 2px solid; border-radius: 1px; }
-.rain-isoline-legend small { color: var(--muted); font-size: 11px; }
+/* Legenda-knop (U107, PO 2026-11-09): één ronde kaartknop rechtsonder boven de bronregel, in elke modus, telefoon
+   en desktop; de legenda opent links ernaast. */
+.map-shell { --legend-bottom: 28px; }
+.map-legend-button {
+  position: absolute;
+  right: calc(12px + env(safe-area-inset-right));
+  bottom: var(--legend-bottom);
+  z-index: 5;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  justify-content: center;
+  color: var(--text);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow);
+}
+.map-legend-button[aria-expanded="true"] { color: var(--accent); }
+/* Altijd 44 × 44, ook onder de smalle-schermregel voor .round-action (38 px): de band ernaast is even hoog. */
+.map-shell .map-legend-button { width: 44px; min-width: 44px; height: 44px; }
+/* Eén legendavorm (U107): linksonder, 11 px, vakjes 9 px hoog, eenheid klein aan het eind; klassen hebben een
+   vakje met hun naam erachter, een doorlopende schaal tikken tussen de vakjes. Op de telefoon verborgen. */
+.map-legend { font-variant-numeric: tabular-nums; }
+.map-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.map-legend i { display: inline-block; width: 12px; height: 9px; border-radius: 1px; }
+.map-legend small { margin-left: 2px; color: var(--muted); font-size: 11px; }
+.rain-isoline-legend i { border-left: 2px solid; }
+.feels-legend { gap: 3px; }
+.feels-legend i { width: 18px; }
+.wind-legend { align-items: flex-start; gap: 10px; }
+.wind-legend > small { align-self: flex-start; }
+.air-legend-sun { color: #e7a900; font-size: 13px; font-weight: 400; line-height: 1; }
+.map-shell.sky-night .air-legend-sun { color: #ffd978; }
+.air-legend-cloud { background: #f4f6f7; box-shadow: inset 0 0 0 1px rgba(16, 38, 48, .25); }
+.air-legend-rain { background: #4a86e8; }
+.wind-zone { display: inline-flex; flex-direction: column; align-items: stretch; gap: 1px; }
+.wind-zone-classes { display: inline-flex; gap: 6px; }
+.wind-zone em { border-top: 1px solid color-mix(in srgb, var(--muted) 45%, transparent); padding-top: 1px; color: var(--muted); font-size: 11px; font-style: normal; text-align: center; }
+/* Telefoon (U107 vervolg): de open legenda is in elke modus één band zo hoog als de knop: vakjes aaneen met hun
+   label eronder (Wind: de zonewoorden daar weer onder), en horizontaal scrollbaar als hij toch niet past. */
+@media (max-width: 959px) {
+  .map-legend {
+    flex-wrap: nowrap; gap: 6px; height: 44px; min-height: 0; padding: 1px 8px;
+    overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: none;
+    font-size: 10px; line-height: 1.2; white-space: nowrap; pointer-events: auto;
+  }
+  .map-legend::-webkit-scrollbar { display: none; }
+  .map-legend .wind-zone-classes > span, .map-legend:is(.rain-isoline-legend, .air-legend) > span {
+    flex-direction: column; align-items: stretch; gap: 2px; min-width: 20px; padding: 0 2px; text-align: center;
+  }
+  /* Niet krimpen: past de band niet, dan scrollt hij. */
+  .map-legend > *, .map-legend .wind-zone-classes > span { flex-shrink: 0; }
+  .map-legend .wind-zone-classes > span { padding: 0; }
+  /* Regen: lucht tussen de labels, de vakjes lopen onder die lucht door (één band). */
+  .map-legend.rain-isoline-legend > span { padding: 0 4px; }
+  .map-legend.rain-isoline-legend > span > i { margin: 0 -4px; }
+  :is(.rain-isoline-legend, .air-legend, .wind-zone-classes) > span > i { width: auto; height: 8px; border-radius: 0; }
+  .map-legend:is(.rain-isoline-legend), .map-legend .wind-zone-classes { gap: 0; }
+  .air-legend .air-legend-sun { height: 8px; font-size: 10px; line-height: 8px; }
+  .air-legend > span + span { margin-left: 4px; }
+  .wind-zone em { font-size: 10px; }
+  .feels-legend { gap: 2px; }
+  .feels-legend i { width: 14px; }
+  .map-legend small { font-size: 10px; }
+}
+
+/* Vaantje: donkere schijf met het Bft-getal, pijl naar waar de wind heen waait; witte rand voor elke ondergrond. */
+.wind-glyph { --glyph-ink: #17242b; overflow: visible; }
+.glyph-ink { fill: var(--glyph-ink); }
+.glyph-ink-line { fill: none; stroke: var(--glyph-ink); stroke-linecap: round; stroke-linejoin: round; }
+.sock-orange { fill: #f2661c; }
+.sock-white { fill: #fbfbf8; }
+.wind-glyph-cell { display: inline-flex; width: 24px; height: 24px; justify-self: center; color: var(--accent); }
+.wind-glyph-cell .wind-glyph { --glyph-ink: currentColor; }
+.wind-glyph-cell .sock-outline { stroke: color-mix(in srgb, currentColor 70%, #000); }
 
 .uv-chip {
   --uv-color: var(--uv-moderate);
@@ -325,6 +410,8 @@ button { color: inherit; cursor: pointer; }
 .about-theme { display: flex; }
 .about-theme button { flex: 1; }
 .about-wind-unit { margin-top: 8px; }
+.about-setting-label { margin: 0 0 6px; font-size: 13px; font-weight: 650; }
+.about-setting-hint { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
 .about-expressive { width: 100%; min-height: 44px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 9px; margin-top: 8px; padding: 7px 9px; border: 1px solid var(--line-strong); border-radius: 9px; color: var(--text); background: var(--surface); text-align: left; }
 .about-expressive > svg { color: var(--muted); }
 .about-expressive > span { display: grid; line-height: 1.25; }
@@ -758,6 +845,7 @@ button { color: inherit; cursor: pointer; }
 .sun-marker span { padding-bottom: 1px; }
 .sun-markers:not(.on-sky) .sun-marker { color: var(--muted); text-shadow: none; }
 .sun-markers:not(.on-sky) .sun-glyph-horizon { stroke: var(--muted); }
+.sun-markers.time-only .sun-marker { transform: translateX(-50%); }
 @media (prefers-reduced-motion: reduce) { .sun-bar { animation: none; } }
 .hour-grid { position: absolute; inset: 0; pointer-events: none; }
 .hour-grid i { position: absolute; top: 0; bottom: 0; width: 1px; background: color-mix(in srgb, var(--line) 55%, transparent); }
@@ -1002,14 +1090,13 @@ td small { color: var(--muted); font-size: 9px; }
 .air-temperature { display: block; color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: 0; }
 .wind-cell { color: var(--text); font-size: 11px; }
 /* Twee kolommen (PO 2026-09-25 live): icoontjes gecentreerd onder elkaar, tekst links uitgelijnd. */
-.wind-reading { display: inline-grid; grid-template-columns: 16px auto; align-items: center; justify-items: start; column-gap: 3px; row-gap: 1px; text-align: left; }
+.wind-reading { display: inline-grid; grid-template-columns: 24px auto; align-items: center; justify-items: start; column-gap: 3px; row-gap: 1px; text-align: left; }
 .wind-reading > svg { justify-self: center; margin: 0; }
 .wind-main { display: inline-flex; align-items: baseline; gap: 2px; line-height: 1.1; }
 .wind-gust-icon { color: color-mix(in srgb, var(--muted) 85%, transparent); }
 .wind-reading .wind-gust { margin: 0; color: color-mix(in srgb, var(--muted) 85%, transparent); font-size: 10px; font-weight: 600; line-height: 1.1; white-space: nowrap; }
 .wind-reading b { font-size: 13px; font-weight: 700; }
 .wind-reading small { margin-left: 1px; }
-.wind-arrow { flex: none; color: var(--accent); }
 
 /* Dag/nacht-contrast (U91b, PO 2026-10-17 "te veel contrast"): zachter voor de grove dagdelen en dag/nacht-rijen
    (smal) of voor de hele tabel (breed). Licht thema: de nacht wordt schemerblauw, de dag minder verzadigd. Donker
@@ -1245,13 +1332,13 @@ td small { color: var(--muted); font-size: 9px; }
 .map-clock:hover, .map-clock:focus-within { background: var(--surface-raised); }
 /* Klokpil, zoekbalk en merkdruppel nemen de hemel van het cursoruur aan, zoals de koppenrij (U62, PO
    2026-10-08). De klassen staan op de kaartschil; dialogen staan erbuiten en houden het app-thema. */
-.map-shell:is(.sky-day, .sky-night) :is(.map-clock, .search-box, .map-brand) { transition: background-color .3s ease, border-color .3s ease, color .3s ease; }
-.map-shell.sky-night :is(.map-clock, .search, .map-brand) {
+.map-shell:is(.sky-day, .sky-night) :is(.map-clock, .search-box, .map-brand, .map-legend-button, .map-legend) { transition: background-color .3s ease, border-color .3s ease, color .3s ease; }
+.map-shell.sky-night :is(.map-clock, .search, .map-brand, .map-legend-button, .map-legend) {
   --surface: #0a1820; --surface-soft: #112832; --surface-raised: rgba(10, 24, 32, .96);
   --text: #edf8fc; --muted: #91aab5; --accent: #48c4e9; --accent-soft: #123b49; --line: var(--line-on-dark); --line-strong: var(--line-strong-on-dark);
   color: var(--text);
 }
-.map-shell.sky-day :is(.map-clock, .search, .map-brand) {
+.map-shell.sky-day :is(.map-clock, .search, .map-brand, .map-legend-button, .map-legend) {
   --day-sky: color-mix(in oklab, color-mix(in oklab, var(--table-day-dull) calc(var(--day-overcast) * 74%), var(--table-day-bright)) var(--table-day-mix, 44%), #fff);
   --surface: var(--day-sky); --surface-soft: color-mix(in oklab, var(--day-sky) 82%, #fff); --surface-raised: var(--day-sky);
   --text: #102630; --muted: #3a525c; --accent: #0b607e; --accent-soft: #d9f1f8; --line: var(--line-on-light); --line-strong: var(--line-strong-on-light);
@@ -1386,6 +1473,23 @@ td small { color: var(--muted); font-size: 9px; }
 }
 .isoline-label-light span { text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff; }
 .isoline-label-dark span { text-shadow: 0 0 2px #102027, 0 0 2px #102027, 0 0 3px #102027; }
+/* Temperatuurgetal op een plek (U100 ronde 3): staat op een schijf in de kleur van zijn eigen band
+   (IsolineLayer.setBubbles), letter en halo als de stadstemperaturen van de weerkaart (temperature.ts: Noto Sans
+   Regular, #102630, halo 2 px wit; PO 2026-11-09: "match de stijl van de weerkaart"). */
+.temperature-number { pointer-events: none; line-height: 1; white-space: nowrap; }
+.temperature-number span {
+  display: block; padding: 3px 6px;
+  font-family: "Noto Sans Kaart", "Noto Sans", sans-serif;
+  font-size: var(--map-label-size); font-weight: 400; font-variant-numeric: tabular-nums;
+}
+.temperature-number-light span {
+  color: #102630;
+  text-shadow: 0 0 1px #fff, 0 0 2px #fff, 1px 1px 1px #fff, -1px -1px 1px #fff, 1px -1px 1px #fff, -1px 1px 1px #fff;
+}
+.temperature-number-dark span {
+  color: #f3fbfd;
+  text-shadow: 0 0 1px #102027, 0 0 2px #102027, 1px 1px 1px #102027, -1px -1px 1px #102027, 1px -1px 1px #102027, -1px 1px 1px #102027;
+}
 
 /* Mobiel (U14/U42): het eerste scherm is kaart + scrubber + een voorproef van de tabel. De kleine
    viewportmaat houdt die geometrie vast terwijl de Firefox/Safari-browserbalk animeert. */
@@ -1428,7 +1532,6 @@ td small { color: var(--muted); font-size: 9px; }
   /* De UV-chip staat linksonder op de kaart (U21: het merk staat rechtsboven). */
   .sidebar-nav { top: calc(var(--map-mobile) - 64px); }
   /* De regenlegenda kost op de telefoon kaart en botst met de bronvermelding; die laatste vervaagt na het begin. */
-  .rain-isoline-legend { display: none; }
   .map-shell .source { transition: opacity .6s ease; }
   .map-shell.map-source-faded .source { opacity: 0; pointer-events: none; }
 }

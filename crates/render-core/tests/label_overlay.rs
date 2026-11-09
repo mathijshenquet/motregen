@@ -1,5 +1,6 @@
 use render_core::{
     constants::constants,
+    mode_constants::element_text,
     overlay::clock_panel_bounds,
     rotated_text::{RotatedText, TextStyle},
     text::Text,
@@ -17,7 +18,7 @@ fn rotated_labels_and_halos_do_not_intersect_the_clock_panel() {
     let original = vec![25; size.width * size.height * 3];
     let mut labels = RotatedText::new().unwrap();
     let style = || TextStyle {
-        size: 17,
+        size: element_text(17),
         color: [255; 3],
         halo: [0; 3],
         opacity: 1.0,

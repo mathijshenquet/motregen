@@ -4,7 +4,7 @@ import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:f
 import { join } from 'node:path'
 import type { BrowserContext } from 'playwright'
 import sharp from 'sharp'
-import { FRAME, FRAME_PIXELS } from './config.js'
+import { ELEMENT_SCALE, FRAME, FRAME_PIXELS } from './config.js'
 import { openRenderPage } from './render-open.js'
 import type { LoopMode, StillManifest } from './stills.js'
 
@@ -20,8 +20,12 @@ interface ClockLayout { time: Glyph['target']; day: Glyph['target']; title: Glyp
 interface AtlasMetadata { clocks: Record<string, ClockLayout>; glyphs: Record<string, Record<string, Box>>; footer: string; key: string }
 interface GlyphPatch { rgba: Buffer; box: Box }
 interface Atlas { metadata: AtlasMetadata; glyphs: Map<string, Promise<Record<string, GlyphPatch>>>; backgrounds: Record<string, Buffer>; footer: Buffer }
-const clockBox: Box = { left: 330, top: 0, width: 300, height: 130 }
-const footerBox: Box = { left: 0, top: 1197, width: 450, height: 75 }
+// Klok bovenin het midden en voetregel linksonder, in uitvoerpixels; afgesteld bij de oude schaal 1,5.
+const clockBox: Box = { left: Math.round(FRAME_PIXELS.width / 2 - 150 * ELEMENT_SCALE), top: 0, width: Math.round(300 * ELEMENT_SCALE), height: Math.round(130 * ELEMENT_SCALE) }
+const footerHeight = Math.ceil(75 * ELEMENT_SCALE)
+const footerBox: Box = { left: 0, top: FRAME_PIXELS.height - footerHeight, width: Math.round(450 * ELEMENT_SCALE), height: footerHeight }
+// Kolommen van het klokblad: breed genoeg dat het blad onder MAX_SHEET_PIXELS hoog blijft, smal genoeg voor de breedte.
+const SHEET_COLUMNS = 24
 const timeFormat = new Intl.DateTimeFormat('nl-NL', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Amsterdam' })
 const dayFormat = new Intl.DateTimeFormat('nl-NL', { weekday: 'short', timeZone: 'Europe/Amsterdam' })
 
@@ -164,10 +168,10 @@ export class NativeOverlay {
       for (const day of Object.keys(metadata.clocks)) {
         const strings = Array.from({ length: 1440 }, (_, minute) => `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`)
         strings.push(day, this.title)
-        const boxes = await page.evaluate(({ strings, day, title }) => {
-          // 30 kolommen: met 10 werd het blad ruim 11000 px hoog en herhaalde Chromium vanaf ~8190 px de bovenkant,
+        const boxes = await page.evaluate(({ strings, day, title, columns }) => {
+          // Genoeg kolommen: met 10 werd het blad ruim 11000 px hoog en herhaalde Chromium vanaf ~8190 px de bovenkant,
           // zodat elke tijd vanaf 17:30 de klok van 17,5 uur eerder kreeg (prod 2026-10-10).
-          document.body.innerHTML = '<div id="glyphs" style="display:grid;grid-template-columns:repeat(30,128px);width:3840px"></div>'
+          document.body.innerHTML = `<div id="glyphs" style="display:grid;grid-template-columns:repeat(${columns},128px);width:${columns * 128}px"></div>`
           const atlas = document.getElementById('glyphs')!
           for (const text of strings.slice(0, 1440)) {
             const cell = document.createElement('div')
@@ -186,8 +190,10 @@ export class NativeOverlay {
             const box = element.getBoundingClientRect()
             return { left: Math.floor(box.left * devicePixelRatio), top: Math.floor(box.top * devicePixelRatio), width: Math.ceil(box.width * devicePixelRatio) + 1, height: Math.ceil(box.height * devicePixelRatio) + 1 }
           })
-        }, { strings, day, title: this.title })
-        await page.addStyleTag({ content: 'html,body{background:transparent!important}.still-clock{background:transparent!important;border-color:transparent!important;box-shadow:none!important;backdrop-filter:none!important}.still-clock *{color:revert!important}.clock-map-time{color:#102630!important}.clock-day{color:#637b85!important}' })
+        }, { strings, day, title: this.title, columns: SHEET_COLUMNS })
+        // De app zet html en body op een smal portretscherm op 100% hoogte zonder overflow; dan tekent een fullPage-opname
+        // alleen het eerste viewport en blijft de rest van het klokblad leeg (ook vóór U103 al).
+        await page.addStyleTag({ content: 'html,body{background:transparent!important;height:auto!important;overflow:visible!important}.still-clock{background:transparent!important;border-color:transparent!important;box-shadow:none!important;backdrop-filter:none!important}.still-clock *{color:revert!important}.clock-map-time{color:#102630!important}.clock-day{color:#637b85!important}' })
         const sheetPath = join(temporary, `overlay-${key}-${day}-glyphs.png`)
         await page.screenshot({ path: sheetPath, omitBackground: true, fullPage: true })
         const sheet = await sharp(sheetPath).metadata()

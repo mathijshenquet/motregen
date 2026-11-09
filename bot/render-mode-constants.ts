@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import { FRAME } from './config.js'
-import { NATIVE_VIEW } from './native-view.js'
+import { BASE_FRAME_SCALE, ELEMENT_SCALE, FRAME } from './config.js'
+import { ELEMENT_ZOOM, isolineTolerancePx } from './native-view.js'
 import { fpsFraction, holdFrames, sequencePlan } from './sequences.js'
 import * as wind from '../web/src/core/wind-presentation.js'
 import * as isoline from '../web/src/core/isolines.js'
@@ -9,6 +9,15 @@ import * as labels from '../web/src/core/isoline-label-anchors.js'
 import * as map from '../web/src/core/map-presentation.js'
 import * as palette from '../web/src/core/temperature-palette.js'
 import { NETHERLANDS_FLANDERS_BOUNDS } from '../web/src/core/map-frame.js'
+import { BEAUFORT_COLORS, BEAUFORT_LOWER_MS, CODES_PER_FORCE, WIND_FILL, WIND_NIGHT_LINE_LIGHTEN, WIND_THIN_PARTICLE_WIDTH } from '../web/src/core/wind-beaufort.js'
+import { DEFAULT_WINDSOCK_BADGE, WINDSOCK_BADGE, WINDSOCK_BANDS, WINDSOCK_SAMPLES, WINDSOCK_SHAPE, WINDSOCK_STYLE } from '../web/src/core/wind-glyph.js'
+import { DEFAULT_WINDSOCK_CURVATURE, MAX_BEND_DEGREES, SOCK_SNAP_SECONDS, WINDSOCK_LAG_MINUTES, WINDSOCK_MOMENTUM, WINDSOCK_STREAM_KM, WINDSOCK_SWAY_NUMBERS, windsockPhase } from '../web/src/core/windsock-flow.js'
+import { DEFAULT_MAP_LABEL_REGIME, DISC_MIN_EM, MAP_LABEL_REGIMES, mapDiscRadius } from '../web/src/core/map-labels.js'
+import { MAP_PLACES, mapPlaceSpacingPx, MAX_PLACE_NUMBERS, nestedPlaces } from '../web/src/core/map-places.js'
+import { PLACE_LADDER } from '../web/src/core/map-label-placement.js'
+import { NATIVE_VIEW } from './native-view.js'
+import { windsockPlaces } from './native-windsocks.js'
+import { WINDSOCK_ANCHOR_OFFSETS } from '../web/src/core/windsock-anchors.js'
 import { createHash } from 'node:crypto'
 import * as cloudMap from '../web/src/core/cloud-map.js'
 import { prepareCloudMapField } from '../web/src/core/cloud-map.js'
@@ -27,29 +36,53 @@ export function modeConstants() {
       fps: plan.fps, fps_fraction: fpsFraction(plan.fps), hold_frames: holdFrames(plan) }
   }
   return {
-    loops: { wind: loop('wind'), feels: loop('feels'), air: loop('air') }, scale: FRAME.scale,
+    loops: { wind: loop('wind'), feels: loop('feels'), air: loop('air') }, scale: FRAME.scale, element_scale: ELEMENT_SCALE,
     cloud: cloudConstants(),
-    wind: { ...wind.WIND_PARAMETERS, count: wind.particleCountForViewport(FRAME.width, FRAME.height), focus: wind.WIND_FOCUS_INTENSITY,
+    // De film is altijd Wind: dunne deeltjes zoals de app bij volle windfocus (U101).
+    wind: { ...wind.WIND_PARAMETERS, lineWidth: wind.WIND_PARAMETERS.lineWidth * WIND_THIN_PARTICLE_WIDTH, count: wind.particleCountForViewport(FRAME.width, FRAME.height), focus: wind.WIND_FOCUS_INTENSITY,
       stagger: wind.WIND_INITIAL_STAGGER_SECONDS, simulation_fps: wind.WIND_SIMULATION_FPS, screen_speed: wind.windScreenSpeed(1),
       damping_reference: wind.DAMPING_REFERENCE_SPEED, weak_speed: wind.WEAK_WIND_SPEED, weak_boost: wind.WEAK_WIND_MAX_BOOST,
       stops: wind.BEAUFORT_STOPS, light: wind.LIGHT_RAMP, dark: wind.DARK_RAMP },
     isoline: { temperature_blur: isoline.ISOLINE_BLUR, pressure_blur: isoline.ISOBAR_BLUR, time_weights: isoline.ISOBAR_TIME_WEIGHTS,
-      ring_km: isoline.ISOLINE_RING_KM, tolerance_px: isoline.ISOLINE_TOLERANCE_PX, edge_fade_ms: isoline.ISOLINE_EDGE_FADE_MS,
+      ring_km: isoline.ISOLINE_RING_KM, tolerance_px: isolineTolerancePx(), edge_fade_ms: isoline.ISOLINE_EDGE_FADE_MS,
       pressure_radius_km: isoline.PRESSURE_EXTREMUM_KM, pressure_prominence: isoline.PRESSURE_EXTREMUM_HPA,
-      fill_opacity: isoline.ISOLINE_FILL_OPACITY, fill_resolution: isoline.ISOLINE_FILL_RESOLUTION / FRAME.scale,
+      fill_opacity: isoline.FIXED_SCALE_FILL_OPACITY, fill_resolution: isoline.ISOLINE_FILL_RESOLUTION / BASE_FRAME_SCALE,
       temperature_line_fill_opacity: map.TEMPERATURE_LINE_FILL_OPACITY, temperature_line_fill_shade: map.TEMPERATURE_LINE_FILL_SHADE,
       pressure_opacity: map.ISOBAR_LINE_OPACITY,
-      line_profile: map.lineProfile(map.isolineWidthCss(NATIVE_VIEW.zoom) * FRAME.scale),
+      line_profile: map.lineProfile(map.isolineWidthCss(ELEMENT_ZOOM) * FRAME.scale),
       light_temperature: isoline.isolineColor('light', 'temperature'), dark_temperature: isoline.isolineColor('dark', 'temperature'),
       light_pressure: isoline.isolineColor('light', 'pressure'), dark_pressure: isoline.isolineColor('dark', 'pressure') },
+    beaufort: { lower_ms: BEAUFORT_LOWER_MS, colors: BEAUFORT_COLORS, codes_per_force: CODES_PER_FORCE, fill_opacity: WIND_FILL.opacity,
+      clear_below: WIND_FILL.clearBelow, full_at: WIND_FILL.fullAt, night_line_lighten: WIND_NIGHT_LINE_LIGHTEN },
+    windsock: {
+      samples: WINDSOCK_SAMPLES, bands: WINDSOCK_BANDS, ...WINDSOCK_SHAPE.sizes.kaart, full_force: WINDSOCK_SHAPE.fullForce,
+      slack_length: WINDSOCK_SHAPE.slackLength, slack_tail: WINDSOCK_SHAPE.slackTail, full_tail_gain: WINDSOCK_SHAPE.fullTailGain,
+      slack_bend: WINDSOCK_SHAPE.slackBend, style: WINDSOCK_STYLE, badge: WINDSOCK_BADGE, badge_at_mouth: DEFAULT_WINDSOCK_BADGE === 'mond',
+      stream_km: WINDSOCK_STREAM_KM, lag_minutes: WINDSOCK_LAG_MINUTES, max_bend: MAX_BEND_DEGREES,
+      stream: DEFAULT_WINDSOCK_CURVATURE !== 'traag', lag: DEFAULT_WINDSOCK_CURVATURE !== 'stroom',
+      sway: WINDSOCK_SWAY_NUMBERS, momentum: WINDSOCK_MOMENTUM, snap_seconds: SOCK_SNAP_SECONDS,
+      places: windsockPlaces().map((place) => ({ lng: place.lng, lat: place.lat, phase: windsockPhase(place.name), offset: WINDSOCK_ANCHOR_OFFSETS[place.name] ?? [0, 0] })),
+    },
+    map_label: mapLabelConstants(),
     labels: { spacing: labels.LABEL_SPACING_PX, distance: labels.LABEL_MIN_DISTANCE_PX, maximum: labels.MAX_LABEL_ANCHORS },
     saturation: map.MAP_FOCUS_SATURATION, bounds: NETHERLANDS_FLANDERS_BOUNDS,
-    palette: { ramp: palette.TEMPERATURE_RAMP, cold: palette.COLD_ANCHOR_C, warm: palette.WARM_ANCHOR_C, minimum_span: palette.MIN_SPAN_C,
-      overflow_step: palette.OVERFLOW_STEP_C, overflow_steps: palette.OVERFLOW_STEPS, overflow_cold: palette.OVERFLOW_COLD, overflow_warm: palette.OVERFLOW_WARM },
-    palette_fixtures: [[-25,-5],[-5,5],[7,14],[20,30],[28,35]].flatMap(([min,max]) => [false, true].map((overflow) => {
-      const range = overflow ? palette.referenceRange({ day: '2026-10-17', min: min!, max: max! })! : palette.paletteRange(min!, max!)!
-      return { min, max, range: { overflow, ...range }, colors: Array.from({ length: 81 }, (_, index) => palette.bandColor(index - 30, 1, palette.paletteStops(range))) }
-    })),
+    // U100: de bot tekent de vaste schaal; Rust interpoleert deze stops, geen eigen kopie van de ankers.
+    palette: { stops: palette.FIXED_SCALE_STOPS },
+    palette_fixture: Array.from({ length: 81 }, (_, index) => palette.bandColor(index - 30, 1, palette.FIXED_SCALE_STOPS)),
+  }
+}
+
+/**
+ * Kaartregime (U107, docs/kaartstijl.md): de bot neemt de desktopstap; de schijfregel als getallen plus een controle
+ * (`disc_fixture`); de gevoelsgetallen op dezelfde geneste plekken als de app bij de botzoom.
+ */
+function mapLabelConstants() {
+  const size = MAP_LABEL_REGIMES[DEFAULT_MAP_LABEL_REGIME].desktop
+  return {
+    size, disc: { min_em: DISC_MIN_EM, char_em: 0.3, pad: 4 }, ladder: PLACE_LADDER, maximum: MAX_PLACE_NUMBERS,
+    temperature_offset: isoline.TEMPERATURE_ISOLINE_OFFSET,
+    disc_fixture: ['3', '12', '8°', '-10°'].map((label) => ({ label, radius: mapDiscRadius(label, size) })),
+    places: nestedPlaces(NATIVE_VIEW.zoom, mapPlaceSpacingPx(FRAME.width, FRAME.height), MAP_PLACES).map((place) => ({ name: place.name, lng: place.lng, lat: place.lat })),
   }
 }
 

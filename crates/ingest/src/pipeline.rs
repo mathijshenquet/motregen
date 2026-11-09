@@ -9,6 +9,7 @@ use tracing::info;
 use crate::{
     api::{ApiClient, RemoteFile},
     arome_tar::index_lead_members,
+    feels::{SunGeometry, feels_like_frame},
     grid::{
         DETAIL_GRID, HOURLY_GRID, IndexMap, RADIATION_GRID, SHARED_GRID, SUMMARY_GRID, UV_GRID,
     },
@@ -404,6 +405,8 @@ fn decode_arome_run(
     let cloud_layer_quant = cloud_layer_quantization_table();
     let mut previous_precipitation = first.precipitation_mm;
     let mut previous_radiation = first.global_radiation_j_m2;
+    let sun = SunGeometry::new(HOURLY_GRID);
+    let mut pending_feels: Option<PendingFeels> = None;
 
     for (lead, current) in decoded.enumerate() {
         let lead = lead + 1;
@@ -447,20 +450,8 @@ fn decode_arome_run(
             .map(|(u, v)| u.hypot(*v))
             .collect::<Vec<_>>();
         let gust = hourly_map.gather(&gust)?;
-        let feels_like = temperature
-            .iter()
-            .zip(&relative_humidity)
-            .zip(wind_u.iter().zip(&wind_v))
-            .map(|((temperature, humidity), (wind_u, wind_v))| {
-                feels_like_c(*temperature, *humidity, *wind_u, *wind_v)
-            })
-            .collect::<Vec<_>>();
         out.temperature.push(quantize_values(
             &integrate_values(&temperature, 3)?,
-            &temperature_quant,
-        )?);
-        out.feels_like.push(quantize_values(
-            &integrate_values(&feels_like, 3)?,
             &temperature_quant,
         )?);
         out.wind_u.push(quantize_values(
@@ -517,16 +508,65 @@ fn decode_arome_run(
             &integrate_values(&radiation, 4)?,
             &radiation_quant,
         )?);
+        // Gevoel op uur t gebruikt de straling van de uren die op t en t+1 eindigen (MIP-41), dus het loopt
+        // één lead achter.
+        if let Some(previous) = pending_feels.take() {
+            out.feels_like
+                .push(previous.finish(&sun, Some(&radiation), &temperature_quant)?);
+        }
+        pending_feels = Some(PendingFeels {
+            epoch_ms: valid_time.timestamp_millis() as f64,
+            temperature,
+            relative_humidity,
+            wind_u,
+            wind_v,
+            radiation,
+        });
         out.times
             .push(valid_time.to_rfc3339_opts(SecondsFormat::Secs, true));
         previous_precipitation = current.precipitation_mm;
         previous_radiation = current.global_radiation_j_m2;
+    }
+    if let Some(last) = pending_feels {
+        out.feels_like
+            .push(last.finish(&sun, None, &temperature_quant)?);
     }
     ensure!(
         out.times.len() == leads as usize,
         "AROME member count changed while decoding"
     );
     Ok(out)
+}
+
+/// Invoer van het gevoel voor één lead, tot de straling van het volgende uur bekend is.
+struct PendingFeels {
+    epoch_ms: f64,
+    temperature: Vec<f32>,
+    relative_humidity: Vec<f32>,
+    wind_u: Vec<f32>,
+    wind_v: Vec<f32>,
+    radiation: Vec<f32>,
+}
+
+impl PendingFeels {
+    fn finish(
+        self,
+        sun: &SunGeometry,
+        radiation_after: Option<&[f32]>,
+        temperature_quant: &[Option<f32>],
+    ) -> Result<Vec<u8>> {
+        let feels_like = feels_like_frame(
+            sun,
+            self.epoch_ms,
+            &self.temperature,
+            &self.relative_humidity,
+            &self.wind_u,
+            &self.wind_v,
+            &self.radiation,
+            radiation_after,
+        );
+        quantize_values(&integrate_values(&feels_like, 3)?, temperature_quant)
+    }
 }
 
 /// Frames per hourly-field chunk. The client fetches a whole chunk once a
@@ -917,50 +957,6 @@ fn linear_quantization_table(start: f32, step: f32) -> Vec<Option<f32>> {
         .collect()
 }
 
-/// Gevoelstemperatuur; definitie, bronnen en de overgangsband: docs/fields.md §Gevoelstemperatuur.
-pub fn feels_like_c(
-    temperature_c: f32,
-    relative_humidity: f32,
-    wind_u_ms: f32,
-    wind_v_ms: f32,
-) -> f32 {
-    if [temperature_c, relative_humidity, wind_u_ms, wind_v_ms]
-        .into_iter()
-        .any(f32::is_nan)
-    {
-        return f32::NAN;
-    }
-    let wind_ms = wind_u_ms.hypot(wind_v_ms);
-    let blend = ((temperature_c - WIND_CHILL_MAX_C) / FEELS_LIKE_BLEND_C).clamp(0.0, 1.0);
-    if blend == 0.0 {
-        return wind_chill_c(temperature_c, wind_ms);
-    }
-    let apparent = apparent_temperature_c(temperature_c, relative_humidity, wind_ms);
-    if blend == 1.0 {
-        return apparent;
-    }
-    wind_chill_c(temperature_c, wind_ms) * (1.0 - blend) + apparent * blend
-}
-
-const WIND_CHILL_MAX_C: f32 = 10.0;
-const WIND_CHILL_MIN_WIND_MS: f32 = 1.3;
-const FEELS_LIKE_BLEND_C: f32 = 5.0;
-
-fn wind_chill_c(temperature_c: f32, wind_ms: f32) -> f32 {
-    if wind_ms < WIND_CHILL_MIN_WIND_MS {
-        return temperature_c;
-    }
-    let wind_factor = (wind_ms * 3.6).powf(0.16);
-    13.12 + 0.6215 * temperature_c - 11.37 * wind_factor + 0.3965 * temperature_c * wind_factor
-}
-
-fn apparent_temperature_c(temperature_c: f32, relative_humidity: f32, wind_ms: f32) -> f32 {
-    let vapour_pressure_hpa = relative_humidity.clamp(0.0, 1.0)
-        * 6.105
-        * (17.27 * temperature_c / (237.7 + temperature_c)).exp();
-    temperature_c + 0.33 * vapour_pressure_hpa - 0.70 * wind_ms - 4.00
-}
-
 fn validate_arome_fields(
     fields: &knmi_grib::AromeFields,
     grid: &knmi_grib::GridDefinition,
@@ -1200,46 +1196,6 @@ mod tests {
             arome_run("HARM43_V1_P1_2026082813.tar").unwrap(),
             "2026-08-28T13:00:00Z"
         );
-    }
-
-    #[test]
-    fn feels_like_follows_knmi_wind_chill_up_to_ten_degrees() {
-        let wind_chill = feels_like_c(-5.0, 0.8, 20.0 / 3.6, 0.0);
-        assert!((wind_chill - -11.6).abs() < 0.1);
-        // KNMI TR-309 tabel 3 (JAG/TI): 0 °C bij 10 km/u geeft −3.
-        assert_eq!(feels_like_c(0.0, 0.8, 0.0, 10.0 / 3.6).round(), -3.0);
-        assert_eq!(feels_like_c(4.0, 0.8, 1.0, 0.5), 4.0);
-    }
-
-    #[test]
-    fn feels_like_uses_steadman_apparent_temperature_when_warm() {
-        let apparent = feels_like_c(25.0, 0.6, 0.0, 2.0);
-        assert!((apparent - 25.85).abs() < 0.05, "{apparent}");
-        let muggy = feels_like_c(30.0, 0.8, 1.0, 0.0);
-        assert!(muggy > 34.0, "{muggy}");
-    }
-
-    #[test]
-    fn feels_like_is_continuous_around_ten_degrees() {
-        for relative_humidity in [0.5, 0.7, 0.85, 0.95] {
-            for wind_ms in [0.5, 1.5, 3.0, 5.0, 8.0, 12.0] {
-                let edge = feels_like_c(10.005, relative_humidity, wind_ms, 0.0)
-                    - feels_like_c(9.995, relative_humidity, wind_ms, 0.0);
-                assert!(
-                    edge.abs() < 0.05,
-                    "rh {relative_humidity} wind {wind_ms}: {edge}"
-                );
-                for step in 0..200 {
-                    let temperature = 5.0 + step as f32 * 0.1;
-                    let jump = feels_like_c(temperature + 0.1, relative_humidity, wind_ms, 0.0)
-                        - feels_like_c(temperature, relative_humidity, wind_ms, 0.0);
-                    assert!(
-                        (-0.05..0.3).contains(&jump),
-                        "rh {relative_humidity} wind {wind_ms} at {temperature}: {jump}"
-                    );
-                }
-            }
-        }
     }
 
     #[test]

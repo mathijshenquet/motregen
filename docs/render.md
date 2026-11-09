@@ -15,8 +15,8 @@ De gewone Windmodus van de webapp behoudt regen. Tempo en vensters staan uitslui
 Het tempo is 9,33 kaartminuten per seconde voor regen/temperatuur en 9,375 voor Wind;
 de app met `PLAYBACK_TEMPO_HOURS = 8` mat op 2026-10-11 9,35.
 Regen en gevoelstemperatuur behouden elk 85 JPEG-stills −2…+12 uur per tien minuten. Alle invoer komt van
-schijf. Het programma start alleen ffmpeg; tekst en temperatuurpunten worden rechtstreeks met het ingebedde
-Inter-lettertype getekend. `--mode wind` maakt de windfilm; `--mode feels` maakt de gevoelstemperatuurfilm
+schijf. Het programma start alleen ffmpeg; tekst wordt rechtstreeks getekend met ingebedde letters: kaartgetallen en
+-labels in Noto Sans (de letter van de plaatsnamen, `docs/kaartstijl.md`), klok en voettekst in Inter. `--mode wind` maakt de windfilm; `--mode feels` maakt de gevoelstemperatuurfilm
 en 85 stills. Stills binnen het filmvenster delen hun RGB-loopframe; eerdere en latere stills worden in dezelfde
 renderpass alleen als JPEG gemaakt. Geen still verdwijnt door het kortere filmvenster. De renderer eindigt na deze generatie.
 
@@ -32,8 +32,8 @@ niet-nul exitstatus. `media.json` verschijnt pas na succesvolle afronding van de
 
 ## Basiskaartinvoer
 
-De vijf gegenereerde bronbestanden in `crates/render/assets/basemaps/` worden met het renderpakket geïnstalleerd
-in `$out/share/motregen-render/basemaps` (samen 634.040 bytes). Nix kopieert ze; bouwen en renderen starten geen
+De zeven gegenereerde bronbestanden in `crates/render/assets/basemaps/` worden met het renderpakket geïnstalleerd
+in `$out/share/motregen-render/basemaps` (samen 701.083 bytes). Nix kopieert ze; bouwen en renderen starten geen
 Chromium. Ververs ze vanuit een lokaal gemaakte native botcache die bij het huidige `NATIVE_VIEW`,
 `FRAME_PIXELS` en regenrooster hoort. De meest recent gemaakte plaat per thema wordt overgenomen:
 
@@ -42,20 +42,34 @@ pnpm -C bot exec tsx prepare-rust-basemaps.ts /pad/botcache /pad/data ../crates/
 ```
 
 Het resultaat is `light.png` en `dark.png` (RGB/RGBA, 960×1224 pixels), `water-light.png` en `water-dark.png`
-(het bestaande lage-resolutiemasker, dekking in het alfakanaal) en `basemap.json` versie 1 met `size`, `view`
+(het bestaande lage-resolutiemasker, dekking in het alfakanaal), `names-light.png` en `names-dark.png` (grijswaarden
+op 960×1224: waar de plaat namen tekent, verschil met en zonder symboollagen) en `basemap.json` versie 1 met `size`, `view`
 (Web Mercator centrum en zoom), `grid` (rooster voor het kadermasker) en `inputs` (oorspronkelijke bestandsnamen).
 De kaartplaten bevatten de plaatsnamen. Temperatuurwaarden, klok en voettekst zitten niet in de platen.
+Temperatuurlabels blijven van de namen af (U103): standaard boven de plaats, anders onder, rechts, links of schuin
+(de volgorde van de MapLibre-ankers), en vallen weg als niets vrij is; de keuze hangt aan de breedte van `00°`, zodat
+een label binnen een film niet verspringt. Isolijn- en isobaarlabels houden hun ankers zoals in de app en worden
+alleen niet getekend zolang ze op een naam liggen.
+Sinds U107 heeft Gevoelstemperatuur geen lijnlabels meer: lijnen en banden liggen op x,5 °C en een heel getal staat op
+een schijf in de kleur van zijn band op de gedeelde plekken (`MAP_PLACES`, `nestedPlaces` bij de botzoom), met de
+uitwijkladder van de app tegen het naammasker, het klokpaneel en het voetpaneel. De windzakken volgen het veld met
+momentum en wuiven met een opgetelde golffase; die toestand gaat per filmframe mee in de keten (`FieldState`), zodat
+de film deterministisch is en de framecache klopt. Stills beginnen zonder toestand.
 Het native botkader past Nederland (inclusief Zeeland, Limburg en de Wadden), zonder Vlaanderen als
 fitdoel. De bovenstrook van 48 pixels is verwijderd met behoud van zoom en bodemlijn. Het klokpaneel
 sluit linksboven aan op de beeldrand; alleen rechtsonder is rond. Tijd, Amsterdamse datum (zoals `zo 11 okt`)
 en de eigen modustitel staan op drie regels, 16 pixels van links. Datum en titel zijn 30 pixels en hebben
 hetzelfde contrast als de klok. De regenhoek is 200×154 pixels; alleen een langere modustitel verbreedt
-het paneel zodat tekst erbinnen blijft. Isolijnlabels en drukletters worden alleen buiten het paneel
+het paneel zodat tekst erbinnen blijft. Sinds U103 (PO C8a) is de kaart met alles erop 1,5× zo groot als bij de
+oude schaal 1,5 (plaatsnamen, temperatuur- en isolijnlabels, H/L, lijnen, wind); klokpaneel en voetregel niet.
+`FRAME` is 426,67×544 CSS-pixels bij schaal 2,25 op hetzelfde bestand van 960×1224 en dezelfde uitsnede. Vaste
+pixelmaten van kaartlabels lopen in Rust via `element_px`/`element_text` (`ELEMENT_SCALE` in `bot/config.ts`);
+vlakresolutie, isolijntolerantie en kaartmarge blijven gelijk in uitvoerpixels. Isolijnlabels en drukletters worden alleen buiten het paneel
 getekend; de volledige gedraaide tekst inclusief halo moet vrij blijven. Na een wijziging van `NATIVE_VIEW` moeten beide basiskaarten
 opnieuw worden vastgelegd; een oude plaat bijsnijden geeft geen passende projectie of labelplaatsing.
 Het watermasker dempt de windstaarten op zee; de regencompositie gebruikt het niet. Deze export start geen browser.
 `prepare-rust-basemaps.test.ts` laat de gate falen als maat of view in de metadata afwijkt van de TypeScript-bron;
-de PNG-maten en het alfakanaal van beide watermaskers worden ook gecontroleerd.
+de PNG-maten en het alfakanaal van beide watermaskers en de maat van beide naammaskers worden ook gecontroleerd.
 
 ## Uitvoercontract
 
@@ -112,7 +126,7 @@ drukextremen, isolijnlabels en klok/voettekst. De film verwerkt geen regenraster
 De regenroosterheader blijft nodig voor dezelfde kadermaskering. De Node-pixelroute volgt dezelfde laagkeuze;
 de browserterugval verbergt regen uitsluitend bij `stillMode` met het Wind-preset. Gewone web-Wind blijft gelijk.
 Gevoelstemperatuur tekent de gedempte
-basiskaart, kleurvlakken, isothermen en labels. Gedraaide tekst wordt rechtstreeks met Inter gerasterd;
+basiskaart, kleurvlakken, isothermen en getallen op plekken. Gedraaide tekst wordt rechtstreeks met Noto Sans gerasterd;
 pixelgelijkheid met de oude browseratlas is geen eis (MIP-29). Per kaartframe bepaalt de gedeelde tijdlogica dag/nacht.
 
 `wind-loop.mp4` heeft 297 gecodeerde frames bij 15/2 fps; `feels-loop.mp4` heeft 223 bij 28/5 fps. Alleen `feels` levert

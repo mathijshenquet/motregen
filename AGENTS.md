@@ -49,6 +49,17 @@ product manager (proposals, specs, verification), codex agents
 - Dev-knoppen: alleen via `?dev`, met eigenaar en vervaldatum in de spec (MIP-12). De
   levende lijst staat in `docs/dev-opties.md`.
 
+## Werkmethodiek met de PO (PO 2026-11-09)
+- De orkestrator legt de PO **reviewbare items** voor op de integratiebranch (preview op 4300, gerichte links en
+  screenshots per item). Bij acceptatie merget de orkestrator naar main; uitrol blijft een apart, expliciet akkoord.
+- Wil de PO met een worker itereren op UI, dan stuurt hij na afstemming met de orkestrator **zelf in de pane van die
+  worker**. Workers behandelen zulke berichten als PO-instructie en noteren ze in hun track-LOG; de orkestrator neemt
+  het resultaat daarna weer mee naar de integratiebranch.
+- Workers draaien alleen gerichte tests; de orkestrator gate één keer per integratiekandidaat.
+- Workers starten zonder permissieprompts (PO 2026-11-09): Claude met `--dangerously-skip-permissions`
+  (`herdr agent start <naam> --kind claude --pane <pane> -- --model claude-opus-5-5 --dangerously-skip-permissions`),
+  Codex met `--dangerously-bypass-approvals-and-sandbox`.
+
 ## Changelog en releases
 Lees `changes/README.md` vóór je een notitie schrijft of een release maakt. In het kort (PO 2026-10-18):
 - Een release in @motregen_updates is precies een reeks posts: **per feature één bericht met een beeld of clip** en

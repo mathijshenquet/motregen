@@ -118,3 +118,17 @@ describe('short rings (label fade)', () => {
     expect(ringFadeAt(rings, 10, 30 + 2 * (10 + offset), 30)).toBe(1)
   })
 })
+
+describe('isoline offset (U100 ronde 3)', () => {
+  it('traces the levels on k + 0.5, each point on its level', () => {
+    const field = cone()
+    const contours = traceContours(field, grid, { step: 1, offset: 0.5, toleranceCells: 0.05 })
+    const slice = { width: grid.width, height: grid.height, fields: [field], weights: [1] }
+    expect(contours.length).toBeGreaterThan(0)
+    for (const contour of contours) {
+      expect(contour.level - Math.floor(contour.level)).toBeCloseTo(0.5, 9)
+      expect(Math.abs(sampleSlice(slice, contour.points[0]!, contour.points[1]!).value - contour.level)).toBeLessThan(5e-3)
+    }
+    expect(new Set(contours.map((contour) => contour.level))).toContain(19.5)
+  })
+})

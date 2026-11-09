@@ -327,7 +327,8 @@ describe('histogram scrubber', () => {
     expect(container.querySelectorAll('.sun-bars path[d^="M"]').length).toBe(2)
     expect(container.querySelector('.sun-readout')?.textContent).toBe('60 min zon per uur')
     expect(screen.getByRole('slider', { name: 'Tijd' }).getAttribute('aria-valuetext')).toContain('60 min zon')
-    expect([...container.querySelectorAll('.sun-marker')].map((marker) => marker.classList.contains('set'))).toEqual([true])
+    // Geen merkteken voor zon op/onder meer (PO 2026-11-09, C9).
+    expect(container.querySelectorAll('.sun-marker')).toHaveLength(0)
   })
 
   it('breaks the sunshine curve over hours whose radiation is not loaded yet instead of drawing a flat line', () => {
@@ -344,6 +345,37 @@ describe('histogram scrubber', () => {
     plotBounds(container)
     // Twee vlakken en twee lijnen.
     expect(container.querySelectorAll('.sun-bars path[d^="M"]').length).toBe(4)
+  })
+
+  it('closes the sunshine area straight down to the base at sunset, also when sunset falls on an hour point (U103)', () => {
+    // 9 november in De Bilt: de zon zakt tussen 15:15 en 15:30 UTC onder de drempel, precies op het uurpunt van 15:30.
+    const hours = Array.from({ length: 12 }, (_, index) => String(6 + index).padStart(2, '0'))
+    const timeline = hours.map((hour) => frame(`2026-11-09T${hour}:00:00Z`, 'harmonie'))
+    const layers = { timeline: { high: timeline, mid: timeline, low: timeline }, values: { high: timeline.map(() => 0), mid: timeline.map(() => 0), low: timeline.map(() => 0) } }
+    const sinElevation = (epoch: number) => solarElevationSin(epoch, 5.18, 52.1)
+    const { container } = render(() => <HistogramScrubber
+      timeline={timeline} values={timeline.map(() => 0)} cursor={4} now={timeline[0]!.epoch} playing={false} loading={false}
+      locationLabel="De Bilt" onCursor={() => undefined} onPlaying={() => undefined} clouds={layers}
+      sky={{ radiation: { timeline, values: timeline.map(() => 1000) }, sinElevation }}
+      mix={{ wind: 0, air: 1, temperature: 0 }}
+    />)
+    plotBounds(container)
+    const [fill, line] = [...container.querySelectorAll('.sun-bars path[d^="M"]')].map((path) => path.getAttribute('d')!)
+    expect(fill).toBeDefined()
+    expect(line).toBeDefined()
+    for (const path of [fill!, line!]) expect(path).toMatch(/^[MCLZ0-9 .-]+$/)
+    // Het vlak eindigt op de basis en sluit met twee rechte stukken over de basis terug: geen schuine lijn.
+    const numbers = (path: string) => path.match(/-?\d+(\.\d+)?/g)!.map(Number)
+    const base = numbers(fill!).reduce((lowest, value, index) => index % 2 ? Math.max(lowest, value) : lowest, 0)
+    const closing = fill!.slice(fill!.lastIndexOf('C')).match(/C.*?L(\S+) (\S+)L(\S+) (\S+)Z$/)!
+    const curveEnd = numbers(closing[0]!.slice(1, closing[0]!.indexOf('L'))).slice(-2)
+    expect(curveEnd[1]).toBe(base)
+    expect(Number(closing[2])).toBe(base)
+    expect(Number(closing[4])).toBe(base)
+    expect(Number(closing[1])).toBe(curveEnd[0])
+    // En de curve loopt tot zon onder: het laatste punt staat voorbij 15:15 UTC.
+    const xOf = (epoch: number) => (epoch - timeline[0]!.epoch) / 3_600_000 * PX_PER_HOUR
+    expect(curveEnd[0]!).toBeGreaterThan(xOf(Date.parse('2026-11-09T15:15:00Z')))
   })
 
   it('draws the sky behind every view once the cloud layers are in, and drops it when not expressive (U47)', () => {

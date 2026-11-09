@@ -26,6 +26,7 @@ export async function prepareRustBasemaps(cacheDirectory: string, dataDirectory:
     if (metadata.width !== FRAME_PIXELS.width || metadata.height !== FRAME_PIXELS.height) throw new Error('Verkeerde basiskaartmaat')
     await copyFile(join(cacheDirectory, source), join(outDirectory, `${theme}.png`))
     await copyFile(join(cacheDirectory, `${source}.water.png`), join(outDirectory, `water-${theme}.png`))
+    await copyFile(join(cacheDirectory, `${source}.names.png`), join(outDirectory, `names-${theme}.png`))
     inputs[theme] = source
   }
   await writeFile(join(outDirectory, 'basemap.json'), JSON.stringify({ version: 1, size: FRAME_PIXELS, view: NATIVE_VIEW, grid: header.grid, inputs }, null, 2))

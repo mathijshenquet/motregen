@@ -1,16 +1,17 @@
+use crate::windsocks::SockChain;
 use crate::{
     data::{Dataset, Raster},
     frame_cache::KeyBuilder,
 };
 use anyhow::{Context, Result, ensure};
 use render_core::{
-    contours::{self, Contour},
+    contours,
     field::{Field, slice_weights},
-    isoline_labels::{Label, Labels, Placement, Screen},
+    isoline_labels::{Label, Labels, Screen},
     mode_constants::mode_constants,
-    pressure::{self, Mark},
     projection::{Grid, Projection},
     time::{Manifest, frame_blend},
+    windsock,
 };
 use serde::{Deserialize, Serialize};
 use std::{path::Path, sync::Arc, time::Instant};
@@ -55,63 +56,66 @@ pub fn screen(grid: &Grid) -> Screen {
     }
 }
 
-pub fn range(field: &Field, grid: &Grid, bounds: [f64; 4]) -> Option<(f64, f64)> {
-    render_core::field_palette::extent(grid, bounds, |index| {
-        (field.valid[index] > 0.5).then(|| f64::from(field.values[index]))
-    })
-}
-
 pub struct Slice {
     pub field: Arc<Field>,
     pub segments: Vec<f32>,
     pub rings: Vec<f32>,
     pub labels: Vec<Label>,
-    pub marks: Vec<Mark>,
     pub opacity: f64,
 }
 
-/// What a slice carries over to the next one: the isobar step and the label anchors.
+/// What a slice carries over to the next one: the label anchors and, for wind, the motion of the socks (U107).
 #[derive(Deserialize, Serialize)]
 struct FieldState {
-    step: f64,
     labels: Labels,
+    #[serde(default)]
+    socks: SockChain,
 }
 
 pub struct Fields<'a> {
     pub data: Dataset<'a>,
     pub grid: Grid,
+    /// Only for wind: the northward component; `data` is then the eastward one and carries the timeline.
+    pub north: Option<Dataset<'a>>,
     prepared: Vec<(usize, Arc<Field>)>,
-    line_cache: Vec<((usize, i32), Vec<Contour>)>,
-    mark_cache: Vec<(usize, Vec<Mark>)>,
     labels: Labels,
-    pressure: bool,
-    step: f64,
+    /// Wind: momentum and wave of the socks, stepped once per film frame in `Sources::input`.
+    pub socks: SockChain,
+    /// Wind (U101): Beaufort bands from u and v, without labels; otherwise the feels-like temperature.
+    wind: bool,
     pub fields_us: u128,
     pub contours_us: u128,
     pub labels_us: u128,
 }
 
 impl<'a> Fields<'a> {
-    pub fn new(directory: &Path, manifest: &'a Manifest, pressure: bool) -> Result<Self> {
+    pub fn new(directory: &Path, manifest: &'a Manifest, wind: bool) -> Result<Self> {
         let mut data = Dataset::new(
             directory,
             manifest,
-            if pressure {
-                "pressure_hpa"
-            } else {
-                "feels_like_c"
-            },
+            if wind { "wind_u_ms" } else { "feels_like_c" },
         )?;
         let grid = data.grid().context("Field timeline missing")?;
+        let north = wind
+            .then(|| Dataset::new(directory, manifest, "wind_v_ms"))
+            .transpose()?;
+        if let Some(north) = &north {
+            ensure!(
+                data.frames
+                    .iter()
+                    .map(|frame| frame.epoch)
+                    .eq(north.frames.iter().map(|frame| frame.epoch)),
+                "Wind components have different timelines"
+            );
+        }
         Ok(Self {
             data,
             grid,
+            north,
             prepared: Vec::new(),
-            line_cache: Vec::new(),
-            mark_cache: Vec::new(),
             labels: Labels::default(),
-            pressure,
-            step: if pressure { 4.0 } else { 1.0 },
+            socks: SockChain::default(),
+            wind,
             fields_us: 0,
             contours_us: 0,
             labels_us: 0,
@@ -123,57 +127,48 @@ impl<'a> Fields<'a> {
             return Ok(Arc::clone(field));
         }
         let settings = &mode_constants().isoline;
-        let weights = if self.pressure {
-            settings
-                .time_weights
-                .iter()
-                .enumerate()
-                .map(|(offset, &weight)| {
-                    (
-                        (index as isize + offset as isize
-                            - settings.time_weights.len() as isize / 2)
-                            .clamp(0, self.data.frames.len() as isize - 1)
-                            as usize,
-                        weight,
-                    )
-                })
-                .collect::<Vec<_>>()
-        } else {
-            vec![(index, 1.0)]
+        let frame = self.data.frames[index].clone();
+        let raster = self.data.load(&frame)?;
+        ensure!(
+            raster.grid == self.grid,
+            "Isoline grid changes within generation"
+        );
+        let north = match &mut self.north {
+            Some(north) => {
+                let frame = north.frames[index].clone();
+                let raster = north.load(&frame)?;
+                ensure!(
+                    raster.grid == self.grid,
+                    "Wind components have different grids"
+                );
+                Some(raster)
+            }
+            None => None,
         };
-        let total: f64 = weights.iter().map(|(_, weight)| weight).sum();
-        let mut rasters = Vec::new();
-        for &(index, weight) in &weights {
-            let frame = self.data.frames[index].clone();
-            let raster = self.data.load(&frame)?;
-            ensure!(
-                raster.grid == self.grid,
-                "Isoline grid changes within generation"
-            );
-            rasters.push((raster, weight));
-        }
         let started = Instant::now();
+        let codes_per_force = mode_constants().beaufort.codes_per_force;
         let values = (0..self.grid.width * self.grid.height)
-            .map(|index| {
-                let mut sum = 0.0;
-                for (raster, weight) in &rasters {
-                    let Some(value) = raster.quant[raster.values[index] as usize] else {
-                        return f32::NAN;
-                    };
-                    sum += f64::from(value) * weight;
-                }
-                (sum / total) as f32
+            .map(|cell| {
+                let value = raster.quant[raster.values[cell] as usize];
+                // Wind: de gequantiseerde continue Beaufort, zoals het synthetische frame van de app.
+                let value = match &north {
+                    Some(north) => match windsock::beaufort_code(
+                        value,
+                        north.quant[north.values[cell] as usize],
+                    ) {
+                        255 => None,
+                        code => Some((f64::from(code) / codes_per_force) as f32),
+                    },
+                    None => value,
+                };
+                value.unwrap_or(f32::NAN)
             })
             .collect();
         let field = Arc::new(Field::prepare(
             values,
             self.grid.width,
             self.grid.height,
-            if self.pressure {
-                settings.pressure_blur
-            } else {
-                settings.temperature_blur
-            },
+            settings.temperature_blur,
         ));
         if self.prepared.len() >= 8 {
             self.prepared.remove(0);
@@ -183,41 +178,24 @@ impl<'a> Fields<'a> {
         Ok(field)
     }
 
-    fn marks(&mut self, index: usize) -> Result<Vec<Mark>> {
-        if let Some((_, marks)) = self.mark_cache.iter().find(|(key, _)| *key == index) {
-            return Ok(marks.clone());
-        }
-        let field = self.field(index)?;
-        let settings = &mode_constants().isoline;
-        let cell_km = self.grid.dx.abs() * 52.0_f64.to_radians().cos() / 1000.0;
-        let radius = (settings.pressure_radius_km / cell_km).round().max(2.0) as usize;
-        let marks = pressure::extrema(&field, radius, settings.pressure_prominence);
-        if self.mark_cache.len() >= 4 {
-            self.mark_cache.remove(0);
-        }
-        self.mark_cache.push((index, marks.clone()));
-        Ok(marks)
-    }
-
     pub fn state(&self) -> Result<Vec<u8>> {
         Ok(serde_json::to_vec(&FieldState {
-            step: self.step,
             labels: self.labels.clone(),
+            socks: self.socks.clone(),
         })?)
     }
 
     pub fn restore(&mut self, state: &[u8]) -> Result<()> {
         let state: FieldState = serde_json::from_slice(state)?;
-        self.step = state.step;
         self.labels = state.labels;
+        self.socks = state.socks;
         Ok(())
     }
 
-    /// Adds every source frame a slice at `time` may read: the four slice weights around the blend
-    /// pair, each widened by the pressure time weights.
+    /// Adds every source frame a slice at `time` may read: the four slice weights around the blend pair.
     pub fn key_sources(&mut self, time: i64, key: &mut KeyBuilder) -> Result<()> {
         let blend = frame_blend(&self.data.frames, time);
-        let reach = mode_constants().isoline.time_weights.len() as isize + 2;
+        let reach = 2;
         let last = self.data.frames.len() as isize - 1;
         let first = (blend.left as isize - reach).clamp(0, last) as usize;
         let end = (blend.right as isize + reach).clamp(0, last) as usize;
@@ -225,6 +203,10 @@ impl<'a> Fields<'a> {
         for index in first..=end {
             let frame = self.data.frames[index].clone();
             key.number(frame.epoch).source(self.data.identity(&frame)?);
+            if let Some(north) = &mut self.north {
+                let frame = north.frames[index].clone();
+                key.source(north.identity(&frame)?);
+            }
         }
         Ok(())
     }
@@ -253,32 +235,26 @@ impl<'a> Fields<'a> {
                 fields.push((self.field(index)?, weight));
             }
         }
-        let field = Arc::new(Field::blend(
+        let mut field = Field::blend(
             &fields
                 .iter()
                 .map(|(field, weight)| (field.as_ref(), *weight))
                 .collect::<Vec<_>>(),
-        ));
-        let screen = screen(&self.grid);
-        if self.pressure {
-            let nearest = self.field((blend.left as f64 + blend.mix).round() as usize)?;
-            let projection = Projection::new(&self.grid);
-            let bounds = [
-                projection.columns[0] + 0.5,
-                projection.rows[0] + 0.5,
-                projection.columns.last().unwrap() + 0.5,
-                projection.rows.last().unwrap() + 0.5,
-            ];
-            if let Some((minimum, maximum)) = range(&nearest, &self.grid, bounds) {
-                self.step = pressure::adaptive_step(minimum, maximum, self.step);
-            }
+        );
+        // Gevoel: lijnen en banden op x,5 °C (U100), dus het hele veld een halve graad omlaag; de getallen tellen
+        // de offset weer op.
+        if !self.wind {
+            let offset = mode_constants().map_label.temperature_offset as f32;
+            field.values.iter_mut().for_each(|value| *value -= offset);
         }
+        let field = Arc::new(field);
+        let screen = screen(&self.grid);
         self.fields_us += started
             .elapsed()
             .as_micros()
             .saturating_sub(self.fields_us - fields_before + self.data.decode_us - decode_before);
         let started = Instant::now();
-        let ring_km = if self.pressure {
+        let ring_km = if self.wind {
             0.0
         } else {
             mode_constants().isoline.ring_km
@@ -289,7 +265,7 @@ impl<'a> Fields<'a> {
                 .log2()
                 .round(),
         );
-        let contours = contours::trace(&field, &self.grid, self.step, tolerance);
+        let contours = contours::trace(&field, &self.grid, 1.0, tolerance);
         let mut segments = Vec::new();
         for contour in &contours {
             let fade = contours::ring_fade(contour, ring_km);
@@ -313,7 +289,7 @@ impl<'a> Fields<'a> {
                 ]);
             }
         }
-        let rings = if self.pressure {
+        let rings = if self.wind {
             Vec::new()
         } else {
             contours::ring_raster(&contours, ring_km, self.grid.width, self.grid.height)
@@ -322,52 +298,10 @@ impl<'a> Fields<'a> {
         let started = Instant::now();
         let fields_before = self.fields_us;
         let decode_before = self.data.decode_us;
-        let label_index = if blend.mix < 0.5 {
-            blend.left
-        } else {
-            blend.right
-        };
-        let key = (label_index, self.step as i32);
-        if !self.line_cache.iter().any(|(cached, _)| *cached == key) {
-            let label_field = self.field(label_index)?;
-            let lines = contours::label_lines(
-                &label_field,
-                &self.grid,
-                self.step,
-                mode_constants().isoline.ring_km,
-            );
-            if self.line_cache.len() >= 2 {
-                self.line_cache.remove(0);
-            }
-            self.line_cache.push((key, lines));
-        }
-        let lines = &self
-            .line_cache
-            .iter()
-            .find(|(cached, _)| *cached == key)
-            .unwrap()
-            .1;
         let opacity = self.edge_opacity(time);
-        let labels = self.labels.place(Placement {
-            field: &field,
-            lines,
-            contours: &contours,
-            screen,
-            step: self.step,
-            key: self.data.frames[label_index].epoch,
-            pressure: self.pressure,
-            opacity,
-        });
-        let marks = if self.pressure {
-            pressure::blend_marks(
-                &self.marks(blend.left)?,
-                &self.marks(blend.right)?,
-                blend.mix,
-                self.grid.dx.abs() * 52.0_f64.to_radians().cos() / 1000.0,
-            )
-        } else {
-            Vec::new()
-        };
+        // Geen labels op de lijnen: in Wind geven vlakken en zakken de waarde, in Gevoel de getallen op vaste
+        // plekken (U107, `place_numbers`), zoals in de app.
+        let labels = Vec::new();
         self.labels_us += started
             .elapsed()
             .as_micros()
@@ -377,38 +311,17 @@ impl<'a> Fields<'a> {
             segments,
             rings,
             labels,
-            marks,
             opacity,
         })
     }
 
-    /// The yesterday reference when the manifest has one (MIP-37), otherwise the range over now-hour … +18 h.
-    pub fn palette(&mut self, manifest: &Manifest, now: i64) -> Result<Vec<f32>> {
-        if let Some(reference) = &manifest.feels_reference
-            && let Some(palette) =
-                render_core::field_palette::Palette::new(reference.min, reference.max)
-        {
-            return Ok(palette.with_overflow().bands());
+    /// The fixed temperature scale (U100), the same as the app's default; for wind the Beaufort classes.
+    pub fn palette(&self) -> Vec<f32> {
+        if self.wind {
+            windsock::beaufort_palette()
+        } else {
+            render_core::field_palette::Palette::fixed()
+                .bands_offset(mode_constants().map_label.temperature_offset)
         }
-        let mut minimum = f64::INFINITY;
-        let mut maximum = f64::NEG_INFINITY;
-        let region = render_core::field_palette::palette_region(&self.grid);
-        let frames = self.data.frames.clone();
-        for frame in frames.iter().filter(|frame| {
-            frame.epoch >= now.div_euclid(3_600_000) * 3_600_000
-                && frame.epoch <= now + 18 * 3_600_000
-        }) {
-            let raster = self.data.load(frame)?;
-            let extent = render_core::field_palette::extent(&raster.grid, region, |index| {
-                raster.quant[raster.values[index] as usize].map(f64::from)
-            });
-            if let Some((low, high)) = extent {
-                minimum = minimum.min(low);
-                maximum = maximum.max(high);
-            }
-        }
-        Ok(render_core::field_palette::Palette::new(minimum, maximum)
-            .context("Temperature palette has no valid range")?
-            .bands())
     }
 }

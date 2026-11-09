@@ -1,6 +1,7 @@
 import { createSignal, lazy, onCleanup, Show, type JSX } from 'solid-js'
 import { brand } from '../core/active-brand'
 import { spokenBrandName } from '../core/brand'
+import type { TemperatureScale } from '../core/temperature-palette'
 import type { WindUnit } from '../core/weather'
 
 const AboutDialog = lazy(() => import('./AboutDialog'))
@@ -21,6 +22,8 @@ export interface AboutProps {
   onExpressive?: (enabled: boolean) => void
   windUnit: WindUnit
   onWindUnit: (unit: WindUnit) => void
+  temperatureScale: TemperatureScale
+  onTemperatureScale: (scale: TemperatureScale) => void
   onOpen?: () => void
   onShare?: () => void
   shareNotice?: string

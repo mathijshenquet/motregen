@@ -14,24 +14,18 @@ const previewOffset = (page: Page) => page.evaluate(() => {
   return Math.round(row.getBoundingClientRect().top - scroller.getBoundingClientRect().top - head)
 })
 
-test('desktop opens the table on the now-row and fetches history only when scrolled up to', async ({ page }, testInfo) => {
+test('desktop opens the table on the now-row and loads the past without scrolling to it (U104)', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'inline historie is desktop (muis, ≥ 960 px); touch houdt de uitklaprij')
   const history: string[] = []
   page.on('request', (request) => { if (request.url().includes('-hist')) history.push(request.url()) })
   await page.goto('/')
-  await expect(page.getByRole('slider', { name: 'Tijd' })).toHaveAttribute('data-load-stage', /window|complete/, { timeout: 20_000 })
-  await page.waitForLoadState('networkidle')
   await expect(page.locator('.history-toggle')).toHaveCount(0)
   await expect(page.locator('tr.past-hour').first()).toBeAttached()
   await expect.poll(() => nowOffset(page)).toBe(0)
-  await expect(page.locator('tr.past-hour.pending-hour')).toHaveCount(await page.locator('tr.past-hour').count())
-  const passive = history.length
-
-  const box = (await page.locator('.table-scroll').boundingBox())!
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
-  await page.mouse.wheel(0, -2_000)
+  // Tot U104 bleef het verleden op desktop leeg tot de diepe idle (~35 s) of een scroll omhoog.
   await expect(page.locator('tr.past-hour.pending-hour')).toHaveCount(0)
-  expect(history.length).toBeGreaterThan(passive)
+  expect(history.length).toBeGreaterThan(0)
+  await expect.poll(() => nowOffset(page)).toBe(0)
 })
 
 test('the heading row takes the sky of the top visible table row while scrolling (U62)', async ({ page, isMobile }) => {

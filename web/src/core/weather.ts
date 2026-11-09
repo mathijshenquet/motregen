@@ -82,8 +82,8 @@ export function summarizeWind(u: number | null, v: number | null, gust: number |
   const speed = Math.hypot(u, v)
   const beaufort = beaufortOf(speed)
   const fromDegrees = (Math.atan2(-u, -v) * 180 / Math.PI + 360) % 360
-  const value = unit === 'bft' ? beaufort : Math.round(speed / MS_PER_UNIT[unit])
-  const gustStep = gust == null ? null : unit === 'bft' ? beaufortOf(gust) : Math.round(gust / MS_PER_UNIT[unit])
+  const value = windValue(speed, unit)
+  const gustStep = gust == null ? null : windValue(gust, unit)
   return {
     speed,
     beaufort,
@@ -93,6 +93,11 @@ export function summarizeWind(u: number | null, v: number | null, gust: number |
     value,
     gust: gustStep != null && gustStep >= value + 1 ? gustStep : null,
   }
+}
+
+/** Windsnelheid (m/s) als afgerond getal in de eenheid van de gebruiker. */
+export function windValue(speed: number, unit: WindUnit): number {
+  return unit === 'bft' ? beaufortOf(speed) : Math.round(speed / MS_PER_UNIT[unit])
 }
 
 function beaufortOf(speed: number): number {

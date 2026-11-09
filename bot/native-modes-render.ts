@@ -1,5 +1,3 @@
-import { NativePressureMarks } from './native-pressure-marks.js'
-import { frameBlend } from '../web/src/core/time-model.js'
 import { nativeTextAtlas, prepareNativeTextAtlas } from './native-text-atlas.js'
 import { NativeText, type TextPlacement } from './native-text.js'
 import { writeFile } from 'node:fs/promises'
@@ -11,13 +9,13 @@ import type { SequencePlan } from './sequences.js'
 import type { LoopMode, StillManifest } from './stills.js'
 import { NativeMaps } from './native-map.js'
 import { NativeRainData, rainTheme } from './native-rain.js'
-import { drawTemperatureLabels } from './native-labels.js'
 import { NativeOverlay } from './native-overlay.js'
 import { NativeTemperatureData, type RasterGeometry } from './native-temperature.js'
 import { shortRings } from '../web/src/core/isoline-contours.js'
 import { ISOLINE_RING_KM } from '../web/src/core/isolines.js'
 import { NativeFieldRaster } from './native-field-raster.js'
 import { NativeWindData } from './native-wind.js'
+import { NativeWindsocks } from './native-windsocks.js'
 import { NativeIsolineLabels } from './native-isoline-labels.js'
 import { nativeFramePath } from './native-render.js'
 import { releaseFileCache } from './native-raster.js'
@@ -27,9 +25,10 @@ export class NativeModesRenderer {
 
   async prepareAssets(mode: Exclude<LoopMode, 'weather'>, manifest: StillManifest, plan: SequencePlan): Promise<void> {
     await new NativeOverlay(this.origin, this.directory, this.context, mode).prepare(manifest, [])
-    if (mode === 'wind') await NativePressureMarks.prepare(this.directory, this.context)
+    // Wind (U101): Beaufortvlakken en windzakken, zonder lijnlabels; alleen Gevoel heeft tekst in de atlas.
+    if (mode === 'wind') return
     const placements = await (async () => {
-      const temperature = new NativeTemperatureData(this.origin, manifest, mode === 'feels' ? 'temperature' : 'pressure')
+      const temperature = new NativeTemperatureData(this.origin, manifest, 'temperature')
       const anchors = new NativeIsolineLabels()
       const placements: TextPlacement[] = []
       try {
@@ -51,20 +50,18 @@ export class NativeModesRenderer {
     const maps = this.sharedMaps ?? new NativeMaps(this.origin, this.directory, this.context)
     const overlay = new NativeOverlay(this.origin, this.directory, this.context, mode)
     const rainMetadata = new NativeRainData(this.origin, manifest)
-    const temperatures = mode === 'wind' ? new NativeRainData(this.origin, manifest, 'feels_like_c') : undefined
-    const temperatureEpoch = (epoch: number) => Math.max(temperatures!.timeline[0]!.epoch, Math.min(temperatures!.timeline.at(-1)!.epoch, Math.round(epoch / 600_000) * 600_000))
-    const temperature = new NativeTemperatureData(this.origin, manifest, mode === 'feels' ? 'temperature' : 'pressure')
+    const temperature = new NativeTemperatureData(this.origin, manifest, mode === 'feels' ? 'temperature' : 'wind')
     const wind = mode === 'wind' ? new NativeWindData(this.origin, manifest) : undefined
     const grid = await rainMetadata.grid(Date.parse(manifest.now))
-    await Promise.all([temperatures?.prefetch(plan.epochs.map(temperatureEpoch)), temperature.prepare(), wind?.prepare(plan.epochs), ...[...new Set(plan.epochs.map(rainTheme))].map(async (theme) => { await maps.get(theme, grid) })])
+    await Promise.all([temperature.prepare(), wind?.prepare(plan.epochs), ...[...new Set(plan.epochs.map(rainTheme))].map(async (theme) => { await maps.get(theme, grid) })])
     await overlay.prepare(manifest, plan.epochs)
     const geometries: RasterGeometry[] = []
     const placements: TextPlacement[][] = []
     const labelAnchors = new NativeIsolineLabels()
     for (const epoch of plan.epochs) {
       const slice = await temperature.slice(epoch, { rasterizeRings: false })
-      placements.push(labelAnchors.place(slice, rainTheme(epoch)))
-      geometries.push({ kind: slice.kind, grid: slice.grid, segments: slice.segments, opacity: slice.opacity, rings: shortRings(slice.contours, slice.kind === 'pressure' ? 0 : ISOLINE_RING_KM) })
+      placements.push(mode === 'feels' ? labelAnchors.place(slice, rainTheme(epoch)) : [])
+      geometries.push({ kind: slice.kind, grid: slice.grid, segments: slice.segments, opacity: slice.opacity, rings: slice.kind === 'wind' ? [] : shortRings(slice.contours, ISOLINE_RING_KM) })
     }
     // Temporary contour arrays are much larger than the retained raster geometry.
     global.gc?.()
@@ -72,7 +69,7 @@ export class NativeModesRenderer {
     const firstSlice = geometries[0]!
     const raster = new NativeFieldRaster(firstSlice.grid)
     try {
-      const pressureMarks = wind ? await NativePressureMarks.prepare(this.directory, this.context) : undefined
+      const windsocks = wind ? await NativeWindsocks.prepare() : undefined
       const text = new NativeText(await nativeTextAtlas(this.origin, this.directory, this.context, placements.flat()))
       await raster.prepare()
       const mutedMaps = new Map<string, Buffer>()
@@ -96,16 +93,15 @@ export class NativeModesRenderer {
         const theme = rainTheme(epoch)
         const plate = await maps.get(theme, grid)
         const slice = await temperature.rasterSlice(epoch, geometries[index]!)
-        let rgb = mode === 'feels' ? Buffer.from(mutedMaps.get(theme)!) : drawTemperatureLabels(plate.rgb, plate.labels, await temperatures!.frame(temperatureEpoch(epoch)))
+        // In Wind wijken de stadstemperaturen voor de windzakken, zoals in de app.
+        let rgb = mode === 'feels' ? Buffer.from(mutedMaps.get(theme)!) : plate.rgb
+        rgb = await raster.compose(rgb, slice, theme === 'dark')
         if (mode === 'feels') {
-          rgb = await raster.compose(rgb, slice, theme === 'dark')
           for (const label of placements[index]!) await text.draw(rgb, label.text, label.screenX, label.screenY, label.angle, label.color, label.theme, label.opacity)
         } else {
-          rgb = await raster.compose(rgb, slice, theme === 'dark')
-          rgb = await wind!.draw(rgb, epoch, 1000 + index * 1000 / plan.fps, theme, plate.water)
-          const pressureBlend = frameBlend(temperature.data.timeline, epoch)
-          await pressureMarks!.draw(rgb, slice.grid, await temperature.field(pressureBlend.left), await temperature.field(pressureBlend.right), pressureBlend.mix, theme, slice.opacity)
-          for (const label of placements[index]!) await text.draw(rgb, label.text, label.screenX, label.screenY, label.angle, label.color, label.theme, label.opacity)
+          const simulationMs = 1000 + index * 1000 / plan.fps
+          rgb = await wind!.draw(rgb, epoch, simulationMs, theme, plate.water)
+          await windsocks!.draw(rgb, await windsocks!.field(wind!.eastwardData, wind!.northwardData, epoch), simulationMs / 1000, theme)
         }
         rgb = await overlay.draw(rgb, epoch, Date.parse(manifest.now))
         if (stillIndexes.has(index)) {
@@ -127,7 +123,7 @@ export class NativeModesRenderer {
       return { renderMs: Math.round(renderMs + preparationMs), encodeMs: Math.max(0, Math.round(performance.now() - started - renderMs - preparationMs)), preparationMs, loopMs, loopRenderMs, bytes: encoded.bytes }
     } finally {
       await raster.close()
-      rainMetadata.clear(); temperatures?.clear(); temperature.clear(); wind?.clear(); maps.clear()
+      rainMetadata.clear(); temperature.clear(); wind?.clear(); maps.clear()
     }
   }
 }

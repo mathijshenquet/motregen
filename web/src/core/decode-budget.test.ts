@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { decodeBudget } from './decode-budget'
+import { decodeBudget, loadsHistoryEarly } from './decode-budget'
 
 describe('decodeBudget', () => {
   it('keeps the eager desktop behaviour on a laptop with a mouse', () => {
@@ -19,5 +19,16 @@ describe('decodeBudget', () => {
 
   it('assumes two cores when the browser reports none', () => {
     expect(decodeBudget({ coarsePointer: false })).toEqual({ workers: 1, pointSeries: 'in-view', requests: 2, rangeBytes: 256_000 })
+  })
+})
+
+describe('loadsHistoryEarly (U104)', () => {
+  it('loads the past right after the rows around now on a desktop, which has no portrait table view', () => {
+    expect(loadsHistoryEarly(decodeBudget({ cores: 10, memoryGb: 8, coarsePointer: false }), false)).toBe(true)
+  })
+
+  it('keeps the portrait table eager and leaves a constrained device without it to what comes into view', () => {
+    expect(loadsHistoryEarly(decodeBudget({ cores: 8, coarsePointer: true }), true)).toBe(true)
+    expect(loadsHistoryEarly(decodeBudget({ cores: 4, memoryGb: 8, coarsePointer: false }), false)).toBe(false)
   })
 })
