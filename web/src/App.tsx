@@ -1,5 +1,5 @@
 import { CloudDriftLoader } from './core/cloud-drift-loader'
-import { TEMPERATURE_LINE_FILL_OPACITY, TEMPERATURE_LINE_FILL_SHADE, ISOBAR_LINE_OPACITY } from './core/map-presentation.js'
+import { TEMPERATURE_LINE_FILL_OPACITY, TEMPERATURE_LINE_FILL_SHADE } from './core/map-presentation.js'
 import { batch, createEffect, createMemo, createSignal, For, lazy, onCleanup, onMount, Show, untrack, type Accessor, type Setter } from 'solid-js'
 import maplibregl, { Marker, type GeoJSONSource } from 'maplibre-gl'
 import { registerSW } from 'virtual:pwa-register'
@@ -29,7 +29,7 @@ import { buildHourlyForecast, hourDarkness, isPassiveRow, PASSIVE_FORECAST_HOURS
 import { contextOpacity, DEFAULT_FOCUS_MODE, FOCUS_DIM, FocusMode, mapSaturation, rainPresentation, type FocusKind, windFocusIntensity } from './core/focus-mode'
 import { FrameBatcher } from './core/frame-batcher'
 import { latestRadarEpoch, type RefreshState } from './core/freshness'
-import { adaptiveIsobarStep, PRESSURE_EXTREMUM_KM, pressureExtrema, blendFrames, blurField, TEMPERATURE_ISOLINE_STEP, fieldRangeInView, ISOBAR_STEP_HPA, isolineBlurPasses, isolineFrameWeights, type WeightedFrame, ISOLINE_EDGE_FADE_MS, ISOLINE_FILL_OPACITY, ISOLINE_RING_KM, ISOLINE_WINDOW, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineKind } from './core/isolines'
+import { blendFrames, blurField, TEMPERATURE_ISOLINE_STEP, fieldRangeInView, isolineBlurPasses, isolineFrameWeights, type WeightedFrame, ISOLINE_EDGE_FADE_MS, ISOLINE_FILL_OPACITY, ISOLINE_RING_KM, ISOLINE_WINDOW, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineKind } from './core/isolines'
 import { IsolineLabels } from './core/isoline-labels'
 import { sliceWeights } from './core/isoline-spline'
 import { TraceCore } from './core/isoline-tracer'
@@ -93,7 +93,7 @@ import { coldProfileRequested, decode, fetchManifest, initialClient, initialMani
 const defaultLocation = DEFAULT_LOCATION
 // Intent (MIP-20): velden die de kaart of de scrubber in een van de modi tekent; de straling hoort
 // erbij omdat ze de hemel achter de scrubber kleurt (U62). Na deze rust geldt de scrubber als stilstaand.
-const SHOWN_FIELDS: ReadonlySet<string> = new Set(['rain_rate', 'motion', 'uv', 'uv_clear', 'radiation', 'radiation_direct', 'cloud_low', 'cloud_mid', 'cloud_high', 'cloud_frac', 'wind_u_ms', 'wind_v_ms', 'gust_ms', 'pressure_hpa', 'feels_like_c', 'temp_c'])
+const SHOWN_FIELDS: ReadonlySet<string> = new Set(['rain_rate', 'motion', 'uv', 'uv_clear', 'radiation', 'radiation_direct', 'cloud_low', 'cloud_mid', 'cloud_high', 'cloud_frac', 'wind_u_ms', 'wind_v_ms', 'gust_ms', 'feels_like_c', 'temp_c'])
 const SCRUB_REST_MS = 250
 // Duur van de tween waarmee de tabelpiep onder de kaart naar het cursoruur schuift.
 const TABLE_FOLLOW_MS = 220
@@ -143,7 +143,7 @@ function isolineSet(config: IsolineSetConfig): IsolineSet {
   return { ...config, layerKey: '', labelRounds: 0, fields: [], time: 0, key: '', shownRequest: 0, prepared: new Map(), frameKeys: { frames: [], keys: [] }, labelCache: new Map() }
 }
 
-/** Luchtdruk laadt pas bij de eerste windfocus (U35): ook zijn headers horen niet in de cold start. */
+/** Luchtdruk tekent de app niet meer (isobaren weg, U101): ook zijn headers horen niet in de cold start. */
 function eagerHeader(chunk: ManifestChunk): boolean {
   // De dagenlijst laadt zijn ECMWF-chunks pas als hij in beeld komt (U91), de ICON-D2-straling pas bij Lucht (MIP-39).
   return chunkField(chunk) !== 'pressure_hpa' && chunk.source !== 'ecmwf' && chunk.source !== 'icon_d2'
@@ -177,8 +177,6 @@ const CLOUD_VEIL_NIGHT = { color: [0.62, 0.7, 0.8] as [number, number, number], 
 const CLOUD_VEIL_RANGE = [15, 95] as const
 const CLOUD_VEIL_STEP = 25
 const CITY_TEMPERATURE_STEP_MS = 10 * 60_000
-// Isobaren op een derde van ISOLINE_LINE_OPACITY (0,8) (PO 2026-09-25, MIP-14).
-
 // Temperatuurlijnen half zo zichtbaar als ISOLINE_LINE_OPACITY (0,8) (PO 2026-09-25 live, U34).
 
 // Terugglijden naar het begin bij opnieuw afspelen (PO 2026-09-25 live, U34).
@@ -189,8 +187,6 @@ const TABLE_JUMP_RESUME_MS = 4_000
 // Zoveel px van de tabelrijen moet in beeld zijn voordat hun reeksen laden (U49): in het mobiele
 // startbeeld steekt de eerste rij 2 px boven de onderrand uit, en dat is nog geen lezen.
 const TABLE_PEEK_PX = 24
-// H/L van twee opeenvolgende uren horen bij elkaar als ze binnen deze afstand liggen.
-const PRESSURE_MATCH_KM = 300
 // Afspelen tikt op 30 Hz: regen-tween, isolijnsnede en klok zijn traag genoeg; alleen de
 // windpartikels animeren op WIND_MAX_FPS in hun eigen lus (U41).
 const PLAYBACK_MAX_FPS = 30
@@ -326,12 +322,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     stillWindow.__motregenRenderFrame = renderStillFrame
     stillWindow.__motregenWindImage = () => {
       if (!windLayer || !windOverlay) throw new Error('Windlaag ontbreekt')
-      windLayer.setPressureMarks([])
       windOverlay.drawNow()
-      const image = windOverlay.canvas.toDataURL('image/png')
-      updatePressureMarks()
-      windOverlay.drawNow()
-      return image
+      return windOverlay.canvas.toDataURL('image/png')
     }
   }
   // Meetpunt voor de kostenmeting (track-LOGs U8b/U8c): repaints, contour-passes, blits, label-rondes.
@@ -620,7 +612,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [focus, setFocus] = createSignal(0)
   const [windFocus, setWindFocus] = createSignal(0)
   const [airFocus, setAirFocus] = createSignal(0)
-  const [isobarStep, setIsobarStep] = createSignal(ISOBAR_STEP_HPA)
   const viewWindow = createMemo(() => scrubberViewWindow(selectedEpoch()), undefined, { equals: (left, right) => left.start === right.start && left.end === right.end })
   // Eén afbreeksignaal per venster: wat voor het vorige venster nog op een worker wacht en in het
   // nieuwe niet meer voorkomt, wordt niet meer gedecodeerd. Pas na de huidige tik afbreken, zodat
@@ -651,20 +642,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   },
     () => reducedMotion.matches)
   const [focusPinned, setFocusPinned] = createSignal<FocusKind>(focusMode.pinned())
-  const [isobarCount, setIsobarCount] = createSignal(0)
   // Niet-reactief op de cursor: de frame-loop zet de dekking per tik (U41).
   const isolineCoverage = () => untrack(() => timelineCoverage(feelsLikeTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS))
-  const pressureTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'pressure_hpa') : [])
-  const isobarCoverage = () => untrack(() => timelineCoverage(pressureTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS))
   const temperatureIsolines = isolineSet({
     kind: 'temperature', layerId: 'motregen-isolines', timeline: feelsLikeTimeline, focus, active: createMemo(() => focus() > 0),
     step: () => TEMPERATURE_ISOLINE_STEP, style: isolineStyle, coverage: isolineCoverage, setCount: setIsolineCount,
-  })
-  // Isobaren (U35): pas bij de eerste windfocus opgehaald, dus de cold start blijft gelijk.
-  const pressureIsolines = isolineSet({
-    // Geen isobaren in de windmodus (PO 2026-11-09, U101 ronde 2): de Bft-vlakken en de windzakken dragen hem.
-    kind: 'pressure', layerId: 'motregen-isobars', timeline: pressureTimeline, focus: windFocus, active: createMemo(() => false),
-    step: isobarStep, style: isobarStyle, coverage: isobarCoverage, setCount: setIsobarCount,
   })
   // Bewolkingssluier (PO 2026-09-25 live, U34): cloud_frac als zachte grijswitte vulling, zonder lijnen of
   // labels, alleen in de modus Lucht en pas dan geladen. Wijkt af van MIP-4 ronde 3 ("nooit als kaartlaag").
@@ -677,7 +659,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     kind: 'wind', layerId: 'motregen-wind-beaufort', timeline: windUFrames, focus: windFocus, active: createMemo(() => windFocus() > 0),
     step: () => 1, style: windBeaufortStyle, coverage: () => untrack(() => timelineCoverage(windUFrames(), selectedEpoch(), ISOLINE_EDGE_FADE_MS)), setCount: () => undefined,
   })
-  const isolineSets = [temperatureIsolines, pressureIsolines, cloudIsolines, windBeaufortIsolines]
+  const isolineSets = [temperatureIsolines, cloudIsolines, windBeaufortIsolines]
   // Verborgen tab: afspelen en wind staan stil (zichtbaarheid 0 stopt de windlus; de trails blijven).
   const [pageVisible, setPageVisible] = createSignal(document.visibilityState !== 'hidden')
   const mapRendering = createMemo(() => pageVisible() && !(tableViewAvailable() && tableCoversViewport()))
@@ -1009,7 +991,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       map.on('dragstart', () => setMapSourceFaded(true))
       map.on('zoomend', () => { void showTemperature(); void showWindsocks() })
       map.on('moveend', () => {
-        updateIsobarStep()
         for (const set of isolineSets) { set.labels?.requestSpawn(); updateIsolineLabels(set) }
       })
       map.on('click', (event) => {
@@ -1202,7 +1183,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       applyIsolineOpacity(set)
       if (set.active()) { void showIsolineField(set); void showIsolines(set) }
     }
-    if (pressureIsolines.active()) updatePressureMarks()
   }
   const playbackAtEnd = createMemo(() => {
     const frames = timeline()
@@ -1868,7 +1848,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     return { step: TEMPERATURE_ISOLINE_STEP, fill: ISOLINE_FILL_OPACITY, fillSmooth: false, palette: range && paletteStops(range), color: hexColor(isolineColor(mapSurfaceTheme())), lineOpacity: TEMPERATURE_LINE_FILL_OPACITY, lineFromFill: TEMPERATURE_LINE_FILL_SHADE }
   }
 
-  /** Isobaren: één egale lijnkleur, geen vulling en geen vervaging, zoals op een weerkaart (PO U35). */
   function cloudVeilStyle(): IsolineStyle {
     const nightVeil = mapIsNight()
     const veil: [number, number, number] = nightVeil ? CLOUD_VEIL_NIGHT.color : [0.96, 0.97, 0.98]
@@ -1876,80 +1855,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       cloudMap: { enabled: cloudMapForms(), night: nightVeil, sample: cloudMapSample() } }
   }
 
-  let isobarStepHour = Number.NaN
-  /** Isobaarstap op het drukbereik in beeld (U34), op het dichtstbijzijnde geladen uurframe. */
-  function updateIsobarStep(): void {
-    const set = pressureIsolines
-    if (!map || !set.layer || !set.active()) return
-    const nearest = Math.round(set.time)
-    const field = set.fields[nearest] ?? set.fields.find((candidate) => candidate)
-    if (!field) return
-    const bounds = map.getBounds()
-    const view = { west: bounds.getWest(), south: bounds.getSouth(), east: bounds.getEast(), north: bounds.getNorth() }
-    const range = fieldRangeInView(field.values, field.valid, set.layer.grid, view)
-    if (range) setIsobarStep((current) => adaptiveIsobarStep(range[0], range[1], current))
-  }
-
-  // H en L bij de isobaren (MIP-14), vloeiend in de tijd (PO 2026-09-25 live): per uurframe de centra
-  // (gecachet), tussen twee uren per soort gekoppeld aan het dichtstbijzijnde centrum en verschoven;
-  // wat verschijnt of verdwijnt vloeit in/uit. Vanuit drawLayers; getekend door de windlaag zelf.
-  interface PressureMark { kind: 'H' | 'L'; lng: number; lat: number; value: number }
-  const pressureMarkCache = new WeakMap<PreparedField, PressureMark[]>()
-  function pressureMarksOf(field: PreparedField, grid: Grid): PressureMark[] {
-    let marks = pressureMarkCache.get(field)
-    if (marks) return marks
-    const radius = 6_378_137
-    const cellKm = Math.abs(grid.dx) * Math.cos(52 * Math.PI / 180) / 1_000
-    marks = pressureExtrema(field.values, field.valid, grid.width, grid.height, Math.max(2, Math.round(PRESSURE_EXTREMUM_KM / cellKm))).map((extremum) => {
-      const x = grid.x0 + (extremum.column + 0.5) * grid.dx
-      const y = grid.y0 + (extremum.row + 0.5) * grid.dy
-      return { kind: extremum.kind, value: extremum.value, lng: x / radius * 180 / Math.PI, lat: (2 * Math.atan(Math.exp(y / radius)) - Math.PI / 2) * 180 / Math.PI }
-    })
-    pressureMarkCache.set(field, marks)
-    return marks
-  }
-  function updatePressureMarks(): void {
-    const set = pressureIsolines
-    const focusValue = windFocus()
-    const shown: Array<PressureMark & { opacity: number }> = []
-    const frames = set.timeline()
-    if (map && set.layer && focusValue > 0 && frames.length) {
-      const blend = frameBlend(frames, selectedEpoch())
-      const leftField = set.fields[blend.left], rightField = set.fields[blend.right]
-      if (leftField) {
-        const left = pressureMarksOf(leftField, set.layer.grid)
-        const right = rightField && rightField !== leftField ? pressureMarksOf(rightField, set.layer.grid) : left
-        const mix = right === left ? 0 : blend.mix
-        const km = (a: PressureMark, b: PressureMark) => Math.hypot((a.lat - b.lat) * 111, (a.lng - b.lng) * 111 * Math.cos(52 * Math.PI / 180))
-        const used = new Set<PressureMark>()
-        for (const from of left) {
-          const to = right.filter((candidate) => candidate.kind === from.kind && !used.has(candidate) && km(from, candidate) < PRESSURE_MATCH_KM)
-            .sort((a, b) => km(from, a) - km(from, b))[0]
-          if (to) {
-            used.add(to)
-            shown.push({ kind: from.kind, lng: from.lng + (to.lng - from.lng) * mix, lat: from.lat + (to.lat - from.lat) * mix, value: from.value + (to.value - from.value) * mix, opacity: 1 })
-          } else shown.push({ ...from, opacity: 1 - mix })
-        }
-        for (const to of right) if (!used.has(to) && right !== left) shown.push({ ...to, opacity: mix })
-      }
-    }
-    // Naar Mercator-wereldcoördinaten (0–1), zoals de windsegmenten.
-    windLayer?.setPressureMarks(shown.filter((mark) => mark.opacity > 0.01).map((mark) => ({
-      kind: mark.kind,
-      x: (mark.lng + 180) / 360,
-      y: (1 - Math.log(Math.tan(Math.PI / 4 + mark.lat * Math.PI / 360)) / Math.PI) / 2,
-      opacity: focusValue * mark.opacity,
-    })))
-  }
-  createEffect(() => { windFocus(); untrack(updatePressureMarks) })
 
   /** Beaufortvlakken met grenslijnen in een donkerder tint van de vlakken. */
   function windBeaufortStyle(): IsolineStyle {
     return { step: 1, fill: WIND_FILL_OPACITY, fillSmooth: false, palette: beaufortPalette(), color: hexColor(isolineColor(mapSurfaceTheme())), lineOpacity: TEMPERATURE_LINE_FILL_OPACITY, lineFromFill: TEMPERATURE_LINE_FILL_SHADE }
-  }
-
-  function isobarStyle(): IsolineStyle {
-    return { step: isobarStep(), fill: 0, color: hexColor(isolineColor(mapSurfaceTheme(), 'pressure')), lineOpacity: ISOBAR_LINE_OPACITY }
   }
 
   /** De gewogen uurframes achter het veld van `frame` (druk: met zijn buren, zie isolineFrameWeights). */
@@ -2187,11 +2096,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         if (set.kind === 'temperature') provisionalTemperatureRange(prepared.field, layer.grid)
         if (layer === set.layer && set.time === time && cursorLayersReady()) layer.setTime(time, playing())
       }))
-      // Stap alleen op een nieuwe uurstap (en bij moveend), nooit midden in een tween (MIP-14).
-      if (set.kind === 'pressure' && Math.round(time) !== isobarStepHour) {
-        isobarStepHour = Math.round(time)
-        updateIsobarStep()
-      }
     } catch {
       // Een ontbrekend uurframe laat de vorige snede staan; de volgende tijdstap probeert opnieuw.
     }
@@ -3742,7 +3646,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       class="map-shell"
       classList={{ 'sky-day': chromeSky()?.daylight === true, 'sky-night': chromeSky()?.daylight === false, 'map-source-faded': mapSourceFaded() }}
       style={chromeSky() ? { '--day-overcast': chromeSky()!.overcast.toFixed(2) } : undefined}
-      aria-label="Regenkaart van Nederland" data-rendering={mapRendering()} data-rain-opacity={rainLook().opacity.toFixed(2)} data-rain-blend={rainLook().multiply ? 'multiply' : 'normal'} data-focus={focus().toFixed(2)} data-wind-focus={windFocus().toFixed(2)} data-wind-intensity={focusedWindTuning().intensity.toFixed(2)} data-isolines={isolineCount()} data-isobars={isobarCount()}>
+      aria-label="Regenkaart van Nederland" data-rendering={mapRendering()} data-rain-opacity={rainLook().opacity.toFixed(2)} data-rain-blend={rainLook().multiply ? 'multiply' : 'normal'} data-focus={focus().toFixed(2)} data-wind-focus={windFocus().toFixed(2)} data-wind-intensity={focusedWindTuning().intensity.toFixed(2)} data-isolines={isolineCount()}>
       <div ref={mapElement} class="map" />
       <div ref={splashElement} class="map-splash" classList={{ ready: mapReady() && firstMapImageShown() }} aria-hidden={mapReady() && firstMapImageShown()}>
         <div class="map-splash-veil" />

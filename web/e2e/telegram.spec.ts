@@ -97,7 +97,8 @@ test('wind loop frames advance only with the fixed simulation clock', async ({ p
   await page.goto('/?modus=wind&t=+3u&still=1')
   await expect(page.locator('.map')).toHaveAttribute('data-still-ready', 'true', { timeout: 45_000 })
   await expect(page.locator('.map-shell')).toHaveAttribute('data-rain-opacity', '0.00')
-  await expect.poll(async () => Number(await page.locator('.map-shell').getAttribute('data-isobars'))).toBeGreaterThan(0)
+  // Geen isobaren in Wind (U101): de film toont Beaufortvlakken en windzakken.
+  await expect(page.locator('.map-overlay-motregen-isobars')).toHaveCount(0)
   const epoch = Number(await page.locator('.app-shell').getAttribute('data-epoch'))
   const render = (simulationMs: number) => page.evaluate(async ({ epoch, simulationMs }) => {
     await (window as unknown as { __motregenRenderFrame: (epoch: number, simulationMs: number) => Promise<void> }).__motregenRenderFrame(epoch, simulationMs)

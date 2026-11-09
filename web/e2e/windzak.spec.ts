@@ -34,7 +34,7 @@ test('windzakken alleen in Wind: helemaal weg na Wind → Gevoel, ook bij snel w
   await expect.poll(async () => Number((await socks(page).getAttribute('data-socks'))?.split('|')[0])).toBeGreaterThan(0)
   await expect(socks(page)).toHaveCSS('opacity', '1')
   await expect(shell(page)).toHaveAttribute('data-rain-opacity', '0.00')
-  await expect(shell(page)).toHaveAttribute('data-isobars', '0')
+  await expect(page.locator('.map-overlay-motregen-isobars')).toHaveCount(0)
   expect(pressureRequests).toEqual([])
 
   await pin(temperatureHeading(page), page)
