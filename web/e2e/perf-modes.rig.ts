@@ -87,7 +87,7 @@ for (const profileId of options.profiles ?? []) {
   }
 }
 
-async function measureVisit(browser: Browser, context: BrowserContext, profileId: ProfileId, profile: SuiteProfile, mode: MapMode, visit: 'koud' | 'warm', run: number, tracePath?: string): Promise<VisitReport & { traced?: TracedVisit }> {
+async function measureVisit(browser: Browser, context: BrowserContext, profileId: ProfileId, profile: SuiteProfile, mode: MapMode, visit: 'koud' | 'warm', run: number, tracePath?: string): Promise<VisitReport & { traced?: TracedVisit; layers: LayerTimes; modeSwitches: ModeSwitch[]; phaseWindows: PhaseWindow[] }> {
   const page = await context.newPage()
   if (tracePath) await browser.startTracing(page, { path: tracePath, categories: TRACE_CATEGORIES })
   const cdp = await context.newCDPSession(page)
