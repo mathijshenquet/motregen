@@ -195,3 +195,25 @@ en afspelen. Het masker staat op dat punt altijd volledig aan (overlay; in MapLi
 6. **Overlay-resolutie**: alle overlays tekenen op volle DPR (Pixel 5: 2,75 → ~2,5 MP per canvas, tot zes
    canvassen). Een DPR-plafond van 2 voor vlakken/sluier scheelt ~45 % pixels, maar is zichtbaar; als `?dev`-variant
    met screenshots voorleggen.
+
+### Na de GL-sync-fix (build E = HEAD-code, `tmp/u109/q1/kosten-E`, load 11–19)
+
+| profiel / modus | fase | B (vóór fix) | E (na fix) | regenlaag B → E |
+| --- | --- | ---: | ---: | --- |
+| desktop / Weer | scrubben | 371 ms/s | 58 ms/s | 410 (A) → 4 ms/s |
+| desktop / Weer | afspelen | 96 ms/s | 34 ms/s | — |
+| telefoon / Wind | scrubben | 173 ms/s | 161 ms/s | — |
+| telefoon / Wind | afspelen | 179 ms/s | 134 ms/s | — |
+
+(De telefoon-Weer-trace van E bevatte geen hoofddraadsamples en telt niet mee.)
+
+Temperatuurgetallen (Gevoel, nu gemeten via `IsolineLabels`): koude start desktop 2,0 s, telefoon 7,0 s; warm
+1,6 s en 8,4 s; na een wissel naar Gevoel 0,2–0,5 s (desktop).
+
+## MapLibre-chunk: controle op de startvolgorde
+
+Een eerste A/B (int ↔ build D, telefoon warm) gaf in 3/3 runs een latere eerste regen (vroege regenaanvraag pas op
+1,3–1,8 s in plaats van ~0,2 s). Hypothese: de kleinere app-bundel start eerder en verdringt de vroege
+`startup.ts`-aanvraag. Getoetst met dezelfde code met en zonder de chunk (F/G, telefoon ×3, load 13–18): de vroege
+regenaanvraag gaat in **alle** zes runs op 190–255 ms de lijn op; ttfp-mediaan koud 3.806 → 3.568 ms, warm
+2.456 → 2.514 ms (binnen de spreiding: de decodetijd van het eerste frame varieert 0,35–1,3 s). De splitsing blijft.
