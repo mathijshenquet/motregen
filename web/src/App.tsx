@@ -29,7 +29,7 @@ import { buildHourlyForecast, hourDarkness, isPassiveRow, PASSIVE_FORECAST_HOURS
 import { contextOpacity, DEFAULT_FOCUS_MODE, FOCUS_DIM, FocusMode, mapSaturation, rainPresentation, type FocusKind, windFocusIntensity } from './core/focus-mode'
 import { FrameBatcher } from './core/frame-batcher'
 import { latestRadarEpoch, type RefreshState } from './core/freshness'
-import { adaptiveIsobarStep, PRESSURE_EXTREMUM_KM, pressureExtrema, blendFrames, blurField, TEMPERATURE_ISOLINE_STEP, fieldRangeInView, ISOBAR_STEP_HPA, isolineBlurPasses, isolineFrameWeights, type WeightedFrame, ISOLINE_EDGE_FADE_MS, ISOLINE_FILL_OPACITY, ISOLINE_RING_KM, ISOLINE_WINDOW, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineKind } from './core/isolines'
+import { adaptiveIsobarStep, PRESSURE_EXTREMUM_KM, pressureExtrema, blendFrames, blurField, TEMPERATURE_ISOLINE_STEP, fieldRangeInView, ISOBAR_STEP_HPA, isolineBlurPasses, isolineFrameWeights, type WeightedFrame, ISOLINE_EDGE_FADE_MS, FIXED_SCALE_FILL_OPACITY, ISOLINE_FILL_OPACITY, ISOLINE_RING_KM, ISOLINE_WINDOW, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineKind } from './core/isolines'
 import { IsolineLabels } from './core/isoline-labels'
 import { sliceWeights } from './core/isoline-spline'
 import { TraceCore } from './core/isoline-tracer'
@@ -1850,7 +1850,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
 
   function isolineStyle(): IsolineStyle {
-    return { step: TEMPERATURE_ISOLINE_STEP, fill: ISOLINE_FILL_OPACITY, fillSmooth: false, palette: temperatureStops(), color: hexColor(isolineColor(mapSurfaceTheme())), lineOpacity: TEMPERATURE_LINE_FILL_OPACITY, lineFromFill: TEMPERATURE_LINE_FILL_SHADE }
+    return { step: TEMPERATURE_ISOLINE_STEP, fill: temperatureScale() === 'vast' ? FIXED_SCALE_FILL_OPACITY : ISOLINE_FILL_OPACITY, fillSmooth: false, palette: temperatureStops(), color: hexColor(isolineColor(mapSurfaceTheme())), lineOpacity: TEMPERATURE_LINE_FILL_OPACITY, lineFromFill: TEMPERATURE_LINE_FILL_SHADE }
   }
 
   /** Isobaren: één egale lijnkleur, geen vulling en geen vervaging, zoals op een weerkaart (PO U35). */

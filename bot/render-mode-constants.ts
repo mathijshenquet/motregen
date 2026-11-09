@@ -36,7 +36,7 @@ export function modeConstants() {
     isoline: { temperature_blur: isoline.ISOLINE_BLUR, pressure_blur: isoline.ISOBAR_BLUR, time_weights: isoline.ISOBAR_TIME_WEIGHTS,
       ring_km: isoline.ISOLINE_RING_KM, tolerance_px: isoline.ISOLINE_TOLERANCE_PX, edge_fade_ms: isoline.ISOLINE_EDGE_FADE_MS,
       pressure_radius_km: isoline.PRESSURE_EXTREMUM_KM, pressure_prominence: isoline.PRESSURE_EXTREMUM_HPA,
-      fill_opacity: isoline.ISOLINE_FILL_OPACITY, fill_resolution: isoline.ISOLINE_FILL_RESOLUTION / FRAME.scale,
+      fill_opacity: isoline.FIXED_SCALE_FILL_OPACITY, fill_resolution: isoline.ISOLINE_FILL_RESOLUTION / FRAME.scale,
       temperature_line_fill_opacity: map.TEMPERATURE_LINE_FILL_OPACITY, temperature_line_fill_shade: map.TEMPERATURE_LINE_FILL_SHADE,
       pressure_opacity: map.ISOBAR_LINE_OPACITY,
       line_profile: map.lineProfile(map.isolineWidthCss(NATIVE_VIEW.zoom) * FRAME.scale),

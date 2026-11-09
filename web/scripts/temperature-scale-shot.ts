@@ -5,8 +5,8 @@ import { join } from 'node:path'
 // Beelden voor U100 (vaste temperatuurschaal, Gevoel-legenda, isolijnlabels): telefoon en desktop op dezelfde
 // kaarttijd, zodat varianten naast elkaar te leggen zijn. De worker bekijkt ze zelf.
 // Gebruik: pnpm exec tsx scripts/temperature-scale-shot.ts ORIGIN OUT_DIR TIJD [SET]
-//   TIJD: ISO-tijd of relatieve kaarttijd zoals +0u; SET: basis (standaard) of labels.
-const [origin, outDir, time = '+0u', set = 'basis'] = process.argv.slice(2)
+//   TIJD: ISO-tijd of relatieve kaarttijd zoals +0u; SET: basis (standaard), labels of vulling (met LABEL: voor/na).
+const [origin, outDir, time = '+0u', set = 'basis', tag = 'voor'] = process.argv.slice(2)
 if (!origin || !outDir) throw new Error('usage: pnpm exec tsx scripts/temperature-scale-shot.ts ORIGIN OUT_DIR [TIJD] [basis|labels]')
 mkdirSync(outDir, { recursive: true })
 
@@ -51,7 +51,9 @@ const LABEL_VARIANTS: Array<{ size: number; spacing: number; fill: number }> = [
 const closeDevPanel = async (page: Page) => {
   await page.locator('.dev-panel').evaluate((panel) => { (panel as HTMLDetailsElement).open = false })
 }
-const shots: Shot[] = set === 'labels'
+const shots: Shot[] = set === 'vulling'
+  ? [{ name: `vulling-${tag}-desktop`, device: DESKTOP, path: `/gevoel?${at}`, action: wholeCountry }]
+  : set === 'labels'
   ? LABEL_VARIANTS.flatMap(({ size, spacing, fill }) => [
     { name: `labels-desktop-grootte${size}-afstand${spacing}-vulling${fill}`, device: DESKTOP, action: async (page: Page) => { await closeDevPanel(page); await wholeCountry(page) } },
     { name: `labels-telefoon-grootte${size}-afstand${spacing}-vulling${fill}`, device: PHONE, action: closeDevPanel },

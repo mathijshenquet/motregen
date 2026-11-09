@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import type { Grid } from '../web/src/core/contract.js'
-import { ISOLINE_FILL_OPACITY, ISOLINE_FILL_RESOLUTION, isolineColor } from '../web/src/core/isolines.js'
+import { FIXED_SCALE_FILL_OPACITY, ISOLINE_FILL_RESOLUTION, isolineColor } from '../web/src/core/isolines.js'
 import { TEMPERATURE_LINE_OPACITY, ISOBAR_LINE_OPACITY, isolineWidthCss, lineProfile } from '../web/src/core/map-presentation.js'
 import { NATIVE_VIEW } from './native-view.js'
 import { FRAME, FRAME_PIXELS } from './config.js'
@@ -92,7 +92,7 @@ export class NativeFieldRaster {
     header.writeUInt32LE(slice.segments.length / 6, 8); header.writeUInt32LE(slice.kind === 'temperature' && slice.rings ? 1 : 0, 12)
     header.writeUInt32LE(slice.kind === 'pressure' ? 1 : 0, 16)
     const profile = lineProfile(isolineWidthCss(NATIVE_VIEW.zoom) * FRAME.scale)
-    header.writeFloatLE(slice.kind === 'pressure' ? 0 : ISOLINE_FILL_OPACITY, 20)
+    header.writeFloatLE(slice.kind === 'pressure' ? 0 : FIXED_SCALE_FILL_OPACITY, 20)
     header.writeFloatLE((slice.kind === 'pressure' ? ISOBAR_LINE_OPACITY : TEMPERATURE_LINE_OPACITY) * profile.alpha, 24)
     header.writeFloatLE(profile.halfWidth, 28)
     const color = Number.parseInt(isolineColor(night ? 'dark' : 'light', slice.kind).slice(1), 16)
