@@ -4,6 +4,7 @@ import { fetchInitialManifest } from './core/initial-manifest'
 import { MrfClient } from './core/mrf'
 import { configurePerfMode, consumeColdProfile, installPerfMonitor } from './core/perf'
 import { cursorForPresetEpoch, parsePresets } from './core/presets'
+import { weatherBytes } from './core/range-byte-cache'
 import { buildTimeline } from './core/time-model'
 import { sessionManifestUrls, storedUsageLabel } from './core/usage'
 
@@ -17,6 +18,7 @@ const nextManifestUrl = sessionManifestUrls(manifestUrl, storedUsageLabel(localS
 const params = new URLSearchParams(location.search)
 const stillMode = params.get('still') === '1'
 export const initialClient = params.has('skywatch-render') ? undefined : new MrfClient(manifestUrl, perf.loads, decode)
+if (initialClient) weatherBytes.warm()
 
 export async function fetchManifest(cache: RequestCache = 'default'): Promise<Manifest> {
   const response = await fetchInitialManifest(stillMode ? manifestUrl : nextManifestUrl(), cache)

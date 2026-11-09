@@ -51,7 +51,7 @@ import { findCataloguePlace, isInPlaceZone, loadPlaces, namedCataloguePlace, nea
 import type { PlaceIdentity, PlaceMemory } from './core/place-memory'
 import { startFrameLoop } from './core/playback'
 import { clampPlaybackCursor, playbackReach } from './core/playback-gate'
-import { measurePerfPhase, PERF_COLD_STORAGE_KEY, PERF_STORAGE_KEY, perfPhasesEnabled, recordPerfPhase, type LoadLayer } from './core/perf'
+import { markLayerDrawn, measurePerfPhase, PERF_COLD_STORAGE_KEY, PERF_STORAGE_KEY, perfPhasesEnabled, recordPerfPhase, type LoadLayer, type PerfLayer } from './core/perf'
 import type { ProfileRecording } from './core/profile-recorder'
 import { RainLayer } from './core/rain-layer'
 import { rainSampling, rainWarpLimit } from './core/rain-smoothing'
@@ -207,6 +207,7 @@ const PLAY_RULE_STORAGE_KEY = 'motregen-dev-speelregel'
 // Rig-schakelaar (?dev): 'laat' vraagt het eerste regenframe weer pas na de kaart-opzet.
 const VIEWPORT_DIAGNOSE_STORAGE_KEY = 'motregen-dev-viewport'
 // Productiedomeinen (nix `services.motregen.domains`, met www) plus loopback voor e2e/PWA-checks.
+const ISOLINE_PERF_LAYERS: Partial<Record<string, PerfLayer>> = { temperature: 'temperatuurvlakken', cloud: 'wolken', wind: 'bft-vlakken' }
 const SERVICE_WORKER_HOSTNAMES = ['motregen.nl', 'www.motregen.nl', 'weerok.nl', 'www.weerok.nl', 'localhost', '127.0.0.1']
 const TABLE_NAVIGATION_MS = 1_500
 // De rand buiten het rooster is geen laag van de basisstijl maar kleurt wel mee met het thema.
@@ -882,6 +883,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     let initialData: Manifest | undefined
     let eagerHeadersAllowed = false
     let eagerHeadersStarted = false
+    let firstRainFrames: Array<Promise<unknown>> = []
     const startEagerHeaders = () => {
       if (!eagerHeadersAllowed || !initialData || eagerHeadersStarted) return
       eagerHeadersStarted = true
@@ -910,7 +912,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       // (koude PO-opname 2026-10-07: eerste regen-decode pas op 1,9 s, 0,85 s na de kaart).
       // U89, PO 2026-10-17: Eerste regen blijft vast vroeg.
       const firstIndex = Math.floor(presetCursor ?? nowIndex)
-      for (const frame of frames.slice(firstIndex, firstIndex + 2)) void load(frame).catch(() => undefined)
+      firstRainFrames = frames.slice(firstIndex, firstIndex + 2).map((frame) => load(frame).catch(() => undefined))
       setManifest(data)
       initialData = data
       startEagerHeaders()
@@ -998,9 +1000,14 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         if (event.sourceId === 'basemap' && event.tile) {
           if (!basemapTileSeen) {
             perf.markFirstBasemapTile()
+            markLayerDrawn('basiskaart')
             // De kaartheader en eerste tegels gaan vóór de ongebruikte HARMONIE-headers.
             eagerHeadersAllowed = true
             startEagerHeaders()
+            // U109: in Lucht de wolkenbytes direct erachteraan, niet pas na mapReady; kaart en eerste regenframes houden
+            // voorrang (de decoders ordenen alleen op tijd, dus anders schoven de wolken warm voor de regen).
+            // Alleen met het ruime decodebudget: op de telefoon (in-view) won het niets en kwam de warme kaart later.
+            if (!stillMode && !inViewOnly && focusPinned() === 'air') void Promise.all(firstRainFrames).then(() => { if (focusPinned() === 'air') prefetchCloudAtCursor() })
           }
           basemapTileSeen = true
           replaceMapStartWhenComplete()
@@ -1129,6 +1136,13 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   })
 
   createEffect(() => perf.loads.mark({ kind: 'stage', stage: pointLoadStage() }))
+  // U109: vanaf een moduskeuze telt per laag de tijd tot de eerste tekenbeurt (perf.layers.modeSwitch).
+  let modeIntentArmed = false
+  createEffect(() => {
+    const mode = focusPinned()
+    if (modeIntentArmed) perf.markModeIntent(mode)
+    modeIntentArmed = true
+  })
   createEffect(() => {
     const frames = timeline()
     if (!frames.length) return
@@ -1924,6 +1938,25 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
   }
 
+  /**
+   * U109: start in Lucht. De wolkenvelden wachtten op mapReady; de bytes van de uurlagen rond de cursor gaan al bij
+   * de eerste basiskaarttegel de lijn op (vanaf het manifest maakte de warme telefoonkaart trager). Alleen laden en
+   * decoderen in de worker, het voorbereiden van het veld blijft bij de eerste tekenbeurt.
+   */
+  function prefetchCloudAtCursor(): void {
+    const epoch = selectedEpoch()
+    const frames = cloudTimeline()
+    if (!frames.length) return
+    const blend = frameBlend(frames, epoch)
+    const wanted = isolineLayerIndices(blend.left + blend.mix, frames.length, ISOLINE_WINDOW).map((index) => frames[index]!)
+    for (const layerFrames of [...CLOUD_LAYERS.map((layer) => cloudTimelines()[layer]), radiationTimeline()]) {
+      if (!layerFrames.length) continue
+      const at = frameBlend(layerFrames, epoch)
+      wanted.push(layerFrames[at.left]!, layerFrames[at.right]!)
+    }
+    for (const frame of wanted) void load(frame).catch(() => undefined)
+  }
+
   async function cloudMotionAt(epoch: number, frames = timeline()): Promise<{ grid: Grid; field: MotionField } | undefined> {
     if (frames.length < 2 || epoch < frames[0]!.epoch || epoch > frames[frames.length - 1]!.epoch) return undefined
     const blend = frameBlend(frames, epoch)
@@ -2095,6 +2128,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         const { grid } = await preparedIsolineField(set, frames[required[0]!]!)
         if (!mapRendering() || map !== renderedMap || set.layer || !renderedMap.getLayer('motregen-temperature')) return
         const created = new IsolineLayer(grid, frames.length, set.style(), set.layerId)
+        created.perfLayer = ISOLINE_PERF_LAYERS[set.kind]
         set.layer = created
         set.layerKey = key
         set.fields = []
@@ -2322,6 +2356,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         sunFeatureKey = key
         const source = map.getSource('motregen-sun') as GeoJSONSource | undefined
         source?.setData(data)
+        if (data.features.length) markLayerDrawn('zon')
       }
     } catch {
       if (request !== shownSunRequest) return

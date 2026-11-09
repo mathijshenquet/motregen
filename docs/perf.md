@@ -1788,3 +1788,8 @@ Typecheck, productiebuild en 533 units zijn groen. De gerichte desktopgate is gr
 nieuwe regressies voor wind later op eigen canvas en via MapLibre. Zes Firefox-tests slagen
 zonder herhaling. De perf-gate heeft vier groene tests: mobile-4g TTFR koud 2383/warm 1621 ms,
 warme chunktransfer 0 B en scrub-p95 25,8 ms. Preview blijft op 4351; geen prod-uitrol.
+
+## Optimalisatiepass U109 (2026-11-09)
+
+Rapport, meetgereedschap (`perf.layers`, `scripts/u109-*.{sh,ts}`), per-laag-tijden, fasekosten, de
+GL-sync-vondst en de voorstellen (voorcompressie, tabelrace, contourtracer): [perf/u109/README.md](perf/u109/README.md).

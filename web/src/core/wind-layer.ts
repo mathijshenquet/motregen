@@ -3,7 +3,7 @@ export { WIND_PARTICLES_PER_MEGAPIXEL, WIND_REFERENCE_ZOOM, WIND_PARAMETERS, MOB
 import type { CustomLayerInterface, CustomRenderMethodInput, Map as MapLibreMap, MapSourceDataEvent, GeoJSONFeature } from 'maplibre-gl'
 import type { MapTheme } from './basemap'
 import type { Grid } from './contract'
-import { measurePerfPhase } from './perf'
+import { markLayerDrawn, measurePerfPhase } from './perf'
 import { prepareShaderPrograms } from './shader-programs'
 import { loadedWaterTiles, WaterTileCache, waterMaskNeedsRebuild, waterTileKey, type WaterMaskView, type WaterTile, type WaterMaskRequest, type WaterMaskReply } from './wind-water-mask'
 import { WIND_INITIAL_STAGGER_SECONDS, windLifeScale, trailFloor, halfFloatTrailFloor } from './wind-presentation.js'
@@ -189,6 +189,7 @@ type UniformMap<Name extends string> = Record<Name, WebGLUniformLocation | null>
 export class WindLayer implements CustomLayerInterface {
   readonly id = 'motregen-wind'
   readonly type = 'custom' as const
+  contentDrawn = false
   readonly renderingMode = '2d' as const
   private map?: MapLibreMap
   private gl?: WebGL2RenderingContext
@@ -501,7 +502,9 @@ export class WindLayer implements CustomLayerInterface {
     const gl = context as WebGL2RenderingContext
     if (!this.segmentProgram) return
     // Onzichtbaar: geen frame en geen volgende aanvraag; setTuning/setTheme wekken weer.
+    this.contentDrawn = false
     if (this.tuning.intensity * Math.min(this.tuning.visibility, 1) <= 0) { this.previousTime = 0; return }
+    this.contentDrawn = true
     this.ensureTrailTargets()
     if (!this.map || !this.trails || !this.segmentArray || !this.fadeArray || !this.compositeArray || !this.left || !this.right) return
     const now = this.simulationTime ?? performance.now()
@@ -608,6 +611,7 @@ export class WindLayer implements CustomLayerInterface {
     const contrast = this.theme === 'dark' ? 1 : 0
     gl.uniform3f(segmentUniforms.contrast, contrast, contrast, contrast)
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, this.active)
+    if (this.active > 0) markLayerDrawn('deeltjes')
   }
 
   /**
@@ -1312,7 +1316,6 @@ export class WindLayer implements CustomLayerInterface {
     if (!gl) return
     const framebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null
     const viewport = gl.getParameter(gl.VIEWPORT) as Int32Array
-    const clearColor = gl.getParameter(gl.COLOR_CLEAR_VALUE) as Float32Array
     const scissorEnabled = gl.isEnabled(gl.SCISSOR_TEST)
     gl.disable(gl.SCISSOR_TEST)
     gl.viewport(0, 0, width, height)
@@ -1323,7 +1326,9 @@ export class WindLayer implements CustomLayerInterface {
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
     gl.viewport(viewport[0]!, viewport[1]!, viewport[2]!, viewport[3]!)
-    gl.clearColor(clearColor[0]!, clearColor[1]!, clearColor[2]!, clearColor[3]!)
+    // Terug naar transparant zonder getParameter(COLOR_CLEAR_VALUE), die synchroon op de GPU wacht (U109): de
+    // overlay en MapLibre wissen beide transparant.
+    gl.clearColor(0, 0, 0, 0)
     if (scissorEnabled) gl.enable(gl.SCISSOR_TEST)
   }
 

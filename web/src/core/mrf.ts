@@ -140,6 +140,7 @@ export class MrfClient {
     private readonly budget: Pick<DecodeBudget, 'workers' | 'requests' | 'rangeBytes'> = decodeBudget(browserDeviceHints()),
   ) {
     this.planner = new FetchPlanner(Math.max(1, budget.requests))
+    if (trace) weatherBytes.observe ??= (timing) => trace.mark({ kind: 'store', ...timing })
     this.workers = Array.from({ length: Math.max(1, budget.workers) }, () => new Worker(new URL('./zstd.worker.ts', import.meta.url), { type: 'module' }))
     this.idleWorkers = this.workers.map((_, index) => index)
     for (const worker of this.workers) {

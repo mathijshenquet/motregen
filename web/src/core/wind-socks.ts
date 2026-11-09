@@ -4,7 +4,7 @@ import { DEFAULT_WINDSOCK_BADGE, WINDSOCK_SAMPLES, windsockBadge, windsockShape,
 import { advanceSock, angleDifference, DEFAULT_WINDSOCK_CURVATURE, sampleWind, SOCK_SNAP_SECONDS, sockReach, socksClear, swayBends, WINDSOCK_APPEAR_MARGIN, windsockHeadings, windsockPhase, type SockReach, type Spring, type WindsockField } from './windsock-flow.js'
 import type { TemperaturePlace } from './temperature.js'
 import { windValue, type WindUnit } from './weather.js'
-import { recordPerfPhase } from './perf.js'
+import { markLayerDrawn, recordPerfPhase } from './perf.js'
 import { WINDSOCK_ANCHOR_OFFSETS } from './windsock-anchors.js'
 import { drawSock } from './wind-sock-draw.js'
 import { MapLabelPlacer, type Offset, type Placement } from './map-label-placement.js'
@@ -82,8 +82,12 @@ export class WindsockLayer {
   private layoutDirty = true
   private lastLayout = -Infinity
   draws = 0
-  private readonly mapRendered = () => { if (this.camera() !== this.drawnCamera) this.draw() }
-  private readonly resized = () => { this.layoutDirty = true; this.draw() }
+  // Containermaat gecachet en ververst op MapLibre's resize: clientWidth per frame dwong een layout af zodra de
+  // DOM vuil was (temperatuurgetallen, scrubber) (U109).
+  private width = 0
+  private height = 0
+  private readonly mapRendered = () => { if (this.opacity > 0 && this.camera() !== this.drawnCamera) this.draw() }
+  private readonly resized = () => { this.measure(); this.layoutDirty = true; this.draw() }
   /** Plaatsnamen staan pas vast als de kaart stilvalt: dan één keer opnieuw indelen per nieuwe camerastand. */
   private readonly idle = () => {
     const camera = this.camera()
@@ -122,6 +126,7 @@ export class WindsockLayer {
     map.getCanvasContainer().append(this.canvas)
     this.context = this.canvas.getContext('2d')!
     this.placer = new MapLabelPlacer(map, options.pin)
+    this.measure()
     map.on('render', this.mapRendered)
     map.on('resize', this.resized)
     map.on('idle', this.idle)
@@ -201,9 +206,9 @@ export class WindsockLayer {
   draw(): void {
     this.stopAnimation()
     this.drawnCamera = this.camera()
-    const container = this.map.getContainer()
+    if (!this.width || !this.height) this.measure()
     const ratio = window.devicePixelRatio || 1
-    const width = container.clientWidth, height = container.clientHeight
+    const { width, height } = this
     if (this.canvas.width !== Math.round(width * ratio) || this.canvas.height !== Math.round(height * ratio)) {
       this.canvas.width = Math.round(width * ratio)
       this.canvas.height = Math.round(height * ratio)
@@ -262,6 +267,7 @@ export class WindsockLayer {
       this.drawnMaxStrength = Math.max(this.drawnMaxStrength, strength)
     }
     recordPerfPhase('windsock-draw', performance.now() - drawStarted, { socks: this.drawnCount, fluttering })
+    if (this.drawnCount) markLayerDrawn('windzakken')
     const summary = `${this.drawnCount}|${Math.round(this.drawnMaxStrength * 10) / 10}`
     if (this.canvas.dataset.socks !== summary) this.canvas.dataset.socks = summary
     this.canvas.dataset.draws = String(this.draws)
@@ -334,9 +340,15 @@ export class WindsockLayer {
     this.frame = this.delay = undefined
   }
 
+  private measure(): void {
+    const container = this.map.getContainer()
+    this.width = container.clientWidth
+    this.height = container.clientHeight
+  }
+
   private camera(): string {
     const center = this.map.getCenter()
-    return `${center.lng},${center.lat},${this.map.getZoom()},${this.map.getBearing()},${this.map.getContainer().clientWidth}x${this.map.getContainer().clientHeight}`
+    return `${center.lng},${center.lat},${this.map.getZoom()},${this.map.getBearing()},${this.width}x${this.height}`
   }
 }
 

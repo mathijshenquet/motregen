@@ -6,6 +6,7 @@ import type { MapTheme } from './basemap'
 import { isolineColor, isolineLabelText, type IsolineFeatureCollection, type IsolineKind } from './isolines'
 import { ringFadeAt, type ShortRing } from './isoline-contours'
 import { projectToLevel, type FieldSlice, type SliceSample } from './isoline-spline'
+import { markLayerDrawn } from './perf'
 
 const EARTH_RADIUS = 6378137
 
@@ -80,6 +81,12 @@ export class IsolineLabels {
     if (opacity === this.opacity) return
     this.opacity = opacity
     for (const anchor of this.anchors) this.applyOpacity(anchor)
+    this.noteDrawn()
+  }
+
+  /** Tekenmeting (U109): de getallen van Gevoel als labels op de lijnen. */
+  private noteDrawn(): void {
+    if (this.kind === 'temperature' && this.opacity > 0 && this.anchors.length) markLayerDrawn('temperatuurgetallen')
   }
 
   clear(): void {
@@ -152,6 +159,7 @@ export class IsolineLabels {
     this.place(anchor, sample)
     anchor.marker.addTo(this.map)
     this.anchors.push(anchor)
+    this.noteDrawn()
     requestAnimationFrame(() => { text.style.opacity = '1' })
   }
 
