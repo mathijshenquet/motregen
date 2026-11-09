@@ -89,10 +89,14 @@ pub fn draw(
             .map(|(index, heading)| heading + bends.as_ref().map_or(0.0, |bends| bends[index]))
             .collect();
         let shape = windsock::shape(strength, &headings);
+        let scale = mode_constants().scale;
         draw_sock(
             rgb,
             labels,
-            point,
+            [
+                point[0] + place.offset[0] * scale,
+                point[1] + place.offset[1] * scale,
+            ],
             &shape,
             &windsock::beaufort_number(speed).to_string(),
             night,

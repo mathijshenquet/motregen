@@ -13,6 +13,7 @@ import { BEAUFORT_COLORS, BEAUFORT_LOWER_MS, CODES_PER_FORCE, WIND_FILL_OPACITY,
 import { DEFAULT_WINDSOCK_BADGE, WINDSOCK_BADGE, WINDSOCK_BANDS, WINDSOCK_SAMPLES, WINDSOCK_SHAPE, WINDSOCK_STYLE } from '../web/src/core/wind-glyph.js'
 import { DEFAULT_WINDSOCK_CURVATURE, DEFAULT_WINDSOCK_FLUTTER, MAX_BEND_DEGREES, WINDSOCK_FLUTTERS, WINDSOCK_LAG_MINUTES, WINDSOCK_STREAM_KM, windsockPhase } from '../web/src/core/windsock-flow.js'
 import { windsockPlaces } from './native-windsocks.js'
+import { WINDSOCK_ANCHOR_OFFSETS } from '../web/src/core/windsock-anchors.js'
 import { createHash } from 'node:crypto'
 import * as cloudMap from '../web/src/core/cloud-map.js'
 import { prepareCloudMapField } from '../web/src/core/cloud-map.js'
@@ -54,7 +55,7 @@ export function modeConstants() {
       slack_bend: WINDSOCK_SHAPE.slackBend, style: WINDSOCK_STYLE, badge: WINDSOCK_BADGE, badge_at_mouth: DEFAULT_WINDSOCK_BADGE === 'mond',
       stream_km: WINDSOCK_STREAM_KM, lag_minutes: WINDSOCK_LAG_MINUTES, max_bend: MAX_BEND_DEGREES,
       stream: DEFAULT_WINDSOCK_CURVATURE !== 'traag', lag: DEFAULT_WINDSOCK_CURVATURE !== 'stroom', flutter: WINDSOCK_FLUTTERS[DEFAULT_WINDSOCK_FLUTTER],
-      places: windsockPlaces().map((place) => ({ lng: place.lng, lat: place.lat, phase: windsockPhase(place.name) })),
+      places: windsockPlaces().map((place) => ({ lng: place.lng, lat: place.lat, phase: windsockPhase(place.name), offset: WINDSOCK_ANCHOR_OFFSETS[place.name] ?? [0, 0] })),
     },
     labels: { spacing: labels.LABEL_SPACING_PX, distance: labels.LABEL_MIN_DISTANCE_PX, maximum: labels.MAX_LABEL_ANCHORS },
     saturation: map.MAP_FOCUS_SATURATION, bounds: NETHERLANDS_FLANDERS_BOUNDS,

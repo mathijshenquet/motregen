@@ -9,6 +9,7 @@ import type { NativeRainData, RainFrame } from './native-rain.js'
 import { NativeText, type Glyph } from './native-text.js'
 import type { NativeTheme } from './native-map.js'
 import { NATIVE_VIEW } from './native-view.js'
+import { WINDSOCK_ANCHOR_OFFSETS } from '../web/src/core/windsock-anchors.js'
 
 const MERCATOR_RADIUS = 6378137
 const rgb = (hex: string) => [1, 3, 5].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16))
@@ -84,7 +85,8 @@ export class NativeWindsocks {
       const strength = beaufortScale(speed)
       const bends = flutterBends(flutter, strength, seconds, windsockPhase(place.name))
       const shape = windsockShape(strength, compass.map((heading, index) => heading + (bends?.[index] ?? 0)), 'kaart')
-      await this.drawSock(rgb, screenX, screenY, shape, String(beaufortNumber(speed)), theme, opacity)
+      const [offsetX, offsetY] = WINDSOCK_ANCHOR_OFFSETS[place.name] ?? [0, 0]
+      await this.drawSock(rgb, screenX + offsetX * FRAME.scale, screenY + offsetY * FRAME.scale, shape, String(beaufortNumber(speed)), theme, opacity)
     }
   }
 

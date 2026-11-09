@@ -210,6 +210,8 @@ pub struct WindsockPlace {
     pub lng: f64,
     pub lat: f64,
     pub phase: f64,
+    /// Naast de plaatsnaam, in CSS-px (`windsock-anchors.ts`).
+    pub offset: [f64; 2],
 }
 
 /// Wolkenkaart (U92), uit `cloud-map.ts`, `cloud-section.ts` en `isolines.ts`.

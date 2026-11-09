@@ -5,6 +5,7 @@ import { DEFAULT_WINDSOCK_CURVATURE, DEFAULT_WINDSOCK_FLUTTER, flutterBends, sam
 import type { TemperaturePlace } from './temperature.js'
 import { windValue, type WindUnit } from './weather.js'
 import { recordPerfPhase } from './perf.js'
+import { WINDSOCK_ANCHOR_OFFSETS } from './windsock-anchors.js'
 
 interface Sock {
   place: TemperaturePlace
@@ -12,6 +13,8 @@ interface Sock {
   x: number
   y: number
   phase: number
+  /** Naast de plaatsnaam (CSS-px). */
+  offset: readonly [number, number]
 }
 
 /**
@@ -72,7 +75,7 @@ export class WindsockLayer {
     this.socks = places.map((place) => {
       const x = place.lng * Math.PI / 180 * MERCATOR_RADIUS
       const y = Math.log(Math.tan(Math.PI / 4 + place.lat * Math.PI / 360)) * MERCATOR_RADIUS
-      return { place, x, y, phase: windsockPhase(place.name) }
+      return { place, x, y, phase: windsockPhase(place.name), offset: WINDSOCK_ANCHOR_OFFSETS[place.name] ?? [0, 0] }
     })
     this.draw()
   }
@@ -156,7 +159,7 @@ export class WindsockLayer {
       if (flutterBend) fluttering = true
       const headings = compass.map((heading, index) => heading - bearing + (flutterBend?.[index] ?? 0))
       const shape = windsockShape(strength, headings, 'kaart')
-      this.drawSock(context, screen.x, screen.y, shape, String(windValue(speed, this.unit)))
+      this.drawSock(context, screen.x + sock.offset[0], screen.y + sock.offset[1], shape, String(windValue(speed, this.unit)))
       this.drawnCount++
       this.drawnMaxStrength = Math.max(this.drawnMaxStrength, strength)
     }
