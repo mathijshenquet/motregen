@@ -53,8 +53,12 @@ export class WindsockLayer {
   private drawnCamera = ''
   private readonly fontFamily: string
   draws = 0
-  private readonly mapRendered = () => { if (this.camera() !== this.drawnCamera) this.draw() }
-  private readonly resized = () => this.draw()
+  // Containermaat gecachet en ververst op MapLibre's resize: clientWidth per frame dwong een layout af zodra de
+  // DOM vuil was (temperatuurgetallen, scrubber), net als eerder in de windlaag (U109).
+  private width = 0
+  private height = 0
+  private readonly mapRendered = () => { if (this.opacity > 0 && this.camera() !== this.drawnCamera) this.draw() }
+  private readonly resized = () => { this.measure(); this.draw() }
 
   constructor(private readonly map: MapLibreMap, private readonly options: WindsockLayerOptions) {
     this.canvas = document.createElement('canvas')
@@ -65,6 +69,7 @@ export class WindsockLayer {
     map.getCanvasContainer().append(this.canvas)
     this.context = this.canvas.getContext('2d')!
     this.fontFamily = getComputedStyle(map.getContainer()).fontFamily
+    this.measure()
     map.on('render', this.mapRendered)
     map.on('resize', this.resized)
   }
@@ -121,9 +126,9 @@ export class WindsockLayer {
   draw(): void {
     this.stopAnimation()
     this.drawnCamera = this.camera()
-    const container = this.map.getContainer()
+    if (!this.width || !this.height) this.measure()
     const ratio = window.devicePixelRatio || 1
-    const width = container.clientWidth, height = container.clientHeight
+    const { width, height } = this
     if (this.canvas.width !== Math.round(width * ratio) || this.canvas.height !== Math.round(height * ratio)) {
       this.canvas.width = Math.round(width * ratio)
       this.canvas.height = Math.round(height * ratio)
@@ -180,7 +185,7 @@ export class WindsockLayer {
     outside.rect(-200, -200, 400, 400)
     outside.arc(badge.x, badge.y, badge.cutRadius, 0, Math.PI * 2)
     context.clip(outside, 'evenodd')
-    const outline = new Path2D(polygon(windsockOutline(shape)))
+    const outline = polygonPath(windsockOutline(shape))
     context.lineJoin = 'round'
     // Zachte schaduw en een lichte rand houden de zak los van de vlakken, op lichte en donkere kaart.
     context.save()
@@ -194,7 +199,7 @@ export class WindsockLayer {
     context.stroke(outline)
     for (let band = 0; band < WINDSOCK_BANDS; band++) {
       context.fillStyle = band % 2 ? WHITE : ORANGE
-      context.fill(new Path2D(polygon(windsockBand(shape, band))))
+      context.fill(polygonPath(windsockBand(shape, band)))
     }
     context.strokeStyle = INK
     context.lineWidth = 1.1
@@ -252,14 +257,24 @@ export class WindsockLayer {
     this.frame = this.delay = undefined
   }
 
+  private measure(): void {
+    const container = this.map.getContainer()
+    this.width = container.clientWidth
+    this.height = container.clientHeight
+  }
+
   private camera(): string {
     const center = this.map.getCenter()
-    return `${center.lng},${center.lat},${this.map.getZoom()},${this.map.getBearing()},${this.map.getContainer().clientWidth}x${this.map.getContainer().clientHeight}`
+    return `${center.lng},${center.lat},${this.map.getZoom()},${this.map.getBearing()},${this.width}x${this.height}`
   }
 }
 
-function polygon(points: readonly Point[]): string {
-  return `M${points.map(([x, y]) => `${x} ${y}`).join('L')}Z`
+// Rechtstreeks opbouwen: via een SVG-padstring (opbouwen + parsen) kostte het ~6× zoveel per flutterframe (U109).
+function polygonPath(points: readonly Point[]): Path2D {
+  const path = new Path2D()
+  points.forEach(([x, y], index) => index ? path.lineTo(x, y) : path.moveTo(x, y))
+  path.closePath()
+  return path
 }
 
 
