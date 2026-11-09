@@ -1,3 +1,4 @@
+use crate::windsocks::SockChain;
 use crate::{
     data::{Dataset, Raster},
     frame_cache::KeyBuilder,
@@ -64,10 +65,12 @@ pub struct Slice {
     pub opacity: f64,
 }
 
-/// What a slice carries over to the next one: the label anchors.
+/// What a slice carries over to the next one: the label anchors and, for wind, the motion of the socks (U107).
 #[derive(Deserialize, Serialize)]
 struct FieldState {
     labels: Labels,
+    #[serde(default)]
+    socks: SockChain,
 }
 
 pub struct Fields<'a> {
@@ -78,6 +81,8 @@ pub struct Fields<'a> {
     prepared: Vec<(usize, Arc<Field>)>,
     line_cache: Vec<(usize, Vec<Contour>)>,
     labels: Labels,
+    /// Wind: momentum and wave of the socks, stepped once per film frame in `Sources::input`.
+    pub socks: SockChain,
     /// Labels are placed once for both themes; the names sit at the same place on the light and dark plate.
     names: NameMask,
     /// Wind (U101): Beaufort bands from u and v, without labels; otherwise the feels-like temperature.
@@ -119,6 +124,7 @@ impl<'a> Fields<'a> {
             prepared: Vec::new(),
             line_cache: Vec::new(),
             labels: Labels::default(),
+            socks: SockChain::default(),
             names,
             wind,
             fields_us: 0,
@@ -186,12 +192,14 @@ impl<'a> Fields<'a> {
     pub fn state(&self) -> Result<Vec<u8>> {
         Ok(serde_json::to_vec(&FieldState {
             labels: self.labels.clone(),
+            socks: self.socks.clone(),
         })?)
     }
 
     pub fn restore(&mut self, state: &[u8]) -> Result<()> {
         let state: FieldState = serde_json::from_slice(state)?;
         self.labels = state.labels;
+        self.socks = state.socks;
         Ok(())
     }
 

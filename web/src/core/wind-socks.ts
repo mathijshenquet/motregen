@@ -1,7 +1,7 @@
 import type { Map as MapLibreMap } from 'maplibre-gl'
 import { beaufortScale } from './wind-beaufort.js'
 import { DEFAULT_WINDSOCK_BADGE, WINDSOCK_SAMPLES, windsockBadge, windsockShape, type WindsockShape } from './wind-glyph.js'
-import { advanceWave, angleDifference, DEFAULT_WINDSOCK_CURVATURE, followSpring, sampleWind, swayBends, WINDSOCK_MOMENTUM, windsockHeadings, windsockPhase, type Spring, type WindsockField } from './windsock-flow.js'
+import { advanceSock, angleDifference, DEFAULT_WINDSOCK_CURVATURE, sampleWind, SOCK_SNAP_SECONDS, swayBends, windsockHeadings, windsockPhase, type Spring, type WindsockField } from './windsock-flow.js'
 import type { TemperaturePlace } from './temperature.js'
 import { windValue, type WindUnit } from './weather.js'
 import { recordPerfPhase } from './perf.js'
@@ -218,7 +218,7 @@ export class WindsockLayer {
     const animate = !this.options.reducedMotion() && calm > 0
     // Na een pauze (verborgen tab, Wind net open) of zonder beweging springt de zak direct naar het veld.
     const elapsed = seconds - this.drawnAt
-    const snap = !animate || !(elapsed > 0) || elapsed > 1
+    const snap = !animate || !(elapsed > 0) || elapsed > SOCK_SNAP_SECONDS
     this.drawnAt = seconds
     let fluttering = false
     let settling = false
@@ -232,20 +232,11 @@ export class WindsockLayer {
       if (!wind || !compass) continue
       const speed = Math.hypot(wind[0], wind[1]) * this.options.speedFactor
       const target = compass[0]!
-      if (snap || !sock.heading || !sock.strength) {
-        sock.heading = { value: target, velocity: 0 }
-        sock.strength = { value: beaufortScale(speed), velocity: 0 }
-      } else {
-        // Kortste weg: het doel ligt nooit meer dan 180° van de huidige richting.
-        followSpring(sock.heading, sock.heading.value + angleDifference(sock.heading.value, target), elapsed, WINDSOCK_MOMENTUM.heading)
-        followSpring(sock.strength, beaufortScale(speed), elapsed, WINDSOCK_MOMENTUM.strength)
-        if (Math.abs(sock.heading.velocity) > 0.05 || Math.abs(sock.strength.velocity) > 0.005) settling = true
-      }
-      const strength = Math.max(0, sock.strength.value)
-      if (!snap) sock.wave = advanceWave(sock.wave, strength, elapsed)
+      if (advanceSock(sock, target, beaufortScale(speed), elapsed, snap)) settling = true
+      const strength = Math.max(0, sock.strength!.value)
       const flutterBend = animate ? swayBends(strength, sock.wave, seconds, sock.phase).map((bend) => bend * calm) : undefined
       if (flutterBend) fluttering = true
-      const base = sock.heading.value
+      const base = sock.heading!.value
       const headings = compass.map((heading, index) => base + angleDifference(target, heading) - bearing + (flutterBend?.[index] ?? 0))
       const shape = windsockShape(strength, headings, 'kaart')
       this.drawSock(context, screen.x + sock.placed.dx, screen.y + sock.placed.dy, shape, String(windValue(speed, this.unit)), size)

@@ -47,7 +47,7 @@ export const MAP_LABEL_HALO_PX = 2
 export function mapDiscRadius(label: string, size: number): number {
   return Math.max(size * DISC_MIN_EM, label.length * size * 0.3 + 4)
 }
-const DISC_MIN_EM = 9.5 / 13
+export const DISC_MIN_EM = 9.5 / 13
 
 /** Letter in een schijf: drie tekens (km/u) één maat kleiner (10 bij 13 px, U101). */
 export function mapDiscFontPx(label: string, size: number): number {
