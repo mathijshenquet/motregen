@@ -11,6 +11,7 @@ import { writeFileSync } from 'node:fs'
 // usage: pnpm exec tsx scripts/wind-first-particles.ts ORIGIN [--browser=chromium|firefox] [--phone]
 //          [--scenario=koud,warm,wissel] [--repeat=N] [--seconds=S] [--json=UIT.json]
 //   --size=BxH: desktopbeeld (standaard 1440x900; swiftshader haalt daar maar ~7 fps).
+//   --browser=firefox: onder `xvfb-run -a pnpm exec tsx …`; headless Gecko krijgt hier geen WebGL.
 //   --phone: 402×844, dpr 3, touch, 4× CPU-rem (alleen Chromium; zoals windsock-perf/mobile-4g).
 //   wissel: koud op / laden, 1 s na de eerste regenbeelden op Wind tikken.
 
@@ -111,7 +112,8 @@ async function collect(page: Page, zeroMs: number): Promise<Sample[]> {
 
 const launch = browserName === 'firefox'
   ? () => firefox.launch({
-    headless: true,
+    // Gecko heeft voor WebGL een echte X/EGL-context nodig: draai onder `xvfb-run -a` (zoals e2e-slot.sh).
+    headless: !process.env.DISPLAY,
     firefoxUserPrefs: { 'webgl.force-enabled': true, 'gfx.webrender.software': true },
     env: {
       ...process.env,

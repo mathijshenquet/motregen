@@ -1069,9 +1069,15 @@ export class WindLayer implements CustomLayerInterface {
     if (resetAll) {
       this.active = this.budget
       this.retiring = 0
-      // Zonder windveld kan de lading niet langs de wind; setFrames zaait dan (de laag tekent pas met velden).
-      this.seedPending = !this.left
-      if (!this.seedPending) this.seed()
+      if (this.simulationTime !== undefined) {
+        // Stills (synthetische klok): de oude gespreide geboorte, gelijk met de Node- en Rust-renderers van de bot.
+        this.countCells()
+        for (let index = 0; index < this.active; index++) this.respawn(index, this.random() * WIND_INITIAL_STAGGER_SECONDS)
+      } else {
+        // Zonder windveld kan de lading niet langs de wind; setFrames zaait dan (de laag tekent pas met velden).
+        this.seedPending = !this.left
+        if (!this.seedPending) this.seed()
+      }
       this.clearTrails()
       return
     }
@@ -1097,6 +1103,9 @@ export class WindLayer implements CustomLayerInterface {
 
   /** De eerste lading: per particle een gewone geboorte, dan een willekeurige levensfase vooruit, gespreid ingefaded. */
   private seed(): void {
+    // Een kaartbeweging vóór de eerste velden kan het overtal al hebben laten uitfaden.
+    this.active = this.budget
+    this.retiring = 0
     this.cellCounts.fill(0, 0, this.columns * this.rows)
     for (let index = 0; index < this.active; index++) {
       this.respawn(index, 0)

@@ -701,7 +701,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   // U110: in de windmodus zijn de deeltjes de inhoud; daar geen uitstel achter de regen (in Firefox, zonder
   // KHR_parallel_shader_compile, was dat 5 s plus een idle-wachttijd), maar opzetten zodra kaart en windtijdlijn er zijn.
   createEffect(() => {
-    if (stillMode || focusPinned() !== 'wind' || !mapReady() || !windTimeline().length) return
+    if (stillMode || focusPinned() !== 'wind' || !mapReady() || !windTimeline().length || windLayer) return
     cancelWindInitialization()
     void attachWindLayer()
   })
