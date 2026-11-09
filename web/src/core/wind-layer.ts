@@ -185,6 +185,7 @@ type UniformMap<Name extends string> = Record<Name, WebGLUniformLocation | null>
 export class WindLayer implements CustomLayerInterface {
   readonly id = 'motregen-wind'
   readonly type = 'custom' as const
+  contentDrawn = false
   readonly renderingMode = '2d' as const
   private map?: MapLibreMap
   private gl?: WebGL2RenderingContext
@@ -491,7 +492,9 @@ export class WindLayer implements CustomLayerInterface {
     const gl = context as WebGL2RenderingContext
     if (!this.segmentProgram) return
     // Onzichtbaar: geen frame en geen volgende aanvraag; setTuning/setTheme wekken weer.
+    this.contentDrawn = false
     if (this.tuning.intensity * Math.min(this.tuning.visibility, 1) <= 0) { this.previousTime = 0; return }
+    this.contentDrawn = true
     this.ensureTrailTargets()
     if (!this.map || !this.trails || !this.segmentArray || !this.fadeArray || !this.compositeArray || !this.left || !this.right) return
     const now = this.simulationTime ?? performance.now()

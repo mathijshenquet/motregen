@@ -3,6 +3,8 @@ import type { CustomLayerInterface, CustomRenderMethodInput, Map as MapLibreMap 
 /** Een custom layer die zelf om een volgende frame kan vragen (standaard: `map.triggerRepaint`). */
 export interface OverlayLayer extends CustomLayerInterface {
   requestRepaint?: () => void
+  /** Zet de laag dit na elke render; false = niets getekend, dan hoeft de compositor de canvas niet mee te nemen. */
+  contentDrawn?: boolean
 }
 
 /**
@@ -21,6 +23,7 @@ export class LayerOverlay {
   private drawnAt = -Infinity
   private drawnCamera = ''
   private manual = false
+  private hidden = false
   private readonly afterDraw: Array<() => void> = []
   private readonly mapRendered = () => { if (this.camera() !== this.drawnCamera) this.draw() }
   private readonly resized = () => this.draw()
@@ -104,6 +107,12 @@ export class LayerOverlay {
     const projection = this.map.transform.getProjectionDataForCustomLayer(false)
     this.layer.prerender?.(gl, { defaultProjectionData: projection } as CustomRenderMethodInput)
     this.layer.render(gl, { defaultProjectionData: projection } as CustomRenderMethodInput)
+    // U109: een lege, schermvullende canvas kost op de GPU evenveel compositing als een gevulde.
+    const hidden = this.layer.contentDrawn === false
+    if (hidden !== this.hidden) {
+      this.hidden = hidden
+      this.canvas.style.visibility = hidden ? 'hidden' : ''
+    }
     this.draws++
     for (const callback of this.afterDraw.splice(0)) callback()
   }

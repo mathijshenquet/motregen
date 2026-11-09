@@ -137,7 +137,8 @@ async function measureVisit(browser: Browser, context: BrowserContext, profileId
       const monitor = (window as typeof window & { __motregenPerf?: { traceSlice: () => PerfTraceSlice } }).__motregenPerf
       return { syncMs: mark.startTime, measures: monitor?.traceSlice().measures ?? [] }
     })
-    await browser.stopTracing()
+    // U109: MOTREGEN_PERF_MODES_TRACE_ALL=1 houdt de trace aan tot na de interacties (kosten per fase).
+    if (process.env.MOTREGEN_PERF_MODES_TRACE_ALL !== '1') await browser.stopTracing()
     traced = { manifest, loadTrace: state.trace, syncMs: page_.syncMs, decodes: page_.measures.filter((measure) => measure.phase === 'frame-decode') }
   }
   const revealed = state.snapshot?.mapRevealedMs ?? null
@@ -147,6 +148,7 @@ async function measureVisit(browser: Browser, context: BrowserContext, profileId
   const layers = await readLayers(page)
   const modeSwitches: ModeSwitch[] = []
   if (options.interactions) phases.push(...await interact(page, mode, modeSwitches))
+  if (tracePath && manifest && process.env.MOTREGEN_PERF_MODES_TRACE_ALL === '1') await browser.stopTracing()
   const longFrames = await page.evaluate(() => (window as typeof window & { __u102LongFrames?: LongFrame[] }).__u102LongFrames ?? [])
   await page.close()
   return {
@@ -160,6 +162,7 @@ async function measureVisit(browser: Browser, context: BrowserContext, profileId
     network: entries.filter((entry) => entry.startMs <= settledMs),
     layers,
     modeSwitches,
+    phaseWindows: phases,
     ...(traced ? { traced } : {}),
   }
 }
@@ -265,6 +268,17 @@ async function interact(page: Page, mode: MapMode, modeSwitches: ModeSwitch[]): 
     const order = (['weer', 'lucht', 'gevoel', 'wind'] as const).filter((other) => other !== mode)
     for (const other of [...order, mode]) modeSwitches.push(await switchMode(page, other))
     phases.push({ name: 'modus wisselen', startMs, endMs: await pageNow() })
+  }
+  {
+    // U109: rust (gepauzeerd, geen invoer); wat dan nog draait is rustkost.
+    if (await slider.getAttribute('data-playing') !== null) {
+      await slider.focus()
+      await page.keyboard.press(' ')
+    }
+    await page.waitForTimeout(1_000)
+    const startMs = await pageNow()
+    await page.waitForTimeout(6_000)
+    phases.push({ name: 'rust', startMs, endMs: await pageNow() })
   }
   return phases
 }

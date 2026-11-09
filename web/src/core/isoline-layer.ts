@@ -1,3 +1,4 @@
+import { attribLocation, uniformLocation } from './gl-locations'
 import { isolineWidthCss, lineProfile } from './map-presentation.js'
 export { isolineWidthCss, lineProfile } from './map-presentation.js'
 import type { CustomLayerInterface, CustomRenderMethodInput, Map as MapLibreMap } from 'maplibre-gl'
@@ -265,6 +266,7 @@ export class IsolineLayer implements CustomLayerInterface {
   onPass?: () => void
   /** Welke kaartlaag dit is voor de tekenmeting (U109). */
   perfLayer?: PerfLayer
+  contentDrawn = false
   /** Gezet door een `LayerOverlay`: de isolijnen tekenen dan zonder MapLibre-render. */
   requestRepaint?: () => void
   private map?: MapLibreMap
@@ -633,7 +635,7 @@ export class IsolineLayer implements CustomLayerInterface {
     const affine = [sx, 0, 0, 0, 0, sy, 0, 0, 0, 0, 1, 0, ox, oy, 0, 1]
     const program = this.line!
     gl.useProgram(program)
-    const uniform = (name: string) => gl.getUniformLocation(program, name)
+    const uniform = (name: string) => uniformLocation(gl, program, name)
     gl.uniformMatrix4fv(uniform('u_matrix'), false, multiply(matrix, affine))
     gl.uniform2f(uniform('u_viewport'), width, height)
     gl.uniform1f(uniform('u_extent'), halfWidth + 1)
@@ -642,7 +644,7 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.uniform3f(uniform('u_color'), ...this.style.color)
     const attributes: number[] = []
     const bind = (name: string, buffer: WebGLBuffer, size: number, stride: number, offset: number, divisor: number) => {
-      const location = gl.getAttribLocation(program, name)
+      const location = attribLocation(gl, program, name)
       if (location < 0) return
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer)
       gl.enableVertexAttribArray(location)
@@ -671,11 +673,13 @@ export class IsolineLayer implements CustomLayerInterface {
     const gl = context as WebGL2RenderingContext
     const [a, b] = this.shown
     if (!this.paused && this.composite && this.opacity > 0 && (!a || !a.slice.passed || (b && !b.slice.passed))) { this.stats.blankDraws++; this.stats.blankReasons.slice++; this.noteBlank() }
+    this.contentDrawn = false
     if (this.paused || !this.composite || !a || this.opacity <= 0 || !a.slice.passed || (b && !b.slice.passed)) return
+    this.contentDrawn = true
     const program = this.composite
     gl.useProgram(program)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.screen!)
-    const clip = gl.getAttribLocation(program, 'a_clip')
+    const clip = attribLocation(gl, program, 'a_clip')
     gl.enableVertexAttribArray(clip)
     gl.vertexAttribPointer(clip, 2, gl.FLOAT, false, 8, 0)
     const filled = a.slice.filled && (!b || b.slice.filled) && this.style.fill > 0 && !!this.style.palette
@@ -691,13 +695,13 @@ export class IsolineLayer implements CustomLayerInterface {
     textures.forEach(([name, texture], unit) => {
       gl.activeTexture(gl.TEXTURE0 + unit)
       gl.bindTexture(gl.TEXTURE_2D, texture)
-      gl.uniform1i(gl.getUniformLocation(program, name), unit)
+      gl.uniform1i(uniformLocation(gl, program, name), unit)
     })
-    gl.uniform1f(gl.getUniformLocation(program, 'u_has_fill'), filled ? 1 : 0)
-    gl.uniform1f(gl.getUniformLocation(program, 'u_line_from_fill'), this.style.lineFromFill ?? 0)
-    gl.uniform1f(gl.getUniformLocation(program, 'u_weight_b'), b?.weight ?? 0)
-    gl.uniform1f(gl.getUniformLocation(program, 'u_line_opacity'), this.style.lines === false ? 0 : this.style.lineOpacity ?? ISOLINE_LINE_OPACITY)
-    gl.uniform1f(gl.getUniformLocation(program, 'u_opacity'), this.opacity)
+    gl.uniform1f(uniformLocation(gl, program, 'u_has_fill'), filled ? 1 : 0)
+    gl.uniform1f(uniformLocation(gl, program, 'u_line_from_fill'), this.style.lineFromFill ?? 0)
+    gl.uniform1f(uniformLocation(gl, program, 'u_weight_b'), b?.weight ?? 0)
+    gl.uniform1f(uniformLocation(gl, program, 'u_line_opacity'), this.style.lines === false ? 0 : this.style.lineOpacity ?? ISOLINE_LINE_OPACITY)
+    gl.uniform1f(uniformLocation(gl, program, 'u_opacity'), this.opacity)
     gl.enable(gl.BLEND)
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
     this.measure('compositeMs', () => measurePerfPhase('isoline-blit', () => gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4), { layer: this.id }))
@@ -827,13 +831,13 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.clear(gl.COLOR_BUFFER_BIT)
     gl.useProgram(program)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.quad!)
-    const position = gl.getAttribLocation(program, 'a_pos')
+    const position = attribLocation(gl, program, 'a_pos')
     gl.enableVertexAttribArray(position)
     gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 16, 0)
-    const uv = gl.getAttribLocation(program, 'a_uv')
+    const uv = attribLocation(gl, program, 'a_uv')
     gl.enableVertexAttribArray(uv)
     gl.vertexAttribPointer(uv, 2, gl.FLOAT, false, 16, 8)
-    const uniform = (name: string) => gl.getUniformLocation(program, name)
+    const uniform = (name: string) => uniformLocation(gl, program, name)
     gl.uniformMatrix4fv(uniform('u_matrix'), false, matrix as Float32List)
     gl.uniform2f(uniform('u_grid_size'), this.grid.width, this.grid.height)
     gl.uniform1f(uniform('u_depth'), this.depth)
