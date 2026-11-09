@@ -30,10 +30,13 @@ export function legendIsOpen(choice: LegendChoice | undefined, phoneLayout: bool
   return !phoneLayout || choice === 'open'
 }
 
-/** Telefoonchip (alleen `?dev&legendaknop=`, U107): `schaal` (standaard) een mini-kleurschaal, `woord` "Legenda". */
-export const LEGEND_BUTTON_VARIANTS = ['schaal', 'woord'] as const
+/**
+ * Telefoonchip (alleen `?dev&legendaknop=`, U107): `schaal-eenheid` (standaard) een miniatuur van de legenda zelf —
+ * vier kleurblokjes plus de eenheid —, `schaal` alleen de blokjes, `woord` "Legenda".
+ */
+export const LEGEND_BUTTON_VARIANTS = ['schaal-eenheid', 'schaal', 'woord'] as const
 export type LegendButtonVariant = typeof LEGEND_BUTTON_VARIANTS[number]
 export function legendButtonVariant(params: URLSearchParams): LegendButtonVariant {
   const value = params.get('legendaknop')
-  return LEGEND_BUTTON_VARIANTS.includes(value as LegendButtonVariant) ? value as LegendButtonVariant : 'schaal'
+  return LEGEND_BUTTON_VARIANTS.includes(value as LegendButtonVariant) ? value as LegendButtonVariant : 'schaal-eenheid'
 }

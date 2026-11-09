@@ -194,64 +194,38 @@ button { color: inherit; cursor: pointer; }
 .wind-zone { display: inline-flex; flex-direction: column; align-items: stretch; gap: 1px; }
 .wind-zone-classes { display: inline-flex; gap: 6px; }
 .wind-zone em { border-top: 1px solid color-mix(in srgb, var(--muted) 45%, transparent); padding-top: 1px; color: var(--muted); font-size: 11px; font-style: normal; text-align: center; }
-/* Telefoon (U107 vervolg): de open legenda is in elke modus één band zo hoog als de knop: vakjes aaneen met hun
-   label eronder (Wind: de zonewoorden daar weer onder), en horizontaal scrollbaar als hij toch niet past. */
+/* Telefoon (PO 2026-11-09): dicht een klein chipje linksonder tegen de kaartrand, op de plek van de strook (tapdoel
+   44 px); open de strook zelf op precies die plek, zoals desktop maar iets compacter, zodat Wind op een telefoon past
+   (anders scrollt hij). Een tik op de strook of ernaast sluit hem. */
 @media (max-width: 959px) {
-  /* Kleine chip linksonder (PO 2026-11-09): tapdoel 44 px, zichtbaar alleen de chip; de band opent rechts ernaast. */
   .map-legend-button {
-    position: absolute; left: env(safe-area-inset-left); bottom: var(--legend-bottom); z-index: 5;
-    display: flex; align-items: center; min-width: 44px; height: 44px; padding: 0 6px 0 12px;
+    position: absolute; left: 0; bottom: 0; z-index: 10;
+    display: flex; align-items: flex-end; min-width: 44px; height: 44px; padding: 0;
     border: 0; background: none; color: var(--text); cursor: pointer; -webkit-tap-highlight-color: transparent;
   }
   .legend-chip {
-    display: inline-flex; align-items: center; gap: 1px; height: 18px; padding: 0 5px; border-radius: 9px;
-    border: 1px solid color-mix(in srgb, var(--line-strong) 75%, transparent);
-    background: color-mix(in srgb, var(--surface-raised) 88%, transparent); box-shadow: 0 1px 3px rgba(10, 32, 41, .18);
-    font-size: 10px; font-weight: 650; letter-spacing: .01em; line-height: 1;
+    display: inline-flex; align-items: center; gap: 1px; height: 19px; padding: 0 7px 0 calc(7px + env(safe-area-inset-left));
+    border-radius: 0 4px 0 0; background: color-mix(in srgb, var(--surface-raised) 82%, transparent);
+    font-size: 11px; line-height: 1;
   }
-  .legend-chip i { display: block; width: 5px; height: 9px; border-radius: 1px; }
-  .map-legend-button[aria-expanded="true"] .legend-chip { border-color: var(--accent); }
-  /* Rechterrand van de chip (12 px rand + chip): daar begint de band. */
-  .map-legend-button.legend-woord ~ .map-legend { --legend-chip-end: 66px; }
-  /* De open band tint mee met de hemel, zoals de chip en de klok (desktop houdt de strook van vóór U107). */
-  .map-shell.sky-night .map-legend {
-    --surface: #0a1820; --surface-soft: #112832; --surface-raised: rgba(10, 24, 32, .96);
-    --text: #edf8fc; --muted: #91aab5; --accent: #48c4e9; --accent-soft: #123b49; --line: var(--line-on-dark); --line-strong: var(--line-strong-on-dark);
-    color: var(--text);
-  }
-  .map-shell.sky-day .map-legend {
-    --day-sky: color-mix(in oklab, color-mix(in oklab, var(--table-day-dull) calc(var(--day-overcast) * 74%), var(--table-day-bright)) var(--table-day-mix, 44%), #fff);
-    --surface: var(--day-sky); --surface-soft: color-mix(in oklab, var(--day-sky) 82%, #fff); --surface-raised: var(--day-sky);
-    --text: #102630; --muted: #3a525c; --accent: #0b607e; --accent-soft: #d9f1f8; --line: var(--line-on-light); --line-strong: var(--line-strong-on-light);
-    color: var(--text);
-  }
+  .legend-chip i { display: block; width: 6px; height: 9px; border-radius: 1px; }
+  .legend-chip-unit { margin-left: 4px; color: var(--muted); font-size: 10px; }
   .map-legend-button:focus-visible { outline: none; }
-  .map-legend-button:focus-visible .legend-chip { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .map-legend-button:focus-visible .legend-chip { outline: 2px solid var(--accent); outline-offset: -2px; }
   .map-legend {
-    left: calc(var(--legend-chip-end, 48px) + 4px + env(safe-area-inset-left)); bottom: var(--legend-bottom);
-    max-width: calc(100% - var(--legend-chip-end, 48px) - 16px - env(safe-area-inset-left));
-    border: 1px solid color-mix(in srgb, var(--line-strong) 75%, transparent); border-radius: 12px;
-    background: color-mix(in srgb, var(--surface-raised) 88%, transparent); box-shadow: var(--shadow);
-    flex-wrap: nowrap; gap: 6px; height: 44px; min-height: 0; padding: 1px 8px;
-    overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: none;
-    font-size: 10px; line-height: 1.2; white-space: nowrap; pointer-events: auto;
+    max-width: 100%; padding-left: calc(7px + env(safe-area-inset-left)); gap: 6px;
+    overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; white-space: nowrap;
+    font-size: 10px; pointer-events: auto; cursor: pointer;
   }
   .map-legend::-webkit-scrollbar { display: none; }
-  .map-legend .wind-zone-classes > span, .map-legend.rain-isoline-legend > span {
-    flex-direction: column; align-items: stretch; gap: 2px; min-width: 20px; padding: 0 2px; text-align: center;
-  }
-  /* Niet krimpen: past de band niet, dan scrollt hij. */
-  .map-legend > *, .map-legend .wind-zone-classes > span { flex-shrink: 0; }
-  .map-legend .wind-zone-classes > span { padding: 0; }
-  /* Regen: lucht tussen de labels, de vakjes lopen onder die lucht door (één band). */
-  .map-legend.rain-isoline-legend > span { padding: 0 4px; }
-  .map-legend.rain-isoline-legend > span > i { margin: 0 -4px; }
-  :is(.rain-isoline-legend, .wind-zone-classes) > span > i { width: auto; height: 8px; border-radius: 0; }
-  .map-legend:is(.rain-isoline-legend), .map-legend .wind-zone-classes { gap: 0; }
-  .wind-zone em { font-size: 10px; }
+  .map-legend > * { flex-shrink: 0; }
+  .map-legend span { gap: 3px; }
+  .map-legend i { width: 10px; }
+  .map-legend small, .wind-zone em { font-size: 10px; }
+  .wind-legend { gap: 6px; }
+  .wind-zone-classes { gap: 3px; }
   .feels-legend { gap: 2px; }
   .feels-legend i { width: 14px; }
-  .map-legend small { font-size: 10px; }
 }
 
 /* Vaantje: donkere schijf met het Bft-getal, pijl naar waar de wind heen waait; witte rand voor elke ondergrond. */
@@ -1338,13 +1312,13 @@ td small { color: var(--muted); font-size: 9px; }
 .map-clock:hover, .map-clock:focus-within { background: var(--surface-raised); }
 /* Klokpil, zoekbalk en merkdruppel nemen de hemel van het cursoruur aan, zoals de koppenrij (U62, PO
    2026-10-08). De klassen staan op de kaartschil; dialogen staan erbuiten en houden het app-thema. */
-.map-shell:is(.sky-day, .sky-night) :is(.map-clock, .search-box, .map-brand, .legend-chip) { transition: background-color .3s ease, border-color .3s ease, color .3s ease; }
-.map-shell.sky-night :is(.map-clock, .search, .map-brand, .legend-chip) {
+.map-shell:is(.sky-day, .sky-night) :is(.map-clock, .search-box, .map-brand) { transition: background-color .3s ease, border-color .3s ease, color .3s ease; }
+.map-shell.sky-night :is(.map-clock, .search, .map-brand) {
   --surface: #0a1820; --surface-soft: #112832; --surface-raised: rgba(10, 24, 32, .96);
   --text: #edf8fc; --muted: #91aab5; --accent: #48c4e9; --accent-soft: #123b49; --line: var(--line-on-dark); --line-strong: var(--line-strong-on-dark);
   color: var(--text);
 }
-.map-shell.sky-day :is(.map-clock, .search, .map-brand, .legend-chip) {
+.map-shell.sky-day :is(.map-clock, .search, .map-brand) {
   --day-sky: color-mix(in oklab, color-mix(in oklab, var(--table-day-dull) calc(var(--day-overcast) * 74%), var(--table-day-bright)) var(--table-day-mix, 44%), #fff);
   --surface: var(--day-sky); --surface-soft: color-mix(in oklab, var(--day-sky) 82%, #fff); --surface-raised: var(--day-sky);
   --text: #102630; --muted: #3a525c; --accent: #0b607e; --accent-soft: #d9f1f8; --line: var(--line-on-light); --line-strong: var(--line-strong-on-light);
@@ -1537,11 +1511,13 @@ td small { color: var(--muted); font-size: 9px; }
   .map-brand { top: calc(env(safe-area-inset-top) + 12px); right: calc(env(safe-area-inset-right) + 12px); }
   /* De UV-chip staat linksonder op de kaart (U21: het merk staat rechtsboven); met de legenda-knop daar één rij hoger. */
   .sidebar-nav { top: calc(var(--map-mobile) - 64px); }
-  .map-shell { --legend-bottom: 24px; }
-  body:has(.map-legend-button) .sidebar-nav { top: calc(var(--map-mobile) - 64px - 54px); }
+  /* Met een legenda (chip of strook) linksonder staat de UV-chip een rij hoger. */
+  body:has(.map-legend-button, .map-legend) .sidebar-nav { top: calc(var(--map-mobile) - 64px - 54px); }
   /* De regenlegenda kost op de telefoon kaart en botst met de bronvermelding; die laatste vervaagt na het begin. */
   .map-shell .source { transition: opacity .6s ease; }
   .map-shell.map-source-faded .source { opacity: 0; pointer-events: none; }
+  /* Een open legenda (Wind is bijna zo breed als de kaart) gaat voor de bronregel, die al vervaagt na het begin. */
+  .map-shell:has(#map-legend) .source { opacity: 0; pointer-events: none; }
 }
 
 @media (max-width: 959px) and (orientation: portrait) {

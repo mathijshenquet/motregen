@@ -39,29 +39,45 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 402, height: 844 
 test.describe('telefoonbreedte', () => {
   test.use({ viewport: { width: 402, height: 844 } })
   for (const { path, legend } of modes) {
-    test(`telefoon ${path}: kleine chip opent de legenda als één band ernaast`, async ({ page }, testInfo) => {
+    test(`telefoon ${path}: chipje tegen de kaartrand, open vervangt het op dezelfde plek, tik sluit`, async ({ page }, testInfo) => {
       test.skip(testInfo.project.name !== 'desktop', 'één profiel volstaat; de breedte zet de telefoonlayout')
       await page.goto(path)
       await expect(page.locator('.map-splash.ready')).toBeAttached()
+      const shell = (await page.locator('.map-shell').boundingBox())!
       const button = page.locator('.map-legend-button')
-      await expect(button).toHaveAttribute('aria-expanded', 'false')
       await expect(page.locator('#map-legend')).toHaveCount(0)
-      const [target, chip] = [await button.boundingBox(), await button.locator('.legend-chip').boundingBox()]
-      // Tapdoel 44 px, zichtbaar alleen een kleine chip, linksonder.
-      expect(Math.round(target!.height)).toBe(44)
-      expect(chip!.height).toBeLessThanOrEqual(20)
-      expect(chip!.x).toBeLessThan(20)
+      const [target, chip] = [(await button.boundingBox())!, (await button.locator('.legend-chip').boundingBox())!]
+      // Tapdoel 44 px, zichtbaar een klein chipje vlak in de hoek linksonder.
+      expect(Math.round(target.height)).toBe(44)
+      expect(chip.height).toBeLessThanOrEqual(20)
+      expect(Math.round(chip.x - shell.x)).toBe(0)
+      expect(Math.round(shell.y + shell.height - chip.y - chip.height)).toBe(0)
       await button.click()
       const panel = page.locator(`#map-legend${legend}`)
       await expect(panel).toBeVisible()
-      const panelBox = await panel.boundingBox()
-      expect(Math.round(panelBox!.height)).toBe(44)
-      expect(panelBox!.x).toBeGreaterThanOrEqual(chip!.x + chip!.width)
-      expect(await panel.evaluate((element) => element.scrollHeight <= element.clientHeight + 1)).toBe(true)
-      const source = await page.locator('.map-shell .source').boundingBox()
-      if (source) expect(panelBox!.y + panelBox!.height).toBeLessThanOrEqual(source.y + 1)
-      await button.click()
+      await expect(button).toHaveCount(0)
+      const box = (await panel.boundingBox())!
+      expect(Math.round(box.x - shell.x)).toBe(0)
+      expect(Math.round(shell.y + shell.height - box.y - box.height)).toBe(0)
+      expect(box.width).toBeLessThanOrEqual(shell.width)
+      // Tik op de strook sluit; tik ernaast (op de kaart) ook.
+      await panel.click()
       await expect(page.locator('#map-legend')).toHaveCount(0)
+      await page.locator('.map-legend-button').click()
+      await expect(panel).toBeVisible()
+      await page.mouse.click(shell.x + shell.width / 2, shell.y + shell.height / 3)
+      await expect(page.locator('#map-legend')).toHaveCount(0)
+      await expect(page.locator('.map-legend-button')).toBeVisible()
     })
   }
+
+  test('telefoon: een moduswissel houdt de legenda open', async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'één profiel volstaat')
+    await page.goto('/weer')
+    await expect(page.locator('.map-splash.ready')).toBeAttached()
+    await page.locator('.map-legend-button').click()
+    await expect(page.locator('#map-legend.rain-isoline-legend')).toBeVisible()
+    await page.locator('.temperature-focus').first().click()
+    await expect(page.locator('#map-legend.feels-legend')).toBeVisible()
+  })
 })

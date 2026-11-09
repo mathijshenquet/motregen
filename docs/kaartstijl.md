@@ -93,12 +93,12 @@ hun naam, een doorlopende schaal tikken tussen de vakjes. Weer heeft altijd een 
 
 - Desktop (≥ 960 px): de vlakke strook van vóór U107, linksonder tegen de kaartrand (padding 2 × 7 px, alleen de
   rechterbovenhoek rond), altijd zichtbaar, geen knop (PO 2026-11-09).
-- Telefoon (< 960 px): dicht tot je de kleine chip linksonder gebruikt (tapdoel 44 px, zichtbaar ±18 px hoog, 24 px
-  van onder zodat een open band de bronregel rechtsonder niet raakt; de UV-chip staat dan één rij hoger). De chip is
-  standaard een mini-kleurschaal in de kleuren van de actieve modus (`schaal`); `?dev&legendaknop=woord` toont het
-  woord "Legenda". De legenda opent rechts naast de chip als één band van 44 px: vakjes aaneen met het label eronder
-  (Wind: de zonewoorden daar weer onder), 10 px; past hij niet, dan scrollt hij horizontaal. De keuze open/dicht wordt
-  per apparaat bewaard (`motregen-legend`).
+- Telefoon (< 960 px): dicht staat er een klein chipje linksonder tegen de kaartrand, op de plek van de strook (zelfde
+  kleur en hoek, tapdoel 44 px): standaard een miniatuur van de legenda zelf, vier kleurblokjes van de actieve modus
+  plus de eenheid (`schaal-eenheid`); ter vergelijking `?dev&legendaknop=schaal` (alleen blokjes) en `woord`
+  ("Legenda"). Open vervangt de strook het chipje op precies die plek, zoals desktop maar iets compacter (10 px), en
+  scrollt horizontaal als hij niet past. Een tik op de strook of ernaast sluit hem; een moduswissel houdt de stand,
+  die per apparaat bewaard wordt (`motregen-legend`). De UV-chip staat dan een rij hoger.
 
 ## Beweging
 

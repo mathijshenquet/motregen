@@ -10,10 +10,11 @@ describe('legenda open/dicht (U107)', () => {
     expect(legendIsOpen('dicht', true)).toBe(false)
   })
 
-  it('picks the phone chip variant, schaal by default', () => {
-    expect(legendButtonVariant(new URLSearchParams(''))).toBe('schaal')
+  it('picks the phone chip variant, schaal-eenheid by default', () => {
+    expect(legendButtonVariant(new URLSearchParams(''))).toBe('schaal-eenheid')
+    expect(legendButtonVariant(new URLSearchParams('legendaknop=schaal'))).toBe('schaal')
     expect(legendButtonVariant(new URLSearchParams('legendaknop=woord'))).toBe('woord')
-    expect(legendButtonVariant(new URLSearchParams('legendaknop=icoon'))).toBe('schaal')
+    expect(legendButtonVariant(new URLSearchParams('legendaknop=icoon'))).toBe('schaal-eenheid')
   })
 
   it('stores the choice and survives a storage that throws', () => {
