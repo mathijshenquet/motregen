@@ -146,6 +146,9 @@ fn precipitation_handles_period_accumulation_and_rejects_resets_or_gaps() {
         [2.0, 5.0, 3.0, 1.0]
     );
     assert!(precipitation_intervals(&[&message(0, 3, 4.0), &message(0, 6, 2.0)]).is_err());
+    let packing_noise =
+        precipitation_intervals(&[&message(0, 3, 4.0), &message(0, 6, 4.0 - 0.061)]).unwrap();
+    assert_eq!(packing_noise[1].values[0], 0.0);
     assert!(precipitation_intervals(&[&message(0, 3, 4.0), &message(6, 9, 2.0)]).is_err());
 }
 

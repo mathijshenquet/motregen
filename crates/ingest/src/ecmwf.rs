@@ -216,6 +216,8 @@ pub fn complete_days(run: DateTime<Utc>, end: DateTime<Utc>) -> Vec<Day> {
     days
 }
 
+const PRECIPITATION_PACKING_TOLERANCE_MM: f32 = 1.0;
+
 fn precipitation_intervals(messages: &[&Message]) -> Result<Vec<Message>> {
     let mut intervals = Vec::new();
     let mut previous: Option<&Message> = None;
@@ -241,8 +243,10 @@ fn precipitation_intervals(messages: &[&Message]) -> Result<Vec<Message>> {
             );
         }
         for value in &mut interval.values {
+            // GRIB-packing rondt accumulaties af in stappen van 2^-15…2^-12 m (0,03–0,24 mm gezien sinds 2026-10-20; dat brak de job drie
+            // weken); alleen een echte terugval (reset, verkeerde volgorde) is een fout.
             ensure!(
-                !value.is_finite() || *value >= -0.02,
+                !value.is_finite() || *value >= -PRECIPITATION_PACKING_TOLERANCE_MM,
                 "precipitation accumulation decreased by {} mm",
                 -*value
             );
