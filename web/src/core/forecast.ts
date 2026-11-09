@@ -45,7 +45,9 @@ export const PASSIVE_FORECAST_HOURS = 18
 /**
  * One row per whole hour from `historyHours` before the current hour up to
  * the last hour any field reaches; leading history and trailing rows without
- * any data are dropped, the current hour always stays.
+ * any data are dropped, the current hour always stays. The past starts at the
+ * first hour with a radar frame: rain before now is only observed, never
+ * modelled, so an older row could never get its weather icon (U104).
  */
 export function buildHourlyForecast(
   timelines: HourlyTimelines,
@@ -73,7 +75,7 @@ export function buildHourlyForecast(
       gustIndex: nearestFrame(timelines.gust, epoch),
     })
   }
-  const first = rows.findIndex((row) => row.kind === 'now' || hasData(row))
+  const first = rows.findIndex((row) => row.kind === 'now' || (row.kind === 'past' ? row.rainIndex != null : hasData(row)))
   let last = rows.length - 1
   while (last > 0 && rows[last]!.kind === 'future' && !hasData(rows[last]!)) last--
   return rows.slice(first, last + 1)

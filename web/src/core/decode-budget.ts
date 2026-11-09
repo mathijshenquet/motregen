@@ -41,6 +41,15 @@ export function decodeBudget(hints: DeviceHints): DecodeBudget {
   return { workers: Math.min(4, cores - 1), pointSeries: 'eager', requests: 6, rangeBytes: Number.POSITIVE_INFINITY }
 }
 
+/**
+ * Of de uurvelden van de verleden-rijen meteen na de rijen rond nu laden (U104). Een ruim apparaat laadt vooruit, dus
+ * ook het verleden: desktop toont het boven de nu-rij en in de scrubber, en liet het tot de diepe idle (~35 s) leeg.
+ * De portrettabel toont het onder de kaart. Een krap apparaat zonder die tabel haalt het pas als het in beeld komt.
+ */
+export function loadsHistoryEarly(budget: Pick<DecodeBudget, 'pointSeries'>, tableView: boolean): boolean {
+  return budget.pointSeries === 'eager' || tableView
+}
+
 export function browserDeviceHints(): DeviceHints {
   const device = globalThis.navigator as (Navigator & { deviceMemory?: number }) | undefined
   return {
