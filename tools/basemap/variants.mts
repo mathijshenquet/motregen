@@ -31,7 +31,7 @@ const LIGHT_CALM: ThemePalette = {
   paint: {
     background: { 'background-color': '#f7f5f1' },
     park: { 'fill-color': '#e4ecda', 'fill-opacity': 0.6 },
-    landuse_residential: { 'fill-color': ['interpolate', ['linear'], ['zoom'], 9, '#ebe7e1', 12, '#efe7dc'] },
+    landuse_residential: { 'fill-color': ['interpolate', ['linear'], ['zoom'], 9, '#eeebe5', 12, '#efe7dc'] },
     landcover_wood: { 'fill-color': '#d9e6cc', 'fill-opacity': 0.55 },
     landcover_grass: { 'fill-color': '#dfe9d3', 'fill-opacity': 0.45 },
     landcover_wetland: { 'fill-color': '#e0ebdd' },
@@ -49,7 +49,7 @@ const DARK_CALM: ThemePalette = {
   paint: {
     background: { 'background-color': '#121f24' },
     park: { 'fill-color': '#1b2c25', 'fill-opacity': 0.6 },
-    landuse_residential: { 'fill-color': '#1a272a' },
+    landuse_residential: { 'fill-color': '#172428' },
     landcover_wood: { 'fill-color': '#1b3127', 'fill-opacity': 0.4 },
     landcover_grass: { 'fill-color': '#1f3229', 'fill-opacity': 0.3 },
     landcover_wetland: { 'fill-color': '#1d2f29' },
@@ -85,7 +85,7 @@ const LIGHT_ATLAS: ThemePalette = {
   stateLabel: { 'text-color': '#a09386', 'text-halo-color': '#f4f0e6' },
 }
 
-// Nachtkaart: water duidelijk donkerder dan land (ΔL* ≈ 9), zodat de kust ook onder regen en temperatuur leesbaar blijft.
+// Nachtkaart: water duidelijk donkerder dan land (ΔL* 8,5), zodat de kust ook onder regen en temperatuur leesbaar blijft.
 const DARK_ATLAS: ThemePalette = {
   paint: {
     background: { 'background-color': '#1c2a31' },

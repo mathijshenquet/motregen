@@ -1,4 +1,4 @@
-import sharp from 'sharp'
+import sharp, { type OverlayOptions } from 'sharp'
 import { existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -25,7 +25,7 @@ async function cell(path: string, height: number): Promise<Buffer> {
 async function grid(rows: Array<{ title: string; paths: string[]; height: number }>, columns: string[], file: string) {
   const width = columns.length * (CELL + GAP)
   const height = rows.reduce((sum, row) => sum + LABEL + row.height + GAP, LABEL)
-  const layers: sharp.OverlayOptions[] = columns.map((title, index) => ({ input: label(title, CELL), left: index * (CELL + GAP), top: 0 }))
+  const layers: OverlayOptions[] = columns.map((title, index) => ({ input: label(title, CELL), left: index * (CELL + GAP), top: 0 }))
   let top = LABEL
   for (const row of rows) {
     layers.push({ input: label(row.title, width), left: 0, top })
