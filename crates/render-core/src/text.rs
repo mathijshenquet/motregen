@@ -26,6 +26,12 @@ impl Text {
             .sum()
     }
 
+    /// Height of a digit above the baseline: the ink box of a temperature label.
+    pub fn digit_height(&mut self, size: u32) -> i32 {
+        let metrics = self.glyph('0', size).metrics;
+        metrics.ymin + metrics.height as i32
+    }
+
     pub(crate) fn digit_mask(&mut self, character: char, width: usize, height: usize) -> Vec<u8> {
         let glyph = self.glyph(character, 58);
         let left = ((width as f32 - glyph.metrics.advance_width) / 2.0).round() as i32

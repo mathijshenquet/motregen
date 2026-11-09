@@ -3,7 +3,9 @@ use crate::{
     encode::{Video, jpeg},
     fields::{Fields, Pair, Slice, pair, screen},
     frame_cache::{Key, ModeCache, Parts, Prediction},
-    renderer::{FileMedia, FramePlan, Media, Options, Profile, frame_plans, plates},
+    renderer::{
+        FileMedia, FramePlan, Media, Options, Profile, frame_plans, name_mask, name_masks, plates,
+    },
 };
 use anyhow::{Context, Result, ensure};
 use rayon::prelude::*;
@@ -11,7 +13,9 @@ use render_core::{
     clock::ClockTransition,
     constants::constants,
     field_raster::{self, LineColor},
+    isoline_labels::label_text_size,
     mode_constants::{color, element_text, mode_constants},
+    name_mask::NameMask,
     overlay::{ClockOptions, clock_appearance, clock_panel_bounds, draw_overlay_title},
     projection::Projection,
     rotated_text::{RotatedText, TextStyle},
@@ -52,6 +56,7 @@ struct Worker {
 
 struct Painter<'a> {
     plates: &'a [Vec<u8>; 2],
+    names: &'a [NameMask; 2],
     water: &'a [WaterMask; 2],
     projection: &'a Projection,
     grid: &'a render_core::projection::Grid,
@@ -102,6 +107,7 @@ impl Painter<'_> {
                 &mut worker.text,
                 &mut rgb,
                 self.projection,
+                &self.names[usize::from(input.night)],
                 TemperaturePair {
                     left_grid: &pair.left.grid,
                     right_grid: &pair.right.grid,
@@ -198,7 +204,7 @@ impl Painter<'_> {
                 label.screen,
                 label.angle,
                 TextStyle {
-                    size: element_text(17),
+                    size: label_text_size(),
                     color: line_color,
                     halo,
                     opacity: label.opacity,
@@ -515,7 +521,12 @@ pub fn render(
     } else {
         &mode_constants().loops.feels
     };
-    let fields = Fields::new(data_directory, manifest, wind)?;
+    let fields = Fields::new(
+        data_directory,
+        manifest,
+        wind,
+        name_mask(basemap_directory, "light")?,
+    )?;
     let east = wind
         .then(|| Dataset::new(data_directory, manifest, "wind_u_ms"))
         .transpose()?;
@@ -536,6 +547,7 @@ pub fn render(
     }
     let rain_grid = Dataset::new(data_directory, manifest, "rain_rate")?.grid()?;
     let mut plates = plates(basemap_directory, &rain_grid)?;
+    let names = name_masks(basemap_directory)?;
     if !wind {
         for plate in Arc::make_mut(&mut plates) {
             for pixel in plate.chunks_exact_mut(3) {
@@ -696,6 +708,7 @@ pub fn render(
             for works in &input_receiver {
                 let painter = Painter {
                     plates: &plates,
+                    names: &names,
                     water: &water,
                     projection: &projection,
                     grid: &field_grid,

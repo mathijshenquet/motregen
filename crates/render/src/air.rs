@@ -5,7 +5,7 @@ use crate::{
     data::{Dataset, Raster},
     encode::{Video, jpeg},
     frame_cache::{Identity, Key, KeyBuilder, ModeCache, Parts, Prediction},
-    renderer::{FileMedia, FramePlan, Media, Options, Profile, frame_plans, plates},
+    renderer::{FileMedia, FramePlan, Media, Options, Profile, frame_plans, name_masks, plates},
 };
 use anyhow::{Context, Result, ensure};
 use rayon::prelude::*;
@@ -19,6 +19,7 @@ use render_core::{
     constants::constants,
     field::Field,
     mode_constants::mode_constants,
+    name_mask::NameMask,
     overlay::{ClockOptions, clock_appearance, draw_overlay_title},
     projection::{Grid, Projection},
     temperature::{TemperaturePair, draw_temperature},
@@ -276,6 +277,7 @@ struct Output {
 
 struct Painter<'a> {
     plates: &'a [Vec<u8>; 2],
+    names: &'a [NameMask; 2],
     projection: &'a Projection,
     cloud_grid: &'a Grid,
     fill: &'a CloudTarget,
@@ -302,6 +304,7 @@ impl Painter<'_> {
                 &mut text,
                 &mut rgb,
                 self.projection,
+                &self.names[usize::from(input.night)],
                 TemperaturePair {
                     left_grid: &pair.left.grid,
                     right_grid: &pair.right.grid,
@@ -481,6 +484,7 @@ pub fn render(
     let cloud_epochs: Vec<i64> = cloud_frames.iter().map(|frame| frame.epoch).collect();
     let mut temperatures = Dataset::new(data_directory, manifest, "feels_like_c")?;
     let plates = plates(basemap_directory, &rain_grid)?;
+    let names = name_masks(basemap_directory)?;
     let projection = Projection::new(&rain_grid);
     let cloud_projection = Projection::new(&cloud_grid);
     let (fill, travel) = targets(&cloud_projection);
@@ -603,6 +607,7 @@ pub fn render(
     let temporary = tempfile::tempdir_in(out_directory)?;
     let painter = Painter {
         plates: &plates,
+        names: &names,
         projection: &projection,
         cloud_grid: &cloud_grid,
         fill: &fill,

@@ -18,5 +18,7 @@ it('keeps the installed Rust baseplates aligned with the bot view and frame size
     expect(water.hasAlpha).toBe(true)
     expect(water.width).toBeGreaterThan(0)
     expect(water.height).toBeGreaterThan(0)
+    const names = await sharp(fileURLToPath(new URL(`names-${theme}.png`, directory))).metadata()
+    expect({ width: names.width, height: names.height, channels: names.channels }).toEqual({ ...FRAME_PIXELS, channels: 1 })
   }
 })
