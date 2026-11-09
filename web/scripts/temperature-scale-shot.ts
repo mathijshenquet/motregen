@@ -31,27 +31,31 @@ const wholeCountry = async (page: Page) => {
   await page.evaluate(() => (window as unknown as { __motregenJumpTo: (lng: number, lat: number, zoom: number) => void }).__motregenJumpTo(5.3, 52.2, 6.9))
 }
 const openAbout = async (page: Page) => {
-  await page.getByRole('button', { name: /^Over .* en instellingen$/ }).click()
+  // Toetsenbord: opent zonder tapvertraging, en op de telefoon ligt de klok over de knop heen.
+  await page.getByRole('button', { name: /^Over .* en instellingen$/ }).focus()
+  await page.keyboard.press('Enter')
   await page.getByRole('heading', { name: 'Instellingen' }).waitFor()
   await page.waitForTimeout(400)
 }
 
+// Spreiding over de range (C4): nu, middengroot, dicht, grootst; puntlabels op de kleinste straal, waar ze nog iets toevoegen.
 const LABEL_VARIANTS: Array<{ size: number; spacing: number; fill: number }> = [
   { size: 11, spacing: 260, fill: 0 },
   { size: 13, spacing: 200, fill: 0 },
-  { size: 13, spacing: 200, fill: 200 },
-  { size: 14, spacing: 160, fill: 160 },
-  { size: 14, spacing: 240, fill: 240 },
-  { size: 16, spacing: 300, fill: 300 },
+  { size: 13, spacing: 160, fill: 120 },
+  { size: 14, spacing: 140, fill: 0 },
+  { size: 14, spacing: 200, fill: 120 },
+  { size: 16, spacing: 260, fill: 0 },
 ]
 
+const closeDevPanel = async (page: Page) => {
+  await page.locator('.dev-panel').evaluate((panel) => { (panel as HTMLDetailsElement).open = false })
+}
 const shots: Shot[] = set === 'labels'
-  ? LABEL_VARIANTS.map(({ size, spacing, fill }) => ({
-    name: `labels-grootte${size}-afstand${spacing}-vulling${fill}`,
-    device: DESKTOP,
-    path: `/gevoel?dev&${at}&labelgrootte=${size}&labelafstand=${spacing}&labelvulling=${fill}`,
-    action: wholeCountry,
-  }))
+  ? LABEL_VARIANTS.flatMap(({ size, spacing, fill }) => [
+    { name: `labels-desktop-grootte${size}-afstand${spacing}-vulling${fill}`, device: DESKTOP, action: async (page: Page) => { await closeDevPanel(page); await wholeCountry(page) } },
+    { name: `labels-telefoon-grootte${size}-afstand${spacing}-vulling${fill}`, device: PHONE, action: closeDevPanel },
+  ].map((shot) => ({ ...shot, path: `/gevoel?dev&${at}&labelgrootte=${size}&labelafstand=${spacing}&labelvulling=${fill}` })))
   : [
     { name: 'gevoel-vast-desktop', device: DESKTOP, path: `/gevoel?${at}` },
     { name: 'gevoel-vast-telefoon', device: PHONE, path: `/gevoel?${at}` },
@@ -71,9 +75,15 @@ for (const shot of shots) {
   await page.goto(new URL(shot.path, origin).href)
   await page.locator('.map-splash.ready').waitFor({ state: 'attached' })
   await page.waitForTimeout(6_000)
+  // Een link met een tijd opent het actualiteitspaneel; voor de kaartbeelden dicht.
+  const freshness = page.locator('dialog[open]')
+  if (await freshness.count()) {
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(500)
+  }
   await shot.action?.(page)
-  // Na een kaartsprong: de isolijnen en labels krijgen tijd om te volgen.
-  if (shot.action === wholeCountry) await page.waitForTimeout(5_000)
+  // Na een kaartsprong of paneelwissel: de isolijnen en labels krijgen tijd om te volgen.
+  if (shot.action) await page.waitForTimeout(5_000)
   const path = join(outDir, `${shot.name}.png`)
   if (shot.fullPage) await page.screenshot({ path })
   else await page.locator('.map-shell').screenshot({ path })

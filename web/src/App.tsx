@@ -63,6 +63,7 @@ import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedP
 import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureCollection } from './core/sun'
 import { DEFAULT_LOCATION, stillMapTheme } from './core/still-theme.js'
 import { isSunUp, solarElevationSin } from './core/solar'
+import { clampLabelTuning, DEFAULT_LABEL_TUNING, LABEL_TUNING_PARAMETERS, loadLabelTuning, type LabelTuning } from './core/isoline-label-anchors'
 import { cssGradient, FIXED_SCALE_LEGEND, FIXED_SCALE_STOPS, loadTemperatureScale, paletteRange, paletteStops, referenceRange, storeTemperatureScale, type PaletteRange, type TemperatureScale } from './core/temperature-palette'
 import { selectTemperaturePlaces, temperatureLabelSpacingPx, temperatureLabels, temperatureLayer, type TemperatureFeatureCollection } from './core/temperature'
 import { buildTimeline, epochInWindow, frameBlend, scrubberViewWindow, seriesValueAt, timelineCoverage, timelineCursorAtEpoch, timelineEpochAtCursor, timelineHorizonEnd, timelineIndexesInWindow, timelinePlaybackRate, type EpochWindow } from './core/time-model'
@@ -612,6 +613,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [temperatureRange, setTemperatureRange] = createSignal<PaletteRange | undefined>()
   let temperatureRangeKey = ''
   // U100: vast is standaard; relatief (MIP-37) is een instelling. Stills (bot-vergelijking) altijd vast.
+  // ?dev-proef U100: isolijnlabels (grootte, afstand langs de lijn, puntlabels); zonder ?dev het huidige beeld.
+  const [labelTuning, setLabelTuning] = createSignal<LabelTuning>(devMode ? loadLabelTuning(window.location.search, localStorage) : DEFAULT_LABEL_TUNING)
   const [temperatureScale, setTemperatureScale] = createSignal<TemperatureScale>(stillMode ? 'vast' : loadTemperatureScale())
   const temperatureStops = createMemo(() => {
     if (temperatureScale() === 'vast') return FIXED_SCALE_STOPS
@@ -2055,6 +2058,16 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     return true
   }
 
+  function changeLabelTuning(key: keyof LabelTuning, value: number): void {
+    const next = { ...labelTuning(), [key]: clampLabelTuning(key, value) }
+    setLabelTuning(next)
+    try { localStorage.setItem(`motregen-dev-${LABEL_TUNING_PARAMETERS[key]}`, String(next[key])) } catch { /* alleen deze sessie */ }
+    const set = temperatureIsolines
+    set.key = ''
+    set.labels?.clear()
+    void showIsolines(set)
+  }
+
   function changeTemperatureScale(scale: TemperatureScale): void {
     setTemperatureScale(scale)
     storeTemperatureScale(scale)
@@ -2128,7 +2141,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         set.fields = []
         set.labels?.clear()
         if (set.kind !== 'cloud') {
-          set.labels = new IsolineLabels(renderedMap, grid, mapSurfaceTheme(), () => reducedMotion.matches, set.kind)
+          set.labels = new IsolineLabels(renderedMap, grid, mapSurfaceTheme(), () => reducedMotion.matches, set.kind, labelTuning)
         }
         set.key = ''
         // Labels schuiven mee op exact de snede die de lijnen net kregen (zelfde cadans).
@@ -3690,7 +3703,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     <section
       class="map-shell"
       classList={{ 'sky-day': chromeSky()?.daylight === true, 'sky-night': chromeSky()?.daylight === false, 'map-source-faded': mapSourceFaded() }}
-      style={chromeSky() ? { '--day-overcast': chromeSky()!.overcast.toFixed(2) } : undefined}
+      style={{ ...(chromeSky() && { '--day-overcast': chromeSky()!.overcast.toFixed(2) }), '--isoline-label-size': `${labelTuning().size}px` }}
       aria-label="Regenkaart van Nederland" data-rendering={mapRendering()} data-rain-opacity={rainLook().opacity.toFixed(2)} data-rain-blend={rainLook().multiply ? 'multiply' : 'normal'} data-focus={focus().toFixed(2)} data-wind-focus={windFocus().toFixed(2)} data-wind-intensity={focusedWindTuning().intensity.toFixed(2)} data-isolines={isolineCount()} data-isobars={isobarCount()}>
       <div ref={mapElement} class="map" />
       <div ref={splashElement} class="map-splash" classList={{ ready: mapReady() && firstMapImageShown() }} aria-hidden={mapReady() && firstMapImageShown()}>
@@ -3769,6 +3782,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
             usageBody={usageBody()}
             usageLabel={usageLabel()}
             onUsageLabel={changeUsageLabel}
+            labelTuning={labelTuning()}
+            onLabelTuning={changeLabelTuning}
           />
         </Show>
         <Freshness open={freshnessOpen()} mapEpoch={cursorMinute()} mapFrame={timeline()[cursorFrame()]} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} onOpen={pauseForFreshness} onClose={resumeAfterFreshness} onShare={shareCurrentState} shareNotice={shareNotice()}
