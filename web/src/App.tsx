@@ -3253,6 +3253,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [dayListMode, setDayListMode] = createSignal(devMode && localStorage.getItem(DAY_LIST_STORAGE_KEY) === 'lijst')
   const [tableContrast, setTableContrast] = createSignal<TableContrast>(storedTableContrast(devMode))
   const [longRangeNear, setLongRangeNear] = createSignal(false)
+  // Grove tabelrijen in beeld (onNeedRows). Een blijvende vraag, geen eenmalige aanroep: de observer vuurt één keer,
+  // en kwam die vóór de puntreeks (of vóór een nieuwe locatie of een manifestwissel), dan bleef de volledige reeks liggen
+  // tot de manifestverversing, of laadde hij als 'lange termijn' op lage prioriteit (U109: tabel telefoon koud 69–75 s).
+  const [tableRowsNeeded, setTableRowsNeeded] = createSignal(false)
   const ecmwfDayValues = ecmwfPointValues(createMemo(() => manifest() ? ecmwfDayChunks(manifest()!) : new Map<EcmwfDayField, ManifestChunk>()))
   const stepChunks = createMemo(() => manifest() ? ecmwfStepChunks(manifest()!) : new Map<EcmwfStepField, ManifestChunk>())
   const ecmwfStepValues = ecmwfPointValues(stepChunks)
@@ -3292,7 +3296,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
   }
   createEffect(() => {
-    if (longRangeNear() && pointLoadStage() !== 'complete') untrack(() => { void completePointSeries(pointLoad, 'low', 'L2', 'lange termijn') })
+    const rows = tableRowsNeeded()
+    if ((!rows && !longRangeNear()) || pointLoadStage() === 'complete') return
+    untrack(() => { void completePointSeries(pointLoad, rows ? 'high' : 'low', 'L2', rows ? 'intentie' : 'lange termijn') })
   })
   const hourlyInputs = createMemo((): HourlyDayInputs | undefined => {
     if (pointLoadStage() !== 'complete') return undefined
@@ -3987,10 +3993,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
               mobileTableOpen={tableModeSelected()}
               onOpenMobileTable={tableViewAvailable() ? scrollToTable : undefined}
               onSelectMobileMode={tableViewAvailable() ? scrollToMap : undefined}
-              onNeedRows={() => {
-                void completePointSeries(pointLoad, 'high')
+              onNeedRows={() => batch(() => {
+                setTableRowsNeeded(true)
                 if (!dayListMode()) setLongRangeNear(true)
-              }}
+              })}
               onNeedHistory={() => { void loadHistoryRows() }}
               onSelectTime={selectTableTime}
               onOpenHistory={() => {
