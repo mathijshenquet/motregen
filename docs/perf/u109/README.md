@@ -164,3 +164,34 @@ telefoon blijft het een volledige pijplijnsync per nieuw regenframe (twee per fr
 en afspelen. Het masker staat op dat punt altijd volledig aan (overlay; in MapLibre zet `drawCustom` het vóór
 `render` en markeert de state daarna vuil), dus de query en het herstel zijn weggelaten. Idem
 `getParameter(COLOR_CLEAR_VALUE)` bij het wissen van de windtrails (18 ms per aanroep): terug naar transparant.
+
+## Geprioriteerde lijst
+
+### Doorgevoerd (onzichtbaar)
+
+1. **Geen synchrone GL-queries per regenframe** (d97b1c6): ~4 s hoofddraad per 10 s scrubben in de rig → ~1 ms;
+   op een telefoon één pijplijnsync minder per nieuw regenframe.
+2. **SW-installatie zonder og-image en glyphs** (07c7d68): eerste bezoek 648 → 62 kB SW-verkeer (lokaal gzip);
+   op prod ~695 kB minder, dat nu ~180 ms na navigatie met de radar concurreerde.
+3. **MapLibre als eigen chunk** (1ff9938): na elke uitrol blijft 283 kB gz plus V8-codecache staan.
+4. **Render-blokkerende CSS** 29,5 → 20,3 kB gz (1ff9938, marker-fix f68d076).
+5. **Windzakken** (c007303): paden direct, geen layout-read per frame; windzak-hoofddraadtijd −35 tot −63 %.
+6. **Lege overlay-canvassen uit de compositing** (695ea9c) en uniformlocaties gecachet (695ea9c, 71481cf).
+7. Meetgereedschap: `perf.layers`, rig-uitbreidingen, `u109-ab.sh`, `u109-queue.sh`, `u109-report.ts`,
+   `u109-phase-costs.ts`, `u109-gl-sync.ts`, `u109-sw-install.ts`.
+
+### Voorstellen (beslissing PO/orkestrator)
+
+1. **Voorgecomprimeerde assets + Cloudflare** (prod-config, zie boven): −134 kB op het koude kritieke pad (−24 %).
+2. **Tabeldata op de telefoon pas na ~60 s** (U102-terrein, zie boven): de grootste gebruikerswinst op de telefoon;
+   timingafhankelijk (met trace 10 s), dus vermoedelijk een race in `onNeedRows` → `completePointSeries`.
+3. **Lucht koud: wolkenheaders wachten op de eerste basiskaarttegel** (U68-kaartvoorrang): in Lucht zijn ze niet
+   "ongebruikt". Kandidaat: in Lucht direct starten; winst op desktop ~0,8 s tot de wolken, maar het raakt een
+   U68-afweging tegen de basiskaarttijd, dus eerst gepaard meten.
+4. **Contourtracer in de worker** (telefoon Wind ~180–300 ms/s worker plus veel GC tijdens scrubben en afspelen):
+   beperken tot het zichtbare venster of hergebruik tussen sneden. Raakt de lijnvorm, dus met pixelvergelijking.
+5. **Achtergrondwind in rust**: deeltjes lopen in elke modus op 30 fps door (telefoon ~29 ms/s hoofddraad in rust).
+   Lager idle-fps of pauzeren na langere rust is zichtbaar; PO-keuze.
+6. **Overlay-resolutie**: alle overlays tekenen op volle DPR (Pixel 5: 2,75 → ~2,5 MP per canvas, tot zes
+   canvassen). Een DPR-plafond van 2 voor vlakken/sluier scheelt ~45 % pixels, maar is zichtbaar; als `?dev`-variant
+   met screenshots voorleggen.
