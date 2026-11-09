@@ -53,11 +53,11 @@ test('wind focus draws labelled isobars under the particles; temperature focus d
   await expect(shell(page)).toHaveAttribute('data-wind-focus', '0.00')
   await expect(shell(page)).toHaveAttribute('data-isobars', '0')
   await expect(page.locator('.isobar-label')).toHaveCount(0)
-  await expect.poll(() => page.locator('.isoline-label').count()).toBeGreaterThan(0)
+  await expect.poll(() => page.locator('.temperature-number').count()).toBeGreaterThan(0)
 
   await page.mouse.move(5, 5)
   await expect(shell(page)).toHaveAttribute('data-focus', '0.00')
-  await expect(page.locator('.isoline-label')).toHaveCount(0)
+  await expect(page.locator('.temperature-number')).toHaveCount(0)
 })
 
 test('pinned wind focus shows isobars in the dark theme', async ({ page }, testInfo) => {

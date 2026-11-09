@@ -99,6 +99,8 @@ export function fieldRangeInView(values: ArrayLike<number>, valid: ArrayLike<num
 
 // U89, PO 2026-10-17: temperatuur vast op stap 1 °C, banden en geen gradiëntvervaging.
 export const TEMPERATURE_ISOLINE_STEP = 1
+/** U100 ronde 3 (PO 2026-11-09): lijnen op x,5 °C, zodat elk vlak één heel getal is (het getal erin, TemperatureNumbers). */
+export const TEMPERATURE_ISOLINE_OFFSET = 0.5
 
 // Vaste waarden van weggesnoeide dev-knoppen (U30/MIP-12); herkomst per regel.
 /** Dekking van de vulling tussen de lijnen (Vulling; PO-keuze 2026-09-25 na U25b, main `5fcd35b`). */

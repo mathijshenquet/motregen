@@ -2,46 +2,20 @@ import { Marker, type Map as MapLibreMap } from 'maplibre-gl'
 import type { Grid } from './contract'
 import type { MapTheme } from './basemap'
 import type { ShortRing } from './isoline-contours'
-import type { LabelTuning } from './isoline-label-anchors'
-import { TEMPERATURE_ISOLINE_STEP, type IsolineFeatureCollection } from './isolines'
+import { TEMPERATURE_ISOLINE_OFFSET, TEMPERATURE_ISOLINE_STEP, type IsolineFeatureCollection } from './isolines'
 import type { IsolineBubble } from './isoline-layer'
 import { sampleSlice, type FieldSlice } from './isoline-spline'
 import { temperaturePlaces, type TemperaturePlace } from './temperature'
 
 /**
- * ?dev-proef U100 ronde 3 (`?dev&templabels=`, vervalt 2026-11-23): waar de temperatuurgetallen in Gevoel staan.
- * `lijn` is het huidige beeld (getal op de isolijn); de andere drie zetten een getal met een halo op een plek
- * en laten de isolijnen ongelabeld. `-half`/`vlakken`: isolijnen op x,5 °C, zodat elk vlak één heel getal is.
+ * Temperatuurgetallen in Gevoel (U100 ronde 3, PO-keuze 2026-11-09 "plekken-half"): een getal op vaste plekken naast
+ * de plaatsnaam, op een schijf in de kleur van zijn band; de isolijnen liggen op x,5 °C en zijn ongelabeld, zodat elk
+ * vlak één heel getal is en het getal altijd klopt met het vlak waarin het staat.
  */
-export const TEMPERATURE_LABEL_LOOKS = ['lijn', 'plekken', 'vlakken', 'plekken-half'] as const
-export type TemperatureLabelLook = typeof TEMPERATURE_LABEL_LOOKS[number]
-
-export function temperatureLabelLook(search: string): TemperatureLabelLook | undefined {
-  const value = new URLSearchParams(search).get('templabels')
-  return TEMPERATURE_LABEL_LOOKS.find((look) => look === value)
-}
-
-export interface TemperatureLabelPlan {
-  numbers?: 'plekken' | 'vlakken'
-  /** Isolijnen op k + offset °C. */
-  offset: number
-}
-
-export const TEMPERATURE_LABEL_PLANS: Record<TemperatureLabelLook, TemperatureLabelPlan> = {
-  lijn: { offset: 0 },
-  plekken: { numbers: 'plekken', offset: 0 },
-  vlakken: { numbers: 'vlakken', offset: 0.5 },
-  'plekken-half': { numbers: 'plekken', offset: 0.5 },
-}
 
 /** PO 2026-11-09: 13 px voelt op desktop goed; op de telefoon (kortste zijde < 600 px) één stap kleiner. */
 export function temperatureLabelSize(width: number, height: number): number {
   return Math.min(width, height) < 600 ? 12 : 13
-}
-
-/** Startwaarden van de schuiven onder `templabels`: 13/12 px, 160 px langs de lijn (ronde 2: 140–200 px). */
-export function lookLabelTuning(width: number, height: number): LabelTuning {
-  return { size: temperatureLabelSize(width, height), spacing: 160, fill: 0 }
 }
 
 /**
@@ -65,145 +39,6 @@ export function placeNumberSpacingPx(width: number, height: number): number {
   return Math.round(Math.max(40, Math.min(64, Math.min(width, height) / 16)))
 }
 
-export interface NumberLabel { x: number; y: number; value: number }
-
-export interface RegionOptions {
-  /** Maaswijdte van het schermraster waarop de vlakken bepaald worden. */
-  cellPx: number
-  /** Een nieuw getal staat minstens zo ver van de rand van zijn vlak (en van de beeldrand). */
-  insetPx: number
-  /** Een bestaand getal blijft staan zolang het minstens zo ver van de rand zit: geen gespring bij afspelen. */
-  keepInsetPx: number
-  /** Minimale afstand tussen twee getallen. */
-  minDistancePx: number
-  /** Minimale afstand tussen twee getallen in hetzelfde vlak (herhaling bij grote vlakken). */
-  repeatPx: number
-  max: number
-  /** Extra afwijzing (plaatsnamen, pin); true = hier niet. */
-  blocked?: (x: number, y: number, value: number) => boolean
-}
-
-/**
- * Eén getal per vlak (vlak = samenhangend gebied met dezelfde afgeronde waarde) op het punt dat het verst van de
- * rand ligt (pole of inaccessibility, op een raster met chamferafstand), herhaald in grote vlakken. Gretig op
- * afstand tot de rand, zodat elk vlak eerst zijn beste punt krijgt. Scherm-px in, scherm-px uit.
- */
-export function regionNumbers(
-  sample: (x: number, y: number) => number | undefined,
-  width: number,
-  height: number,
-  options: RegionOptions,
-  previous: readonly NumberLabel[] = [],
-): NumberLabel[] {
-  const { cellPx } = options
-  const columns = Math.max(1, Math.ceil(width / cellPx)), rows = Math.max(1, Math.ceil(height / cellPx))
-  const count = columns * rows
-  const band = new Int32Array(count)
-  const valid = new Uint8Array(count)
-  for (let row = 0; row < rows; row++) {
-    for (let column = 0; column < columns; column++) {
-      const value = sample((column + 0.5) * cellPx, (row + 0.5) * cellPx)
-      if (value === undefined || !Number.isFinite(value)) continue
-      valid[row * columns + column] = 1
-      band[row * columns + column] = Math.round(value)
-    }
-  }
-  const component = new Int32Array(count).fill(-1)
-  const stack: number[] = []
-  let components = 0
-  for (let start = 0; start < count; start++) {
-    if (!valid[start] || component[start]! >= 0) continue
-    component[start] = components
-    stack.push(start)
-    while (stack.length) {
-      const index = stack.pop()!
-      const column = index % columns, row = (index - column) / columns
-      for (const [dx, dy] of NEIGHBOURS) {
-        const x = column + dx, y = row + dy
-        if (x < 0 || y < 0 || x >= columns || y >= rows) continue
-        const next = y * columns + x
-        if (valid[next] && component[next]! < 0 && band[next] === band[index]) {
-          component[next] = components
-          stack.push(next)
-        }
-      }
-    }
-    components++
-  }
-  const distance = new Float32Array(count)
-  for (let row = 0; row < rows; row++) {
-    for (let column = 0; column < columns; column++) {
-      const index = row * columns + column
-      if (!valid[index]) continue
-      let value = (Math.min(column, columns - 1 - column, row, rows - 1 - row) + 0.5) * cellPx
-      for (const [dx, dy] of NEIGHBOURS) {
-        const x = column + dx, y = row + dy
-        if (x < 0 || y < 0 || x >= columns || y >= rows) continue
-        const next = y * columns + x
-        if (!valid[next] || band[next] !== band[index]) { value = Math.min(value, cellPx / 2); break }
-      }
-      distance[index] = value
-    }
-  }
-  const diagonal = cellPx * Math.SQRT2
-  const relax = (index: number, other: number, step: number) => {
-    if (distance[other]! + step < distance[index]!) distance[index] = distance[other]! + step
-  }
-  for (let row = 0; row < rows; row++) {
-    for (let column = 0; column < columns; column++) {
-      const index = row * columns + column
-      if (!valid[index]) continue
-      if (column > 0) relax(index, index - 1, cellPx)
-      if (row > 0) {
-        relax(index, index - columns, cellPx)
-        if (column > 0) relax(index, index - columns - 1, diagonal)
-        if (column < columns - 1) relax(index, index - columns + 1, diagonal)
-      }
-    }
-  }
-  for (let row = rows - 1; row >= 0; row--) {
-    for (let column = columns - 1; column >= 0; column--) {
-      const index = row * columns + column
-      if (!valid[index]) continue
-      if (column < columns - 1) relax(index, index + 1, cellPx)
-      if (row < rows - 1) {
-        relax(index, index + columns, cellPx)
-        if (column < columns - 1) relax(index, index + columns + 1, diagonal)
-        if (column > 0) relax(index, index + columns - 1, diagonal)
-      }
-    }
-  }
-  const chosen: Array<NumberLabel & { component: number }> = []
-  const fits = (x: number, y: number, region: number) => chosen.every((other) => {
-    const gap = Math.hypot(other.x - x, other.y - y)
-    return gap >= options.minDistancePx && (other.component !== region || gap >= options.repeatPx)
-  })
-  const cellAt = (x: number, y: number) => {
-    const column = Math.floor(x / cellPx), row = Math.floor(y / cellPx)
-    return column < 0 || row < 0 || column >= columns || row >= rows ? -1 : row * columns + column
-  }
-  for (const label of previous) {
-    const index = cellAt(label.x, label.y)
-    if (index < 0 || !valid[index] || band[index] !== label.value || distance[index]! < options.keepInsetPx) continue
-    if (chosen.length >= options.max || !fits(label.x, label.y, component[index]!)) continue
-    if (options.blocked?.(label.x, label.y, label.value)) continue
-    chosen.push({ ...label, component: component[index]! })
-  }
-  const candidates: number[] = []
-  for (let index = 0; index < count; index++) if (valid[index] && distance[index]! >= options.insetPx) candidates.push(index)
-  candidates.sort((a, b) => distance[b]! - distance[a]! || a - b)
-  for (const index of candidates) {
-    if (chosen.length >= options.max) break
-    const column = index % columns, row = (index - column) / columns
-    const x = (column + 0.5) * cellPx, y = (row + 0.5) * cellPx
-    if (!fits(x, y, component[index]!) || options.blocked?.(x, y, band[index]!)) continue
-    chosen.push({ x, y, value: band[index]!, component: component[index]! })
-  }
-  return chosen.map(({ x, y, value }) => ({ x, y, value }))
-}
-
-const NEIGHBOURS = [[1, 0], [-1, 0], [0, 1], [0, -1]] as const
-
 /**
  * Verschuivingen (in eilandjes-hoogtes) om een plaatsnaam heen, zoals text-variable-anchor van de stadslabels: eerst
  * op de plek, dan erboven/eronder, dan opzij. 1,45 hoogte valt net buiten het botsvak van een naam met padding.
@@ -225,12 +60,11 @@ const MAP_CHROME = '.map-clock, .search-box, .feels-legend, .rain-isoline-legend
 export function placeNamePaddingPx(zoom: number): number {
   return zoom < 6 ? 24 : zoom < 8 ? 18 : zoom < 10 ? 14 : 4
 }
-const REGION = { cellPx: 6, insetPx: 14, keepInsetPx: 9, minDistancePx: 44, max: 60 }
 const MAX_PLACE_NUMBERS = 60
 
 interface Shown {
   key: string
-  /** Ankerpunt: de plek (plekken) of het vlakpunt (vlakken). */
+  /** Ankerpunt: de plek. */
   lng: number
   lat: number
   /** Vaste schermverschuiving t.o.v. het anker in CSS-px: bij zoomen blijft het getal naast zijn plaatsnaam. */
@@ -269,7 +103,6 @@ export class TemperatureNumbers implements IsolineLabelling {
   private opacity = 0
   private dirty = true
   private lastLayout = -Infinity
-  private serial = 0
   private lastSlice?: FieldSlice
   private chrome: Box[] = []
   /** Plaatsnamen staan pas vast als de kaart stilvalt: dan nog één keer opnieuw schikken. */
@@ -285,8 +118,6 @@ export class TemperatureNumbers implements IsolineLabelling {
     private readonly grid: Grid,
     private theme: MapTheme,
     private readonly reducedMotion: () => boolean,
-    private readonly plan: Required<TemperatureLabelPlan>,
-    private readonly tuning: () => LabelTuning,
     private readonly pin: () => { lng: number; lat: number } | undefined,
     /** Schijven in de bandkleur onder de getallen (IsolineLayer.setBubbles). */
     private readonly onBubbles: (bubbles: IsolineBubble[]) => void = () => undefined,
@@ -333,8 +164,7 @@ export class TemperatureNumbers implements IsolineLabelling {
       this.dirty = false
       this.lastLayout = now
       this.chrome = this.chromeBoxes()
-      if (this.plan.numbers === 'plekken') this.layoutPlaces(slice, now)
-      else this.layoutRegions(slice, now)
+      this.layoutPlaces(slice, now)
     }
     for (const label of this.shown) {
       if (label.dying) continue
@@ -342,24 +172,18 @@ export class TemperatureNumbers implements IsolineLabelling {
       const exact = this.valueExact(slice, column, row)
       if (exact === undefined) { this.kill(label); continue }
       const band = this.bandAfterDeadzone(slice, column, row, exact, label.band)
-      if (band === label.band) {
-        if (this.plan.offset === 0) this.setText(label, Math.round(exact))
-        continue
-      }
-      // Een vlakgetal hoort bij zijn vlak: schuift de rand eroverheen, dan maakt het plaats voor een nieuw getal.
-      if (this.plan.numbers === 'vlakken') { this.kill(label); this.dirty = true; continue }
+      if (band === label.band) continue
       label.bandFrom = Math.abs(band - label.band) === 1 && !this.reducedMotion() ? this.tweenedBand(label, now) : band
       label.band = band
       label.tweenStart = now
-      if (this.plan.offset === 0) this.setText(label, Math.round(exact))
     }
-    const size = this.tuning().size
+    const size = this.size()
     let tweening = false
     const bubbles = this.shown.filter((label) => !label.dying).map((label) => {
       const band = this.tweenedBand(label, now)
       if (band !== label.band) tweening = true
       // Het cijfer wisselt halverwege de tween, met de kleur van de schijf mee.
-      if (this.plan.offset !== 0) this.setText(label, this.bandValue(Math.round(band)))
+      this.setText(label, this.bandValue(Math.round(band)))
       return { lng: label.lng, lat: label.lat, dx: label.dx, dy: label.dy, band, radius: bubbleRadius(`${label.value}°`, size) }
     })
     this.onBubbles(bubbles)
@@ -380,7 +204,7 @@ export class TemperatureNumbers implements IsolineLabelling {
    * schermpx via de veldgradiënt), anders wipt het getal heen en weer als een lijn er langzaam overheen schuift.
    */
   private bandAfterDeadzone(slice: FieldSlice, column: number, row: number, exact: number, current: number): number {
-    const level = (exact - this.plan.offset) / TEMPERATURE_ISOLINE_STEP
+    const level = (exact - TEMPERATURE_ISOLINE_OFFSET) / TEMPERATURE_ISOLINE_STEP
     const band = Math.floor(level)
     if (band === current || !Number.isFinite(current) || Math.abs(band - current) > 1) return band
     const edge = band > current ? current + 1 : current
@@ -395,7 +219,15 @@ export class TemperatureNumbers implements IsolineLabelling {
 
   /** Het getal van een band met lijnen op x,5: het bandmidden. */
   private bandValue(band: number): number {
-    return Math.round((band + 0.5) * TEMPERATURE_ISOLINE_STEP + this.plan.offset)
+    return Math.round((band + 0.5) * TEMPERATURE_ISOLINE_STEP + TEMPERATURE_ISOLINE_OFFSET)
+  }
+
+  private bandOf(exact: number): number {
+    return Math.floor((exact - TEMPERATURE_ISOLINE_OFFSET) / TEMPERATURE_ISOLINE_STEP)
+  }
+
+  private size(): number {
+    return temperatureLabelSize(window.innerWidth, window.innerHeight)
   }
 
   private setText(label: Shown, value: number): void {
@@ -406,7 +238,7 @@ export class TemperatureNumbers implements IsolineLabelling {
 
   private layoutPlaces(slice: FieldSlice, now: number): void {
     const { clientWidth: width, clientHeight: height } = this.map.getContainer()
-    const size = this.tuning().size
+    const size = this.size()
     const step = islandBox('0°', size).height
     const boxes: Box[] = []
     const wanted = new Map<string, Placed>()
@@ -424,53 +256,13 @@ export class TemperatureNumbers implements IsolineLabelling {
         const [column, row] = this.toCell(lngLat.lng, lngLat.lat)
         const exact = this.valueExact(slice, column, row)
         if (exact === undefined) continue
-        const value = kept ? kept.value : this.firstValue(exact)
+        const value = kept ? kept.value : this.bandValue(this.bandOf(exact))
         const candidate = boxAt(x, y, islandBox(`${value}°`, size))
         if (!this.free(candidate, boxes, width, height)) continue
         boxes.push(candidate)
         wanted.set(place.name, { lng: place.lng, lat: place.lat, dx: dx * step, dy: dy * step, offsetIndex, exact })
         break
       }
-    }
-    this.apply(wanted, now)
-  }
-
-  private firstValue(exact: number): number {
-    return this.plan.offset === 0 ? Math.round(exact) : this.bandValue(Math.floor((exact - this.plan.offset) / TEMPERATURE_ISOLINE_STEP))
-  }
-
-  private layoutRegions(slice: FieldSlice, now: number): void {
-    const { clientWidth: width, clientHeight: height } = this.map.getContainer()
-    const size = this.tuning().size
-    const topLeft = this.map.unproject([0, 0]), bottomRight = this.map.unproject([width, height])
-    const [left, top] = this.toCell(topLeft.lng, topLeft.lat)
-    const [right, bottom] = this.toCell(bottomRight.lng, bottomRight.lat)
-    // Mercator en het 3857-rooster zijn lineair in elkaar: scherm-px → cel zonder unproject per monster.
-    const sample = (x: number, y: number) => this.valueExact(slice, left + (right - left) * x / width, top + (bottom - top) * y / height)
-    const living = this.shown.filter((label) => !label.dying)
-    const previous = living.map((label) => {
-      const point = this.map.project([label.lng, label.lat])
-      return { x: point.x, y: point.y, value: label.value, key: label.key }
-    })
-    const boxes: Box[] = []
-    const chosen = regionNumbers(sample, width, height, {
-      ...REGION,
-      repeatPx: this.tuning().spacing,
-      blocked: (x, y, value) => {
-        const box = boxAt(x, y, islandBox(`${value}°`, size))
-        if (!this.free(box, boxes, width, height)) return true
-        boxes.push(box)
-        return false
-      },
-    }, previous)
-    const wanted = new Map<string, Placed>()
-    for (const label of chosen) {
-      const kept = previous.find((candidate) => candidate.x === label.x && candidate.y === label.y && candidate.value === label.value)
-      const lngLat = this.map.unproject([label.x, label.y])
-      const [column, row] = this.toCell(lngLat.lng, lngLat.lat)
-      const exact = this.valueExact(slice, column, row)
-      if (exact === undefined || Math.round(exact) !== label.value) continue
-      wanted.set(kept?.key ?? `vlak-${++this.serial}`, { lng: lngLat.lng, lat: lngLat.lat, dx: 0, dy: 0, offsetIndex: 0, exact })
     }
     this.apply(wanted, now)
   }
@@ -542,12 +334,12 @@ export class TemperatureNumbers implements IsolineLabelling {
     element.style.opacity = '0'
     if (!this.reducedMotion()) element.style.transition = `opacity ${FADE_MS}ms ease-out`
     const marker = new Marker({ element, offset: [next.dx, next.dy] }).setLngLat([next.lng, next.lat]).setOpacity(this.opacity).addTo(this.map)
-    const band = Math.floor((next.exact - this.plan.offset) / TEMPERATURE_ISOLINE_STEP)
+    const band = this.bandOf(next.exact)
     const label: Shown = {
       key, lng: next.lng, lat: next.lat, dx: next.dx, dy: next.dy, offsetIndex: next.offsetIndex,
       value: Number.NaN, band, bandFrom: band, tweenStart: now, marker, text, dying: false,
     }
-    this.setText(label, this.firstValue(next.exact))
+    this.setText(label, this.bandValue(band))
     this.shown.push(label)
     requestAnimationFrame(() => { element.style.opacity = '1' })
   }
