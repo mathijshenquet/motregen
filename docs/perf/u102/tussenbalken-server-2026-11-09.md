@@ -30,9 +30,9 @@ De server-side rekening is een letterlijke port van `rainBetween`/`motionWarpStr
 | | patch (nu) | cel u16 | cel u8 | cel delta | hybride |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | droog, gemiddeld | 34,4 kB | 49,4 kB | 34,0 kB | 28,5 kB | 27,9 kB |
-| droog, p95 (som p95 per groep) | 41,0 kB | — | 51,0 kB | 45,5 kB | 34,1 kB |
+| droog, p95 (som p95 per groep) | 41,0 kB | 91,3 kB | 51,0 kB | 45,5 kB | 34,1 kB |
 | nat, gemiddeld | 45,6 kB | 64,5 kB | 41,4 kB | 32,9 kB | 33,8 kB |
-| nat, p95 (som p95 per groep) | 99,4 kB | — | 70,8 kB | 59,9 kB | 54,1 kB |
+| nat, p95 (som p95 per groep) | 99,4 kB | 113,7 kB | 70,8 kB | 59,9 kB | 54,1 kB |
 
 De HARMONIE-regenchunk alleen (nat, per bestand): patch 11,2 kB, cel u8 18,7 kB. Drie voorgerekende, gebroken
 waarden per uur per cel comprimeren slechter dan de ruwe rasterpatch met beweging; pas als verschil met de lineaire
