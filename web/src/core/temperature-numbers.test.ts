@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { islandBox, lookLabelTuning, nestedPlaces, numberColor, TEMPERATURE_NUMBER_PLACES, placeNamePaddingPx, placeNumberSpacingPx, regionNumbers, TEMPERATURE_LABEL_PLANS, temperatureLabelLook, temperatureLabelSize, type RegionOptions } from './temperature-numbers'
+import { islandBox, lookLabelTuning, nestedPlaces, TEMPERATURE_NUMBER_PLACES, placeNamePaddingPx, placeNumberSpacingPx, regionNumbers, TEMPERATURE_LABEL_PLANS, temperatureLabelLook, temperatureLabelSize, type RegionOptions } from './temperature-numbers'
 import { loadLabelTuning } from './isoline-label-anchors'
 
 const options: RegionOptions = { cellPx: 6, insetPx: 14, keepInsetPx: 9, minDistancePx: 44, repeatPx: 160, max: 60 }
@@ -83,7 +83,7 @@ describe('one number per region', () => {
   })
 })
 
-describe('stable places and colours while zooming', () => {
+describe('stable places while zooming', () => {
   it('only adds places when zooming in and only removes them when zooming out', () => {
     let previous: string[] = []
     for (let zoom = 5; zoom <= 10; zoom += 0.25) {
@@ -94,13 +94,4 @@ describe('stable places and colours while zooming', () => {
     expect(previous.length).toBeGreaterThan(nestedPlaces(5, 50, TEMPERATURE_NUMBER_PLACES).length)
   })
 
-  it('tints the digits with their band: dark on the light map, light on the dark map', () => {
-    const green: [number, number, number] = [0.38, 0.75, 0.38]
-    const luminance = ([r, g, b]: number[]) => 0.2126 * r! + 0.7152 * g! + 0.0722 * b!
-    const dark = numberColor(green, 'light'), light = numberColor(green, 'dark')
-    expect(luminance(dark)).toBeCloseTo(0.24, 2)
-    expect(luminance(light)).toBeCloseTo(0.86, 2)
-    expect(dark[1]).toBeGreaterThan(dark[0])
-    expect(light[1]).toBeGreaterThan(light[0])
-  })
 })

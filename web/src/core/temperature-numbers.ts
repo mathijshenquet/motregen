@@ -6,7 +6,6 @@ import type { LabelTuning } from './isoline-label-anchors'
 import { TEMPERATURE_ISOLINE_STEP, type IsolineFeatureCollection } from './isolines'
 import type { IsolineBubble } from './isoline-layer'
 import { sampleSlice, type FieldSlice } from './isoline-spline'
-import { cssRgb, paletteColor, type PaletteStops, type Rgb } from './temperature-palette'
 import { temperaturePlaces, type TemperaturePlace } from './temperature'
 
 /**
@@ -291,8 +290,6 @@ export class TemperatureNumbers implements IsolineLabelling {
     private readonly pin: () => { lng: number; lat: number } | undefined,
     /** Schijven in de bandkleur onder de getallen (IsolineLayer.setBubbles). */
     private readonly onBubbles: (bubbles: IsolineBubble[]) => void = () => undefined,
-    /** Het palet van de vulling: de cijfers krijgen een donkere (licht thema) of lichte tint van hun band. */
-    private readonly palette: () => PaletteStops | undefined = () => undefined,
   ) {}
 
   get count(): number {
@@ -317,7 +314,6 @@ export class TemperatureNumbers implements IsolineLabelling {
     if (theme === this.theme) return
     for (const label of this.shown) label.marker.getElement().classList.replace(`temperature-number-${this.theme}`, `temperature-number-${theme}`)
     this.theme = theme
-    for (const label of this.shown) this.paint(label)
   }
 
   clear(): void {
@@ -406,14 +402,6 @@ export class TemperatureNumbers implements IsolineLabelling {
     if (value === label.value) return
     label.value = value
     label.text.textContent = `${value}°`
-    this.paint(label)
-  }
-
-  /** Cijferkleur: de bandkleur, donker (licht thema) of licht (donker thema), zodat het getal bij zijn vlak hoort. */
-  private paint(label: Shown): void {
-    const stops = this.palette()
-    if (!stops) { label.text.style.color = ''; return }
-    label.text.style.color = cssRgb(numberColor(paletteColor(label.value, stops), this.theme))
   }
 
   private layoutPlaces(slice: FieldSlice, now: number): void {
@@ -623,13 +611,6 @@ export function nestedPlaces(zoom: number, spacingPx: number, candidates: readon
 }
 const NESTED_FROM_ZOOM = 4
 
-/** Cijfer in de tint van zijn band: licht thema donker (L ≈ 0,3), donker thema licht (L ≈ 0,85). */
-export function numberColor(band: Rgb, theme: MapTheme): Rgb {
-  const target = theme === 'dark' ? 0.86 : 0.24
-  const light = 0.2126 * band[0] + 0.7152 * band[1] + 0.0722 * band[2]
-  if (theme === 'dark') return band.map((channel) => channel + (1 - channel) * Math.max(0, (target - light) / Math.max(1e-6, 1 - light))) as Rgb
-  return band.map((channel) => channel * Math.min(1, target / Math.max(1e-6, light))) as Rgb
-}
 
 /** Straal van de schijf onder een getal in CSS-px: de cijfers (±0,6 em per teken) met wat lucht. */
 export function bubbleRadius(label: string, size: number): number {
