@@ -24,3 +24,4 @@ pub mod temperature;
 pub mod text;
 pub mod time;
 pub mod wind;
+pub mod windsock;

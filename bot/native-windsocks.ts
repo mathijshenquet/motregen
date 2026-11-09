@@ -1,8 +1,8 @@
 import sharp from 'sharp'
 import { selectTemperaturePlaces } from '../web/src/core/temperature.js'
 import { beaufortNumber, beaufortScale, windVanePlaces, windVaneSpacingPx } from '../web/src/core/wind-beaufort.js'
-import { DEFAULT_WINDSOCK_BADGE, WINDSOCK_BANDS, windsockBadge, windsockBand, windsockInflated, windsockShape, type Point, type WindsockShape } from '../web/src/core/wind-glyph.js'
-import { DEFAULT_WINDSOCK_CURVATURE, DEFAULT_WINDSOCK_FLUTTER, flutterBends, sampleWind, WINDSOCK_FLUTTERS, WINDSOCK_LAG_MINUTES, windsockHeadings, type WindsockField, type WindSlice } from '../web/src/core/windsock-flow.js'
+import { DEFAULT_WINDSOCK_BADGE, WINDSOCK_BADGE, WINDSOCK_BANDS, WINDSOCK_STYLE, windsockBadge, windsockBand, windsockInflated, windsockShape, type Point, type WindsockShape } from '../web/src/core/wind-glyph.js'
+import { DEFAULT_WINDSOCK_CURVATURE, DEFAULT_WINDSOCK_FLUTTER, flutterBends, sampleWind, windsockPhase, WINDSOCK_FLUTTERS, WINDSOCK_LAG_MINUTES, windsockHeadings, type WindsockField, type WindSlice } from '../web/src/core/windsock-flow.js'
 import { FRAME, FRAME_PIXELS } from './config.js'
 import { nativeProjection } from './native-projection.js'
 import type { NativeRainData, RainFrame } from './native-rain.js'
@@ -11,7 +11,8 @@ import type { NativeTheme } from './native-map.js'
 import { NATIVE_VIEW } from './native-view.js'
 
 const MERCATOR_RADIUS = 6378137
-const ORANGE = [0xf2, 0x66, 0x1c], WHITE = [0xfb, 0xfb, 0xf8], INK = [0x17, 0x24, 0x2b], BLACK = [0, 0, 0], HALO = [255, 255, 255]
+const rgb = (hex: string) => [1, 3, 5].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16))
+const ORANGE = rgb(WINDSOCK_STYLE.orange), WHITE = rgb(WINDSOCK_STYLE.white), INK = rgb(WINDSOCK_STYLE.inkColor), BLACK = [0, 0, 0], HALO = [255, 255, 255]
 /** Zelfde badge als op de kaart van de app (wind-socks.ts): oranje getal, rechtop, in een witte cirkel. */
 const LABEL_STYLE = 'windsock'
 
@@ -29,8 +30,8 @@ export class NativeWindsocks {
     for (let force = 0; force <= 12; force++) {
       const label = String(force)
       const width = 64, height = 48
-      const size = (label.length > 2 ? 10 : 13) * FRAME.scale
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><text x="32" y="24.5" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans, sans-serif" font-size="${size}" font-weight="800" fill="#f2661c">${label}</text></svg>`
+      const size = (label.length > 2 ? WINDSOCK_BADGE.longFontPx : WINDSOCK_BADGE.fontPx) * FRAME.scale
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><text x="32" y="24.5" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans, sans-serif" font-size="${size}" font-weight="800" fill="${WINDSOCK_STYLE.orange}">${label}</text></svg>`
       const rgba = await sharp(Buffer.from(svg)).ensureAlpha().raw().toBuffer()
       for (const theme of ['light', 'dark'] as const) glyphs.set(`${theme}:${LABEL_STYLE}:${label}`, { rgba, width, height })
     }
@@ -71,7 +72,7 @@ export class NativeWindsocks {
     if (opacity <= 0) return
     const projection = nativeProjection(field.grid)
     const flutter = WINDSOCK_FLUTTERS[DEFAULT_WINDSOCK_FLUTTER]
-    for (const place of selectTemperaturePlaces(NATIVE_VIEW.zoom, windVaneSpacingPx(FRAME.width, FRAME.height), windVanePlaces)) {
+    for (const place of windsockPlaces()) {
       const x = place.lng * Math.PI / 180 * MERCATOR_RADIUS
       const y = Math.log(Math.tan(Math.PI / 4 + place.lat * Math.PI / 360)) * MERCATOR_RADIUS
       const [screenX, screenY] = projection.point((x - field.grid.x0) / field.grid.dx - 0.5, (y - field.grid.y0) / field.grid.dy - 0.5)
@@ -81,7 +82,7 @@ export class NativeWindsocks {
       if (!wind || !compass) continue
       const speed = Math.hypot(wind[0], wind[1])
       const strength = beaufortScale(speed)
-      const bends = flutterBends(flutter, strength, seconds, stablePhase(place.name))
+      const bends = flutterBends(flutter, strength, seconds, windsockPhase(place.name))
       const shape = windsockShape(strength, compass.map((heading, index) => heading + (bends?.[index] ?? 0)), 'kaart')
       await this.drawSock(rgb, screenX, screenY, shape, String(beaufortNumber(speed)), theme, opacity)
     }
@@ -94,36 +95,36 @@ export class NativeWindsocks {
     const cut = { x: x + badge.x * scale, y: y + badge.y * scale, radius: badge.cutRadius * scale }
     // Dezelfde lagen als de canvas in de app: schaduw, lichte rand, banden, inktrand, hoepel en mast, rond de
     // badge weggeknipt; dan de badge zelf met het getal.
-    fillPolygon(rgb, place(windsockInflated(shape, 1.75), 1.3), BLACK, 0.22 * opacity, FRAME_PIXELS, cut)
-    fillPolygon(rgb, place(windsockInflated(shape, 1.6)), HALO, (theme === 'dark' ? 0.55 : 0.9) * opacity, FRAME_PIXELS, cut)
-    fillPolygon(rgb, place(windsockInflated(shape, 0.55)), INK, opacity, FRAME_PIXELS, cut)
+    const { shadow, halo, ink, hoopHalfWidth, mast } = WINDSOCK_STYLE
+    fillPolygon(rgb, place(windsockInflated(shape, shadow.margin), shadow.offsetY), BLACK, shadow.alpha * opacity, FRAME_PIXELS, cut)
+    fillPolygon(rgb, place(windsockInflated(shape, halo.margin)), HALO, (theme === 'dark' ? halo.dark : halo.light) * opacity, FRAME_PIXELS, cut)
+    fillPolygon(rgb, place(windsockInflated(shape, ink)), INK, opacity, FRAME_PIXELS, cut)
     for (let band = 0; band < WINDSOCK_BANDS; band++) fillPolygon(rgb, place(windsockBand(shape, band)), band % 2 ? WHITE : ORANGE, opacity, FRAME_PIXELS, cut)
-    fillPolygon(rgb, place(thickLine(shape.left[0]!, shape.right[0]!, 1)), INK, opacity, FRAME_PIXELS, cut)
-    fillPolygon(rgb, place(circle(0, 0, 3.1)), HALO, opacity, FRAME_PIXELS, cut)
-    fillPolygon(rgb, place(circle(0, 0, 2.4)), INK, opacity, FRAME_PIXELS, cut)
-    fillPolygon(rgb, place(circle(badge.x, badge.y, badge.radius + 1), 1.3), BLACK, 0.22 * opacity)
-    fillPolygon(rgb, place(circle(badge.x, badge.y, badge.radius + 0.55)), INK, opacity)
-    fillPolygon(rgb, place(circle(badge.x, badge.y, badge.radius - 0.55)), HALO, opacity)
+    fillPolygon(rgb, place(thickLine(shape.left[0]!, shape.right[0]!, hoopHalfWidth)), INK, opacity, FRAME_PIXELS, cut)
+    fillPolygon(rgb, place(circle(0, 0, mast.halo)), HALO, opacity, FRAME_PIXELS, cut)
+    fillPolygon(rgb, place(circle(0, 0, mast.ink)), INK, opacity, FRAME_PIXELS, cut)
+    fillPolygon(rgb, place(circle(badge.x, badge.y, badge.radius + ink), shadow.offsetY), BLACK, shadow.alpha * opacity)
+    fillPolygon(rgb, place(circle(badge.x, badge.y, badge.radius + ink)), INK, opacity)
+    fillPolygon(rgb, place(circle(badge.x, badge.y, badge.radius - ink)), HALO, opacity)
     await this.text.draw(rgb, label, cut.x, cut.y + 0.5 * scale, 0, LABEL_STYLE, theme, opacity)
   }
 }
 
-function thickLine([ax, ay]: Point, [bx, by]: Point, halfWidth: number): Point[] {
+/** De plaatsen met een zak in het vaste botbeeld; ook de Rust-renderer krijgt deze lijst (render-mode-constants). */
+export function windsockPlaces() {
+  return selectTemperaturePlaces(NATIVE_VIEW.zoom, windVaneSpacingPx(FRAME.width, FRAME.height), windVanePlaces)
+}
+
+export function thickLine([ax, ay]: Point, [bx, by]: Point, halfWidth: number): Point[] {
   const length = Math.hypot(bx - ax, by - ay) || 1
   const normalX = -(by - ay) / length * halfWidth, normalY = (bx - ax) / length * halfWidth
   return [[ax + normalX, ay + normalY], [bx + normalX, by + normalY], [bx - normalX, by - normalY], [ax - normalX, ay - normalY]]
 }
 
-function circle(centerX: number, centerY: number, radius: number): Point[] {
+export function circle(centerX: number, centerY: number, radius: number): Point[] {
   return Array.from({ length: 32 }, (_, index) => [centerX + Math.cos(index / 32 * 2 * Math.PI) * radius, centerY + Math.sin(index / 32 * 2 * Math.PI) * radius])
 }
 
-/** Vaste fase per plaats, zodat de zakken niet in de maat trillen (zoals in de app). */
-function stablePhase(name: string): number {
-  let hash = 0
-  for (const character of name) hash = (hash * 31 + character.charCodeAt(0)) | 0
-  return (hash >>> 0) % 628 / 100
-}
 
 /**
  * Vult een veelhoek met exacte oppervlaktedekking per pixel (de signed-area-accumulatie van font-rs): elke rand

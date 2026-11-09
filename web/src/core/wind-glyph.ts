@@ -11,9 +11,31 @@ export type Point = readonly [number, number]
 export const WINDSOCK_SAMPLES = 20
 export const WINDSOCK_BANDS = 5
 
-const SIZES = {
-  kaart: { maxLength: 46, mouth: 16 },
-  tabel: { maxLength: 20, mouth: 8.5 },
+/** Maten in CSS-px en de verhoudingen van de zak; ook de Rust-renderer leest ze (render-mode-constants). */
+export const WINDSOCK_SHAPE = {
+  sizes: { kaart: { maxLength: 46, mouth: 16 }, tabel: { maxLength: 20, mouth: 8.5 } },
+  /** Bij deze windkracht staat de zak vol. */
+  fullForce: 5,
+  /** Lengte als deel van maxLength: slap en vol. */
+  slackLength: 0.5,
+  /** Staartbreedte als deel van de mond: slap, en wat er bij vol bij komt. */
+  slackTail: 0.32,
+  fullTailGain: 0.24,
+  /** Doorbuiging van de slappe zak aan de staart, in radialen (~30°). */
+  slackBend: 0.5,
+} as const
+
+/**
+ * Lagen van de kaartzak voor renderers zonder canvaslijnen (bot, Rust): marges in CSS-px rond de rand.
+ * Dezelfde maten als de canvas in de app (rand 3,2 px breed, inkt 1,1 px, schaduw 1,3 px omlaag).
+ */
+export const WINDSOCK_STYLE = {
+  shadow: { margin: 1.75, offsetY: 1.3, alpha: 0.22 },
+  halo: { margin: 1.6, light: 0.9, dark: 0.55 },
+  ink: 0.55,
+  hoopHalfWidth: 1,
+  mast: { halo: 3.1, ink: 2.4 },
+  orange: '#f2661c', white: '#fbfbf8', inkColor: '#17242b',
 } as const
 
 export interface WindsockShape {
@@ -27,7 +49,7 @@ export interface WindsockShape {
 
 /** Hoe vol de zak staat: 0 bij windstilte, 1 vanaf 5 Bft. */
 export function windsockFill(strength: number): number {
-  return Math.max(0, Math.min(1, strength / 5))
+  return Math.max(0, Math.min(1, strength / WINDSOCK_SHAPE.fullForce))
 }
 
 /**
@@ -36,12 +58,11 @@ export function windsockFill(strength: number): number {
  * schermhoek in graden; de slappe doorbuiging bij weinig wind komt daar nog bij.
  */
 export function windsockShape(strength: number, headings: readonly number[], place: GlyphPlace): WindsockShape {
-  const { maxLength, mouth } = SIZES[place]
+  const { maxLength, mouth } = WINDSOCK_SHAPE.sizes[place]
   const filled = windsockFill(strength)
-  const length = maxLength * (0.5 + 0.5 * filled)
-  const tail = mouth * (0.32 + 0.24 * filled)
-  // Slap: de zak buigt af, tot ~30° aan de staart; strak: recht.
-  const slackBend = 0.5 * (1 - filled)
+  const length = maxLength * (WINDSOCK_SHAPE.slackLength + (1 - WINDSOCK_SHAPE.slackLength) * filled)
+  const tail = mouth * (WINDSOCK_SHAPE.slackTail + WINDSOCK_SHAPE.fullTailGain * filled)
+  const slackBend = WINDSOCK_SHAPE.slackBend * (1 - filled)
   const left: Point[] = [], right: Point[] = [], axis: Point[] = [], bent: number[] = []
   let x = 0, y = 0
   for (let index = 0; index <= WINDSOCK_SAMPLES; index++) {
@@ -107,9 +128,12 @@ export interface WindsockBadge {
  */
 export function windsockBadge(shape: WindsockShape, position: WindsockBadgePosition, label: string): WindsockBadge {
   const [x, y] = shape.axis[position === 'mond' ? 0 : WINDSOCK_SAMPLES / 2]!
-  const radius = 9.5
-  return { x, y, radius, cutRadius: radius + 2, fontPx: label.length > 2 ? 10 : 13 }
+  const { radius, gap, fontPx, longFontPx } = WINDSOCK_BADGE
+  return { x, y, radius, cutRadius: radius + gap, fontPx: label.length > 2 ? longFontPx : fontPx }
 }
+
+/** Maten van de badge in CSS-px; drie cijfers (km/u) krijgen de kleinere letter. */
+export const WINDSOCK_BADGE = { radius: 9.5, gap: 2, fontPx: 13, longFontPx: 10 } as const
 
 const round = (value: number) => Math.round(value * 100) / 100
 const pathOf = (points: readonly Point[]) => `M${points.map(([x, y]) => `${round(x)} ${round(y)}`).join('L')}Z`

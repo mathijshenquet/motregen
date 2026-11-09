@@ -9,6 +9,10 @@ import * as labels from '../web/src/core/isoline-label-anchors.js'
 import * as map from '../web/src/core/map-presentation.js'
 import * as palette from '../web/src/core/temperature-palette.js'
 import { NETHERLANDS_FLANDERS_BOUNDS } from '../web/src/core/map-frame.js'
+import { BEAUFORT_COLORS, BEAUFORT_LOWER_MS, CODES_PER_FORCE, WIND_FILL_OPACITY, WIND_THIN_PARTICLE_WIDTH } from '../web/src/core/wind-beaufort.js'
+import { DEFAULT_WINDSOCK_BADGE, WINDSOCK_BADGE, WINDSOCK_BANDS, WINDSOCK_SAMPLES, WINDSOCK_SHAPE, WINDSOCK_STYLE } from '../web/src/core/wind-glyph.js'
+import { DEFAULT_WINDSOCK_CURVATURE, DEFAULT_WINDSOCK_FLUTTER, MAX_BEND_DEGREES, WINDSOCK_FLUTTERS, WINDSOCK_LAG_MINUTES, WINDSOCK_STREAM_KM, windsockPhase } from '../web/src/core/windsock-flow.js'
+import { windsockPlaces } from './native-windsocks.js'
 import { createHash } from 'node:crypto'
 import * as cloudMap from '../web/src/core/cloud-map.js'
 import { prepareCloudMapField } from '../web/src/core/cloud-map.js'
@@ -29,7 +33,8 @@ export function modeConstants() {
   return {
     loops: { wind: loop('wind'), feels: loop('feels'), air: loop('air') }, scale: FRAME.scale, element_scale: ELEMENT_SCALE,
     cloud: cloudConstants(),
-    wind: { ...wind.WIND_PARAMETERS, count: wind.particleCountForViewport(FRAME.width, FRAME.height), focus: wind.WIND_FOCUS_INTENSITY,
+    // De film is altijd Wind: dunne deeltjes zoals de app bij volle windfocus (U101).
+    wind: { ...wind.WIND_PARAMETERS, lineWidth: wind.WIND_PARAMETERS.lineWidth * WIND_THIN_PARTICLE_WIDTH, count: wind.particleCountForViewport(FRAME.width, FRAME.height), focus: wind.WIND_FOCUS_INTENSITY,
       stagger: wind.WIND_INITIAL_STAGGER_SECONDS, simulation_fps: wind.WIND_SIMULATION_FPS, screen_speed: wind.windScreenSpeed(1),
       damping_reference: wind.DAMPING_REFERENCE_SPEED, weak_speed: wind.WEAK_WIND_SPEED, weak_boost: wind.WEAK_WIND_MAX_BOOST,
       stops: wind.BEAUFORT_STOPS, light: wind.LIGHT_RAMP, dark: wind.DARK_RAMP },
@@ -42,6 +47,15 @@ export function modeConstants() {
       line_profile: map.lineProfile(map.isolineWidthCss(ELEMENT_ZOOM) * FRAME.scale),
       light_temperature: isoline.isolineColor('light', 'temperature'), dark_temperature: isoline.isolineColor('dark', 'temperature'),
       light_pressure: isoline.isolineColor('light', 'pressure'), dark_pressure: isoline.isolineColor('dark', 'pressure') },
+    beaufort: { lower_ms: BEAUFORT_LOWER_MS, colors: BEAUFORT_COLORS, codes_per_force: CODES_PER_FORCE, fill_opacity: WIND_FILL_OPACITY },
+    windsock: {
+      samples: WINDSOCK_SAMPLES, bands: WINDSOCK_BANDS, ...WINDSOCK_SHAPE.sizes.kaart, full_force: WINDSOCK_SHAPE.fullForce,
+      slack_length: WINDSOCK_SHAPE.slackLength, slack_tail: WINDSOCK_SHAPE.slackTail, full_tail_gain: WINDSOCK_SHAPE.fullTailGain,
+      slack_bend: WINDSOCK_SHAPE.slackBend, style: WINDSOCK_STYLE, badge: WINDSOCK_BADGE, badge_at_mouth: DEFAULT_WINDSOCK_BADGE === 'mond',
+      stream_km: WINDSOCK_STREAM_KM, lag_minutes: WINDSOCK_LAG_MINUTES, max_bend: MAX_BEND_DEGREES,
+      stream: DEFAULT_WINDSOCK_CURVATURE !== 'traag', lag: DEFAULT_WINDSOCK_CURVATURE !== 'stroom', flutter: WINDSOCK_FLUTTERS[DEFAULT_WINDSOCK_FLUTTER],
+      places: windsockPlaces().map((place) => ({ lng: place.lng, lat: place.lat, phase: windsockPhase(place.name) })),
+    },
     labels: { spacing: labels.LABEL_SPACING_PX, distance: labels.LABEL_MIN_DISTANCE_PX, maximum: labels.MAX_LABEL_ANCHORS },
     saturation: map.MAP_FOCUS_SATURATION, bounds: NETHERLANDS_FLANDERS_BOUNDS,
     // U100: de bot tekent de vaste schaal; Rust interpoleert deze stops, geen eigen kopie van de ankers.

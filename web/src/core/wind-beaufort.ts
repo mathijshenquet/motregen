@@ -33,7 +33,7 @@ export function beaufortScale(speed: number): number {
 }
 
 // Fijn genoeg dat de gladde B-spline-snede geen trappen ziet, en 13 klassen passen in één byte.
-const CODES_PER_FORCE = 18
+export const CODES_PER_FORCE = 18
 const NO_DATA = 255
 
 /**

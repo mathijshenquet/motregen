@@ -1,7 +1,7 @@
 import type { Map as MapLibreMap } from 'maplibre-gl'
 import { beaufortScale } from './wind-beaufort.js'
 import { DEFAULT_WINDSOCK_BADGE, WINDSOCK_BADGE_POSITIONS, WINDSOCK_BANDS, windsockBadge, windsockBand, windsockOutline, windsockShape, type Point, type WindsockBadgePosition, type WindsockShape } from './wind-glyph.js'
-import { DEFAULT_WINDSOCK_CURVATURE, DEFAULT_WINDSOCK_FLUTTER, flutterBends, sampleWind, WINDSOCK_CURVATURES, WINDSOCK_FLUTTERS, windsockHeadings, type WindsockCurvature, type WindsockField, type WindsockFlutter, type WindsockFlutterName } from './windsock-flow.js'
+import { DEFAULT_WINDSOCK_CURVATURE, DEFAULT_WINDSOCK_FLUTTER, flutterBends, sampleWind, windsockPhase, WINDSOCK_CURVATURES, WINDSOCK_FLUTTERS, windsockHeadings, type WindsockCurvature, type WindsockField, type WindsockFlutter, type WindsockFlutterName } from './windsock-flow.js'
 import type { TemperaturePlace } from './temperature.js'
 import { windValue, type WindUnit } from './weather.js'
 import { recordPerfPhase } from './perf.js'
@@ -72,7 +72,7 @@ export class WindsockLayer {
     this.socks = places.map((place) => {
       const x = place.lng * Math.PI / 180 * MERCATOR_RADIUS
       const y = Math.log(Math.tan(Math.PI / 4 + place.lat * Math.PI / 360)) * MERCATOR_RADIUS
-      return { place, x, y, phase: stablePhase(place.name) }
+      return { place, x, y, phase: windsockPhase(place.name) }
     })
     this.draw()
   }
@@ -258,12 +258,6 @@ function polygon(points: readonly Point[]): string {
   return `M${points.map(([x, y]) => `${x} ${y}`).join('L')}Z`
 }
 
-/** Vaste fase per plaats, zodat de zakken niet in de maat trillen. */
-function stablePhase(name: string): number {
-  let hash = 0
-  for (const character of name) hash = (hash * 31 + character.charCodeAt(0)) | 0
-  return (hash >>> 0) % 628 / 100
-}
 
 /** Dev-knoppen van ronde 3 (`?dev&kromming=`, `&fladder=`, `&badge=`, `&windfactor=`); zonder knop de gekozen defaults. */
 export function windsockDevOptions(params: URLSearchParams): Omit<WindsockLayerOptions, 'reducedMotion'> {

@@ -17,6 +17,7 @@ import { blendFixture, overlapFixture } from '../web/src/core/time-model.fixture
 import type { Manifest, Source } from '../web/src/core/contract.js'
 import { generateModeConstants } from './render-mode-constants.js'
 import { generateIsolineFixtures } from './render-isoline-fixtures.js'
+import { generateWindsockFixtures } from './render-windsock-fixtures.js'
 
 function preferredSource(sources: Source[], now: string): Source {
   const manifest: Manifest = {
@@ -122,6 +123,7 @@ const outputs = [
 export async function generateRenderConstants(check = false): Promise<void> {
   await generateModeConstants(check)
   await generateIsolineFixtures(check)
+  await generateWindsockFixtures(check)
   for (const [path, generate] of outputs) {
     const expected = JSON.stringify(generate()) + '\n'
     if (check) {

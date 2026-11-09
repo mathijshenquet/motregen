@@ -14,7 +14,7 @@ export const WINDSOCK_STREAM_KM = 120
 /** De staart volgt de richting van zoveel minuten eerder; de mond de huidige. */
 export const WINDSOCK_LAG_MINUTES = 90
 /** Meer dan dit buigt een echte zak niet; daarboven wordt het een krul. */
-const MAX_BEND_DEGREES = 75
+export const MAX_BEND_DEGREES = 75
 
 /** Windveld op één tijdstip: twee uurframes (u,v om en om, m/s) en hun menging. */
 export interface WindSlice {
@@ -129,4 +129,11 @@ export function flutterBends(flutter: WindsockFlutter, strength: number, seconds
     const t = index / WINDSOCK_SAMPLES
     return onset * amplitude * t ** 1.3 * Math.sin(2 * Math.PI * (frequency * seconds - 1.1 * t) + phase)
   })
+}
+
+/** Vaste trillingsfase per plaats (0–6,28 rad), zodat de zakken niet in de maat trillen. */
+export function windsockPhase(name: string): number {
+  let hash = 0
+  for (const character of name) hash = (hash * 31 + character.charCodeAt(0)) | 0
+  return (hash >>> 0) % 628 / 100
 }
