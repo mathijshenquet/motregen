@@ -13,22 +13,35 @@ const request = <T>(value: IDBRequest<T>) => new Promise<T>((resolve, reject) =>
   value.onerror = () => reject(value.error)
 })
 
+export interface StoreTiming { op: 'open' | 'members'; ms: number; outcome: string }
+
 export class RangeByteCache {
   private database?: Promise<IDBDatabase | undefined>
+  /** Meetpunt (U109): de laadtrace hangt hier zijn markering aan. */
+  observe?: (timing: StoreTiming) => void
 
   constructor(private readonly name = 'motregen-weather-bytes-v1', private readonly budget = 48 * 1024 * 1024, private readonly limit = 512) {}
+
+  /** Vroeg openen (startup.ts), vóór de app de hoofddraad bezet: anders viel het openen op de time-out (U109). */
+  warm(): void {
+    void this.open()
+  }
 
   private open(): Promise<IDBDatabase | undefined> {
     return this.database ??= new Promise((resolve) => {
       if (typeof indexedDB === 'undefined') { resolve(undefined); return }
       let settled = false
-      const finish = (db?: IDBDatabase) => {
-        if (settled) { db?.close(); return }
+      const started = performance.now()
+      const finish = (db?: IDBDatabase, outcome = db ? 'open' : 'fout') => {
+        // Te laat voor wie al wachtte (die ging naar het netwerk), maar wel bruikbaar voor alle volgende lookups;
+        // vroeger bleef de cache dan de hele sessie uit.
+        if (settled) { this.observe?.({ op: 'open', ms: performance.now() - started, outcome: `laat-${outcome}` }); if (db) this.database = Promise.resolve(db); return }
         settled = true
         clearTimeout(timer)
+        this.observe?.({ op: 'open', ms: performance.now() - started, outcome })
         resolve(db)
       }
-      const timer = setTimeout(() => finish(), 250)
+      const timer = setTimeout(() => finish(undefined, 'timeout'), 250)
       try {
         const opening = indexedDB.open(this.name, 1)
         opening.onupgradeneeded = () => {
@@ -59,6 +72,8 @@ export class RangeByteCache {
   async getMembers(hashes: string[]): Promise<Map<string, Uint8Array>> {
     const found = new Map<string, Uint8Array>()
     if (!hashes.length) return found
+    const started = performance.now()
+    let outcome = 'geen db'
     try {
       const db = await this.open()
       if (!db) return found
@@ -67,7 +82,10 @@ export class RangeByteCache {
         const bytes = await readRange(tx, memberUrl(hash))
         if (bytes) found.set(hash, bytes)
       }))
-    } catch { /* Een gedeeltelijke vondst is nog steeds bruikbaar. */ }
+      outcome = `${found.size}/${hashes.length}`
+    } catch { outcome = 'fout' /* Een gedeeltelijke vondst is nog steeds bruikbaar. */ } finally {
+      this.observe?.({ op: 'members', ms: performance.now() - started, outcome })
+    }
     return found
   }
 

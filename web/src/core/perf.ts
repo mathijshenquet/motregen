@@ -295,6 +295,8 @@ export type LoadMarkTrace =
   | { kind: 'stage'; t: number; stage: string }
   | { kind: 'rain'; t: number; loaded: number[]; total: number }
   | { kind: 'timeline'; t: number; now: number; horizonEnd: number; frames: Array<{ url: string; frameIndex: number; epoch: number; source: string }> }
+  /** U109: IndexedDB-bytecache: openen (uitkomst open/timeout/laat/fout) en member-lookups (gevonden/gevraagd). */
+  | { kind: 'store'; t: number; op: 'open' | 'members'; ms: number; outcome: string }
 
 export interface LoadTraceSnapshot {
   requests: LoadRequestTrace[]
