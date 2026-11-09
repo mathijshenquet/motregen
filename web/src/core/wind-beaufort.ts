@@ -153,6 +153,12 @@ export function windLookName(value: string | null): WindLookName | undefined {
   return value && value in WIND_LOOKS ? value as WindLookName : undefined
 }
 
+/** `?dev&vaan=<glyph>` zonder `wind=` staat bovenop de vlakken (ronde 2 van U101). */
+export function windLookFromSearch(search: string): WindLookName | undefined {
+  const params = new URLSearchParams(search)
+  return windLookName(params.get('wind')) ?? (params.has('vaan') ? 'vlakken' : undefined)
+}
+
 /** Deeltjes in een proefvariant: lijnbreedte- en zichtbaarheidsfactor bij volle windfocus. */
 export const WIND_THIN_PARTICLE_WIDTH = 0.55
 /** Dekking van de Beaufortvlakken; veel hoger dan Gevoel (0,35), want de klasse moet zonder legenda leesbaar zijn. */

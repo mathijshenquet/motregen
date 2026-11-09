@@ -70,7 +70,8 @@ import { formatUv, uvChipLabel, uvLevel, uvReading } from './core/uv'
 import { WIND_UNITS, type WindUnit } from './core/weather'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
 import { DEFAULT_WIND_TUNING, MOBILE_WIND, WIND_MAX_FPS, WIND_PARAMETERS, WIND_SIMULATION_FPS, WindLayer } from './core/wind-layer'
-import { BEAUFORT_LEGEND, beaufortFrame, beaufortPalette, WIND_FILL_OPACITY, WIND_LOOKS, WIND_THIN_PARTICLE_WIDTH, windLookName, windVanePlaces, windVanes, windVaneSpacingPx } from './core/wind-beaufort'
+import { BEAUFORT_LEGEND, beaufortFrame, beaufortPalette, WIND_FILL_OPACITY, WIND_LOOKS, WIND_THIN_PARTICLE_WIDTH, windLookFromSearch, windVanePlaces, windVanes, windVaneSpacingPx } from './core/wind-beaufort'
+import { windGlyphName } from './core/wind-glyph'
 import { WindVaneMarkers } from './core/wind-vanes'
 import { clearTuningStorage, nightCue, TABLE_CONTRASTS, type TableContrast } from './core/dev-settings'
 import { watchIdle } from './core/activity'
@@ -221,7 +222,8 @@ function basemapTileKey(event: { sourceId?: string; tile?: { tileID?: { key?: st
 
 export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const devMode = new URLSearchParams(window.location.search).has('dev')
-  const windLookVariant = devMode ? windLookName(new URLSearchParams(window.location.search).get('wind')) : undefined
+  const windLookVariant = devMode ? windLookFromSearch(window.location.search) : undefined
+  const windGlyphVariant = devMode ? windGlyphName(new URLSearchParams(window.location.search).get('vaan')) : undefined
   const stillMode = new URLSearchParams(window.location.search).get('still') === '1'
   let rigFreeCamera = false
   // Bewaar de invoer voordat de live permalink de adresbalk normaliseert.
@@ -662,7 +664,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   })
   // Isobaren (U35): pas bij de eerste windfocus opgehaald, dus de cold start blijft gelijk.
   const pressureIsolines = isolineSet({
-    kind: 'pressure', layerId: 'motregen-isobars', timeline: pressureTimeline, focus: windFocus, active: createMemo(() => windFocus() > 0),
+    // In de windmodus-proef geen isobaren (PO 2026-11-09, U101 ronde 2): de Bft-lijnen zijn de lijnen.
+    kind: 'pressure', layerId: 'motregen-isobars', timeline: pressureTimeline, focus: windFocus, active: createMemo(() => windFocus() > 0 && !windLookVariant),
     step: isobarStep, style: isobarStyle, coverage: isobarCoverage, setCount: setIsobarCount,
   })
   // Bewolkingssluier (PO 2026-09-25 live, U34): cloud_frac als zachte grijswitte vulling, zonder lijnen of
@@ -2302,7 +2305,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       if (request !== shownWindVaneRequest || !map) return
       const { clientWidth, clientHeight } = map.getContainer()
       const places = selectTemperaturePlaces(map.getZoom(), windVaneSpacingPx(clientWidth, clientHeight), windVanePlaces)
-      windVaneMarkers ??= new WindVaneMarkers(map, look.vanes)
+      windVaneMarkers ??= new WindVaneMarkers(map, look.vanes, windGlyphVariant)
       windVaneMarkers.setVanes(windVanes(leftVectors, rightVectors, header.grid, blend.mix, places))
       windVaneMarkers.setOpacity(windFocus())
     } catch {
