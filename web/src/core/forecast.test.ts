@@ -23,20 +23,29 @@ describe('hourly forecast', () => {
     Array.from({ length: count }, (_, index) => frame(at(from) + index * 3_600_000 + offset))
 
   it('spans six history hours through the last forecast hour and marks the current hour', () => {
-    const rain = hourly('2026-08-28T12:00:00Z', 30, 5 * 60_000)
+    const rain = hourly('2026-08-28T09:00:00Z', 33, 5 * 60_000)
     const temperature = hourly('2026-08-28T09:00:00Z', 54)
     const rows = buildHourlyForecast(timelines({ rain, temperature }), start)
 
-    expect(rows[0]).toMatchObject({ epoch: at('2026-08-28T09:00:00Z'), kind: 'past', temperatureIndex: 0, rainIndex: null })
+    expect(rows[0]).toMatchObject({ epoch: at('2026-08-28T09:00:00Z'), kind: 'past', temperatureIndex: 0, rainIndex: 0 })
     expect(rows.filter((row) => row.kind === 'past')).toHaveLength(6)
-    expect(rows[6]).toMatchObject({ epoch: at('2026-08-28T15:00:00Z'), kind: 'now', rainIndex: 3 })
+    expect(rows[6]).toMatchObject({ epoch: at('2026-08-28T15:00:00Z'), kind: 'now', rainIndex: 6 })
     expect(rows.at(-1)).toMatchObject({ epoch: at('2026-08-30T14:00:00Z'), kind: 'future', temperatureIndex: 53 })
   })
 
-  it('starts at the first hour with data and never drops the current hour', () => {
+  it('starts the past where the radar starts: older hours have fields but could never get a weather icon (U104)', () => {
+    // Prod 2026-11-09 12:40 UTC: radar 3 u terug (09:45), uurvelden 6 u (hist5).
+    const rain = Array.from({ length: 36 }, (_, index) => frame(at('2026-08-28T12:25:00Z') + index * 5 * 60_000))
+    const temperature = hourly('2026-08-28T09:00:00Z', 54)
+    const cloud = hourly('2026-08-28T09:00:00Z', 54)
+    const rows = buildHourlyForecast(timelines({ rain, temperature, cloud }), start)
+    expect(rows[0]).toMatchObject({ epoch: at('2026-08-28T12:00:00Z'), kind: 'past' })
+    expect(rows.filter((row) => row.kind === 'past').every((row) => row.rainIndex != null && row.cloudIndex != null)).toBe(true)
+  })
+
+  it('never drops the current hour', () => {
     const temperature = hourly('2026-08-28T13:00:00Z', 3)
-    const rows = buildHourlyForecast(timelines({ temperature }), start)
-    expect(rows.map((row) => row.kind)).toEqual(['past', 'past', 'now'])
+    expect(buildHourlyForecast(timelines({ temperature }), start).map((row) => row.kind)).toEqual(['now'])
     expect(buildHourlyForecast(timelines({}), start).map((row) => row.kind)).toEqual(['now'])
   })
 

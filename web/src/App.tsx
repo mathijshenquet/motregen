@@ -87,6 +87,7 @@ import { READY_WINDOW_MS, windowReady } from './core/window-ready'
 import { visibleSlotStates } from './core/screen-truth'
 import type { Intent } from './core/intent'
 import { coldProfileRequested, decode, fetchManifest, initialClient, initialManifest, manifestUrl, perf, profileMode } from './startup'
+import { loadsHistoryEarly } from './core/decode-budget'
 const defaultLocation = DEFAULT_LOCATION
 // Intent (MIP-20): velden die de kaart of de scrubber in een van de modi tekent; de straling hoort
 // erbij omdat ze de hemel achter de scrubber kleurt (U62). Na deze rust geldt de scrubber als stilstaand.
@@ -2606,7 +2607,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
 
   createEffect(() => {
-    if (!tableViewAvailable() || pointLoadStage() === 'initial') return
+    if (!loadsHistoryEarly(decode, tableViewAvailable()) || pointLoadStage() === 'initial') return
     untrack(() => { void loadHistoryRows() })
   })
 
