@@ -5,6 +5,8 @@ use std::sync::OnceLock;
 pub struct ModeConstants {
     pub loops: LoopPlans,
     pub scale: f64,
+    /// Factor on the fixed pixel sizes of clock, footer and labels, tuned at scale 1.5 (U103).
+    pub element_scale: f64,
     pub wind: Wind,
     pub isoline: Isoline,
     pub labels: Labels,
@@ -204,6 +206,16 @@ pub fn mode_constants() -> &'static ModeConstants {
         serde_json::from_str(include_str!("../assets/mode-constants.json"))
             .expect("generated mode constants")
     })
+}
+
+/// A pixel size tuned at scale 1.5, at the current element scale.
+pub fn element_px(pixels: f64) -> f64 {
+    pixels * mode_constants().element_scale
+}
+
+/// A text size in pixels tuned at scale 1.5, at the current element scale and rounded for the glyph cache.
+pub fn element_text(size: u32) -> u32 {
+    element_px(f64::from(size)).round() as u32
 }
 
 pub fn color(hex: &str) -> [u8; 3] {

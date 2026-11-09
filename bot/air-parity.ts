@@ -2,7 +2,8 @@ import { chromium } from 'playwright'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import sharp from 'sharp'
-import { FRAME, FRAME_PIXELS } from './config.js'
+import { FRAME, FRAME_PIXELS, FRAME_VIEWPORT } from './config.js'
+import { frameScreenshot } from './frame-capture.js'
 import { openRenderPage } from './render-open.js'
 import { validateManifest } from './stills.js'
 import { colorDifference } from './color-difference.js'
@@ -48,7 +49,7 @@ async function differenceImage(first: Uint8Array, second: Uint8Array, path: stri
 const browser = await chromium.launch({ executablePath: process.env.MOTREGEN_CHROMIUM_PATH, args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] })
 try {
   await mkdir(outputDirectory, { recursive: true })
-  const context = await browser.newContext({ viewport: FRAME, deviceScaleFactor: FRAME.scale, locale: 'nl-NL', timezoneId: 'Europe/Amsterdam', reducedMotion: 'reduce', serviceWorkers: 'block' })
+  const context = await browser.newContext({ viewport: FRAME_VIEWPORT, deviceScaleFactor: FRAME.scale, locale: 'nl-NL', timezoneId: 'Europe/Amsterdam', reducedMotion: 'reduce', serviceWorkers: 'block' })
   const page = await context.newPage()
   await openRenderPage(page, origin, 'air', manifest, now)
   // De stillweergave van de app past nog het oude kader; zet hem op de projectie van de Rust-platen.
@@ -70,7 +71,7 @@ try {
         await new Promise((resolve) => setTimeout(resolve, 1_000))
       }
     }
-    const reference = await page.screenshot()
+    const reference = await frameScreenshot(await page.screenshot())
     const referenceRgb = await sharp(reference).removeAlpha().raw().toBuffer()
     const nativeJpeg = await readFile(join(nativeDirectory, `air-${epoch}.jpg`))
     const nativeRgb = await sharp(nativeJpeg).removeAlpha().raw().toBuffer()

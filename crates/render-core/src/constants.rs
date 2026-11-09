@@ -7,6 +7,13 @@ pub struct Size {
     pub height: usize,
 }
 
+/// The frame in CSS pixels; not whole since U103 (960 / 2.25).
+#[derive(Debug, Deserialize)]
+pub struct FrameSize {
+    pub width: f64,
+    pub height: f64,
+}
+
 #[derive(Debug, Deserialize)]
 pub struct View {
     pub lng: f64,
@@ -24,7 +31,7 @@ pub struct Place {
 
 #[derive(Debug, Deserialize)]
 pub struct Constants {
-    pub frame: Size,
+    pub frame: FrameSize,
     pub size: Size,
     pub view: View,
     pub location: Place,

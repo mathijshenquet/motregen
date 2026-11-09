@@ -1,4 +1,9 @@
-use crate::{constants::constants, text::Text, time::clock_text};
+use crate::{
+    constants::constants,
+    mode_constants::{element_px, element_text},
+    text::Text,
+    time::clock_text,
+};
 use serde::Serialize;
 use std::str::FromStr;
 
@@ -66,13 +71,13 @@ pub fn shown_state(epoch: i64, still: bool) -> ClockState {
 
 fn digit_width(text: &mut Text) -> usize {
     ('0'..='9')
-        .map(|digit| text.width(&digit.to_string(), 58).ceil() as usize)
+        .map(|digit| text.width(&digit.to_string(), element_text(58)).ceil() as usize)
         .max()
         .unwrap()
 }
 
 pub fn clock_width(text: &mut Text) -> f32 {
-    digit_width(text) as f32 * 4.0 + text.width(":", 58)
+    digit_width(text) as f32 * 4.0 + text.width(":", element_text(58))
 }
 
 pub fn draw_clock(
@@ -87,13 +92,21 @@ pub fn draw_clock(
     let (left, top) = position;
     let state = shown_state(epoch, still);
     let width = digit_width(text);
-    let height = 56;
+    let height = element_px(56.0).round() as usize;
     let progress = transition.animation_progress(state.progress);
     let mut position = left;
     for (from, to) in state.from.chars().zip(state.to.chars()) {
         if from == ':' {
-            text.draw(rgb, ":", (position, top + 67), 58, color, None);
-            position += text.width(":", 58);
+            let size = element_text(58);
+            text.draw(
+                rgb,
+                ":",
+                (position, top + element_px(67.0).round() as i32),
+                size,
+                color,
+                None,
+            );
+            position += text.width(":", size);
             continue;
         }
         let old = text.digit_mask(from, width, height);
@@ -110,7 +123,7 @@ pub fn draw_clock(
                 width,
                 height,
                 left: position.round() as i32,
-                top: top + 15,
+                top: top + element_px(15.0).round() as i32,
                 color,
                 progress,
                 transition,

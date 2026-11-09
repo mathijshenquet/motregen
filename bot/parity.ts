@@ -2,7 +2,8 @@ import { chromium } from 'playwright'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import sharp from 'sharp'
-import { FRAME, FRAME_PIXELS } from './config.js'
+import { FRAME, FRAME_PIXELS, FRAME_VIEWPORT } from './config.js'
+import { frameScreenshot } from './frame-capture.js'
 import { openRenderPage } from './render-open.js'
 import { NativeOverlay } from './native-overlay.js'
 import { drawTemperatureLabels } from './native-labels.js'
@@ -46,7 +47,7 @@ function averageWind(samples: WindMetrics[]): WindMetrics {
 const browser = await chromium.launch({ executablePath: process.env.MOTREGEN_CHROMIUM_PATH, args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] })
 try {
   await mkdir(outputDirectory, { recursive: true })
-  const context = await browser.newContext({ viewport: FRAME, deviceScaleFactor: FRAME.scale, locale: 'nl-NL', timezoneId: 'Europe/Amsterdam', reducedMotion: 'reduce', serviceWorkers: 'block' })
+  const context = await browser.newContext({ viewport: FRAME_VIEWPORT, deviceScaleFactor: FRAME.scale, locale: 'nl-NL', timezoneId: 'Europe/Amsterdam', reducedMotion: 'reduce', serviceWorkers: 'block' })
   let page = await context.newPage()
   const cache = process.env.MOTREGEN_RENDER_CACHE ?? '../tmp/u71a-parity'
   const data = new NativeRainData(origin, manifest)
@@ -91,7 +92,7 @@ try {
     const columnShift = (nativeCenter.x - FRAME.width / 2) * FRAME.scale
     if (Math.abs(columnShift) > 0.5) throw new Error(`App-kader wijkt horizontaal ${columnShift.toFixed(1)} px af`)
     const rowShift = Math.round((nativeCenter.y - FRAME.height / 2) * FRAME.scale)
-    const reference = await page.screenshot()
+    const reference = await frameScreenshot(await page.screenshot())
     const referenceRgb = await sharp(reference).removeAlpha().raw().toBuffer()
     let rgb: Buffer
     const theme = rainTheme(epoch)

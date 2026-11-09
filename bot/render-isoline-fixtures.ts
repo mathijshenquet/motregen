@@ -9,6 +9,7 @@ import { traceContours } from '../web/src/core/isoline-contours.js'
 import { NativeIsolineLabels } from './native-isoline-labels.js'
 import { nativeProjection } from './native-projection.js'
 import { FRAME } from './config.js'
+import { isolineTolerancePx } from './native-view.js'
 
 interface Input { source: string; kind: 'pressure' | 'temperature'; grid: Grid; raw: Array<number | null>; step: number }
 const path = new URL('../crates/render-core/assets/isoline-fixtures.json', import.meta.url)
@@ -40,7 +41,7 @@ export async function generateIsolineFixtures(check = false, directory?: string)
     const { grid, kind, step } = input
     const prepared = prepareField(blurField({ width: grid.width, height: grid.height, values: Float32Array.from(input.raw, (value) => value ?? NaN) }, isolineBlurPasses(kind)))
     const projection = nativeProjection(grid)
-    const tolerance = 2 ** Math.round(Math.log2(0.25 * projection.cellsPerPixel * FRAME.scale))
+    const tolerance = 2 ** Math.round(Math.log2(isolineTolerancePx() * projection.cellsPerPixel * FRAME.scale))
     const contours = traceContours(prepared, grid, { step, toleranceCells: tolerance })
     const labelLines = isolineFeatures({ width: grid.width, height: grid.height, values: Float32Array.from(prepared.values, (value, index) => prepared.valid[index]! > 0.5 ? value : NaN) }, grid, step, 60, kind)
     const labels = new NativeIsolineLabels().place({ grid, kind, step, field: prepared, contours, labelLines, labelKey: 'fixture', colors: new Float32Array(), segments: new Float32Array(), opacity: 1 }, 'light')

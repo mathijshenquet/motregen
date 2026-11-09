@@ -1,4 +1,5 @@
 use render_core::{
+    constants::constants,
     contours::{self, Contour},
     field::Field,
     isoline_labels::{Labels, Placement, Screen},
@@ -89,9 +90,9 @@ fn real_fields_contours_and_label_anchors_follow_typescript() {
                 0.5 - projection.rows[0] * pixels_y,
             ],
             pixels_per_cell: [pixels_x, pixels_y],
-            width: 960.0,
-            height: 1272.0,
-            scale: 1.5,
+            width: constants().size.width as f64,
+            height: constants().size.height as f64,
+            scale: mode_constants().scale,
         };
         let labels = Labels::default().place(Placement {
             field: &field,
