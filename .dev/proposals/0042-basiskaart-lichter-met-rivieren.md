@@ -1,6 +1,45 @@
-# MIP-42 — Basiskaart lichter, met doorlopende rivieren
+# MIP-42 — Basiskaart strak: doorlopende rivieren, gladde vlekken, een kwart van de tekenkosten
 
 Status: draft · auteur: worker U108 (opus-5.5) voor de orkestrator · gemeten 2026-11-09 · PO-wens 2026-11-09
+
+## Kort (PO-bijsturing 2026-11-09)
+
+De PO in de pane: "ik vond eigenlijk de originele kaart wel prima. Alleen de coarse grained rivieren/stedelijke gebieden
+zagen er gewoon niet zo goed uit […] we willen gewoon een knee hebben tussen (ziet er goed uit, draw kosten)." De kaart
+is decor om Nederland te herkennen onder regen, wolken, temperatuur en wind, geen atlas.
+
+Daarom is **`strak`** het voorstel: het **oorspronkelijke palet**, doorlopende rivierlijnen en opnieuw
+gegeneraliseerde landbedekking op z5–9. 90 % van de bytes en vertices zat in die landbedekking. z4 en z10 blijven
+gelijk.
+
+| NL-kader, alle lagen | `nu` | `strak` | verschil |
+| --- | ---: | ---: | ---: |
+| z6 | 171 KB · 98.065 vertices | 63 KB · 26.012 vertices | −63 % · −73 % |
+| z7 | 640 KB · 401.687 vertices | 164 KB · 75.788 vertices | −74 % · −81 % |
+| z8 | 1,49 MB · 879.326 vertices | 434 KB · 202.676 vertices | −71 % · −77 % |
+| z9 | 3,07 MB · 1.661.566 vertices | 1,62 MB · 714.509 vertices | −47 % · −57 % |
+
+Koud laden op de telefoon (alleen kaarttegels): startbeeld 61.556 → 35.024 B (−43 %), z7 416.404 → 135.905 B
+(−67 %), z8 461.841 → 170.630 B (−63 %). Gemeten met `tools/basemap/layer-cost.mts` (gzip per laag) en
+`web/scripts/basemap-variant-shots.ts`. Het archief krimpt van 24,3 naar 19,5 MB (`nl-bd431852530a7df7.pmtiles`).
+
+**Hoe `strak` ontstaat** (`tools/basemap/strak.sh`, ±5 min, geen OSM-herbouw nodig):
+1. `extract-layer.mts` leest landbedekking uit de z10-tegels en water uit de tegels van z5–8 van het huidige archief.
+2. Per zoom geldt dezelfde selectie als het oorspronkelijke profiel (`detail_minzoom ≤ zoom`). Daarna volgen een union
+   per klasse, licht sluiten en openen (0,3 px), weglaten onder 3 px² en vereenvoudigen op 0,5 px. Bebouwing, bos
+   en park houden zo hun massa, zonder rafels en losse snippers. Gras, zand en moeras komen pas vanaf z9. Plassen
+   onder 2 px² verdwijnen op z5–8.
+3. Rivierlijnen rang 1–2 (zie hieronder); rang 3 laat ik weg, want op z10 tekenen de oevervlakken.
+4. `compose.mts` vervangt de lagen per zoombereik in het bestaande archief. De overige lagen blijven bytegelijk.
+
+Eerste poging, zelf afgekeurd: sluiten met 1 px liet dorpen aan elkaar groeien (2× zoveel grijs). Park (de Veluwe is
+`park`) liet ik onder z9 weg, en daarmee verdween het groen. Beide zijn hersteld vóór de beelden hieronder.
+
+Beelden `nu` naast `strak` (app z6/7/8/10, telefoon/desktop, licht/donker, Gevoel/Wind, bot):
+`.dev/tracks/u108-basiskaart/bladen/strak/`. Live: `http://ageq-dev2:4308/?dev&kaart=strak` (vergelijk `?dev&kaart=nu`).
+
+De varianten `licht`, `licht-rivieren` en `atlas` hieronder waren de eerste verkenning (ander palet, zelfde
+landbedekking). Ze blijven achter `?dev&kaart=` staan tot de keuze, maar zijn niet meer mijn voorstel.
 
 ## Het probleem
 
@@ -37,8 +76,8 @@ onder het watervlak: waar de rivier breder is dan de lijn, tekent het vlak, dus 
   dat.
 - **Archief.** `tools/basemap/rivers.sh` maakt met GDAL de MVT-laag. `rivers-merge.mts` plakt hem per tegel achter
   de bestaande tegel; een MVT is een protobufbericht met herhaalde lagen. Tegels zonder rivier blijven bytegelijk.
-  Uitkomst: `nl-0e0be41b91fefb0f.pmtiles`, 24.586.189 B. Dat is 284.427 B (+1,17 %) meer dan het huidige archief,
-  vooral op z9–10 (rang 3).
+  Uitkomst (alle drie de rangen): `nl-965b910bc27fe00f.pmtiles`, 24.586.177 B. Dat is +1,17 % ten opzichte van het
+  huidige archief, vooral op z9–10 (rang 3).
 
 ## De varianten (`?dev&kaart=…`, vervalt 2026-11-23)
 
@@ -82,26 +121,22 @@ per zoom staan in `.dev/tracks/u108-basiskaart/bladen/`. Live: `http://ageq-dev2
 
 ## Aanbeveling
 
-**`licht-rivieren` als nieuwe standaard.** Het lost beide klachten op (licht én rivieren), het kost +2–3 % koude
-kaartbytes en het laat de weerlagen het werk doen. `atlas` is mooier als kaart op zich. Op een weerkaart vind ik
-het roze grenslint en de papiertoon net te veel eigen kleur onder temperatuur en wind.
-
-Eén onderdeel van `atlas` raad ik apart aan: de **donkere zee 's nachts**. Die maakt de kust onder regen en Gevoel
-beter leesbaar, en regen moet 's nachts lichter zijn dan de ondergrond. Dat kan als vervolgstap op
-`licht-rivieren`-donker.
+**`strak` als nieuwe standaard.** Het houdt de kaart die de PO goed vond, maakt rivieren en steden op lage zoom
+netjes, en tekent op z7 een vijfde van de vertices. Van de verkenning hierboven raad ik niets over te nemen; de
+lichtere paletten zijn een smaakkeuze die hier niet gevraagd is.
 
 ## Bij aanname (vervolg, niet in deze track)
 
-1. `licht-rivieren` wordt `licht.json`/`donker.json` en `manifest-rivieren.json` wordt `manifest.json`. Het oude
-   archief blijft tijdens de cacheovergang in het package (MIP-21). `GROUND_COLOURS` in `rain-palette.ts` volgt de
-   nieuwe grondkleuren; de test daar bewaakt dat.
+1. `strak` wordt `licht.json`/`donker.json` (palet gelijk, plus rivierlagen) en `manifest-strak.json` wordt
+   `manifest.json`. Het oude archief blijft tijdens de cacheovergang in het package (MIP-21). `GROUND_COLOURS` blijft
+   gelijk (zelfde palet). `publish.mts` moet de laag `waterway` toestaan.
 2. Botplaten opnieuw (`prepare-rust-basemaps` → `crates/render/assets/basemaps/`); de windzakankers controleren
    (`bot/windsock-anchors.ts`, naammasker).
-3. `docs/basemap.md`: de rivierlaag, de bron en `rivers.sh` toevoegen; de U60-meetrig (groen/grijs ±15 % van
-   Liberty) geldt bewust niet meer voor het lichte palet.
+3. `docs/basemap.md`: de rivierlaag, de bron, `rivers.sh`, `strak.sh` en `compose.mts` toevoegen. De U60-meetrig
+   (groen/grijs ±15 % van Liberty) opnieuw draaien op `strak`; bebouwing ligt bewust iets lager.
 4. De dev-knop en `web/public/dev-kaart/` weghalen.
 
 ## Vragen aan de PO
 
-1. Welke variant: `licht-rivieren` (mijn advies), `licht`, `atlas` of `nu`?
-2. 's Nachts de zee donkerder dan het land (zoals `atlas`)?
+1. `strak` als standaard (mijn advies), of nog een ronde op de generalisatie (meer of minder samensmelten,
+   gras/zand terug op z7–8)?

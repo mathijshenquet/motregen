@@ -5,7 +5,7 @@
   "sources": {
     "basemap": {
       "type": "vector",
-      "url": "pmtiles:///data/basemap/nl-0e0be41b91fefb0f.pmtiles",
+      "url": "pmtiles:///data/basemap/nl-965b910bc27fe00f.pmtiles",
       "attribution": "© <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>"
     }
   },

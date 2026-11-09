@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # U108: rivier-middellijnen als extra tegellaag `waterway` (rang 1–3) bovenop het bestaande archief.
 # Zonder vastgelegde rivers.geojson.gz eerst afleiden uit Overpass; daarna altijd: tegels maken en samenvoegen.
-# Gebruik: bash tools/basemap/rivers.sh [--refresh]
+# Gebruik: bash tools/basemap/rivers.sh [--refresh]; MOTREGEN_RIVER_MAX_RANK=2 laat rang 3 weg en schrijft alleen
+# de tegels (rivers-r2.mbtiles) voor strak.sh, zonder archief.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 scratch="${MOTREGEN_BASEMAP_SCRATCH:-tmp/basemap}/rivers"
@@ -22,13 +23,17 @@ if [ ! -f tools/basemap/rivers.geojson.gz ] || [ "${1:-}" = "--refresh" ]; then
 fi
 
 gzip --decompress --stdout tools/basemap/rivers.geojson.gz > "$scratch/rivers.geojson"
-rm -f "$scratch/rivers.gpkg" "$scratch/rivers.mbtiles"
-for rank in 1 2 3; do
+max_rank="${MOTREGEN_RIVER_MAX_RANK:-3}"
+tiles="$scratch/rivers$([ "$max_rank" = 3 ] || echo "-r$max_rank").mbtiles"
+rm -f "$scratch/rivers.gpkg" "$tiles"
+for rank in $(seq 1 "$max_rank"); do
   ogr2ogr -f GPKG $([ "$rank" = 1 ] || echo -update) "$scratch/rivers.gpkg" "$scratch/rivers.geojson" -nln "rank$rank" -where "rank = $rank" -select rank -t_srs EPSG:3857
 done
 # Rang 1 vanaf z5, rang 2 vanaf z7, rang 3 vanaf z9: dezelfde drempels als de stijl, zodat er geen bytes
 # meegaan die niet getekend worden.
-ogr2ogr -f MBTILES "$scratch/rivers.mbtiles" "$scratch/rivers.gpkg" \
+ogr2ogr -f MBTILES "$tiles" "$scratch/rivers.gpkg" \
   -dsco MINZOOM=4 -dsco MAXZOOM=10 -dsco COMPRESS=YES -dsco SIMPLIFICATION=2 -dsco SIMPLIFICATION_MAX_ZOOM=2 \
   -dsco CONF='{"rank1":{"target_name":"waterway","minzoom":5},"rank2":{"target_name":"waterway","minzoom":7},"rank3":{"target_name":"waterway","minzoom":9}}'
-(cd web && node --import tsx ../tools/basemap/rivers-merge.mts "../$scratch/rivers.mbtiles" "../$scratch")
+if [ "$max_rank" = 3 ]; then
+  (cd web && node --import tsx ../tools/basemap/compose.mts rivieren "../$scratch" "../$tiles")
+fi

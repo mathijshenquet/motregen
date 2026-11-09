@@ -12,7 +12,7 @@ import type { Manifest } from '../web/src/core/contract.js'
 
 const [origin, data, out, ...requested] = process.argv.slice(2)
 if (!origin || !data || !out) throw new Error('Gebruik: basemap-variant-plates.ts ORIGIN DATA OUT [variant…]')
-const variants = requested.length ? requested : ['nu', 'licht', 'licht-rivieren', 'atlas']
+const variants = requested.length ? requested : ['nu', 'licht', 'licht-rivieren', 'atlas', 'strak']
 const manifest = JSON.parse(await readFile(join(data, 'manifest.json'), 'utf8')) as Manifest
 const chunk = manifest.chunks.find((candidate) => !candidate.field || candidate.field === 'rain_rate')
 if (!chunk) throw new Error('Regen ontbreekt')

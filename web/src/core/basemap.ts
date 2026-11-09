@@ -7,7 +7,7 @@ export type { MapTheme } from './map-theme.js'
 const styleNames: Record<MapTheme, string> = { light: 'licht', dark: 'donker' }
 
 /** U108-proef (`?dev&kaart=`, eigenaar U108, vervalt 2026-11-23): stijlvarianten uit `public/dev-kaart/`. */
-export const BASEMAP_VARIANTS = ['nu', 'licht', 'licht-rivieren', 'atlas'] as const
+export const BASEMAP_VARIANTS = ['nu', 'licht', 'licht-rivieren', 'atlas', 'strak'] as const
 
 export function basemapVariant(search: string): typeof BASEMAP_VARIANTS[number] | undefined {
   const params = new URLSearchParams(search)

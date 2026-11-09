@@ -18,6 +18,8 @@ interface ThemePalette {
 
 export interface BasemapVariant {
   name: string
+  /** Welk archief: het huidige, met rivierlaag, of strak (rivieren + opnieuw gegeneraliseerde landbedekking/water). */
+  archive: 'basis' | 'rivieren' | 'strak'
   rivers: boolean
   palettes: Record<Theme, ThemePalette>
   riverScale?: number
@@ -106,9 +108,11 @@ const DARK_ATLAS: ThemePalette = {
 }
 
 export const BASEMAP_VARIANTS: BasemapVariant[] = [
-  { name: 'licht', rivers: false, palettes: { light: LIGHT_CALM, dark: DARK_CALM } },
-  { name: 'licht-rivieren', rivers: true, palettes: { light: LIGHT_CALM, dark: DARK_CALM } },
-  { name: 'atlas', rivers: true, palettes: { light: LIGHT_ATLAS, dark: DARK_ATLAS }, riverScale: 0.85 },
+  { name: 'licht', archive: 'basis', rivers: false, palettes: { light: LIGHT_CALM, dark: DARK_CALM } },
+  { name: 'licht-rivieren', archive: 'rivieren', rivers: true, palettes: { light: LIGHT_CALM, dark: DARK_CALM } },
+  { name: 'atlas', archive: 'rivieren', rivers: true, palettes: { light: LIGHT_ATLAS, dark: DARK_ATLAS }, riverScale: 0.85 },
+  // PO 2026-11-09: het oorspronkelijke palet was prima; alleen grove rivieren en stadsvlekken, en de tekenkosten.
+  { name: 'strak', archive: 'strak', rivers: true, palettes: { light: { paint: {} }, dark: { paint: {} } } },
 ]
 
 /** Breedte per zoom (px) voor rang 1–3; rang 2 en 3 vloeien in vanaf hun minimumzoom. */
@@ -141,7 +145,7 @@ export function applyVariant(style: Style, variant: BasemapVariant, theme: Theme
     return paint || state ? { ...layer, paint: { ...layer.paint, ...paint, ...state } } : layer
   })
   const waterIndex = layers.findIndex((layer) => layer.id === 'water')
-  const waterColour = palette.paint.water?.['fill-color'] as string
+  const waterColour = (palette.paint.water ?? layers[waterIndex]?.paint)?.['fill-color'] as string
   // Rivierlijnen onder het watervlak: waar de rivier breder is dan de lijn, tekent het vlak.
   if (variant.rivers) layers.splice(waterIndex, 0, ...([1, 2, 3] as const).map((rank) => riverLayer(rank, palette.river ?? waterColour, variant.riverScale ?? 1)))
   if (palette.borderRibbon) {
