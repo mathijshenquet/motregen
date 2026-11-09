@@ -9,8 +9,8 @@ interface VaneGeometry { radius: number; arrowLength: number; arrowWidth: number
 export function vaneGeometry(size: WindVaneSize, force: number): VaneGeometry {
   if (size === 'groot') return { radius: 15, arrowLength: 17, arrowWidth: 3.5, fontPx: 16 }
   if (size === 'windkracht') {
-    // 1 Bft een stompje, 8 Bft ruim twee keer de cirkel: sterkte is in één oogopslag te lezen.
-    return { radius: 13, arrowLength: 5 + force * 3.5, arrowWidth: 2 + force * 0.45, fontPx: 14 }
+    // 1 Bft een stompje, 5 Bft ruim de cirkel, 8 Bft bijna twee keer: sterkte is in één oogopslag te lezen.
+    return { radius: 13, arrowLength: 2 + force * 6, arrowWidth: 1.5 + force * 0.7, fontPx: 14 }
   }
   return { radius: 13, arrowLength: 14, arrowWidth: 3, fontPx: 14 }
 }
