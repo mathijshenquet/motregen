@@ -11,7 +11,7 @@ import * as palette from '../web/src/core/temperature-palette.js'
 import { NETHERLANDS_FLANDERS_BOUNDS } from '../web/src/core/map-frame.js'
 import { BEAUFORT_COLORS, BEAUFORT_LOWER_MS, CODES_PER_FORCE, WIND_FILL, WIND_NIGHT_LINE_LIGHTEN, WIND_THIN_PARTICLE_WIDTH } from '../web/src/core/wind-beaufort.js'
 import { DEFAULT_WINDSOCK_BADGE, WINDSOCK_BADGE, WINDSOCK_BANDS, WINDSOCK_SAMPLES, WINDSOCK_SHAPE, WINDSOCK_STYLE } from '../web/src/core/wind-glyph.js'
-import { DEFAULT_WINDSOCK_CURVATURE, MAX_BEND_DEGREES, SOCK_SNAP_SECONDS, WINDSOCK_LAG_MINUTES, WINDSOCK_MOMENTUM, WINDSOCK_STREAM_KM, WINDSOCK_SWAY_NUMBERS, windsockPhase } from '../web/src/core/windsock-flow.js'
+import { DEFAULT_WINDSOCK_CURVATURE, MAX_BEND_DEGREES, SOCK_SNAP_SECONDS, WINDSOCK_APPEAR_MARGIN, WINDSOCK_REACH_RADIUS, WINDSOCK_LAG_MINUTES, WINDSOCK_MOMENTUM, WINDSOCK_STREAM_KM, WINDSOCK_SWAY_NUMBERS, windsockPhase } from '../web/src/core/windsock-flow.js'
 import { DISC_MIN_EM, MAP_LABEL_SIZES, mapDiscRadius } from '../web/src/core/map-labels.js'
 import { MAP_PLACES, mapPlaceSpacingPx, MAX_PLACE_NUMBERS, nestedPlaces } from '../web/src/core/map-places.js'
 import { PLACE_LADDER } from '../web/src/core/map-label-placement.js'
@@ -61,6 +61,7 @@ export function modeConstants() {
       stream_km: WINDSOCK_STREAM_KM, lag_minutes: WINDSOCK_LAG_MINUTES, max_bend: MAX_BEND_DEGREES,
       stream: DEFAULT_WINDSOCK_CURVATURE !== 'traag', lag: DEFAULT_WINDSOCK_CURVATURE !== 'stroom',
       sway: WINDSOCK_SWAY_NUMBERS, momentum: WINDSOCK_MOMENTUM, snap_seconds: SOCK_SNAP_SECONDS,
+      reach_radius: WINDSOCK_REACH_RADIUS, appear_margin: WINDSOCK_APPEAR_MARGIN,
       places: windsockPlaces().map((place) => ({ lng: place.lng, lat: place.lat, phase: windsockPhase(place.name), offset: WINDSOCK_ANCHOR_OFFSETS[place.name] ?? [0, 0] })),
     },
     map_label: mapLabelConstants(),

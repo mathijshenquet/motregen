@@ -586,3 +586,73 @@ pub fn sway_bends(strength: f64, wave: f64, seconds: f64, phase: f64) -> Vec<f64
         })
         .collect()
 }
+
+/// `sockReach`: mast en de drie staartstanden (recht en de maximale wuifuitslag naar beide kanten), in CSS-px.
+pub struct Reach {
+    pub mast: Point,
+    pub tails: [Point; 3],
+}
+
+/// `heading`: schermrichting van de zak in kompasgraden, `strength` in Bft.
+pub fn sock_reach(mast: Point, heading: f64, strength: f64) -> Reach {
+    let settings = &mode_constants().windsock;
+    let sway = &settings.sway;
+    let calm = (strength / sway.amplitude.calm_force).min(1.0);
+    let spread = calm
+        * (sway.amplitude.max
+            - sway.amplitude.drop * (strength / sway.amplitude.taut_force).min(1.0))
+        + sway.gust.amplitude;
+    let tails = [0.0, -spread, spread].map(|offset| {
+        let tail = *shape(strength, &vec![heading + offset; settings.samples + 1])
+            .axis
+            .last()
+            .unwrap();
+        [mast[0] + tail[0], mast[1] + tail[1]]
+    });
+    Reach { mast, tails }
+}
+
+/// `socksClear`: raken twee zakken elkaar niet; `margin` > 1 vraagt extra ruimte.
+pub fn socks_clear(a: &Reach, b: &Reach, margin: f64) -> bool {
+    let gap = 2.0 * mode_constants().windsock.reach_radius * margin;
+    a.tails.iter().all(|tail_a| {
+        b.tails
+            .iter()
+            .all(|tail_b| segment_distance(a.mast, *tail_a, b.mast, *tail_b) >= gap)
+    })
+}
+
+fn segment_distance(a0: Point, a1: Point, b0: Point, b1: Point) -> f64 {
+    if segments_cross(a0, a1, b0, b1) {
+        return 0.0;
+    }
+    point_segment(a0, b0, b1)
+        .min(point_segment(a1, b0, b1))
+        .min(point_segment(b0, a0, a1))
+        .min(point_segment(b1, a0, a1))
+}
+
+fn point_segment([px, py]: Point, [ax, ay]: Point, [bx, by]: Point) -> f64 {
+    let (dx, dy) = (bx - ax, by - ay);
+    let length = dx * dx + dy * dy;
+    let t = if length > 0.0 {
+        (((px - ax) * dx + (py - ay) * dy) / length).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
+    (px - ax - t * dx).hypot(py - ay - t * dy)
+}
+
+fn segments_cross(a0: Point, a1: Point, b0: Point, b1: Point) -> bool {
+    let side = |[ox, oy]: Point, [px, py]: Point, [qx, qy]: Point| {
+        (px - ox) * (qy - oy) - (py - oy) * (qx - ox)
+    };
+    let (d1, d2, d3, d4) = (
+        side(b0, b1, a0),
+        side(b0, b1, a1),
+        side(a0, a1, b0),
+        side(a0, a1, b1),
+    );
+    ((d1 > 0.0 && d2 < 0.0) || (d1 < 0.0 && d2 > 0.0))
+        && ((d3 > 0.0 && d4 < 0.0) || (d3 < 0.0 && d4 > 0.0))
+}

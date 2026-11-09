@@ -40,6 +40,7 @@ export const WINDSOCK_STYLE = {
   orange: '#f2661c', white: '#fbfbf8', inkColor: '#17242b',
 } as const
 
+
 export interface WindsockShape {
   /** Rand links en rechts van de as gezien vanaf de mast, van mond tot staart; de mast ligt in (0, 0). */
   left: Point[]

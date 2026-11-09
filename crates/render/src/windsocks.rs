@@ -36,6 +36,9 @@ pub struct SockChain {
     seconds: Option<f64>,
     /// Per plaats in `mode_constants().windsock.places`.
     motions: Vec<SockMotion>,
+    /// Stond de zak het vorige frame (hysterese bij `socks_clear`).
+    #[serde(default)]
+    shown: Vec<bool>,
 }
 
 /// Wat het tekenen van één zak nodig heeft: de getekende richtingen per asstuk, kracht en het Bft-getal.
@@ -88,11 +91,19 @@ pub fn advance(
     chain
         .motions
         .resize(settings.places.len(), SockMotion::default());
+    chain.shown.resize(settings.places.len(), false);
+    let mut reaches: Vec<windsock::Reach> = Vec::new();
     let transform = screen(grid);
     let size = &constants().size;
     let scale = mode_constants().scale;
     let mut poses = Vec::new();
-    for (place, motion) in settings.places.iter().zip(&mut chain.motions) {
+    for ((place, motion), shown) in settings
+        .places
+        .iter()
+        .zip(&mut chain.motions)
+        .zip(&mut chain.shown)
+    {
+        let was_shown = std::mem::replace(shown, false);
         let (x, y) = project(place.lng, place.lat);
         let point = transform.point([(x - grid.x0) / grid.dx - 0.5, (y - grid.y0) / grid.dy - 0.5]);
         if point[0] < -90.0
@@ -121,6 +132,25 @@ pub fn advance(
             continue;
         };
         let strength = strength.value.max(0.0);
+        // Geen zakken over elkaar (`socksClear` in de app), in CSS-px.
+        let mast = [
+            point[0] / scale + place.offset[0],
+            point[1] / scale + place.offset[1],
+        ];
+        let reach = windsock::sock_reach(mast, target, windsock::beaufort_scale(speed));
+        let margin = if was_shown && !snap {
+            1.0
+        } else {
+            settings.appear_margin
+        };
+        if !reaches
+            .iter()
+            .all(|other| windsock::socks_clear(&reach, other, margin))
+        {
+            continue;
+        }
+        reaches.push(reach);
+        *shown = true;
         let bends = windsock::sway_bends(strength, motion.wave, seconds, place.phase);
         poses.push(SockPose {
             point: [
@@ -266,11 +296,10 @@ fn draw_sock(
         1.0,
         None,
     );
-    labels.draw(
+    labels.draw_ink_centered(
         rgb,
         label,
-        [center[0], center[1] + 0.5 * scale],
-        0.0,
+        center,
         TextStyle {
             size: (badge.font_px * scale).round() as u32,
             color: orange,

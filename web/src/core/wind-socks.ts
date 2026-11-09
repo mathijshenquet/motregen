@@ -1,7 +1,7 @@
 import type { Map as MapLibreMap } from 'maplibre-gl'
 import { beaufortScale } from './wind-beaufort.js'
 import { DEFAULT_WINDSOCK_BADGE, WINDSOCK_SAMPLES, windsockBadge, windsockShape, type WindsockShape } from './wind-glyph.js'
-import { advanceSock, angleDifference, DEFAULT_WINDSOCK_CURVATURE, sampleWind, SOCK_SNAP_SECONDS, swayBends, windsockHeadings, windsockPhase, type Spring, type WindsockField } from './windsock-flow.js'
+import { advanceSock, angleDifference, DEFAULT_WINDSOCK_CURVATURE, sampleWind, SOCK_SNAP_SECONDS, sockReach, socksClear, swayBends, WINDSOCK_APPEAR_MARGIN, windsockHeadings, windsockPhase, type SockReach, type Spring, type WindsockField } from './windsock-flow.js'
 import type { TemperaturePlace } from './temperature.js'
 import { windValue, type WindUnit } from './weather.js'
 import { recordPerfPhase } from './perf.js'
@@ -94,6 +94,7 @@ export class WindsockLayer {
   }
   private idleCamera = ''
   private layoutCamera = ''
+  private fieldChanged = false
   /** Laatste interactie (performance.now()), voor het wuifbudget. */
   private lastActivity = performance.now()
   private inView = true
@@ -155,6 +156,8 @@ export class WindsockLayer {
     if (sameField(field, this.field)) return
     this.lastActivity = performance.now()
     this.field = field
+    // Richting en lengte zijn veranderd: opnieuw toetsen of zakken elkaar raken (gedoseerd in draw).
+    this.fieldChanged = true
     this.draw()
   }
 
@@ -232,7 +235,8 @@ export class WindsockLayer {
     let settling = false
     const size = mapLabelSize(window.innerWidth, window.innerHeight)
     // Indelen bij een nieuwe stand (pin, plekken, stilstand) of tijdens bewegen hooguit om de LAYOUT_INTERVAL_MS.
-    if (this.layoutDirty || (this.drawnCamera !== this.layoutCamera && started - this.lastLayout >= LAYOUT_INTERVAL_MS)) {
+    if (this.layoutDirty || ((this.fieldChanged || this.drawnCamera !== this.layoutCamera) && started - this.lastLayout >= LAYOUT_INTERVAL_MS)) {
+      this.fieldChanged = false
       this.layoutCamera = this.drawnCamera
       this.layout(size, started)
       recordPerfPhase('windsock-layout', performance.now() - started)
@@ -273,10 +277,24 @@ export class WindsockLayer {
     this.lastLayout = now
     this.placer.begin()
     const side = 2 * (windsockBadge(STRAIGHT, DEFAULT_WINDSOCK_BADGE, '0', size).cutRadius + 1)
+    const reaches: SockReach[] = []
+    const field = this.field, bearing = this.map.getBearing()
     for (const sock of this.socks) {
       const screen = this.map.project([sock.place.lng, sock.place.lat])
       const ladder = SOCK_RING.map(([dx, dy]): Offset => [sock.offset[0] + dx, sock.offset[1] + dy])
-      sock.placed = this.placer.place(screen.x, screen.y, { width: side, height: side }, ladder, sock.placed?.index)
+      const wind = field && sampleWind(field, 0, sock.x, sock.y)
+      const compass = wind && windsockHeadings(field, sock.x, sock.y, DEFAULT_WINDSOCK_CURVATURE)
+      const strength = wind ? beaufortScale(Math.hypot(wind[0], wind[1]) * this.options.speedFactor) : 0
+      const shown = sock.placed !== undefined
+      let reach: SockReach | undefined
+      // Geen zakken over elkaar (windsock-flow `socksClear`); een zak die erbij komt, vraagt wat meer ruimte.
+      const clear = (dx: number, dy: number) => {
+        if (!compass) return true
+        reach = sockReach([screen.x + dx, screen.y + dy], compass[0]! - bearing, strength)
+        return reaches.every((other) => socksClear(reach!, other, shown ? 1 : WINDSOCK_APPEAR_MARGIN))
+      }
+      sock.placed = this.placer.place(screen.x, screen.y, { width: side, height: side }, ladder, sock.placed?.index, clear)
+      if (sock.placed && reach) reaches.push(reach)
     }
   }
 

@@ -14,6 +14,7 @@ struct Fixtures {
     field: FieldFixture,
     flow: Vec<FlowCase>,
     motions: Vec<MotionCase>,
+    reaches: Vec<ReachCase>,
     fills: Vec<FillCase>,
     beaufort: BeaufortCase,
 }
@@ -75,6 +76,22 @@ struct FlowCase {
     beide: Option<Vec<f64>>,
     stroom: Option<Vec<f64>>,
     traag: Option<Vec<f64>>,
+}
+
+#[derive(Deserialize)]
+struct ReachSide {
+    mast: Point,
+    heading: f64,
+    strength: f64,
+    tails: Vec<Point>,
+}
+
+#[derive(Deserialize)]
+struct ReachCase {
+    a: ReachSide,
+    b: ReachSide,
+    clear: bool,
+    clear_appear: bool,
 }
 
 #[derive(Deserialize)]
@@ -230,6 +247,34 @@ fn sampling_streamline_and_lag_match_the_app() {
             windsock::headings(&field, case.x, case.y, false, true),
             &case.traag,
             "traag",
+        );
+    }
+}
+
+#[test]
+fn sock_reach_and_overlap_test_match_the_app() {
+    for (index, case) in fixtures().reaches.into_iter().enumerate() {
+        let reach = |side: &ReachSide| windsock::sock_reach(side.mast, side.heading, side.strength);
+        let (a, b) = (reach(&case.a), reach(&case.b));
+        close_points(
+            &a.tails,
+            &case.a.tails,
+            &format!("geval {index}: staarten a"),
+        );
+        close_points(
+            &b.tails,
+            &case.b.tails,
+            &format!("geval {index}: staarten b"),
+        );
+        assert_eq!(
+            windsock::socks_clear(&a, &b, 1.0),
+            case.clear,
+            "geval {index}: vrij"
+        );
+        assert_eq!(
+            windsock::socks_clear(&a, &b, 1.15),
+            case.clear_appear,
+            "geval {index}: vrij met marge"
         );
     }
 }

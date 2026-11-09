@@ -1,5 +1,5 @@
 import type { Grid } from './contract.js'
-import { WINDSOCK_SAMPLES } from './wind-glyph.js'
+import { WINDSOCK_SAMPLES, WINDSOCK_SHAPE, windsockShape, type Point } from './wind-glyph.js'
 
 /**
  * Hoe de zak meebuigt: niet (standaard sinds PO 2026-11-09: "de kromming werkt niet echt"), met de stroomlijn door
@@ -249,3 +249,53 @@ export function advanceSock(motion: SockMotion, target: number, force: number, e
 
 /** Langer dan dit (s) tussen twee stappen: de zak springt naar het veld in plaats van er traag naartoe te draaien. */
 export const SOCK_SNAP_SECONDS = 1
+
+/**
+ * Geen zakken over elkaar (PO 2026-11-09: bij harde wind kruiste de zak van "6" die van "8"). Een zak beslaat de
+ * strook rond zijn as, van de mast tot de staart bij de huidige kracht en richting, en wuift tot de maximale uitslag
+ * naar beide kanten; die drie assen met een halve dikte van WINDSOCK_REACH_RADIUS (badge van twee cijfers, mond plus
+ * rand) mogen die van een andere zak niet raken. App (indeling), Node-bot en Rust (render-core windsock::reach)
+ * gebruiken deze regel.
+ */
+export const WINDSOCK_REACH_RADIUS = 12
+/** Kandidaten liggen minstens zo ver uit elkaar: een volle zak plus twee halve diktes (CSS-px). */
+export const WINDSOCK_SPACING_PX = Math.round(WINDSOCK_SHAPE.sizes.kaart.maxLength + 2 * WINDSOCK_REACH_RADIUS)
+/** Een zak die nog niet stond, heeft zoveel meer ruimte nodig: zo knippert er niets bij afspelen. */
+export const WINDSOCK_APPEAR_MARGIN = 1.15
+
+/** Mast en de drie staartstanden (recht, en de maximale wuifuitslag links en rechts) in CSS-px. */
+export interface SockReach { mast: Point; tails: Point[] }
+
+/** `heading`: schermrichting van de zak (kompasgraden min kaartdraaiing), `strength` in Bft. */
+export function sockReach(mast: Point, heading: number, strength: number): SockReach {
+  const spread = WINDSOCK_SWAY.amplitude(strength) + WINDSOCK_SWAY.gust.amplitude
+  const tails = [0, -spread, spread].map((offset) => {
+    const [x, y] = windsockShape(strength, Array<number>(WINDSOCK_SAMPLES + 1).fill(heading + offset), 'kaart').axis.at(-1)!
+    return [mast[0] + x, mast[1] + y] as Point
+  })
+  return { mast, tails }
+}
+
+/** Raken twee zakken elkaar niet? `margin` > 1 vraagt extra ruimte (een zak die erbij komt). */
+export function socksClear(a: SockReach, b: SockReach, margin = 1): boolean {
+  const gap = 2 * WINDSOCK_REACH_RADIUS * margin
+  return a.tails.every((tailA) => b.tails.every((tailB) => segmentDistance(a.mast, tailA, b.mast, tailB) >= gap))
+}
+
+function segmentDistance(a0: Point, a1: Point, b0: Point, b1: Point): number {
+  if (segmentsCross(a0, a1, b0, b1)) return 0
+  return Math.min(pointSegment(a0, b0, b1), pointSegment(a1, b0, b1), pointSegment(b0, a0, a1), pointSegment(b1, a0, a1))
+}
+
+function pointSegment([px, py]: Point, [ax, ay]: Point, [bx, by]: Point): number {
+  const dx = bx - ax, dy = by - ay
+  const length = dx * dx + dy * dy
+  const t = length ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / length)) : 0
+  return Math.hypot(px - ax - t * dx, py - ay - t * dy)
+}
+
+function segmentsCross(a0: Point, a1: Point, b0: Point, b1: Point): boolean {
+  const side = ([ox, oy]: Point, [px, py]: Point, [qx, qy]: Point) => (px - ox) * (qy - oy) - (py - oy) * (qx - ox)
+  const d1 = side(b0, b1, a0), d2 = side(b0, b1, a1), d3 = side(a0, a1, b0), d4 = side(a0, a1, b1)
+  return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))
+}

@@ -59,11 +59,16 @@ export function drawSock({ context, shape, badge, label, dark, fontFamily }: Soc
   context.strokeStyle = WINDSOCK_STYLE.inkColor
   context.lineWidth = 1.1
   context.stroke(circle)
+  // Het midden van de inkt (echte glyphgrenzen) precies in het midden van de cirkel, niet een basislijnschatting
+  // (PO 2026-11-09: "8" en "5" stonden net uit het midden).
   context.font = `800 ${badge.fontPx}px ${fontFamily}`
-  context.textAlign = 'center'
-  context.textBaseline = 'middle'
+  context.textAlign = 'left'
+  context.textBaseline = 'alphabetic'
   context.fillStyle = WINDSOCK_STYLE.orange
-  context.fillText(label, badge.x, badge.y + 0.5)
+  const ink = context.measureText(label)
+  context.fillText(label,
+    badge.x - (ink.actualBoundingBoxRight - ink.actualBoundingBoxLeft) / 2,
+    badge.y + (ink.actualBoundingBoxAscent - ink.actualBoundingBoxDescent) / 2)
   context.restore()
 }
 

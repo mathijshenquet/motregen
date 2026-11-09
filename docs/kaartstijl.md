@@ -45,14 +45,23 @@ Een getal op een eigen vlak staat op een cirkel met één vormregel (`mapDiscRad
 tekens × 0,3 em + 4 px). Bij 13 px: één cijfer 9,5 px, `12` en `8°` 11,8 px, `10°` 15,7 px.
 
 - Gevoel: de schijf heeft de kleur van de band van het getal (de isolijn wijkt eromheen); inkt en halo zoals hierboven.
-- Wind: witte schijf met inktrand `#17242b`, oranje getal (800); drie tekens (km/u) één maat kleiner.
+- Wind: witte schijf met inktrand `#17242b`, oranje getal (800); drie tekens (km/u) één maat kleiner. Het midden van
+  de inkt (gemeten glyphgrenzen: `measureText` in de app, de stempel in Rust, de glyph in Node) staat precies in het
+  midden van de cirkel, niet een basislijnschatting (PO 2026-11-09).
 
 ## Plekken
 
 Eén lijst (`MAP_PLACES`, `web/src/core/map-places.ts`): de temperatuurplaatsen in volgorde van belang plus acht
-waterpunten. Gevoelsgetallen en windzakken kiezen er dezelfde plekken uit met `nestedPlaces` (stabiel bij zoomen:
-inzoomen voegt alleen toe) en één afstand (`mapPlaceSpacingPx`: 1/16 van de kortste zijde, 40–64 px), hooguit 60.
-De bot gebruikt dezelfde keuze bij zijn vaste zoom. Stadstemperaturen in Weer en Lucht zijn bewust ijler
+waterpunten. Gevoelsgetallen en windzakken kiezen er hun plekken uit met `nestedPlaces` (stabiel bij zoomen:
+inzoomen voegt alleen toe), hooguit 60. De bot gebruikt dezelfde keuze bij zijn vaste zoom.
+
+- Gevoelsgetallen: `mapPlaceSpacingPx`, 1/16 van de kortste zijde, 40–64 px.
+- Windzakken (PO 2026-11-09: "te druk", en bij harde wind lagen zakken over elkaar): kandidaten op minstens
+  `WINDSOCK_SPACING_PX` = 70 px (een volle zak plus twee halve diktes), en geen zak raakt een andere
+  (`socksClear`): de as van mast tot staart bij de huidige kracht en richting, plus de maximale wuifuitslag naar beide
+  kanten, met een halve dikte van 12 px, mag die van een belangrijkere zak niet raken. Een zak die erbij komt vraagt
+  15 % meer ruimte (geen geknipper bij afspelen). De app toetst bij elke indeling en hooguit 4× per seconde na een
+  tijdstap, de bot per filmframe (Rust en Node, hysterese in de keten). Stadstemperaturen in Weer en Lucht zijn bewust ijler
 (`temperatureLabelSpacingPx`, 1/7; PO 2026-09-25) en komen uit de landplaatsen van dezelfde lijst.
 
 ## Uitwijken

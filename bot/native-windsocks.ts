@@ -1,8 +1,8 @@
 import sharp from 'sharp'
 import { beaufortNumber, beaufortScale } from '../web/src/core/wind-beaufort.js'
-import { mapPlaceSpacingPx, nestedPlaces } from '../web/src/core/map-places.js'
+import { nestedPlaces } from '../web/src/core/map-places.js'
 import { DEFAULT_WINDSOCK_BADGE, WINDSOCK_BADGE, WINDSOCK_BANDS, WINDSOCK_STYLE, windsockBadge, windsockBand, windsockInflated, windsockShape, type Point, type WindsockShape } from '../web/src/core/wind-glyph.js'
-import { advanceSock, angleDifference, DEFAULT_WINDSOCK_CURVATURE, sampleWind, SOCK_SNAP_SECONDS, swayBends, windsockPhase, WINDSOCK_LAG_MINUTES, windsockHeadings, type SockMotion, type WindsockField, type WindSlice } from '../web/src/core/windsock-flow.js'
+import { advanceSock, angleDifference, DEFAULT_WINDSOCK_CURVATURE, sampleWind, SOCK_SNAP_SECONDS, sockReach, socksClear, swayBends, WINDSOCK_APPEAR_MARGIN, windsockPhase, WINDSOCK_LAG_MINUTES, WINDSOCK_SPACING_PX, windsockHeadings, type SockMotion, type SockReach, type WindsockField, type WindSlice } from '../web/src/core/windsock-flow.js'
 import { FRAME, FRAME_PIXELS } from './config.js'
 import { nativeProjection } from './native-projection.js'
 import type { NativeRainData, RainFrame } from './native-rain.js'
@@ -27,10 +27,14 @@ export class NativeWindsocks {
   /** Momentum en golffase per plaats, per filmframe verder gestapt (U107: zoals de app, deterministisch). */
   private readonly motions = new Map<string, SockMotion>()
   private drawnSeconds = -Infinity
-  private constructor(private readonly text: NativeText) {}
+  /** Zakken die het vorige frame stonden (hysterese: een nieuwe zak vraagt WINDSOCK_APPEAR_MARGIN meer ruimte). */
+  private shown = new Set<string>()
+  /** Per getal: midden van de inkt t.o.v. het midden van de glyph (beeldpunten), zoals Rust `ink_offset`. */
+  private constructor(private readonly text: NativeText, private readonly inkOffsets: ReadonlyMap<string, readonly [number, number]>) {}
 
   static async prepare(): Promise<NativeWindsocks> {
     const glyphs = new Map<string, Glyph>()
+    const inkOffsets = new Map<string, readonly [number, number]>()
     for (let force = 0; force <= 12; force++) {
       const label = String(force)
       const width = 64, height = 48
@@ -38,8 +42,9 @@ export class NativeWindsocks {
       const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><text x="32" y="24.5" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans, sans-serif" font-size="${size}" font-weight="800" fill="${WINDSOCK_STYLE.orange}">${label}</text></svg>`
       const rgba = await sharp(Buffer.from(svg)).ensureAlpha().raw().toBuffer()
       for (const theme of ['light', 'dark'] as const) glyphs.set(`${theme}:${LABEL_STYLE}:${label}`, { rgba, width, height })
+      inkOffsets.set(label, inkOffset(rgba, width, height))
     }
-    return new NativeWindsocks(new NativeText(glyphs))
+    return new NativeWindsocks(new NativeText(glyphs), inkOffsets)
   }
 
   /** Het veld op `epoch` en een half en een heel WINDSOCK_LAG_MINUTES eerder, binnen de tijdlijn. */
@@ -78,6 +83,8 @@ export class NativeWindsocks {
     const elapsed = seconds - this.drawnSeconds
     const snap = !(elapsed > 0) || elapsed > SOCK_SNAP_SECONDS
     this.drawnSeconds = seconds
+    const reaches: SockReach[] = []
+    const shown = new Set<string>()
     for (const place of windsockPlaces()) {
       const x = place.lng * Math.PI / 180 * MERCATOR_RADIUS
       const y = Math.log(Math.tan(Math.PI / 4 + place.lat * Math.PI / 360)) * MERCATOR_RADIUS
@@ -87,15 +94,22 @@ export class NativeWindsocks {
       const compass = wind && windsockHeadings(field, x, y, DEFAULT_WINDSOCK_CURVATURE)
       if (!wind || !compass) continue
       const speed = Math.hypot(wind[0], wind[1])
+      const [offsetX, offsetY] = WINDSOCK_ANCHOR_OFFSETS[place.name] ?? [0, 0]
       const motion = this.motions.get(place.name) ?? { wave: 0 }
       this.motions.set(place.name, motion)
       advanceSock(motion, compass[0]!, beaufortScale(speed), elapsed, snap)
       const strength = Math.max(0, motion.strength!.value)
+      // Geen zakken over elkaar (windsock-flow `socksClear`), in CSS-px zoals de app.
+      const reach = sockReach([(screenX + offsetX * FRAME.scale) / FRAME.scale, (screenY + offsetY * FRAME.scale) / FRAME.scale], compass[0]!, beaufortScale(speed))
+      const margin = !snap && this.shown.has(place.name) ? 1 : WINDSOCK_APPEAR_MARGIN
+      if (!reaches.every((other) => socksClear(reach, other, margin))) continue
+      reaches.push(reach)
+      shown.add(place.name)
       const bends = swayBends(strength, motion.wave, seconds, windsockPhase(place.name))
       const shape = windsockShape(strength, compass.map((heading, index) => motion.heading!.value + angleDifference(compass[0]!, heading) + bends[index]!), 'kaart')
-      const [offsetX, offsetY] = WINDSOCK_ANCHOR_OFFSETS[place.name] ?? [0, 0]
       await this.drawSock(rgb, screenX + offsetX * FRAME.scale, screenY + offsetY * FRAME.scale, shape, String(beaufortNumber(speed)), theme, opacity)
     }
+    this.shown = shown
   }
 
   private async drawSock(rgb: Buffer, x: number, y: number, shape: WindsockShape, label: string, theme: NativeTheme, opacity: number): Promise<void> {
@@ -116,13 +130,26 @@ export class NativeWindsocks {
     fillPolygon(rgb, place(circle(badge.x, badge.y, badge.radius + ink), shadow.offsetY), BLACK, shadow.alpha * opacity)
     fillPolygon(rgb, place(circle(badge.x, badge.y, badge.radius + ink)), INK, opacity)
     fillPolygon(rgb, place(circle(badge.x, badge.y, badge.radius - ink)), HALO, opacity)
-    await this.text.draw(rgb, label, cut.x, cut.y + 0.5 * scale, 0, LABEL_STYLE, theme, opacity)
+    // Het midden van de inkt precies in het midden van de cirkel (U107), niet een basislijnschatting.
+    const [inkX, inkY] = this.inkOffsets.get(label) ?? [0, 0]
+    await this.text.draw(rgb, label, cut.x - inkX, cut.y - inkY, 0, LABEL_STYLE, theme, opacity)
   }
 }
 
-/** De plaatsen met een zak in het vaste botbeeld; ook de Rust-renderer krijgt deze lijst (render-mode-constants). */
+/** Midden van de inktgrenzen (alfa > 0) t.o.v. waar NativeText.draw het midden van de glyph zet. */
+export function inkOffset(rgba: Uint8Array | Buffer, width: number, height: number): [number, number] {
+  let left = width, top = height, right = -1, bottom = -1
+  for (let row = 0; row < height; row++) for (let column = 0; column < width; column++) {
+    if (!rgba[(row * width + column) * 4 + 3]) continue
+    left = Math.min(left, column); right = Math.max(right, column); top = Math.min(top, row); bottom = Math.max(bottom, row)
+  }
+  if (right < 0) return [0, 0]
+  return [(left + right) / 2 - width / 2 + 0.5, (top + bottom) / 2 - height / 2 + 0.5]
+}
+
+/** De plaatsen met een zak in het vaste botbeeld (zoals de app); ook de Rust-renderer krijgt deze lijst. */
 export function windsockPlaces() {
-  return nestedPlaces(NATIVE_VIEW.zoom, mapPlaceSpacingPx(FRAME.width, FRAME.height))
+  return nestedPlaces(NATIVE_VIEW.zoom, WINDSOCK_SPACING_PX)
 }
 
 export function thickLine([ax, ay]: Point, [bx, by]: Point, halfWidth: number): Point[] {

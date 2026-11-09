@@ -197,6 +197,9 @@ pub struct Windsock {
     pub sway: Sway,
     pub momentum: Momentum,
     pub snap_seconds: f64,
+    /// `WINDSOCK_REACH_RADIUS` en `WINDSOCK_APPEAR_MARGIN`: geen zakken over elkaar (U107).
+    pub reach_radius: f64,
+    pub appear_margin: f64,
     pub places: Vec<WindsockPlace>,
 }
 

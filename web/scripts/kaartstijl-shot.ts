@@ -6,7 +6,7 @@ import { join } from 'node:path'
 // inventaris- en voor/na-blad. Eén vaste kaarttijd (manifest-nu + 1 u, of --t).
 // usage: pnpm exec tsx scripts/kaartstijl-shot.ts ORIGIN OUT_DIR [EXTRA-QUERY] [TIJD-ISO]
 //   SHOT_MODES=wind,gevoel en SHOT_PROFILES=telefoon beperken de matrix; SHOT_THEMES=licht idem.
-//   SHOT_LEGEND=open klikt de legenda-knop open waar hij dicht is (telefoon).
+//   SHOT_DPR=3 overschrijft de pixeldichtheid (close-ups); SHOT_LEGEND=open klikt de legenda-knop open waar hij dicht is (telefoon).
 const [origin, outDir, extra = '', fixedTime] = process.argv.slice(2)
 if (!origin || !outDir) throw new Error('usage: pnpm exec tsx scripts/kaartstijl-shot.ts ORIGIN OUT_DIR [EXTRA-QUERY] [TIJD-ISO]')
 mkdirSync(outDir, { recursive: true })
@@ -26,7 +26,8 @@ const browser = await chromium.launch({ headless: true, args: ['--enable-webgl',
 for (const profileName of pick(Object.keys(profiles) as Array<keyof typeof profiles>, process.env.SHOT_PROFILES)) {
   for (const themeName of pick(Object.keys(themes) as Array<keyof typeof themes>, process.env.SHOT_THEMES)) {
     const theme = themes[themeName]
-    const context = await browser.newContext({ ...profiles[profileName], colorScheme: theme, locale: 'nl-NL', timezoneId: 'Europe/Amsterdam', serviceWorkers: 'block' })
+    const dpr = process.env.SHOT_DPR ? { deviceScaleFactor: Number(process.env.SHOT_DPR) } : {}
+    const context = await browser.newContext({ ...profiles[profileName], ...dpr, colorScheme: theme, locale: 'nl-NL', timezoneId: 'Europe/Amsterdam', serviceWorkers: 'block' })
     await context.addInitScript((value) => { localStorage.setItem('motregen-theme', value) }, theme)
     for (const mode of pick(modes, process.env.SHOT_MODES)) {
       const page = await context.newPage()

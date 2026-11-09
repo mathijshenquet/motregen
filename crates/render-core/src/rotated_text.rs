@@ -108,6 +108,49 @@ impl RotatedText {
         self.draw_excluding(rgb, text, center, angle, style, None);
     }
 
+    /// Rechtop, met het midden van de inkt (de echte glyphgrenzen, niet de basislijn) precies op `center`: het getal in
+    /// de windbadge (U107, PO: optisch exact in de cirkel, zoals de app met `measureText`).
+    pub fn draw_ink_centered(
+        &mut self,
+        rgb: &mut [u8],
+        text: &str,
+        center: [f64; 2],
+        style: TextStyle,
+    ) {
+        let offset = self.ink_offset(text, style.size);
+        self.draw(
+            rgb,
+            text,
+            [center[0] - offset[0], center[1] - offset[1]],
+            0.0,
+            style,
+        );
+    }
+
+    /// Midden van de inktgrenzen t.o.v. het punt waarop `draw` de stempel zet, in beeldpunten.
+    pub fn ink_offset(&mut self, text: &str, size: u32) -> [f64; 2] {
+        let stamp = self.stamp(text, size);
+        let (mut left, mut top, mut right, mut bottom) = (usize::MAX, usize::MAX, 0, 0);
+        for row in 0..stamp.height {
+            for column in 0..stamp.width {
+                if stamp.alpha[row * stamp.width + column] > 0 {
+                    left = left.min(column);
+                    right = right.max(column);
+                    top = top.min(row);
+                    bottom = bottom.max(row);
+                }
+            }
+        }
+        if left > right {
+            return [0.0, 0.0];
+        }
+        // `draw` zet stempelpixel s op schermpunt s − breedte/2 + midden + 0,5 (pixelmidden).
+        [
+            (left + right) as f64 / 2.0 - stamp.width as f64 / 2.0 + 0.5,
+            (top + bottom) as f64 / 2.0 - stamp.height as f64 / 2.0 + 0.5,
+        ]
+    }
+
     pub fn draw_excluding(
         &mut self,
         rgb: &mut [u8],
