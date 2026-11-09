@@ -255,3 +255,35 @@ pas 0,8–2,5 s later; ttfp schuift dan ~1 s op (bv. abfinal A2 warm, B1/B2 warm
 de aanvraag op 170–250 ms de lijn op. Het is geen nieuwe radarrun tussen koud en warm (zelfde chunk) en geen lange
 taak op de hoofddraad in dat venster. Volgende stap: in `MrfClient.getFrames` / `fetch-planner.ts` de tijd tussen
 header en dispatch per frame loggen (`perf.loads`), met deze rig herhalen.
+
+## Vervolg na review (orkestrator 2026-11-09 avond)
+
+### Stap 4: voorgecomprimeerde assets klaargezet (niet uitgerold)
+
+- `web/scripts/precompress-plugin.ts` (laatste plugin van de build): `.br` (brotli-11) en `.gz` (gzip-9) naast elk
+  comprimeerbaar bestand ≥ 1 kB (JS, CSS, HTML, JSON, SVG, PBF, …), niet onder `data/`, `changes/`, `perf-mobile/`.
+  37 bestanden, 2.289.712 → 592.161 B brotli. De SW-precache neemt de broertjes niet mee.
+- `routes.caddy` (`page-routes.ts`): `precompressed gzip` → `precompressed br gzip`; `Cache-Control: public,
+  max-age=86400` op `/basemap/fonts/*` (had geen enkele cacheheader). Lokaal met Caddy getoetst: br/gzip/identity
+  per `Accept-Encoding`, `Vary: Accept-Encoding`; `/weer/<plaats>` (templates) blijft ongecomprimeerd zoals nu.
+- NixOS-VM-test (`nix/tests/motregen.nix`) eist nu `content-encoding: br` en een kleiner antwoord op `/`; `nix build .#checks.x86_64-linux.nixos-vm` exit 0.
+
+Bytes per bestand, huidige build (`tmp/u109/precompress-bytes.txt`):
+
+| bestand | raw | nu via Cloudflare (zstd-3) | brotli-11 vooraf | gzip-9 |
+| --- | ---: | ---: | ---: | ---: |
+| `maplibre-*.js` | 1.053.055 | 291.305 | 232.494 | 282.268 |
+| `index-*.js` | 409.666 | 151.282 | 127.121 | 147.970 |
+| `index-*.css` | 105.173 | 27.378 | 21.999 | 25.847 |
+| `startup-*.js` | 51.572 | 19.293 | 16.780 | 18.419 |
+| glyphs `0-255.pbf` | 76.580 | 76.580 (ongecomprimeerd) | 31.817 | 41.804 |
+| `index.html` | 15.991 | 2.878 | 2.245 | 2.721 |
+| **kritiek pad koud** | | **568.716** | **432.456 (−136.260, −24 %)** | |
+
+Cloudflare (dashboard, staat niet in de repo): de winst komt er alleen als Cloudflare de origin-brotli doorgeeft in
+plaats van zelf opnieuw als zstd-3 te coderen. Na uitrol:
+1. `curl -sD - -o /dev/null -H 'Accept-Encoding: zstd, br, gzip' https://motregen.nl/assets/<maplibre>.js`; verwacht
+   `content-encoding: br` en ~232 kB. Komt er `zstd` (~291 kB), dan in *Rules → Compression Rules* voor `/assets/*` en
+   `/basemap/*` "Brotli" voorrang geven boven zstd (of zstd uitzetten voor die paden).
+2. Idem voor `/basemap/fonts/Noto%20Sans%20Regular/0-255.pbf` (verwacht br, 31,8 kB, `cache-control: public,
+   max-age=86400`). Cloudflare comprimeert `application/x-protobuf` zelf niet, dus hier geeft hij de origin-br door.
