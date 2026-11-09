@@ -96,6 +96,7 @@ pub fn publish_with_cams(
     publish_with_feeds(data_dir, now, chunks, prune_age, cams, None, None, None)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn publish_with_feeds(
     data_dir: &Path,
     now: String,

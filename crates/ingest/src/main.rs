@@ -981,7 +981,11 @@ mod tests {
     fn regions_join_the_manifest_only_when_enabled() {
         let directory = tempfile::tempdir().unwrap();
         let mut daemon = test_daemon(directory.path().into(), idle_test_worker());
-        daemon.rtcor = Some(test_chunk("rtcor", "2026-11-09T10:00:00Z", "rtcor-regions.mrf"));
+        daemon.rtcor = Some(test_chunk(
+            "rtcor",
+            "2026-11-09T10:00:00Z",
+            "rtcor-regions.mrf",
+        ));
         daemon.arome.push(test_chunk(
             "harmonie",
             "2026-11-09T07:00:00Z",
@@ -1000,7 +1004,10 @@ mod tests {
         daemon.regions = Some(RegionWriter::new(3).unwrap());
         daemon.publish().unwrap();
         let section = read_manifest().regions.unwrap();
-        assert_eq!((section.columns, section.rows, section.present.len()), (14, 15, 148));
+        assert_eq!(
+            (section.columns, section.rows, section.present.len()),
+            (14, 15, 148)
+        );
         assert!(section.groups.is_empty());
         assert_eq!(read_manifest().chunks.len(), 2);
     }
