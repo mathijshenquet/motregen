@@ -5,6 +5,15 @@ import type { MapTheme } from './map-theme.js'
 export type { MapTheme } from './map-theme.js'
 
 const styleNames: Record<MapTheme, string> = { light: 'licht', dark: 'donker' }
+
+/** U108-proef (`?dev&kaart=`, eigenaar U108, vervalt 2026-11-23): stijlvarianten uit `public/dev-kaart/`. */
+export const BASEMAP_VARIANTS = ['nu', 'licht', 'licht-rivieren', 'atlas'] as const
+
+export function basemapVariant(search: string): typeof BASEMAP_VARIANTS[number] | undefined {
+  const params = new URLSearchParams(search)
+  if (!params.has('dev')) return undefined
+  return BASEMAP_VARIANTS.find((name) => name !== 'nu' && name === params.get('kaart'))
+}
 const cache = new Map<MapTheme, Promise<StyleSpecification>>()
 const glyphs = new Map<string, Promise<ArrayBuffer>>()
 let protocolInstalled = false
@@ -36,8 +45,10 @@ export function loadBasemapStyle(theme: MapTheme): Promise<StyleSpecification> {
   }
   let pending = cache.get(theme)
   if (!pending) {
-    const url = import.meta.env.VITE_BASEMAP_STYLE_URL?.replace('{theme}', theme) ?? `/basemap/${styleNames[theme]}.json`
-    const inline = !import.meta.env.VITE_BASEMAP_STYLE_URL && typeof document !== 'undefined'
+    const variant = typeof location === 'undefined' ? undefined : basemapVariant(location.search)
+    const url = variant ? `/dev-kaart/${variant}-${styleNames[theme]}.json`
+      : import.meta.env.VITE_BASEMAP_STYLE_URL?.replace('{theme}', theme) ?? `/basemap/${styleNames[theme]}.json`
+    const inline = !variant && !import.meta.env.VITE_BASEMAP_STYLE_URL && typeof document !== 'undefined'
       ? document.getElementById(`basemap-${styleNames[theme]}`)?.textContent
       : undefined
     pending = (inline ? Promise.resolve(JSON.parse(inline) as StyleSpecification) : fetch(url)

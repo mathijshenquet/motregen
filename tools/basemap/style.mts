@@ -1,13 +1,16 @@
-import { readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { prepareBasemapStyle } from './liberty'
+import { applyVariant, BASEMAP_VARIANTS } from './variants.mts'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const { filename } = JSON.parse(readFileSync(resolve(root, 'tools/basemap/tiles/manifest.json'), 'utf8'))
 const reference = JSON.parse(readFileSync(resolve(root, 'tools/basemap/liberty-reference.json'), 'utf8'))
+const riverManifest = resolve(root, 'tools/basemap/tiles/manifest-rivieren.json')
+const riverArchive: string | undefined = existsSync(riverManifest) ? JSON.parse(readFileSync(riverManifest, 'utf8')).filename : undefined
 
-for (const [theme, name] of [['light', 'licht'], ['dark', 'donker']] as const) {
+function buildStyle(theme: 'light' | 'dark', name: string, archive: string) {
   const liberty = prepareBasemapStyle({ version: 8, sources: {}, layers: reference.layers }, theme)
   const referenceLayer = (id: string) => {
     const layer = liberty.layers.find((layer) => layer.id === id)
@@ -53,7 +56,7 @@ for (const [theme, name] of [['light', 'licht'], ['dark', 'donker']] as const) {
     version: 8,
     name: `motregen — ${name}`,
     glyphs: '/basemap/fonts/{fontstack}/{range}.pbf',
-    sources: { basemap: { type: 'vector', url: `pmtiles:///data/basemap/${filename}`, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' } },
+    sources: { basemap: { type: 'vector', url: `pmtiles:///data/basemap/${archive}`, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' } },
     layers: [
       referenceLayer('background'),
       cover('park', 'park'),
@@ -72,5 +75,16 @@ for (const [theme, name] of [['light', 'licht'], ['dark', 'donker']] as const) {
       label('label_city', 'city', 18),
     ],
   }
-  writeFileSync(resolve(root, `web/public/basemap/${name}.json`), `${JSON.stringify(style, null, 2)}\n`)
+  return style
+}
+
+for (const [theme, name] of [['light', 'licht'], ['dark', 'donker']] as const) {
+  writeFileSync(resolve(root, `web/public/basemap/${name}.json`), `${JSON.stringify(buildStyle(theme, name, filename), null, 2)}\n`)
+  if (!riverArchive) continue
+  // U108-proef (`?dev&kaart=`): varianten buiten public/basemap, zodat de precache ze niet aan iedere bezoeker geeft.
+  mkdirSync(resolve(root, 'web/public/dev-kaart'), { recursive: true })
+  for (const variant of BASEMAP_VARIANTS) {
+    const style = applyVariant(buildStyle(theme, name, variant.rivers ? riverArchive : filename), variant, theme)
+    writeFileSync(resolve(root, `web/public/dev-kaart/${variant.name}-${name}.json`), `${JSON.stringify(style, null, 2)}\n`)
+  }
 }
