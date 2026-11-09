@@ -9,6 +9,7 @@ import solid from 'vite-plugin-solid'
 import { configDefaults } from 'vitest/config'
 import { basemapRangeCache } from './scripts/basemap-range-cache'
 import { manifestStartCache } from './scripts/manifest-start-cache'
+import { maplibreCss } from './scripts/maplibre-css-plugin'
 import { pageRoutes } from './scripts/page-routes'
 import { brandFromEnvironment } from './src/core/brand'
 import { startAssets } from './scripts/start-assets-plugin'
@@ -110,7 +111,7 @@ function usageBeaconEndpoint(): Plugin {
 
 export default defineConfig({
   appType: 'spa',
-  plugins: [earlyManifestEntry(), solid(), tailwindcss(), usageBeaconEndpoint(), localBasemapArchive(), pageRoutes(brand), startAssets(process.env.VITE_START_ASSETS ?? 'inline'), startWebgl(process.env.VITE_WEBGL_PREWARM), VitePWA({
+  plugins: [earlyManifestEntry(), maplibreCss(), solid(), tailwindcss(), usageBeaconEndpoint(), localBasemapArchive(), pageRoutes(brand), startAssets(process.env.VITE_START_ASSETS ?? 'inline'), startWebgl(process.env.VITE_WEBGL_PREWARM), VitePWA({
     injectRegister: false,
     registerType: 'prompt',
     includeAssets: ['droplet.svg'],
@@ -163,7 +164,12 @@ export default defineConfig({
   build: {
     assetsInlineLimit: (filePath) => filePath.endsWith('.pbf.gz') ? false : undefined,
     sourcemap: true,
-    rollupOptions: { input: { index: resolve(__dirname, 'index.html'), startup: resolve(__dirname, 'src/startup.ts') } },
+    rollupOptions: {
+      input: { index: resolve(__dirname, 'index.html'), startup: resolve(__dirname, 'src/startup.ts') },
+      // U109: MapLibre (1 MB) verandert zelden; als eigen chunk blijft hij na een uitrol in de HTTP- en SW-cache
+      // en houdt V8 zijn codecache, in plaats van mee te verversen met elke appwijziging.
+      output: { manualChunks: (id) => /\/node_modules\/.*\/maplibre-gl\/dist\/maplibre-gl\.js$/.test(id) ? 'maplibre' : undefined },
+    },
   },
   server: { allowedHosts, proxy, headers: profilingHeaders },
   preview: { allowedHosts, proxy: previewProxy, headers: profilingHeaders },
