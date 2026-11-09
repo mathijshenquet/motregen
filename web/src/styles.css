@@ -758,6 +758,7 @@ button { color: inherit; cursor: pointer; }
 .sun-marker span { padding-bottom: 1px; }
 .sun-markers:not(.on-sky) .sun-marker { color: var(--muted); text-shadow: none; }
 .sun-markers:not(.on-sky) .sun-glyph-horizon { stroke: var(--muted); }
+.sun-markers.time-only .sun-marker { transform: translateX(-50%); }
 @media (prefers-reduced-motion: reduce) { .sun-bar { animation: none; } }
 .hour-grid { position: absolute; inset: 0; pointer-events: none; }
 .hour-grid i { position: absolute; top: 0; bottom: 0; width: 1px; background: color-mix(in srgb, var(--line) 55%, transparent); }
