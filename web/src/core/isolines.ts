@@ -4,7 +4,8 @@ import type { Grid } from './contract.js'
 // Gradiënt-fade uit (PO 2026-09-24: in vlak gebied verdwijnen hele lijnen); de lusjes gaan via ISOLINE_RING_KM.
 /** Temperatuur (gevoelstemperatuur, temperatuurfocus) of luchtdruk (isobaren, windfocus; U35). */
 // 'cloud' (U34): bewolkingssluier, alleen vulling; geen lijnen of labels.
-export type IsolineKind = 'temperature' | 'pressure' | 'cloud'
+// 'wind' (U101, proef): Beaufortvlakken en -grenzen op een continu Bft-veld (wind-beaufort.ts).
+export type IsolineKind = 'temperature' | 'pressure' | 'cloud' | 'wind'
 export const ISOBAR_STEP_HPA = 4
 // Adaptieve isobaarstap (PO 2026-09-25 live, U34): bij vlakke hogedruk gaf 4 hPa bijna geen lijnen. De
 // grootste stap die in beeld minstens ISOBAR_MIN_LINES lijnen geeft; hysterese tegen flipperen.
@@ -494,6 +495,7 @@ export function isolineColor(theme: MapTheme, kind: IsolineKind = 'temperature')
 
 /** Isobaren liggen op veelvouden van 4 hPa en dragen hun waarde zonder eenheid ("1012"). */
 export function isolineLabelText(kind: IsolineKind, level: number): string {
+  if (kind === 'wind') return `${level} Bft`
   return kind === 'pressure' ? String(level) : `${level}°`
 }
 
