@@ -282,6 +282,8 @@ export interface LoadTraceSnapshot {
   requests: LoadRequestTrace[]
   frames: LoadFrameTrace[]
   marks: LoadMarkTrace[]
+  /** Frames waarvan de puntwaarde zonder decoderen binnenkwam (regiobestanden, MIP-40). */
+  points?: Array<{ url: string; frameIndex: number; t: number }>
 }
 
 /** Laadtijdlijn voor het Playwright-laadprofiel (U1); goedkoop genoeg om altijd aan te staan. */
