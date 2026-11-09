@@ -1,12 +1,19 @@
 import { describe, expect, it } from 'vitest'
-import { LEGEND_STORAGE_KEY, legendIsOpen, readLegendChoice, storeLegendChoice } from './legend-choice'
+import { LEGEND_STORAGE_KEY, legendButtonVariant, legendIsOpen, readLegendChoice, storeLegendChoice } from './legend-choice'
 
 describe('legenda open/dicht (U107)', () => {
-  it('follows the layout until the user chooses', () => {
+  it('is always shown on desktop and follows the choice on a phone', () => {
     expect(legendIsOpen(undefined, false)).toBe(true)
+    expect(legendIsOpen('dicht', false)).toBe(true)
     expect(legendIsOpen(undefined, true)).toBe(false)
-    expect(legendIsOpen('dicht', false)).toBe(false)
     expect(legendIsOpen('open', true)).toBe(true)
+    expect(legendIsOpen('dicht', true)).toBe(false)
+  })
+
+  it('picks the phone chip variant, schaal by default', () => {
+    expect(legendButtonVariant(new URLSearchParams(''))).toBe('schaal')
+    expect(legendButtonVariant(new URLSearchParams('legendaknop=woord'))).toBe('woord')
+    expect(legendButtonVariant(new URLSearchParams('legendaknop=icoon'))).toBe('schaal')
   })
 
   it('stores the choice and survives a storage that throws', () => {

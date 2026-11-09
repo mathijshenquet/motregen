@@ -85,24 +85,19 @@ stadstemperaturen, plaatsnamen, gevoelsgetallen, windzakken, pin, bediening.
 
 ## Legenda
 
-Eén legenda-knop voor alle modi (PO 2026-11-09): een ronde kaartknop van 44 px linksonder, waar de legenda vroeger
-stond (12 px van de rand; op de telefoon 24 px van onder, zodat een open band de bronregel rechtsonder niet raakt), in
-Weer, Lucht, Gevoel en Wind, telefoon en desktop. Hij opent en sluit de legenda van de actieve modus, die rechts naast
-de knop staat. De UV-chip op de telefoon staat dan één rij hoger.
+Eén inhoud per modus (Weer: regenklassen; Lucht: zon, wolken, regen; Gevoel: de vaste schaal; Wind: Bft-klassen met
+zonewoorden), 11 px, vakjes 9 px hoog, eenheid klein aan het eind (`mm/u`, `°C`, `Bft`). Klassen hebben een vakje met
+hun naam, een doorlopende schaal tikken tussen de vakjes. Weer heeft altijd een legenda: staan de regenisolijnen uit
+(`?dev`, stand geen), dan de regenklassen op de standaardgrenzen, zonder lijn.
 
-- Startstand: zonder eigen keuze volgt hij de layout, ook live (desktop met zijpaneel open, telefoon dicht; wordt het
-  venster na het laden breed, dan gaat hij open). Een klik is een keuze voor dit apparaat (`motregen-legend`,
-  gebruikersstaat).
-- Weer heeft altijd een legenda: staan de regenisolijnen uit (`?dev`, stand geen), dan de regenklassen op de
-  standaardgrenzen, zonder lijn.
-
-- Vorm: afgerond paneel in de kleur van de bediening (tint mee met de hemel), 11 px, vakjes 9 px hoog, eenheid klein
-  aan het eind (`mm/u`, `°C`, `Bft`).
-- Klassen (regen, wind, lucht): vakje met de naam erachter; een doorlopende schaal (gevoel): tikken tussen de vakjes.
-- Lucht: zon, wolken, regen.
-- Telefoon (< 960 px): de open legenda is in elke modus één band zo hoog als de knop (44 px), naast de knop:
-  vakjes aaneen met hun label eronder (Wind: de zonewoorden daar weer onder), 10 px; past hij niet, dan scrollt hij
-  horizontaal in plaats van te krimpen of te breken.
+- Desktop (≥ 960 px): de vlakke strook van vóór U107, linksonder tegen de kaartrand (padding 2 × 7 px, alleen de
+  rechterbovenhoek rond), altijd zichtbaar, geen knop (PO 2026-11-09).
+- Telefoon (< 960 px): dicht tot je de kleine chip linksonder gebruikt (tapdoel 44 px, zichtbaar ±18 px hoog, 24 px
+  van onder zodat een open band de bronregel rechtsonder niet raakt; de UV-chip staat dan één rij hoger). De chip is
+  standaard een mini-kleurschaal in de kleuren van de actieve modus (`schaal`); `?dev&legendaknop=woord` toont het
+  woord "Legenda". De legenda opent rechts naast de chip als één band van 44 px: vakjes aaneen met het label eronder
+  (Wind: de zonewoorden daar weer onder), 10 px; past hij niet, dan scrollt hij horizontaal. De keuze open/dicht wordt
+  per apparaat bewaard (`motregen-legend`).
 
 ## Beweging
 

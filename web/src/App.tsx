@@ -6,7 +6,7 @@ import { registerSW } from 'virtual:pwa-register'
 import { applyUpdateWhenSafe, browserUpdatePage } from './core/pwa-update'
 import About, { type ThemeChoice } from './components/About'
 import HistogramScrubber from './components/HistogramScrubber'
-import { INLINE_ICON, Palette, Star, Sun } from './components/icons'
+import { INLINE_ICON, Star, Sun } from './components/icons'
 import LocationSearch from './components/LocationSearch'
 import Freshness from './components/Freshness'
 import ClockFace from './components/ClockFace'
@@ -76,7 +76,7 @@ import { WindsockLayer, windsockDevOptions } from './core/wind-socks'
 import { nestedPlaces } from './core/map-places'
 import { WINDSOCK_SPACING_PX } from './core/windsock-flow'
 import { mapLabelSize } from './core/map-labels'
-import { legendIsOpen, PHONE_LAYOUT_QUERY, readLegendChoice, storeLegendChoice } from './core/legend-choice'
+import { legendButtonVariant, legendIsOpen, PHONE_LAYOUT_QUERY, readLegendChoice, storeLegendChoice } from './core/legend-choice'
 import { MapLabelCollision } from './core/map-collision'
 import { WINDSOCK_LAG_MINUTES, type WindSlice } from './core/windsock-flow'
 import { clearTuningStorage, nightCue, TABLE_CONTRASTS, type TableContrast } from './core/dev-settings'
@@ -3453,6 +3453,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   phoneLayout.addEventListener('change', (event) => setIsPhoneLayout(event.matches))
   const [legendChoice, setLegendChoice] = createSignal(readLegendChoice(window.localStorage))
   const legendOpen = () => legendIsOpen(legendChoice(), isPhoneLayout())
+  const legendButton = legendButtonVariant(new URLSearchParams(devMode ? window.location.search : ''))
   function toggleLegend(): void {
     const choice = legendOpen() ? 'dicht' : 'open'
     setLegendChoice(choice)
@@ -3486,6 +3487,16 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (mode === 'weather') return 'weather'
     if (mode === 'temperature') return feelsLegend().length ? 'temperature' : undefined
     return mode === 'air' ? 'air' : undefined
+  })
+  /** De chip `schaal`: een mini-kleurschaal in de kleuren van de actieve modus. */
+  const legendChipColors = createMemo((): string[] => {
+    switch (activeLegend()) {
+      case 'weather': return rainIsolineLegend().slice(0, 4).map((band) => band.fill)
+      case 'temperature': return feelsLegend().filter((_, index) => index % 2 === 0 || index === feelsLegend().length - 1).slice(0, 4).map((segment) => segment.background)
+      case 'wind': return [4, 6, 8, 10].map((force) => BEAUFORT_LEGEND[force]!.color)
+      case 'air': return ['#ffd978', '#f4f6f7', '#4a86e8']
+      default: return []
+    }
   })
   const cloudTimelines = createMemo(() => Object.fromEntries(CLOUD_LAYERS.map((layer) =>
     [layer, manifest() ? buildTimeline(manifest()!, `cloud_${layer}`) : []])) as Record<CloudLayer, TimelineFrame[]>)
@@ -3745,9 +3756,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         <footer class="still-attribution">KNMI · © OpenStreetMap</footer>
       </Show>
       <Show when={!stillMode && activeLegend()}>
-        <button type="button" class="map-legend-button round-action" aria-controls="map-legend" aria-expanded={legendOpen()}
+        <button type="button" class={`map-legend-button legend-${legendButton}`} aria-controls="map-legend" aria-expanded={legendOpen()}
           aria-label={legendOpen() ? 'Legenda verbergen' : 'Legenda tonen'} title="Legenda" onClick={toggleLegend}>
-          <Palette size={20} strokeWidth={1.75} />
+          <span class="legend-chip" aria-hidden="true">
+            <Show when={legendButton === 'woord'} fallback={<For each={legendChipColors()}>{(color) => <i style={{ background: color }} />}</For>}>Legenda</Show>
+          </span>
         </button>
       </Show>
       <Show when={!stillMode && legendOpen() && activeLegend() === 'wind'}>

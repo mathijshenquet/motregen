@@ -1,7 +1,7 @@
 /**
- * Legenda open of dicht (U107, PO 2026-11-09): zonder eigen keuze volgt hij de layout — open naast het zijpaneel
- * (desktop), dicht op de telefoon — en blijft hij die volgen als het venster pas na het laden breed wordt. Een klik
- * op de knop is een keuze voor dit apparaat en wordt bewaard.
+ * Legenda (U107, PO 2026-11-09): op desktop altijd zichtbaar als vlakke strook, zonder knop; op de telefoon dicht tot
+ * je de chip gebruikt, en die keuze wordt per apparaat bewaard. Wordt het venster na het laden breed of smal, dan volgt
+ * hij de layout.
  */
 export const LEGEND_STORAGE_KEY = 'motregen-legend'
 /** Dezelfde grens als de telefoonlayout in styles.css (max-width: 959px). */
@@ -27,5 +27,13 @@ export function storeLegendChoice(storage: Pick<Storage, 'setItem'> | undefined,
 }
 
 export function legendIsOpen(choice: LegendChoice | undefined, phoneLayout: boolean): boolean {
-  return choice ? choice === 'open' : !phoneLayout
+  return !phoneLayout || choice === 'open'
+}
+
+/** Telefoonchip (alleen `?dev&legendaknop=`, U107): `schaal` (standaard) een mini-kleurschaal, `woord` "Legenda". */
+export const LEGEND_BUTTON_VARIANTS = ['schaal', 'woord'] as const
+export type LegendButtonVariant = typeof LEGEND_BUTTON_VARIANTS[number]
+export function legendButtonVariant(params: URLSearchParams): LegendButtonVariant {
+  const value = params.get('legendaknop')
+  return LEGEND_BUTTON_VARIANTS.includes(value as LegendButtonVariant) ? value as LegendButtonVariant : 'schaal'
 }
