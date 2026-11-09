@@ -217,3 +217,29 @@ Een eerste A/B (int ↔ build D, telefoon warm) gaf in 3/3 runs een latere eerst
 `startup.ts`-aanvraag. Getoetst met dezelfde code met en zonder de chunk (F/G, telefoon ×3, load 13–18): de vroege
 regenaanvraag gaat in **alle** zes runs op 190–255 ms de lijn op; ttfp-mediaan koud 3.806 → 3.568 ms, warm
 2.456 → 2.514 ms (binnen de spreiding: de decodetijd van het eerste frame varieert 0,35–1,3 s). De splitsing blijft.
+
+## Eindtabel voor/na (int ↔ U109-HEAD, `tmp/u109/abfinal`)
+
+`scripts/u109-ab.sh tmp/u109/dist-A tmp/u109/dist-G tmp/u109/abfinal 3 telefoon,desktop weer`, A1 B1 A2 B2 A3 B3,
+koud+warm, Weer, productiedata. Mediaan van 3. Telefoon = po-android-rig met 4G (load 7,5–16,7); desktop-B had
+loadpieken tot 158–204 en is voor tijden onbruikbaar. Bytes = overgedragen (gzip van de lokale preview; op prod
+levert Cloudflare zstd-3).
+
+
+Lezing:
+1. **Bytes**: CSS −9,3 kB (render-blokkerend), JS −2 kB; verder gelijk. De grote bytewinst zit buiten deze meting:
+   SW-installatie −586 kB (lokaal) / ~−695 kB (prod) en na elke uitrol 283 kB gz MapLibre die in de cache blijft.
+2. **Tijden telefoon**: koud ttfp 3.322 → 3.604 ms, warm 2.308 → 3.542 ms in deze reeks, maar in de F/G-reeks met
+   dezelfde code 3.568 ms koud en 2.514 ms warm. De spreiding komt van een bestaande race (hieronder); binnen deze
+   n = 3 is er geen betrouwbare ttfp-winst of -verlies aan te wijzen. De CPU-winst zit in scrubben, afspelen en
+   Wind (zie de fasekosten), niet in het laden.
+3. **LoAF laden telefoon**: blokkerend 3.215 → 2.973 ms koud, 3.221 → 2.808 ms warm; langste frame 620 → 561 ms en
+   605 → 560 ms.
+
+### Bevinding: race in de vroege regenaanvraag (bestaand, int en U109)
+
+In 6 van 18 telefoonruns (int én U109) staat de header van de regenchunk op ~1 s klaar, maar volgt de frame-aanvraag
+pas 0,8–2,5 s later; ttfp schuift dan ~1 s op (bv. abfinal A2 warm, B1/B2 warm, abFG A3 warm). In de overige runs gaat
+de aanvraag op 170–250 ms de lijn op. Het is geen nieuwe radarrun tussen koud en warm (zelfde chunk) en geen lange
+taak op de hoofddraad in dat venster. Volgende stap: in `MrfClient.getFrames` / `fetch-planner.ts` de tijd tussen
+header en dispatch per frame loggen (`perf.loads`), met deze rig herhalen.
