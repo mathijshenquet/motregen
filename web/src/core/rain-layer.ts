@@ -230,6 +230,8 @@ export class RainLayer implements CustomLayerInterface {
   private colormap = rainColormap()
   private straightAlpha = false
   private outlines: readonly RainOutline[] = []
+  // Uniformwaarden van de contouren, één keer per setOutlines in plaats van per frame (U109).
+  private outlineUniforms = { values: new Float32Array(0), styles: new Float32Array(0), halfWidths: new Float32Array(0) }
   private filterProgram?: WebGLProgram
   private filterTarget?: WebGLFramebuffer
   private filterVertexArray?: WebGLVertexArrayObject
@@ -292,6 +294,11 @@ export class RainLayer implements CustomLayerInterface {
   /** Dunne contour op de isolijn van één byte; `undefined` = geen. */
   setOutlines(outlines: readonly RainOutline[]): void {
     this.outlines = outlines.slice(0, MAX_OUTLINES)
+    this.outlineUniforms = {
+      values: Float32Array.from(this.outlines, (outline) => outline.index / 255),
+      styles: Float32Array.from(this.outlines.flatMap((outline) => [...outline.colour.map((channel) => channel / 255), outline.strength])),
+      halfWidths: Float32Array.from(this.outlines, (outline) => outline.halfWidth),
+    }
   }
 
   setFrames(left: Uint8Array, right: Uint8Array, mix: number, motion?: MotionField, intervalMinutes = 0): void {
@@ -363,9 +370,9 @@ export class RainLayer implements CustomLayerInterface {
     gl.uniform1f(uniformLocation(gl, this.program, 'u_warp_fade_end_cells'), this.warpLimit.fadeEndCells)
     gl.uniform1i(uniformLocation(gl, this.program, 'u_outline_count'), this.outlines.length)
     if (this.outlines.length) {
-      gl.uniform1fv(uniformLocation(gl, this.program, 'u_outline_values'), this.outlines.map((outline) => outline.index / 255))
-      gl.uniform4fv(uniformLocation(gl, this.program, 'u_outline_styles'), this.outlines.flatMap((outline) => [...outline.colour.map((channel) => channel / 255), outline.strength]))
-      gl.uniform1fv(uniformLocation(gl, this.program, 'u_outline_half_widths'), this.outlines.map((outline) => outline.halfWidth))
+      gl.uniform1fv(uniformLocation(gl, this.program, 'u_outline_values'), this.outlineUniforms.values)
+      gl.uniform4fv(uniformLocation(gl, this.program, 'u_outline_styles'), this.outlineUniforms.styles)
+      gl.uniform1fv(uniformLocation(gl, this.program, 'u_outline_half_widths'), this.outlineUniforms.halfWidths)
     }
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, leftTexture); gl.uniform1i(uniformLocation(gl, this.program, 'u_left'), 0)
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, rightTexture); gl.uniform1i(uniformLocation(gl, this.program, 'u_right'), 1)
