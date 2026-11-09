@@ -53,3 +53,19 @@ Voorstel, in twee stappen:
    gecodeerd (Compression Rules: voor `/assets/*` en `/basemap/*` "origin-compressie behouden"/Brotli). Verifiëren
    na uitrol met `curl -H 'Accept-Encoding: zstd, br, gzip' -D - -o /dev/null https://motregen.nl/assets/<index>.js`
    (verwacht `content-encoding: br`, body ≈ 124,5 kB).
+
+## Tekencode-audit (PO-aanvulling 2026-11-09)
+
+Per laag: hoe hij tekent, wat er per frame en in rust gebeurt, en wat er veranderd is. "Doorgevoerd" = onzichtbaar
+(zelfde pixels), met de geraakte e2e-specs groen (windzak, focus, wind-zoom, rain-playback, cloud-section,
+telegram: 23 groen, 3 bestaande skips) en `basemap-cache`.
+
+| laag | tekent via | per frame | in rust | bevinding | status |
+| --- | --- | --- | --- | --- | --- |
+| alle overlays | eigen WebGL2-canvas per laag (`LayerOverlay`), volle schermresolutie × DPR | — | — | isolijnsets (temperatuur, wolken, Bft) blijven na een wissel als **lege schermvullende canvassen** in de compositor | doorgevoerd: `visibility: hidden` zolang de laag niets tekent (`contentDrawn`) |
+| regen | `RainLayer` in overlay | ~20× `getUniformLocation`/`getAttribLocation` (nieuw object per aanroep) + 3 arrays voor contour-uniforms | geen tekenbeurten als niets verandert | allocaties per frame | doorgevoerd: locaties per programma gecachet (`gl-locations.ts`), contour-uniforms per `setOutlines` |
+| temperatuur-/wolken-/Bft-vlakken | `IsolineLayer` (GPU-sneden + composiet) | ~10 uniform-lookups in composiet en passes | e2e bevestigt: geen contour- of workerwerk in rust | idem | doorgevoerd: locatiecache |
+| deeltjes (wind) | `WindLayer`, CPU-advectie in typed arrays, GPU-trails | advectie van alle deeltjes op de hoofddraad, allocatievrij | **loopt in elke modus door** (achtergrondwind, 30 fps bij idle) | ontwerpkeuze, zichtbaar | voorstel (zie onder) |
+| windzakken | 2D-canvas, Path2D per zak, flutter 30 fps | per zak 1 omtrek + banden als **SVG-padstring** opgebouwd en geparsed; `clientWidth/Height` per frame (kan layout afdwingen) | flutter blijft 30 fps hertekenen in Wind | bench (25 zakken × 5 paden, host onder load): opbouw 1,10 → 0,18 ms/frame | doorgevoerd: paden direct (`moveTo/lineTo`), containermaat gecachet op `resize`, geen cameracheck als onzichtbaar |
+| temperatuurgetallen | MapLibre-`Marker`s (DOM) | alleen bij een nieuwe snede | geen | — | — |
+| basiskaart | MapLibre | — | — | koude start desktop (SwiftShader): 737 ms shadercompilatie, waarvan 572 ms symboollaag | SwiftShader-artefact; op een echte GPU veel kleiner, niet aangepakt |
