@@ -50,6 +50,7 @@ const PROFILES: Record<ProfileId, SuiteProfile> = {
 }
 
 const NETWORK_QUIET_MS = 2_000
+const MIN_COLD_VISIT_MS = 12_000
 
 for (const profileId of options.profiles ?? []) {
   for (const mode of options.modes) {
@@ -145,6 +146,10 @@ async function measureVisit(browser: Browser, context: BrowserContext, profileId
   const entries = network.entries(state.timeOrigin)
   const phases: PhaseWindow[] = [{ name: 'laden', startMs: 0, endMs: settledMs }]
   if (options.interactions) phases.push(...await interact(page, mode))
+  // Het warme bezoek hoort de cache van een gewone sessie te zien. Sinds de regiobestanden (MIP-40) is een koud
+  // bezoek al na ~7 s klaar, terwijl de afspeelframes nog binnenkomen; sloot de pagina dan, dan miste het warme bezoek
+  // ze. Vóór MIP-40 duurde een koud bezoek vanzelf 11–12 s.
+  if (visit === 'koud') await page.waitForTimeout(Math.max(0, MIN_COLD_VISIT_MS - await page.evaluate(() => performance.now())))
   const longFrames = await page.evaluate(() => (window as typeof window & { __u102LongFrames?: LongFrame[] }).__u102LongFrames ?? [])
   await page.close()
   return {
