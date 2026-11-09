@@ -20,6 +20,7 @@ use motregen_ingest::{
         build_seamless_chunk_for_file, build_uv_chunks, latest_files, prune_download_cache,
     },
     publisher::{ProducedChunk, publish_with_feeds},
+    regions::{self, RegionWriter},
 };
 use tracing::{error, info, warn};
 use tracing_subscriber::EnvFilter;
@@ -90,6 +91,11 @@ struct Config {
     /// Add the ICON-D2 direct radiation (icon-d2.json) for the sunshine estimate (MIP-39).
     #[arg(long, env = "MOTREGEN_ICON_D2_IN_MANIFEST")]
     icon_d2_in_manifest: bool,
+    /// MIP-40: schrijf per regio de puntreeksen (regions/) en zet de sectie `regions` in het manifest.
+    #[arg(long, env = "MOTREGEN_REGIONS")]
+    regions: bool,
+    #[arg(long, env = "MOTREGEN_REGIONS_ZSTD_LEVEL", default_value_t = regions::DEFAULT_ZSTD_LEVEL)]
+    regions_zstd_level: i32,
     #[arg(long)]
     once: bool,
     #[arg(long, value_parser = parse_duration)]
@@ -215,6 +221,7 @@ struct Daemon {
     last_uv_check: Option<Instant>,
     manifest_dirty: bool,
     feels_hours: FeelsHours,
+    regions: Option<RegionWriter>,
 }
 
 /// Outside `.ingest-cache`, whose download pruning would drop it by age.
@@ -234,6 +241,11 @@ impl Daemon {
         let feels_hours = FeelsHours::load(&feels_hours_path(&config.data_dir));
         let seamless_worker =
             SeamlessWorker::new(api.clone(), cache_root.clone(), config.nowcast_minutes)?;
+        let regions = if config.regions {
+            Some(RegionWriter::new(config.regions_zstd_level)?)
+        } else {
+            None
+        };
         Ok(Self {
             config,
             api,
@@ -258,6 +270,7 @@ impl Daemon {
             last_uv_check: None,
             manifest_dirty: false,
             feels_hours,
+            regions,
         })
     }
 
@@ -540,6 +553,11 @@ impl Daemon {
             warn!(error = %format!("{error:#}"), "feels-like day range not updated");
         }
         let feels_reference = self.feels_hours.reference(checked_at);
+        // Vóór het manifest, zodat elke generatie die het noemt al op schijf staat.
+        let regions = self
+            .regions
+            .as_mut()
+            .map(|writer| writer.update(&self.config.data_dir, &chunks));
         let manifest = publish_with_feeds(
             &self.config.data_dir,
             now,
@@ -548,6 +566,7 @@ impl Daemon {
             self.cams.section.clone(),
             self.ecmwf.section.clone(),
             feels_reference,
+            regions,
         )?;
         info!(
             chunks = manifest.chunks.len(),
@@ -723,6 +742,8 @@ mod tests {
                 cams_in_manifest: false,
                 ecmwf_in_manifest: false,
                 icon_d2_in_manifest: false,
+                regions: false,
+                regions_zstd_level: regions::DEFAULT_ZSTD_LEVEL,
                 once: false,
                 run_for: None,
                 api_base: Some("http://127.0.0.1".into()),
@@ -749,6 +770,7 @@ mod tests {
             last_uv_check: None,
             manifest_dirty: false,
             feels_hours: FeelsHours::load(&feels_hours_path(&data_dir)),
+            regions: None,
         }
     }
 
@@ -953,6 +975,41 @@ mod tests {
                 .iter()
                 .any(|chunk| chunk.url == "chunks/cams-o3-test.mrf" && chunk.source == "cams")
         );
+    }
+
+    #[test]
+    fn regions_join_the_manifest_only_when_enabled() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut daemon = test_daemon(directory.path().into(), idle_test_worker());
+        daemon.rtcor = Some(test_chunk(
+            "rtcor",
+            "2026-11-09T10:00:00Z",
+            "rtcor-regions.mrf",
+        ));
+        daemon.arome.push(test_chunk(
+            "harmonie",
+            "2026-11-09T07:00:00Z",
+            "harmonie-regions.mrf",
+        ));
+        let read_manifest = || -> motregen_ingest::publisher::Manifest {
+            serde_json::from_slice(&fs::read(directory.path().join("manifest.json")).unwrap())
+                .unwrap()
+        };
+        daemon.publish().unwrap();
+        assert!(read_manifest().regions.is_none());
+        assert!(!directory.path().join(regions::DIRECTORY).exists());
+
+        // De testchunks zijn één cel bij de oorsprong, buiten het kader: geen enkele regio krijgt een bestand,
+        // dus elke groep valt uit de sectie, maar het manifest komt er wel.
+        daemon.regions = Some(RegionWriter::new(3).unwrap());
+        daemon.publish().unwrap();
+        let section = read_manifest().regions.unwrap();
+        assert_eq!(
+            (section.columns, section.rows, section.present.len()),
+            (14, 15, 148)
+        );
+        assert!(section.groups.is_empty());
+        assert_eq!(read_manifest().chunks.len(), 2);
     }
 
     #[test]

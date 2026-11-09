@@ -247,6 +247,15 @@ in
       '';
     };
 
+    regionsInManifest = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Write the per-region point series (regions/, MIP-40) before each manifest and list them in
+        its `regions` section. Off until the client reads them (docs/regiobestanden.md).
+      '';
+    };
+
     frontendPackage = lib.mkOption {
       type = lib.types.package;
       default = self.packages.${pkgs.stdenv.hostPlatform.system}.motregen-web;
@@ -389,6 +398,7 @@ in
         MOTREGEN_CAMS_IN_MANIFEST = lib.boolToString cfg.camsInManifest;
         MOTREGEN_ECMWF_IN_MANIFEST = lib.boolToString cfg.ecmwfInManifest;
         MOTREGEN_ICON_D2_IN_MANIFEST = lib.boolToString cfg.iconD2InManifest;
+        MOTREGEN_REGIONS = lib.boolToString cfg.regionsInManifest;
         RUST_LOG = "info";
       };
 
@@ -704,6 +714,17 @@ in
 
           @chunks path /data/chunks/*
           handle @chunks {
+            root * ${caddyDataDir}
+            uri strip_prefix /data
+            ${dataHeaders}
+            header Cache-Control "public, max-age=31536000, immutable"
+            header -Content-Encoding
+            file_server
+          }
+
+          # MIP-40: generaties en tabellen heten naar hun inhoud, dus immutable zoals de chunks.
+          @regions path_regexp regions ^/data/regions/([a-z]+-[0-9a-f]{16}/[0-9]+\.mrr|tables-[0-9a-f]{16}\.json)$
+          handle @regions {
             root * ${caddyDataDir}
             uri strip_prefix /data
             ${dataHeaders}

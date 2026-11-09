@@ -46,6 +46,7 @@ import { pointValue, pointValueBilinear, projectPoint as project } from './core/
 import { buildDayList, ecmwfDayChunks, localDate, type HourlyDayInputs, type Sample } from './core/days'
 import { buildLadder, buildSlotRows, ecmwfStepChunks, hourlyEnd } from './core/ladder'
 import { rainBetween, rainPatch, type RainPatch } from './core/rain-point-detail'
+import { RegionPoints, regionsSection, type RegionChunk } from './core/region-points'
 import { selectPairMotion } from './core/motion-selection'
 import { findCataloguePlace, isInPlaceZone, loadPlaces, namedCataloguePlace, nearestPlace, places, rememberPlace, rememberSearchedPlace } from './core/places'
 import type { PlaceIdentity, PlaceMemory } from './core/place-memory'
@@ -189,6 +190,7 @@ const CITY_TEMPERATURE_STEP_MS = 10 * 60_000
 // Terugglijden naar het begin bij opnieuw afspelen (PO 2026-09-25 live, U34).
 // Binnen deze marge van het eind staat de opnieuw-knop in de grafiek.
 const PLAYBACK_END_MARGIN_MS = 60_000
+const REGION_MOVE_WAIT_MS = 1_500
 const PLAYBACK_TEMPO_HOURS = 8
 const TABLE_JUMP_RESUME_MS = 4_000
 // Zoveel px van de tabelrijen moet in beeld zijn voordat hun reeksen laden (U49): in het mobiele
@@ -387,6 +389,23 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   // Krap apparaat (U49): puntreeksen alleen voor wat scrubber en tabel nu tonen, niet vooruit.
   const inViewOnly = decode.pointSeries === 'in-view'
   const client = initialClient ?? new MrfClient(manifestUrl, perf.loads, decode)
+  // MIP-40: met een sectie `regions` in het manifest lezen histogram, tabel en dagenlijst eerst uit regiobestanden.
+  const regionPoints = new RegionPoints(manifestUrl.href, async (url) => {
+    const response = await fetch(url, { priority: 'high' } as RequestInit & { priority: FetchPriority })
+    return response.ok ? new Uint8Array(await response.arrayBuffer()) : undefined
+  })
+  let markFirstMove!: () => void
+  const firstMove = new Promise<void>((resolve) => { markFirstMove = resolve })
+  /**
+   * Regiobestanden pas na de eerste afspeelstap ophalen (of meteen bij stilstaand afspelen, hooguit
+   * REGION_MOVE_WAIT_MS): tegelijk met de eerste kaartframes kostten de extra verzoeken die stap ~0,6 s
+   * (U102-meting, telefoon over HTTP/1.1).
+   */
+  async function regionChunk(current: Manifest | undefined, chunkUrl: string, x: number, y: number): Promise<RegionChunk | undefined> {
+    if (!regionsSection(current)) return undefined
+    if (untrack(playing)) await Promise.race([firstMove, new Promise((resolve) => window.setTimeout(resolve, REGION_MOVE_WAIT_MS))])
+    return regionPoints.chunk(current, chunkUrl, x, y)
+  }
   const [manifest, setManifest] = createSignal<Manifest>()
   const [manifestRefresh, setManifestRefresh] = createSignal<RefreshState>()
   const timeline = createMemo(() => manifest() ? buildTimeline(manifest()!) : [])
@@ -1107,6 +1126,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const state = previousState ? newPointLoadState(previousState.point, rain.values, rain.loaded) : undefined
     if (state && previousState) state.rainPatches = previousState.rainPatches
     pointLoad = state
+    if (state) void keepRegionRainPatches(state, nextManifest, nextRain)
     batch(() => {
       setManifest(nextManifest)
       setCursor(nextCursor)
@@ -1267,6 +1287,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         firstPlaybackTick = false
         batch(() => {
           perf.markFirstCursorMove()
+          markFirstMove()
           setCursor(nextCursor)
         })
         committed?.()
@@ -2483,6 +2504,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
     const request = state.request
     pointLoad = state
+    void keepRegionRainPatches(state, manifest(), timeline())
     if (cachedRain.complete && cachedForecast.every((series) => series.complete)) {
       state.full = Promise.resolve()
       setRainSeries([...state.rainValues])
@@ -2555,6 +2577,25 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     return `${new URL(frame.chunk.url, manifestUrl).href}#${frame.frameIndex}`
   }
 
+  /** Regenpatches voor de tussenbalken uit de regiobestanden, zodra die er zijn; wat ontbreekt komt van de kaartframes. */
+  async function keepRegionRainPatches(state: PointLoadState, current: Manifest | undefined, frames: TimelineFrame[]): Promise<void> {
+    const [x, y] = project(state.point.lng, state.point.lat)
+    let kept = false
+    await Promise.all([...new Set(frames.map((frame) => frame.chunk))].map(async (chunk) => {
+      const region = await regionChunk(current, chunk.url, x, y)
+      if (!region || state.request !== pointRequest) return
+      for (const frame of frames) {
+        const key = rainFrameKey(frame)
+        if (frame.chunk !== chunk || state.rainPatches.has(key)) continue
+        const patch = region.patch(frame.frameIndex, x, y)
+        if (!patch) continue
+        state.rainPatches.set(key, patch)
+        kept = true
+      }
+    }))
+    if (kept && state.request === pointRequest) setRainDetailMotionVersion((version) => version + 1)
+  }
+
   function keepRainPatch(state: PointLoadState, key: string, header: MrfHeader, decoded: Uint8Array): void {
     if (state.rainPatches.has(key)) return
     const [x, y] = project(state.point.lng, state.point.lat)
@@ -2583,7 +2624,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       const pairKey = `${leftKey}|${rightKey}`
       if (left && right && !rainDetailMotions.has(pairKey)) {
         rainDetailMotions.set(pairKey, 'laden')
-        void loadPairMotion(frame, next)
+        void loadPointPairMotion(state!, frame, next)
           .then((motion) => rainDetailMotions.set(pairKey, motion ?? null), () => rainDetailMotions.set(pairKey, null))
           .then(() => setRainDetailMotionVersion((version) => version + 1))
       }
@@ -2597,6 +2638,19 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       })
     })
   })
+
+  /** Als `loadPairMotion`, maar eerst uit de regiobestanden van de plek; alleen voor de tussenbalken. */
+  async function loadPointPairMotion(state: PointLoadState, left: TimelineFrame, right: TimelineFrame): Promise<MotionField | undefined> {
+    if (left.epoch >= right.epoch) return undefined
+    const [x, y] = project(state.point.lng, state.point.lat)
+    const current = manifest()
+    const [leftRegion, rightRegion] = await Promise.all([regionChunk(current, left.chunk.url, x, y), regionChunk(current, right.chunk.url, x, y)])
+    const regionOf = (frame: TimelineFrame) => frame.chunk.url === left.chunk.url ? leftRegion : rightRegion
+    if (leftRegion?.hasMotion(left.frameIndex) === undefined || rightRegion?.hasMotion(right.frameIndex) === undefined) return loadPairMotion(left, right)
+    const selected = selectPairMotion(left, right, (frame) => regionOf(frame)?.hasMotion(frame.frameIndex) === true)
+    if (!selected) return undefined
+    return regionOf(selected.frame)?.motion(selected.frame.frameIndex, x, y) ?? client.getMotion(selected.frame.chunk, selected.frame.frameIndex)
+  }
 
   function newPointLoadState(
     point: { lng: number; lat: number },
@@ -2687,6 +2741,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       state.loading.set(key, { frames, values })
       state.seriesPublisher?.schedule()
     })
+    if (rows === 'near-now' && regionsSection(manifest())) warmFrames(frames, indexes, 'high', layer)
     return readPointSeries(frames, point, indexes, 'high', values, showLoaded, layer).catch(() => [])
   }
 
@@ -2760,6 +2815,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     signal?: AbortSignal,
   ): Promise<Array<number | null>> {
     const [x, y] = project(point.lng, point.lat)
+    const current = manifest()
     const chunks = new Map<ManifestChunk, Array<{ position: number; frameIndex: number }>>()
     for (const position of [...new Set(indexes)]) {
       const frame = frames[position]!
@@ -2768,7 +2824,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       entries.push({ position, frameIndex: frame.frameIndex })
       chunks.set(frame.chunk, entries)
     }
-    await Promise.all([...chunks].map(async ([chunk, entries]) => {
+    await Promise.all([...chunks].map(async ([chunk, wanted]) => {
+      const region = await regionChunk(current, chunk.url, x, y)
+      const entries = region ? readRegionValues(region, chunk, wanted, x, y, values, progress) : wanted
+      if (!entries.length) return
       const header = await client.getHeader(chunk)
       const positions = new Map<number, number[]>()
       for (const entry of entries) positions.set(entry.frameIndex, [...(positions.get(entry.frameIndex) ?? []), entry.position])
@@ -2781,12 +2840,55 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     return values
   }
 
+  /**
+   * Met regiobestanden decoderen histogram en tabel geen frames meer, maar kaart en afspelen gebruiken dezelfde frames
+   * wel en rekenden op deze bulk (de kaart-prefetch staat uit zolang de locatiereeks laadt): regen voor het afspelen,
+   * de velden rond nu voor de eerste kaart in Gevoel en Wind. Dus dezelfde frames, tegelijk met het regiobestand en
+   * zonder dat histogram of tabel erop wacht.
+   */
+  function warmFrames(frames: TimelineFrame[], indexes: number[], priority: FetchPriority, layer: LoadLayer): void {
+    const chunks = new Map<ManifestChunk, number[]>()
+    for (const index of indexes) {
+      const frame = frames[index]
+      if (frame) chunks.set(frame.chunk, [...(chunks.get(frame.chunk) ?? []), frame.frameIndex])
+    }
+    for (const [chunk, frameIndexes] of chunks) void client.getFrames(chunk, frameIndexes, priority, undefined, layer).catch(() => undefined)
+  }
+
+  /** Vult wat het regiobestand heeft en geeft de rest terug voor het raster. */
+  function readRegionValues(
+    region: RegionChunk,
+    chunk: ManifestChunk,
+    wanted: Array<{ position: number; frameIndex: number }>,
+    x: number,
+    y: number,
+    values: Array<number | null>,
+    progress?: (values: Array<number | null>, loaded: number[]) => void,
+  ): Array<{ position: number; frameIndex: number }> {
+    const url = new URL(chunk.url, manifestUrl).href
+    const rest: Array<{ position: number; frameIndex: number }> = []
+    const loaded: number[] = []
+    for (const entry of wanted) {
+      const value = region.value(entry.frameIndex, x, y)
+      if (value === undefined) {
+        rest.push(entry)
+        continue
+      }
+      values[entry.position] = value
+      loaded.push(entry.position)
+      perf.loads.pointRead(url, entry.frameIndex)
+    }
+    if (loaded.length) progress?.(values, loaded)
+    return rest
+  }
+
   function enqueueRain(state: PointLoadState, indexes: number[], priority: FetchPriority, layer: LoadLayer, reason: string): Promise<void> {
     perf.loads.mark({ kind: 'schedule', layer, field: 'rain_rate', indexes, reason })
     const task = state.rainQueue.then(async () => {
       const missing = indexes.filter((index) => !state.rainLoaded.has(index))
       if (!missing.length || state.request !== pointRequest) return
       perf.loads.mark({ kind: 'start', layer, field: 'rain_rate', indexes: missing })
+      if (regionsSection(manifest())) warmFrames(timeline(), missing, priority, layer)
       await readPointSeries(timeline(), state.point, missing, priority, state.rainValues, (_, loaded) => {
         for (const index of loaded) state.rainLoaded.add(index)
         if (state.request === pointRequest) state.rainPublisher?.schedule()
@@ -3195,6 +3297,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [dayListMode, setDayListMode] = createSignal(devMode && localStorage.getItem(DAY_LIST_STORAGE_KEY) === 'lijst')
   const [tableContrast, setTableContrast] = createSignal<TableContrast>(storedTableContrast(devMode))
   const [longRangeNear, setLongRangeNear] = createSignal(false)
+  // Grove tabelrijen in beeld (onNeedRows). Een blijvende vraag, geen eenmalige aanroep: de observer vuurt één keer,
+  // en kwam die vóór de puntreeks (of vóór een nieuwe locatie of een manifestwissel), dan bleef de volledige reeks liggen
+  // tot de manifestverversing, of laadde hij als 'lange termijn' op lage prioriteit (U109: tabel telefoon koud 69–75 s).
+  const [tableRowsNeeded, setTableRowsNeeded] = createSignal(false)
   const ecmwfDayValues = ecmwfPointValues(createMemo(() => manifest() ? ecmwfDayChunks(manifest()!) : new Map<EcmwfDayField, ManifestChunk>()))
   const stepChunks = createMemo(() => manifest() ? ecmwfStepChunks(manifest()!) : new Map<EcmwfStepField, ManifestChunk>())
   const ecmwfStepValues = ecmwfPointValues(stepChunks)
@@ -3208,8 +3314,14 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       const wanted = key()
       if (!longRangeNear() || !wanted || untrack(loaded)?.key === wanted) return
       const [x, y] = project(location().lng, location().lat)
+      const current = manifest()
       void Promise.all([...chunks()].map(async ([field, chunk]) => {
         try {
+          const region = await regionChunk(current, chunk.url, x, y)
+          if (region) {
+            const values = chunk.times.map((_, index) => field === 'day_wind_dir' ? region.value(index, x, y) : region.bilinear(index, x, y))
+            if (values.every((value) => value !== undefined)) return [field, values as Array<number | null>] as const
+          }
           const header = await client.getHeader(chunk)
           const frames = await client.getFrames(chunk, chunk.times.map((_, index) => index), 'low', undefined, 'L2')
           // Richting in graden mengt niet: 359° en 1° zouden 180° worden.
@@ -3228,7 +3340,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
   }
   createEffect(() => {
-    if (longRangeNear() && pointLoadStage() !== 'complete') untrack(() => { void completePointSeries(pointLoad, 'low', 'L2', 'lange termijn') })
+    const rows = tableRowsNeeded()
+    if ((!rows && !longRangeNear()) || pointLoadStage() === 'complete') return
+    untrack(() => { void completePointSeries(pointLoad, rows ? 'high' : 'low', 'L2', rows ? 'intentie' : 'lange termijn') })
   })
   const hourlyInputs = createMemo((): HourlyDayInputs | undefined => {
     if (pointLoadStage() !== 'complete') return undefined
@@ -3952,10 +4066,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
               mobileTableOpen={tableModeSelected()}
               onOpenMobileTable={tableViewAvailable() ? scrollToTable : undefined}
               onSelectMobileMode={tableViewAvailable() ? scrollToMap : undefined}
-              onNeedRows={() => {
-                void completePointSeries(pointLoad, 'high')
+              onNeedRows={() => batch(() => {
+                setTableRowsNeeded(true)
                 if (!dayListMode()) setLongRangeNear(true)
-              }}
+              })}
               onNeedHistory={() => { void loadHistoryRows() }}
               onSelectTime={selectTableTime}
               onOpenHistory={() => {

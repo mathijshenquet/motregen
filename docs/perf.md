@@ -668,6 +668,44 @@ doet per event alleen een push; er wordt niets verstuurd.
 Caddy-poorten van `pnpm e2e` en het profiel, zodat parallelle tracks op één
 host elkaar niet blokkeren.
 
+## Meetsuite per modus (U102)
+
+`cd web && pnpm perf:modes [--target build|prod] [--origin URL] [--modes weer,lucht,gevoel,wind|all]
+[--profiles telefoon,desktop] [--repeat N] [--no-interactions]` meet elke kaartmodus op live data. Hij draait op
+aanvraag en in de dagelijkse volledige run op main, nooit per merge, onder de perf-lock en een e2e-slot.
+
+- **Target.** `build` (standaard) bouwt deze werkboom en serveert hem met `vite preview` op een eigen poort, `/data`
+  geproxyd naar `https://motregen.nl/data`. De proxy haalt het sessiemerk weg, zodat de bezoeken niet in het
+  dagrapport tellen (MIP-35). `prod` meet `https://motregen.nl` zelf; elke sessie krijgt dan het meetlabel
+  `perf-u102` en het baken `/hit` wordt geblokkeerd.
+- **Profielen.** *telefoon*: 390 × 844, Android-UA, touch, renderer-quota 40 % (de kalibratie op de PO-telefoon,
+  §Profiel po-android), page-CPU 1×, 4G (9 Mbps, 60 ms RTT). *desktop*: 1440 × 900, geen rem. Per test een
+  eigen browser: eerst een koud bezoek in een nieuwe context, daarna een warm bezoek (nieuwe pagina in dezelfde
+  context, dus HTTP-cache, IndexedDB en serviceworker warm).
+- **Mijlpalen**, in ms sinds navigatie:
+  - *eerste kaart*: het latere van de kaartonthulling (`mapRevealedMs`) en de decode van de frames van de
+    kaartlaag van de modus rond nu (regen, `cloud_frac`, `feels_like_c`, wind u/v);
+  - *histogram compleet*: de laatste decode van de frames die het histogram van die modus tekent, binnen het
+    scrubbervenster bij openen (`scrubberViewWindow(nu)`); uit de laadtrace, omdat in Lucht, Gevoel en Wind en
+    op een droge dag geen regenbalken in de DOM staan;
+  - *tabel compleet*: de eerste keer dat alle tabelrijen vanaf nu die in beeld staan (minstens één) gevoel,
+    temperatuur en wind tonen, zonder "…" of "—".
+- **Netwerk** per bron (manifest, RTCOR, nowcast, seamless, HARMONIE, ICON-D2, ECMWF, UV, basemap, plaatsen, app,
+  overig) uit CDP (`encodedDataLength`), tot het histogram compleet is en tot het einde van de laadfase: alle drie
+  de mijlpalen, daarna hooguit 3 s wachten op een stil netwerk (een ruim apparaat laadt door).
+- **Lange frames** (Long Animation Frames ≥ 50 ms) per fase: laden, scrubben (drie keer slepen over de scrubber),
+  afspelen (6 s) en modus wisselen (de drie andere modi en terug, elk 2 s).
+
+Uitvoer: per bezoek een JSON (inclusief alle requests van de laadfase) en `summary.md` met medianen in
+`web/tmp/perf-modes/<tijd>/`. De lange frames zijn onder SwiftShader en op een gedeelde host vooral onderling te
+vergelijken (modus tegen modus, voor tegen na), niet met een echte telefoon-GPU. De perf-lock wacht tot de
+loadavg ≤ 8 is; de loadavg tijdens de runs staat in de samenvatting.
+
+Met `--trace` krijgt elk warm bezoek een Chrome performance trace (naast het rapport, als `.trace`) en `?perf`.
+`pnpm exec tsx scripts/perf-trace-split.ts [--quota 0.4] <rapport.json>...` splitst dan de tijd tot het histogram
+compleet is in mrf-decode-CPU per bron, overige renderer-CPU en wachten, tegen het CPU-budget van de quota. Het
+script toont ook welke decodes de kaart zelf nodig had. Voorbeeld: `docs/perf/u102/warm-telefoon-2026-11-09.md`.
+
 ## Mobiele laadrig
 
 U53 begint met de echte PO-opnames van 2026-10-07. De kleine, gehashte

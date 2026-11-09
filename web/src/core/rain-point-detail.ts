@@ -1,4 +1,4 @@
-import type { MotionField, MrfHeader } from './contract.js'
+import type { Grid, MotionField, MrfHeader } from './contract.js'
 import { WARP_CAP_CELLS, motionWarpStrength } from './rain-motion.js'
 
 /**
@@ -26,7 +26,15 @@ export interface RainPatch {
 }
 
 export function rainPatch(header: MrfHeader, decoded: Uint8Array, projectedX: number, projectedY: number): RainPatch {
-  const { grid } = header
+  const width = header.grid.width
+  return rainPatchFrom(header.grid, header.quant, projectedX, projectedY, (column, row) => decoded[row * width + column]!)!
+}
+
+/**
+ * Dezelfde patch uit een andere bron van rasterbytes (een regiobestand); `undefined` als `byteAt` een cel binnen het
+ * raster niet heeft, zodat de aanroeper op het raster terugvalt.
+ */
+export function rainPatchFrom(grid: Grid, quant: Array<number | null>, projectedX: number, projectedY: number, byteAt: (column: number, row: number) => number | undefined): RainPatch | undefined {
   const cellX = (projectedX - grid.x0) / grid.dx
   const cellY = (projectedY - grid.y0) / grid.dy
   const originColumn = Math.floor(cellX) - PATCH_RADIUS
@@ -38,27 +46,36 @@ export function rainPatch(header: MrfHeader, decoded: Uint8Array, projectedX: nu
     for (let column = 0; column < PATCH_SIZE; column++) {
       const sourceColumn = originColumn + column
       if (sourceColumn < 0 || sourceColumn >= grid.width) continue
-      bytes[row * PATCH_SIZE + column] = decoded[sourceRow * grid.width + sourceColumn]!
+      const byte = byteAt(sourceColumn, sourceRow)
+      if (byte === undefined) return undefined
+      bytes[row * PATCH_SIZE + column] = byte
     }
   }
-  return { cellX, cellY, originColumn, originRow, bytes, quant: header.quant, gridWidth: grid.width, gridHeight: grid.height }
+  return { cellX, cellY, originColumn, originRow, bytes, quant, gridWidth: grid.width, gridHeight: grid.height }
+}
+
+/** De bewegingsblokken (kolom, rij, gewicht) die `motionAtPatch` op deze celcoördinaat mengt. */
+export function motionBlocks(cellX: number, cellY: number, gridWidth: number, gridHeight: number, motionWidth: number, motionHeight: number): Array<[number, number, number]> {
+  const blockX = cellX / gridWidth * motionWidth - 0.5
+  const blockY = cellY / gridHeight * motionHeight - 0.5
+  const lowerX = Math.floor(blockX)
+  const lowerY = Math.floor(blockY)
+  const weightX = blockX - lowerX
+  const weightY = blockY - lowerY
+  const blocks: Array<[number, number, number]> = []
+  for (const [offsetX, offsetY, weight] of [[0, 0, (1 - weightX) * (1 - weightY)], [1, 0, weightX * (1 - weightY)], [0, 1, (1 - weightX) * weightY], [1, 1, weightX * weightY]] as const) {
+    if (weight <= 0) continue
+    blocks.push([Math.min(motionWidth - 1, Math.max(0, lowerX + offsetX)), Math.min(motionHeight - 1, Math.max(0, lowerY + offsetY)), weight])
+  }
+  return blocks
 }
 
 /** Snelheid in cellen per minuut op de plek, bilineair zoals de motiontextuur; ongeldig als een buurblok geen vector heeft. */
 export function motionAtPatch(motion: MotionField, patch: RainPatch): { x: number; y: number } | null {
   const signed = new Int8Array(motion.vectors.buffer, motion.vectors.byteOffset, motion.vectors.byteLength)
-  const blockX = patch.cellX / patch.gridWidth * motion.width - 0.5
-  const blockY = patch.cellY / patch.gridHeight * motion.height - 0.5
-  const lowerX = Math.floor(blockX)
-  const lowerY = Math.floor(blockY)
-  const weightX = blockX - lowerX
-  const weightY = blockY - lowerY
   let x = 0
   let y = 0
-  for (const [offsetX, offsetY, weight] of [[0, 0, (1 - weightX) * (1 - weightY)], [1, 0, weightX * (1 - weightY)], [0, 1, (1 - weightX) * weightY], [1, 1, weightX * weightY]] as const) {
-    if (weight <= 0) continue
-    const column = Math.min(motion.width - 1, Math.max(0, lowerX + offsetX))
-    const row = Math.min(motion.height - 1, Math.max(0, lowerY + offsetY))
+  for (const [column, row, weight] of motionBlocks(patch.cellX, patch.cellY, patch.gridWidth, patch.gridHeight, motion.width, motion.height)) {
     const index = (row * motion.width + column) * 2
     if (signed[index] === -128 || signed[index + 1] === -128) return null
     x += signed[index]! * 0.1 * weight

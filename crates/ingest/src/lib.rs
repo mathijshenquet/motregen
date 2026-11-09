@@ -11,6 +11,7 @@ pub mod grid;
 pub mod icon_d2;
 pub mod pipeline;
 pub mod publisher;
+pub mod regions;
 
 // The Nix ecCodes build has GRIB_PTHREADS=0: separate handles still share its parser.
 static GRIB_DECODER_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
