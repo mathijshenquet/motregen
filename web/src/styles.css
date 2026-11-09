@@ -189,11 +189,10 @@ button { color: inherit; cursor: pointer; }
 .rain-isoline-legend i { border-left: 2px solid; }
 .feels-legend { gap: 3px; }
 .feels-legend i { width: 18px; }
-.wind-legend { align-items: flex-start; gap: 10px; }
-.wind-legend > small { align-self: flex-start; }
-.wind-zone { display: inline-flex; flex-direction: column; align-items: stretch; gap: 1px; }
-.wind-zone-classes { display: inline-flex; gap: 6px; }
-.wind-zone em { border-top: 1px solid color-mix(in srgb, var(--muted) 45%, transparent); padding-top: 1px; color: var(--muted); font-size: 11px; font-style: normal; text-align: center; }
+.wind-legend { gap: 10px; }
+.map-legend .wind-zone { gap: 6px; }
+/* Boven een nachtkaart de donkere strook, ook in het lichte thema (zoals de bronregel). */
+.map-shell.sky-night :is(.map-legend, .legend-chip) { --surface-raised: #0f1d25; --text: #e3f1f6; --muted: #9fb6c0; }
 /* Telefoon (PO 2026-11-09): dicht een klein chipje linksonder tegen de kaartrand, op de plek van de strook (tapdoel
    44 px); open de strook zelf op precies die plek, zoals desktop maar iets compacter, zodat Wind op een telefoon past
    (anders scrollt hij). Een tik op de strook of ernaast sluit hem. */
@@ -221,9 +220,9 @@ button { color: inherit; cursor: pointer; }
   .map-legend > * { flex-shrink: 0; }
   .map-legend span { gap: 3px; }
   .map-legend i { width: 10px; }
-  .map-legend small, .wind-zone em { font-size: 10px; }
+  .map-legend small { font-size: 10px; }
   .wind-legend { gap: 6px; }
-  .wind-zone-classes { gap: 3px; }
+  .map-legend .wind-zone { gap: 3px; }
   .feels-legend { gap: 2px; }
   .feels-legend i { width: 14px; }
 }

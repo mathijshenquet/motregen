@@ -3931,11 +3931,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       </Show>
       <Show when={!stillMode && legendOpen() && activeLegend() === 'wind'}>
         <aside id="map-legend" class="map-legend wind-legend" onClick={legendTap} aria-label="Windkracht in Beaufort">
-          <For each={BEAUFORT_FEEL_ZONES}>{(zone) => <span class="wind-zone">
-            <span class="wind-zone-classes"><For each={BEAUFORT_LEGEND.slice(zone.from, zone.to + 1)}>{(entry, index) =>
+          {/* Zonder woorden onder de klassen (PO 2026-11-09: te groot); het woord staat als hint op de groep. */}
+          <For each={BEAUFORT_FEEL_ZONES}>{(zone) => <span class="wind-zone" title={zone.word}>
+            <For each={BEAUFORT_LEGEND.slice(zone.from, zone.to + 1)}>{(entry, index) =>
               // Een minimum, anders zijn de bijna doorzichtige "lekker"-klassen in de legenda onzichtbaar.
-              <span><i style={{ background: `color-mix(in srgb, ${entry.color} ${Math.round(Math.max(0.18, windClassOpacity(zone.from + index())) * 100)}%, transparent)` }} />{entry.label}</span>}</For></span>
-            <em>{zone.word}</em>
+              <span><i style={{ background: `color-mix(in srgb, ${entry.color} ${Math.round(Math.max(0.18, windClassOpacity(zone.from + index())) * 100)}%, transparent)` }} />{entry.label}</span>}</For>
           </span>}</For>
           <small>Bft</small>
         </aside>
