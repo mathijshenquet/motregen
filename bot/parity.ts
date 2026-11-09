@@ -33,6 +33,8 @@ const origin = process.env.MOTREGEN_ORIGIN ?? 'https://motregen.nl'
 const referenceOrigin = process.env.MOTREGEN_PARITY_ORIGIN ?? origin
 const now = Date.parse(manifest.now)
 const limits = { mean: 0.5, maximum: 20, mapMean: 0.35, mapMaximum: 8 }
+// Kaart zonder overlays: onder het klokpaneel (tot rij 338) en boven de voetregel (vanaf rij 1107), sinds U103.
+const mapRows = { first: 345, last: 1100 }
 const windLimits = { components: 0.1, meanLength: 0.1, meanWidth: 0.1, ink: 0.2 }
 const windPhases = [1000, 3000, 5000, 7000, 9000]
 function averageWind(samples: WindMetrics[]): WindMetrics {
@@ -115,7 +117,7 @@ try {
     const rows = (image: Uint8Array, first: number, last: number) => image.subarray(first * rowBytes, last * rowBytes)
     const firstRow = Math.max(0, -rowShift), lastRow = Math.min(FRAME_PIXELS.height, FRAME_PIXELS.height - rowShift)
     const total = colorDifference(rows(referenceRgb, firstRow + rowShift, lastRow + rowShift), rows(rgb, firstRow, lastRow))
-    const map = colorDifference(rows(referenceRgb, 130 + rowShift, 1197 + rowShift), rows(rgb, 130, 1197))
+    const map = colorDifference(rows(referenceRgb, mapRows.first + rowShift, mapRows.last + rowShift), rows(rgb, mapRows.first, mapRows.last))
     let comparedTotal = total, comparedMap = map
     let wind
     if (mode === 'wind') {
@@ -140,8 +142,8 @@ try {
       const difference = (metric: keyof WindMetrics) => Math.abs(nativeMetrics[metric] - browserMetrics[metric]) / Math.max(1e-9, browserMetrics[metric])
       const relative: WindMetrics = { components: difference('components'), meanLength: difference('meanLength'), meanWidth: difference('meanWidth'), ink: difference('ink') }
       comparedTotal = colorDifference(unmaskedRgb(referenceRgb, mask!), unmaskedRgb(rgb, mask!))
-      const mapMask = mask!.subarray(130 * FRAME_PIXELS.width, 1197 * FRAME_PIXELS.width)
-      comparedMap = colorDifference(unmaskedRgb(referenceRgb.subarray(130 * FRAME_PIXELS.width * 3, 1197 * FRAME_PIXELS.width * 3), mapMask), unmaskedRgb(rgb.subarray(130 * FRAME_PIXELS.width * 3, 1197 * FRAME_PIXELS.width * 3), mapMask))
+      const mapMask = mask!.subarray(mapRows.first * FRAME_PIXELS.width, mapRows.last * FRAME_PIXELS.width)
+      comparedMap = colorDifference(unmaskedRgb(referenceRgb.subarray(mapRows.first * FRAME_PIXELS.width * 3, mapRows.last * FRAME_PIXELS.width * 3), mapMask), unmaskedRgb(rgb.subarray(mapRows.first * FRAME_PIXELS.width * 3, mapRows.last * FRAME_PIXELS.width * 3), mapMask))
       const excludedFraction = 1 - comparedTotal.pixels / total.pixels
       await sharp(Buffer.from(mask!), { raw: { ...FRAME_PIXELS, channels: 1 } }).linear(255).png().toFile(join(outputDirectory, `${sample.name}-wind-phase-mask.png`))
       const passed = excludedFraction <= 0.1 && Object.entries(windLimits).every(([key, limit]) => relative[key as keyof WindMetrics] <= limit)
