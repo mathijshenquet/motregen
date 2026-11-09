@@ -88,6 +88,15 @@ const SUN_STYLE: SunStyle = (() => {
   const chosen = query.has('dev') ? query.get('zon') : null
   return chosen === 'uur' || chosen === 'kwartier' || chosen === 'vlak' ? chosen : 'vlak-lijn'
 })()
+// Keuze PO (U103, C9): het merkteken voor zon op en onder onderin het plot, met ?dev&zonmerk=tijd|weg|huidig
+// (vervalt 2026-11-23). Tijd: alleen de tijd, gecentreerd onder het moment; weg: geen merkteken.
+type SunMarkerStyle = 'huidig' | 'tijd' | 'weg'
+const SUN_MARKER_STYLE: SunMarkerStyle = (() => {
+  if (typeof location === 'undefined') return 'huidig'
+  const query = new URLSearchParams(location.search)
+  const chosen = query.has('dev') ? query.get('zonmerk') : null
+  return chosen === 'tijd' || chosen === 'weg' ? chosen : 'huidig'
+})()
 const QUARTER = 15 * 60_000
 const CLOUD_LAYER_LABELS = { high: 'hoge wolken', mid: 'midden wolken', low: 'lage wolken' } as const
 // Middens van de wolkenlagen als deel van de plothoogte: hoog op 1/6, dan steeds 1/4 lager, zodat de lage wolken
@@ -306,7 +315,14 @@ export default function HistogramScrubber(props: Props) {
     for (let start = Math.floor(timelineStart() / QUARTER) * QUARTER; start <= timelineEnd(); start += QUARTER) {
       const daylight = inputs.sinElevation(start) > Math.sin(SUNSHINE_SUN_ELEVATION_DEGREES * Math.PI / 180)
       if (!daylight) {
-        if (run.length) { run.push([xAt(start), plotHeight()]); runs.push(run); run = [] }
+        if (run.length) {
+          // Zakt de zon in het kwartier vóór :30, dan valt zon onder op het laatste uurpunt. Twee punten op één x
+          // geven een oneindige helling en NaN in het pad, en dan sluit de vulling schuin (U103).
+          const sunset = run.at(-1)![0] < xAt(start) ? start : start + QUARTER
+          run.push([xAt(sunset), plotHeight()])
+          runs.push(run)
+          run = []
+        }
         afterGap = false
         continue
       }
@@ -940,10 +956,10 @@ export default function HistogramScrubber(props: Props) {
           {/* Korrel over lucht, wolken en regen: breekt de gladde verlopen (PO 2026-10-07 live). */}
           <Show when={skyVisible()}><div class="sky-grain" style={{ width: `${cloudWidth()}px`, opacity: skyStrength() }} /></Show>
           <div class="now-line" style={{ left: `${nowX()}px` }} />
-          <Show when={sunVisible()}>
-            <div class="sun-markers" classList={{ "on-sky": skyVisible() }} style={{ opacity: sunOpacity() }}><For each={sunMarkers()}>{(marker) =>
+          <Show when={sunVisible() && SUN_MARKER_STYLE !== 'weg'}>
+            <div class="sun-markers" classList={{ "on-sky": skyVisible(), "time-only": SUN_MARKER_STYLE === 'tijd' }} style={{ opacity: sunOpacity() }}><For each={sunMarkers()}>{(marker) =>
               <div class="sun-marker" classList={{ rise: marker.kind === 'rise', set: marker.kind === 'set' }} style={{ left: `${marker.x}px` }}>
-                <SunGlyph /><span>{formatTime(marker.epoch)}</span>
+                <Show when={SUN_MARKER_STYLE === 'huidig'}><SunGlyph /></Show><span>{formatTime(marker.epoch)}</span>
               </div>
             }</For></div>
           </Show>
