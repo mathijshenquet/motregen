@@ -18,11 +18,18 @@ const manifest = validateManifest(JSON.parse(await readFile(manifestPath, 'utf8'
 const origin = process.env.MOTREGEN_PARITY_ORIGIN ?? 'http://127.0.0.1:4392'
 const now = Date.parse(manifest.now)
 // Kaartgebied zonder klokpaneel (linksboven) en voettekst (linksonder): die tekst tekent Rust zelf (MIP-29).
-// Kaart zonder overlays: onder het klokpaneel (tot rij 338) en boven de voetregel (vanaf rij 1107), sinds U103.
-const mapRows = { first: 345, last: 1100 }
+// Kaart zonder overlays: onder het klokpaneel van de bot (tot rij 261) en boven de voetregel van de app-referentie
+// (vanaf rij 1111, op FRAME 1,5× groot), sinds U103.
+const mapRows = { first: 270, last: 1100 }
 // De Rust-stills zijn JPEG; het gemiddelde mag de eigen JPEG-vloer van het appbeeld met hooguit 0,5 overschrijden.
 const limits = { mapMeanAboveJpeg: 0.5, mapP99: 8 }
-const samples = [{ name: 'dag', minutes: 240 }, { name: 'nacht', minutes: 720 }]
+const sampleArgument = process.argv.find((argument) => argument.startsWith('--samples='))?.slice('--samples='.length)
+const samples = sampleArgument
+  ? sampleArgument.split(',').map((minutes) => ({ name: `plus-${minutes}`, minutes: Number(minutes) }))
+  : [{ name: 'dag', minutes: 240 }, { name: 'nacht', minutes: 720 }]
+// Onderzoek (U103): legt elk moment na 3 s en een tweede render nog eens vast. Zakt de afwijking dan, dan was de
+// app-referentie bij de eerste opname nog niet klaar; de botbeelden veranderen niet.
+const settle = process.argv.includes('--settle')
 
 function mapRegion(rgb: Uint8Array): Uint8Array {
   return rgb.subarray(mapRows.first * FRAME_PIXELS.width * 3, mapRows.last * FRAME_PIXELS.width * 3)
@@ -56,6 +63,12 @@ try {
   // De stillweergave van de app past nog het oude kader; zet hem op de projectie van de Rust-platen.
   const { view } = JSON.parse(await readFile(new URL('../crates/render-core/assets/constants.json', import.meta.url), 'utf8')) as { view: { lng: number; lat: number; zoom: number } }
   await page.evaluate((view) => (window as unknown as { __motregenJumpTo: (lng: number, lat: number, zoom: number, free?: boolean) => void }).__motregenJumpTo(view.lng, view.lat, view.zoom, true), view)
+  // Opwarmen: de eerste render na de sprong naar de Rust-projectie toont op FRAME nog grove tegels en een eerder frame
+  // (U103-onderzoek: 3,8 ΔE verschil met dezelfde render 3 s later, alleen bij het eerste moment).
+  await page.evaluate(async (epoch) => {
+    await (window as unknown as { __motregenRenderFrame: (epoch: number) => Promise<void> }).__motregenRenderFrame(epoch)
+  }, now + samples[0]!.minutes * 60_000)
+  await new Promise((resolve) => setTimeout(resolve, 3_000))
   const results = []
   for (const sample of samples) {
     const epoch = now + sample.minutes * 60_000
@@ -72,8 +85,17 @@ try {
         await new Promise((resolve) => setTimeout(resolve, 1_000))
       }
     }
-    const reference = await frameScreenshot(await page.screenshot())
-    const referenceRgb = await sharp(reference).removeAlpha().raw().toBuffer()
+    let reference = await frameScreenshot(await page.screenshot())
+    let referenceRgb = await sharp(reference).removeAlpha().raw().toBuffer()
+    const first = settle ? await sharp(referenceRgb, { raw: { ...FRAME_PIXELS, channels: 3 } }).raw().toBuffer() : undefined
+    if (settle) {
+      await new Promise((resolve) => setTimeout(resolve, 3_000))
+      await page.evaluate(async (epoch) => {
+        await (window as unknown as { __motregenRenderFrame: (epoch: number) => Promise<void> }).__motregenRenderFrame(epoch)
+      }, epoch)
+      reference = await frameScreenshot(await page.screenshot())
+      referenceRgb = await sharp(reference).removeAlpha().raw().toBuffer()
+    }
     const nativeJpeg = await readFile(join(nativeDirectory, `air-${epoch}.jpg`))
     const nativeRgb = await sharp(nativeJpeg).removeAlpha().raw().toBuffer()
     const referenceJpeg = await sharp(referenceRgb, { raw: { ...FRAME_PIXELS, channels: 3 } }).jpeg({ quality: 95, chromaSubsampling: '4:4:4' }).toBuffer()
@@ -82,7 +104,8 @@ try {
     const map = colorDifference(mapRegion(referenceRgb), mapRegion(nativeRgb))
     const mapP99 = percentile(mapRegion(referenceRgb), mapRegion(nativeRgb), 0.99)
     const passed = map.mean - jpegFloor.mean <= limits.mapMeanAboveJpeg && mapP99 <= limits.mapP99
-    const result = { sample: sample.name, epoch: new Date(epoch).toISOString(), total, map, mapP99, jpegFloor, passed }
+    const firstCapture = first && { map: colorDifference(mapRegion(first), mapRegion(nativeRgb)), mapP99: percentile(mapRegion(first), mapRegion(nativeRgb), 0.99), referenceChange: colorDifference(mapRegion(first), mapRegion(referenceRgb)) }
+    const result = { sample: sample.name, epoch: new Date(epoch).toISOString(), total, map, mapP99, jpegFloor, passed, ...(firstCapture && { firstCapture }) }
     results.push(result)
     console.info(JSON.stringify({ event: 'air-parity', ...result }))
     await writeFile(join(outputDirectory, `${sample.name}-browser.png`), reference)

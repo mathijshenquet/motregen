@@ -5,7 +5,8 @@ use std::sync::OnceLock;
 pub struct ModeConstants {
     pub loops: LoopPlans,
     pub scale: f64,
-    /// Factor on the fixed pixel sizes of clock, footer and labels, tuned at scale 1.5 (U103).
+    /// Factor on the fixed pixel sizes of map labels and marks, tuned at scale 1.5 (U103). The clock panel and footer
+    /// stay at their scale-1.5 size (PO 2026-11-09).
     pub element_scale: f64,
     pub wind: Wind,
     pub isoline: Isoline,

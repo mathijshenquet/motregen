@@ -1,6 +1,6 @@
 use render_core::{
     constants::constants,
-    mode_constants::{element_px, element_text},
+    mode_constants::element_text,
     overlay::clock_panel_bounds,
     rotated_text::{RotatedText, TextStyle},
     text::Text,
@@ -13,7 +13,7 @@ fn rotated_labels_and_halos_do_not_intersect_the_clock_panel() {
     let bounds = clock_panel_bounds(&mut text, "Gevoels-\ntemperatuur");
     assert_eq!(
         clock_panel_bounds(&mut text, "Regenradar"),
-        [0.0, 107.0, element_px(200.0), 107.0 + element_px(154.0)]
+        [0.0, 107.0, 200.0, 261.0]
     );
     let original = vec![25; size.width * size.height * 3];
     let mut labels = RotatedText::new().unwrap();

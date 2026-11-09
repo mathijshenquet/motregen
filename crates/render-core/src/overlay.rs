@@ -1,7 +1,6 @@
 use crate::{
     clock::{ClockTransition, draw_clock},
     constants::constants,
-    mode_constants::{element_px, element_text},
     text::Text,
     time::{clock_date, clock_text, loop_clock_epoch},
 };
@@ -11,21 +10,15 @@ pub struct ClockOptions {
     pub still: bool,
 }
 
-// MIP-32: 64 pixels op de 576-brede Telegram-screenshot, omgerekend naar 960 uitvoerpixels. Vrije ruimte boven de
-// klok, dus de positie schaalt niet mee met de elementen (U103).
+// MIP-32: 64 pixels op de 576-brede Telegram-screenshot, omgerekend naar 960 uitvoerpixels.
 pub const CLOCK_PANEL_TOP: i32 = 107;
-
-/// A fixed size tuned at scale 1.5 in whole output pixels at the current element scale.
-fn px(pixels: f64) -> i32 {
-    element_px(pixels).round() as i32
-}
 
 pub fn clock_panel_bounds(text: &mut Text, title: &str) -> [f64; 4] {
     let width = title
         .lines()
-        .map(|line| (f64::from(text.width(line, element_text(30))) + element_px(32.0)).ceil())
-        .fold(element_px(200.0), f64::max);
-    let height = px(154.0 + 36.0 * title.lines().count().saturating_sub(1) as f64);
+        .map(|line| f64::from((text.width(line, 30) + 32.0).ceil()))
+        .fold(200.0, f64::max);
+    let height = 154 + 36 * title.lines().count().saturating_sub(1) as i32;
     [
         0.0,
         f64::from(CLOCK_PANEL_TOP),
@@ -84,11 +77,11 @@ pub fn draw_overlay_title(
     let bounds = clock_panel_bounds(text, title);
     rounded_panel(
         rgb,
-        -px(20.0),
+        -20,
         CLOCK_PANEL_TOP,
-        bounds[2] as i32 + px(20.0),
+        bounds[2] as i32 + 20,
         bounds[3] as i32 - CLOCK_PANEL_TOP,
-        px(20.0),
+        20,
         background,
         0.96,
     );
@@ -99,7 +92,7 @@ pub fn draw_overlay_title(
     };
     let (clock, _) = clock_text(clock_epoch);
     let date = clock_date(clock_epoch);
-    let content_left = element_px(16.0) as f32;
+    let content_left = 16.0;
     if let Some(transition) = options.transition {
         draw_clock(
             text,
@@ -114,8 +107,8 @@ pub fn draw_overlay_title(
         text.draw(
             rgb,
             &clock,
-            (content_left, CLOCK_PANEL_TOP + px(67.0)),
-            element_text(58),
+            (content_left, CLOCK_PANEL_TOP + 67),
+            58,
             clock_color,
             None,
         );
@@ -123,8 +116,8 @@ pub fn draw_overlay_title(
     text.draw(
         rgb,
         &date,
-        (content_left, CLOCK_PANEL_TOP + px(103.0)),
-        element_text(30),
+        (content_left, CLOCK_PANEL_TOP + 103),
+        30,
         clock_color,
         None,
     );
@@ -132,11 +125,8 @@ pub fn draw_overlay_title(
         text.draw(
             rgb,
             title,
-            (
-                content_left,
-                CLOCK_PANEL_TOP + px(139.0 + line as f64 * 36.0),
-            ),
-            element_text(30),
+            (content_left, CLOCK_PANEL_TOP + 139 + line as i32 * 36),
+            30,
             clock_color,
             None,
         );
@@ -145,28 +135,27 @@ pub fn draw_overlay_title(
     let footer_background = if night { [7, 19, 25] } else { [245, 249, 250] };
     rounded_panel(
         rgb,
-        -px(20.0),
-        size.height as i32 - px(78.0),
-        px(380.0),
-        px(100.0),
-        px(22.0),
+        -20,
+        size.height as i32 - 78,
+        380,
+        100,
+        22,
         footer_background,
         0.9,
     );
-    let footer_left = element_px(22.0) as f32;
     text.draw(
         rgb,
         "motregen.nl",
-        (footer_left, size.height as i32 - px(43.0)),
-        element_text(28),
+        (22.0, size.height as i32 - 43),
+        28,
         footer_color,
         None,
     );
     text.draw(
         rgb,
         "KNMI · © OpenStreetMap",
-        (footer_left, size.height as i32 - px(15.0)),
-        element_text(18),
+        (22.0, size.height as i32 - 15),
+        18,
         footer_color,
         None,
     );

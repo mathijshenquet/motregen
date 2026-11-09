@@ -8,9 +8,10 @@ import type { TelegramApi } from './api.js'
  */
 export const FRAME_PIXELS = { width: 960, height: 1224 } as const
 /**
- * Labels, lijnen, klok en voetregel 1,5× groter dan bij de oude schaal 1,5, op hetzelfde bestand en dezelfde
- * kaartuitsnede (U103, C8a): Telegram toont de films vaak klein. Vaste pixelmaten zijn afgesteld bij
- * BASE_FRAME_SCALE en schalen met ELEMENT_SCALE mee.
+ * De kaart met alles erop (plaatsnamen, labels, lijnen, wind, merktekens) 1,5× groter dan bij de oude schaal 1,5,
+ * op hetzelfde bestand en dezelfde kaartuitsnede (U103, C8a): Telegram toont de films vaak klein. Vaste pixelmaten
+ * zijn afgesteld bij BASE_FRAME_SCALE en schalen met ELEMENT_SCALE mee; klokpaneel en voetregel van de
+ * Rust-renderer blijven op hun oude maat (PO 2026-11-09).
  */
 export const BASE_FRAME_SCALE = 1.5
 export const ELEMENT_SCALE = 1.5

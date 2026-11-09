@@ -128,8 +128,7 @@ fn clock_leaves_the_badge_band_clear_and_rounds_both_right_corners() {
                     assert_ne!(pixel(0, bottom), [25; 3]);
                     assert_eq!(pixel(right, top), [25; 3]);
                     assert_eq!(pixel(right, bottom), [25; 3]);
-                    let radius = render_core::mode_constants::element_px(20.0).round() as usize;
-                    assert_ne!(pixel(right, top + radius), [25; 3]);
+                    assert_ne!(pixel(right, top + 20), [25; 3]);
                 }
             }
         }
