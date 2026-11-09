@@ -147,6 +147,7 @@ const phaseLabels: Record<PerfPhase, string> = {
   'scrubber-paint': 'Scrubber',
   'table-render': 'Tabel',
   'basemap-tile': 'Kaarttegel',
+  'windsock-draw': 'Windzakken',
 }
 
 function phaseLabel(phase: PerfPhase): string {
