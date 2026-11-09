@@ -2682,6 +2682,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       state.loading.set(key, { frames, values })
       state.seriesPublisher?.schedule()
     })
+    if (rows === 'near-now' && regionsSection(manifest())) warmFrames(frames, indexes, 'high', layer)
     return readPointSeries(frames, point, indexes, 'high', values, showLoaded, layer).catch(() => [])
   }
 
@@ -2781,12 +2782,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
 
   /**
-   * Met regiobestanden haalt het histogram geen regenframes meer op, maar het afspelen speelt ze wel af en rekent op
-   * deze bulk (de kaart-prefetch staat uit zolang de locatiereeks laadt). Dus dezelfde frames, tegelijk met het
-   * regiobestand en zonder dat het histogram erop wacht.
+   * Met regiobestanden decoderen histogram en tabel geen frames meer, maar kaart en afspelen gebruiken dezelfde frames
+   * wel en rekenden op deze bulk (de kaart-prefetch staat uit zolang de locatiereeks laadt): regen voor het afspelen,
+   * de velden rond nu voor de eerste kaart in Gevoel en Wind. Dus dezelfde frames, tegelijk met het regiobestand en
+   * zonder dat histogram of tabel erop wacht.
    */
-  function warmRainFrames(indexes: number[], priority: FetchPriority, layer: LoadLayer): void {
-    const frames = timeline()
+  function warmFrames(frames: TimelineFrame[], indexes: number[], priority: FetchPriority, layer: LoadLayer): void {
     const chunks = new Map<ManifestChunk, number[]>()
     for (const index of indexes) {
       const frame = frames[index]
@@ -2828,7 +2829,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       const missing = indexes.filter((index) => !state.rainLoaded.has(index))
       if (!missing.length || state.request !== pointRequest) return
       perf.loads.mark({ kind: 'start', layer, field: 'rain_rate', indexes: missing })
-      if (regionsSection(manifest())) warmRainFrames(missing, priority, layer)
+      if (regionsSection(manifest())) warmFrames(timeline(), missing, priority, layer)
       await readPointSeries(timeline(), state.point, missing, priority, state.rainValues, (_, loaded) => {
         for (const index of loaded) state.rainLoaded.add(index)
         if (state.request === pointRequest) state.rainPublisher?.schedule()
