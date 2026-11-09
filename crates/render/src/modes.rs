@@ -1,11 +1,9 @@
 use crate::{
     data::Dataset,
     encode::{Video, jpeg},
-    fields::{Fields, Pair, Slice, pair, screen},
+    fields::{Fields, Pair, Slice, pair},
     frame_cache::{Key, ModeCache, Parts, Prediction},
-    renderer::{
-        FileMedia, FramePlan, Media, Options, Profile, frame_plans, name_mask, name_masks, plates,
-    },
+    renderer::{FileMedia, FramePlan, Media, Options, Profile, frame_plans, name_mask, plates},
 };
 use anyhow::{Context, Result, ensure};
 use rayon::prelude::*;
@@ -14,12 +12,10 @@ use render_core::{
     constants::constants,
     field_raster::{self, LineColor},
     isoline_labels::label_text_size,
-    mode_constants::{color, element_text, mode_constants},
-    name_mask::NameMask,
+    mode_constants::{color, mode_constants},
     overlay::{ClockOptions, clock_appearance, clock_panel_bounds, draw_overlay_title},
     projection::Projection,
     rotated_text::{RotatedText, TextStyle},
-    temperature::{TemperaturePair, draw_temperature},
     text::Text,
     time::{Manifest, dark, epoch, frame_blend},
     wind::{self, Water, WindField},
@@ -45,8 +41,8 @@ struct Input {
     loop_frame: bool,
     night: bool,
     slice: Slice,
-    wind: Option<(Pair, Pair)>,
-    temperatures: Option<Pair>,
+    /// (oost, noord) op de kaarttijd, een half en een heel `lag_minutes` eerder (windzakken, U101).
+    wind: Option<[(Pair, Pair); 3]>,
 }
 
 struct Worker {
@@ -56,7 +52,6 @@ struct Worker {
 
 struct Painter<'a> {
     plates: &'a [Vec<u8>; 2],
-    names: &'a [NameMask; 2],
     water: &'a [WaterMask; 2],
     projection: &'a Projection,
     grid: &'a render_core::projection::Grid,
@@ -101,59 +96,40 @@ impl Painter<'_> {
             output_frames: 1,
             ..Profile::default()
         };
-        if let Some(pair) = &input.temperatures {
-            let started = Instant::now();
-            draw_temperature(
-                &mut worker.text,
-                &mut rgb,
-                self.projection,
-                &self.names[usize::from(input.night)],
-                TemperaturePair {
-                    left_grid: &pair.left.grid,
-                    right_grid: &pair.right.grid,
-                    left: &pair.left.values,
-                    right: &pair.right.values,
-                    left_quant: &pair.left.quant,
-                    right_quant: &pair.right.quant,
-                    mix: pair.mix,
-                },
-                input.night,
-            );
-            profile.overlay_us += started.elapsed().as_micros();
-        }
         let composition_started = Instant::now();
         let settings = &mode_constants().isoline;
-        let line_color = color(match (self.wind, input.night) {
-            (true, true) => &settings.dark_pressure,
-            (true, false) => &settings.light_pressure,
-            (false, true) => &settings.dark_temperature,
-            (false, false) => &settings.light_temperature,
+        // De Bft-grenzen hebben de lijnkleur van de temperatuur, zoals `isolineColor` in de app.
+        let line_color = color(if input.night {
+            &settings.dark_temperature
+        } else {
+            &settings.light_temperature
         });
-        let fill = (!self.wind).then(|| {
-            field_raster::fill(
-                &mut rgb,
-                &input.slice.field,
-                self.projection,
-                self.colors,
-                &input.slice.rings,
-                input.slice.opacity,
-            )
-        });
-        let line_style = match &fill {
-            Some(fill) => LineColor::Isotherm {
-                fallback: line_color,
-                fill,
-            },
-            None => LineColor::Isobar(line_color),
+        let fill_opacity = if self.wind {
+            mode_constants().beaufort.fill_opacity
+        } else {
+            settings.fill_opacity
         };
+        let fill = field_raster::fill_with(
+            &mut rgb,
+            &input.slice.field,
+            self.projection,
+            self.colors,
+            &input.slice.rings,
+            input.slice.opacity,
+            fill_opacity,
+        );
         field_raster::lines(
             &mut rgb,
             &input.slice.segments,
-            line_style,
+            LineColor::Isotherm {
+                fallback: line_color,
+                fill: &fill,
+            },
             input.slice.opacity,
         );
         profile.composition_us += composition_started.elapsed().as_micros();
-        if let Some((east, north)) = &input.wind {
+        if let Some(pairs) = &input.wind {
+            let [(east, north), ..] = pairs;
             let started = Instant::now();
             let water = &self.water[usize::from(input.night)];
             wind::draw(
@@ -168,34 +144,17 @@ impl Painter<'_> {
                     alpha: &water.alpha,
                 },
             );
+            crate::windsocks::draw(
+                &mut rgb,
+                &mut worker.labels,
+                self.grid,
+                pairs,
+                input.simulation_seconds,
+                input.night,
+            );
             profile.strokes_us += started.elapsed().as_micros();
         }
-        let labels_started = Instant::now();
         let halo = if input.night { [16, 32, 39] } else { [255; 3] };
-        let transform = screen(self.grid);
-        for mark in &input.slice.marks {
-            let point = transform.point([mark.column, mark.row]);
-            let mark_color = match (mark.kind, input.night) {
-                ('H', false) => [212, 53, 44],
-                ('L', false) => [36, 98, 199],
-                ('H', true) => [255, 107, 94],
-                _ => [110, 163, 255],
-            };
-            worker.labels.draw_excluding(
-                &mut rgb,
-                &mark.kind.to_string(),
-                point,
-                0.0,
-                TextStyle {
-                    size: element_text(45),
-                    color: mark_color,
-                    halo,
-                    opacity: mark.opacity * input.slice.opacity,
-                },
-                Some(clock_bounds),
-            );
-        }
-        profile.labels_us += labels_started.elapsed().as_micros();
         let labels_started = Instant::now();
         for label in &input.slice.labels {
             worker.labels.draw_excluding(
@@ -258,28 +217,25 @@ struct Sources<'a> {
     fields: Fields<'a>,
     east: Option<Dataset<'a>>,
     north: Option<Dataset<'a>>,
-    temperatures: Option<Dataset<'a>>,
+}
+
+/// De kaarttijd en de twee eerdere tijden waar de staart van de windzak naar kijkt (traagheid, U101).
+fn windsock_times(time: i64) -> [i64; 3] {
+    let lag = (mode_constants().windsock.lag_minutes * 60_000.0) as i64;
+    [time, time - lag / 2, time - lag]
 }
 
 impl<'a> Sources<'a> {
-    fn temperature_time(temperatures: &Dataset, time: i64) -> i64 {
-        ((time + 300_000).div_euclid(600_000) * 600_000).clamp(
-            temperatures.frames[0].epoch,
-            temperatures.frames.last().unwrap().epoch,
-        )
-    }
-
     fn input(&mut self, plan: FramePlan, simulation_seconds: f64) -> Result<Input> {
         let time = plan.epoch;
         let slice = self.fields.slice(time)?;
         let wind = if let (Some(east), Some(north)) = (&mut self.east, &mut self.north) {
-            Some((pair(east, time)?, pair(north, time)?))
-        } else {
-            None
-        };
-        let temperatures = if let Some(temperatures) = &mut self.temperatures {
-            let time = Self::temperature_time(temperatures, time);
-            Some(pair(temperatures, time)?)
+            let [now, halfway, earliest] = windsock_times(time);
+            Some([
+                (pair(east, now)?, pair(north, now)?),
+                (pair(east, halfway)?, pair(north, halfway)?),
+                (pair(east, earliest)?, pair(north, earliest)?),
+            ])
         } else {
             None
         };
@@ -291,7 +247,6 @@ impl<'a> Sources<'a> {
             night: dark(time),
             slice,
             wind,
-            temperatures,
         })
     }
 
@@ -330,12 +285,10 @@ impl<'a> Sources<'a> {
             .bytes(&self.fields.state()?);
         self.fields.key_sources(time, &mut key)?;
         if let (Some(east), Some(north)) = (&mut self.east, &mut self.north) {
-            Self::key_pair(east, time, &mut key)?;
-            Self::key_pair(north, time, &mut key)?;
-        }
-        if let Some(temperatures) = &mut self.temperatures {
-            let time = Self::temperature_time(temperatures, time);
-            Self::key_pair(temperatures, time, &mut key)?;
+            for time in windsock_times(time) {
+                Self::key_pair(east, time, &mut key)?;
+                Self::key_pair(north, time, &mut key)?;
+            }
         }
         Ok(key.finish())
     }
@@ -343,9 +296,9 @@ impl<'a> Sources<'a> {
     fn datasets(&mut self) -> impl Iterator<Item = &mut Dataset<'a>> {
         [
             Some(&mut self.fields.data),
+            self.fields.north.as_mut(),
             self.east.as_mut(),
             self.north.as_mut(),
-            self.temperatures.as_mut(),
         ]
         .into_iter()
         .flatten()
@@ -533,9 +486,6 @@ pub fn render(
     let north = wind
         .then(|| Dataset::new(data_directory, manifest, "wind_v_ms"))
         .transpose()?;
-    let temperatures = wind
-        .then(|| Dataset::new(data_directory, manifest, "feels_like_c"))
-        .transpose()?;
     if let (Some(east), Some(north)) = (&east, &north) {
         ensure!(
             east.frames
@@ -547,7 +497,6 @@ pub fn render(
     }
     let rain_grid = Dataset::new(data_directory, manifest, "rain_rate")?.grid()?;
     let mut plates = plates(basemap_directory, &rain_grid)?;
-    let names = name_masks(basemap_directory)?;
     if !wind {
         for plate in Arc::make_mut(&mut plates) {
             for pixel in plate.chunks_exact_mut(3) {
@@ -575,13 +524,8 @@ pub fn render(
         fields,
         east,
         north,
-        temperatures,
     };
-    let colors = if wind {
-        Vec::new()
-    } else {
-        sources.fields.palette()
-    };
+    let colors = sources.fields.palette();
     if cache.is_some() {
         for data in sources.datasets() {
             data.touched = Some(Vec::new());
@@ -708,7 +652,6 @@ pub fn render(
             for works in &input_receiver {
                 let painter = Painter {
                     plates: &plates,
-                    names: &names,
                     water: &water,
                     projection: &projection,
                     grid: &field_grid,
@@ -769,7 +712,7 @@ pub fn render(
     for data in [
         sources.east.as_ref(),
         sources.north.as_ref(),
-        sources.temperatures.as_ref(),
+        sources.fields.north.as_ref(),
     ]
     .into_iter()
     .flatten()

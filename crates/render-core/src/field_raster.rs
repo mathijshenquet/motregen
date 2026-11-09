@@ -24,6 +24,7 @@ fn smooth(value: f32) -> f32 {
     bounded * bounded * (3.0 - 2.0 * bounded)
 }
 
+/// Banden op de vaste temperatuurdekking (U100).
 pub fn fill(
     rgb: &mut [u8],
     field: &Field,
@@ -31,6 +32,27 @@ pub fn fill(
     colors: &[f32],
     rings: &[f32],
     opacity: f64,
+) -> FillRaster {
+    fill_with(
+        rgb,
+        field,
+        projection,
+        colors,
+        rings,
+        opacity,
+        mode_constants().isoline.fill_opacity,
+    )
+}
+
+/// Banden op een eigen dekking: de Beaufortvlakken van de windfilm zijn dekkender (U101).
+pub fn fill_with(
+    rgb: &mut [u8],
+    field: &Field,
+    projection: &Projection,
+    colors: &[f32],
+    rings: &[f32],
+    opacity: f64,
+    fill_opacity: f64,
 ) -> FillRaster {
     let size = &constants().size;
     let width = size.width;
@@ -42,7 +64,7 @@ pub fn fill(
     let columns = &projection.columns;
     let rows = &projection.rows;
     let has_rings = !rings.is_empty();
-    let fill_opacity = mode_constants().isoline.fill_opacity as f32;
+    let fill_opacity = fill_opacity as f32;
     let opacity = opacity as f32;
     let scale = mode_constants().isoline.fill_resolution;
     let fill_width = (width as f64 * scale).round().max(1.0) as usize;
