@@ -324,6 +324,31 @@ PO 2026-11-09, via de orkestrator: "ja doe maar A als voorgesteld".
 De bouw gaat in twee fasen: eerst de ingest achter een vlag (U102 fase 1), daarna, na review door de orkestrator, de
 client (fase 2).
 
+## Addendum: tussenbalken en marges (2026-11-09)
+
+PO-vraag na fase 1, via de orkestrator: "kan je die averaging niet server side doen?" Het histogram rekent zijn
+tussenbalken alleen tussen frames die ≥ 22,5 min uit elkaar liggen: HARMONIE-uren binnen één chunk (37–39 paren, 3
+balken per paar) en soms het overgangspaar seamless→HARMONIE. De regenrand van 17 cellen plus beweging in de
+radargroep diende dus nergens voor. Gemeten (`docs/perf/u102/tussenbalken-server-2026-11-09.md`), per locatie
+gemiddeld en p95, en op prod tegenover 108 MB live en ≈ 430 MB/dag:
+
+| | fase 1 (patch) | server-side, u16 | server-side, delta | hybride |
+| --- | ---: | ---: | ---: | ---: |
+| per locatie droog (p95) | 34,4 kB (41 kB) | 49,4 kB (91 kB) | 28,5 kB (45 kB) | 27,9 kB (34 kB) |
+| per locatie nat (p95) | 45,6 kB (99 kB) | 64,5 kB (114 kB) | 32,9 kB (60 kB) | 33,8 kB (54 kB) |
+| live, droog / nat | 13,0 / 16,4 MB (+12 / +15 %) | — | 11,6 / 12,9 MB (+11 / +12 %) | 11,5 / 13,2 MB (+11 / +12 %) |
+| geschreven per dag, droog / nat | 270 / 569 MB (+63 / +132 %) | — | 260 / 340 MB (+60 / +79 %) | 259 / 341 MB (+60 / +79 %) |
+| ingest-CPU per dag, droog / nat | 5,2 / 13,4 min | — | 3,6 / 7,7 min | 2,2 / 6,2 min |
+| HARMONIE-run: CPU / wachttijd manifest | 5,5 / 2,9 s | — | 15,6 / 8,0 s | 4,8 / 2,6 s |
+| tussenbalken gerekend | client, op de plek, exact | server, celmidden, 1/256 byte | server, celmidden, ±0,5 byte | client, op de plek, exact |
+| werk | — | ≈ 1 dag | ≈ 1 dag | ≈ 1 uur, geen clientwijziging |
+
+Hybride = radar en overige velden alleen hun eigen cellen, HARMONIE-regen met patch en beweging, ECMWF +1 cel voor
+bilineair. Server-side valt niet goedkoper uit: drie voorgerekende, gebroken waarden per uur per cel comprimeren
+slechter dan de ruwe patch, en de warp-code blijft in de client nodig voor de terugval en het overgangspaar.
+
+**Besluit** (orkestrator 2026-11-09, na de PO-vraag): de hybride is de standaard (`Layout::HYBRID`).
+
 ## Open vragen
 
 A1. Akkoord met alle gridpunten en 210 regio's? Of 400 regio's (18,5 km; 8 kB per locatie, 66 ms op 4G, 261

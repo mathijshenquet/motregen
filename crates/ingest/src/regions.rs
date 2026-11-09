@@ -26,9 +26,10 @@ pub const RAIN_MARGIN_CELLS: u32 = 17;
 pub const FIELD_MARGIN_CELLS: u32 = 1;
 const DISK_BLOCK_BYTES: u64 = 4096;
 
-/// Welke cellen en extra's een regiobestand meekrijgt. `PATCH` is het ontwerp van fase 1 (de client rekent de
-/// tussenbalken uit een regenpatch met beweging); `CELL` is de server-side variant (PO 2026-11-09): alleen de eigen
-/// cellen, met de tussenbalken van de HARMONIE-regen per cel al uitgerekend.
+/// Welke cellen en extra's een regiobestand meekrijgt. `HYBRID` is de standaard (orkestrator 2026-11-09, meting in
+/// docs/perf/u102/tussenbalken-server-2026-11-09.md): eigen cellen, alleen de HARMONIE-regen met regenpatch en
+/// beweging (daar rekent de client de tussenbalken), ECMWF +1 cel voor bilineair. `PATCH` is fase 1 (ook radar en de
+/// overige velden met rand); `CELL` de gemeten server-side variant met tussenbalken per cel.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Layout {
     /// Regenrand voor de radarbronnen; die hebben nooit tussenbalken (frames 5–10 min uit elkaar), behalve het
@@ -53,6 +54,14 @@ pub enum BetweenPrecision {
 }
 
 impl Layout {
+    pub const HYBRID: Layout = Layout {
+        radar_rain_margin: 0,
+        rain_margin: RAIN_MARGIN_CELLS,
+        field_margin: 0,
+        ecmwf_margin: FIELD_MARGIN_CELLS,
+        motion: true,
+        between: None,
+    };
     pub const PATCH: Layout = Layout {
         radar_rain_margin: RAIN_MARGIN_CELLS,
         rain_margin: RAIN_MARGIN_CELLS,
@@ -429,9 +438,10 @@ impl BuiltGroup {
 }
 
 /// Een generatie heet naar de chunks waaruit hij is gemaakt: dezelfde chunks geven dezelfde naam (immutable).
-pub fn group_key(group: Group, grid: &RegionGrid, urls: &[String]) -> String {
+/// Naam van een generatie: dezelfde chunks met dezelfde layout geven dezelfde map, een andere layout een nieuwe.
+pub fn group_key(group: Group, grid: &RegionGrid, urls: &[String], layout: Layout) -> String {
     let mut hasher = blake3::Hasher::new();
-    hasher.update(format!("mrr{FORMAT_VERSION}\n{}\n", group.name()).as_bytes());
+    hasher.update(format!("mrr{FORMAT_VERSION}\n{}\n{layout:?}\n", group.name()).as_bytes());
     hasher.update(&serde_json::to_vec(grid).expect("region grid serializes"));
     for url in urls {
         hasher.update(b"\n");
@@ -453,7 +463,7 @@ pub fn build_group(
     grid: &RegionGrid,
     level: i32,
 ) -> Result<BuiltGroup> {
-    build_group_with(group, chunks, grid, level, Layout::PATCH)
+    build_group_with(group, chunks, grid, level, Layout::HYBRID)
 }
 
 pub fn build_group_with(
@@ -610,7 +620,7 @@ pub fn build_group_with(
         .get(((sizes.len() as f64 * 0.95).ceil() as usize).saturating_sub(1))
         .copied()
         .unwrap_or(0);
-    let key = group_key(group, grid, &urls);
+    let key = group_key(group, grid, &urls, layout);
     Ok(BuiltGroup {
         group,
         key,
@@ -966,7 +976,7 @@ impl RegionWriter {
                 .map(|chunk| chunk.manifest.url.clone())
                 .collect::<Vec<_>>();
             urls.sort();
-            let key = group_key(group, &self.grid, &urls);
+            let key = group_key(group, &self.grid, &urls, Layout::HYBRID);
             let directory = format!("{}-{key}", group.name());
             if self
                 .written

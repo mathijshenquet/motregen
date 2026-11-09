@@ -1,7 +1,7 @@
 // MIP-40 fase 2: leest de clientlezer (src/core/region-points.ts) dezelfde waarden uit de regiobestanden van de ingest
 // als de bestaande puntlezers uit de rasters? Voor plaatsen uit de plaatsenlijst, elke chunk van elke groep en elk frame:
-// pointValue, pointValueBilinear, rainPatch en motionAtPatch. Een `undefined` (niet in het bestand) telt als fout,
-// want met de huidige marges hoort alles erin te staan.
+// pointValue, pointValueBilinear (ECMWF), rainPatch en motionAtPatch. Een `undefined` (niet in het bestand) telt als fout,
+// behalve patch en beweging van een regenchunk zonder bewegingsdeel: die laat de hybride layout bewust weg (radar).
 // pnpm exec tsx scripts/regio-check.ts <datamap van motregen-regions --out> [--places N]
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -50,7 +50,7 @@ function decodeChunk(url: string, headerLength: number): Raster {
   return { header, frames, motions }
 }
 
-const counts = { values: 0, bilinear: 0, patches: 0, motions: 0, undefined: 0, different: 0 }
+const counts = { values: 0, bilinear: 0, patches: 0, motions: 0, withoutPatch: 0, undefined: 0, different: 0 }
 const failures: string[] = []
 function check(same: boolean, what: string): void {
   if (same) return
@@ -75,13 +75,18 @@ for (const [x, y] of places) {
       }
       raster.frames.forEach((decoded, frame) => {
         const value = region.value(frame, x, y)
-        const bilinear = region.bilinear(frame, x, y)
-        if (value === undefined || bilinear === undefined) return void (counts.undefined += 1)
+        if (value === undefined) return void (counts.undefined += 1)
         check(value === pointValue(raster.header, decoded, x, y), `${url} #${frame} waarde op ${x},${y}`)
-        check(bilinear === pointValueBilinear(raster.header, decoded, x, y), `${url} #${frame} bilineair op ${x},${y}`)
         counts.values += 1
-        counts.bilinear += 1
+        // Alleen de dagenlijst (ECMWF) leest bilineair.
+        if (raster.header.source === 'ecmwf') {
+          const bilinear = region.bilinear(frame, x, y)
+          if (bilinear === undefined) return void (counts.undefined += 1)
+          check(bilinear === pointValueBilinear(raster.header, decoded, x, y), `${url} #${frame} bilineair op ${x},${y}`)
+          counts.bilinear += 1
+        }
         if (!rain) return
+        if (region.hasMotion(frame) === undefined) return void (counts.withoutPatch += 1)
         const patch = region.patch(frame, x, y)
         if (!patch) return void (counts.undefined += 1)
         const expected = rainPatch(raster.header, decoded, x, y)
@@ -101,6 +106,6 @@ for (const [x, y] of places) {
 
 console.log(`${places.length} plaatsen, ${section.groups.length} groepen, ${fetched} bestanden gelezen`)
 console.log(`gelijk: ${counts.values} waarden, ${counts.bilinear} bilineair, ${counts.patches} regenpatches, ${counts.motions} bewegingen`)
-console.log(`niet in het bestand: ${counts.undefined}; verschillend: ${counts.different}`)
+console.log(`regenframes zonder patch (layout): ${counts.withoutPatch}; niet in het bestand: ${counts.undefined}; verschillend: ${counts.different}`)
 for (const failure of failures) console.log(`  ${failure}`)
 process.exit(counts.undefined || counts.different ? 1 : 0)

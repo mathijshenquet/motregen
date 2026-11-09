@@ -40,13 +40,25 @@ er niet in.
 ## Welke cellen
 
 Per chunk het venster van cellen die `floor((x − x0) / dx)`, `floor((y − y0) / dy)` voor een punt in de regio
-oplevert, met een marge:
+oplevert, met een marge die van het veld afhangt (layout `hybride`, de standaard; `Layout::HYBRID` in `regions.rs`):
 
-- `rain_rate`: 17 cellen (`WARP_CAP_CELLS` + 2): de regenpatch van `rainPatch` voor de tussenbalken;
-- overige velden: 1 cel, voor bilineair lezen (`pointValueBilinear`, ECMWF en dagvelden);
+| chunk | marge | waarom |
+| --- | --- | --- |
+| HARMONIE-regen | 17 cellen (`WARP_CAP_CELLS` + 2) plus bewegingsblokken | de client rekent de tussenbalken van het histogram uit de regenpatch (`rainPatch`, `rainBetween`) |
+| radarregen (rtcor, nowcast, seamless) | 0 | frames 5–10 min uit elkaar: geen tussenbalken |
+| ECMWF | 1 cel | de dagenlijst leest bilineair (`pointValueBilinear`) |
+| overige velden | 0 | gelezen met de dichtstbijzijnde cel (`pointValue`) |
 
-afgekapt op de rand van het raster. Heeft de chunk bewegingsvelden, dan ook de bewegingsblokken die `motionAtPatch`
-voor een punt in de regio leest (2 × 2 blokken rond elke plek), voor elk frame met een bewegingsveld.
+Afgekapt op de rand van het raster. De bewegingsblokken zijn de 2 × 2 blokken die `motionAtPatch` voor een punt in de
+regio leest, voor elk frame met een bewegingsveld.
+
+Tussenbalken bestaan alleen tussen frames die ≥ 22,5 min uit elkaar liggen: HARMONIE-uren binnen één chunk, en soms
+het overgangspaar seamless→HARMONIE. Voor dat paar heeft het regiobestand geen seamless-patch; het histogram toont
+daar lineair tot de kaart beide frames gedecodeerd heeft, en dan exact (de bestaande terugval). Server-side
+tussenbalken zijn gemeten en niet gekozen (MIP-40, addendum; `docs/perf/u102/tussenbalken-server-2026-11-09.md`).
+
+`motregen-regions --layout patch|cel|cel-u8|cel-delta` bouwt de andere gemeten layouts; de generatienaam hangt van de
+layout af, dus een andere layout schrijft altijd een nieuwe map.
 
 ## Bestandsformaat `mrr1`
 

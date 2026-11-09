@@ -99,15 +99,15 @@ fn land_grid_matches_the_place_catalogue() {
     assert_eq!(grid.region_of(grid.west, grid.south), None);
 }
 
-/// Elke plek in de regio vindt zijn cel, de hele regenpatch en de bewegingsblokken van de client in het bestand,
-/// met dezelfde bytes als het raster.
+/// Elke plek in de regio vindt in de HARMONIE-groep zijn cel, de hele regenpatch en de bewegingsblokken van de
+/// client, en in de ECMWF-groep de bilineaire buren, met dezelfde bytes als het raster.
 #[test]
 fn region_files_hold_every_value_a_place_reads() {
     let grid = small_grid();
-    let rain = rain_chunk("rtcor-test.mrf");
-    let temperature = temperature_chunk("harmonie-temp_c-test.mrf");
-    let built_rain = build_group(Group::Radar, &[&rain], &grid, 3).unwrap();
-    let built_temperature = build_group(Group::Harmonie, &[&temperature], &grid, 3).unwrap();
+    let rain = rain_chunk("harmonie-test.mrf");
+    let temperature = temperature_chunk("ecmwf-step_temp_c-test.mrf");
+    let built_rain = build_group(Group::Harmonie, &[&rain], &grid, 3).unwrap();
+    let built_temperature = build_group(Group::Ecmwf, &[&temperature], &grid, 3).unwrap();
     assert_eq!(built_rain.files.len(), 4);
     let rain_decoded = mrf::decode(&rain.bytes).unwrap();
     let temperature_decoded = mrf::decode(&temperature.bytes).unwrap();
@@ -115,7 +115,7 @@ fn region_files_hold_every_value_a_place_reads() {
     for (id, bytes) in &built_rain.files {
         let file = read_region_file(bytes).unwrap();
         assert_eq!(file.header.region, *id);
-        assert_eq!(file.header.chunks[0].url, "chunks/rtcor-test.mrf");
+        assert_eq!(file.header.chunks[0].url, "chunks/harmonie-test.mrf");
         let bounds = grid.bounds(*id);
         let header = &rain_decoded.header;
         for step in 0..=20 {
@@ -199,6 +199,28 @@ fn region_files_hold_every_value_a_place_reads() {
     }
 }
 
+/// Hybride: radar en de HARMONIE-velden alleen hun eigen cellen en geen beweging; de patch dient alleen de
+/// tussenbalken, en die heeft alleen de HARMONIE-regen.
+#[test]
+fn hybrid_layout_keeps_only_own_cells_outside_harmonie_rain() {
+    let grid = small_grid();
+    let rain = rain_chunk("rtcor-test.mrf");
+    let temperature = temperature_chunk("harmonie-temp_c-test.mrf");
+    for (group, chunk) in [(Group::Radar, &rain), (Group::Harmonie, &temperature)] {
+        let built = build_group(group, &[chunk], &grid, 3).unwrap();
+        let decoded = mrf::decode(&chunk.bytes).unwrap();
+        for (id, bytes) in &built.files {
+            let file = read_region_file(bytes).unwrap();
+            let entry = &file.header.chunks[0];
+            assert_eq!(
+                Some(entry.window),
+                cell_window(&decoded.header.grid, grid.bounds(*id), 0)
+            );
+            assert!(entry.motion.is_none());
+        }
+    }
+}
+
 #[test]
 fn windows_stop_at_the_raster_edge() {
     let raster = mrf_grid(300_000.0, 7_100_000.0, 6_000.0, 4, 4);
@@ -213,18 +235,38 @@ fn windows_stop_at_the_raster_edge() {
 #[test]
 fn generation_name_follows_the_chunks() {
     let grid = small_grid();
-    let first = group_key(Group::Radar, &grid, &["chunks/a.mrf".into()]);
+    let first = group_key(
+        Group::Radar,
+        &grid,
+        &["chunks/a.mrf".into()],
+        Layout::HYBRID,
+    );
     assert_eq!(
         first,
-        group_key(Group::Radar, &grid, &["chunks/a.mrf".into()])
+        group_key(
+            Group::Radar,
+            &grid,
+            &["chunks/a.mrf".into()],
+            Layout::HYBRID
+        )
     );
     assert_ne!(
         first,
-        group_key(Group::Radar, &grid, &["chunks/b.mrf".into()])
+        group_key(
+            Group::Radar,
+            &grid,
+            &["chunks/b.mrf".into()],
+            Layout::HYBRID
+        )
     );
     assert_ne!(
         first,
-        group_key(Group::Harmonie, &grid, &["chunks/a.mrf".into()])
+        group_key(
+            Group::Harmonie,
+            &grid,
+            &["chunks/a.mrf".into()],
+            Layout::HYBRID
+        )
     );
     assert_eq!(first.len(), 16);
 }
@@ -331,4 +373,14 @@ fn frame_list_maps_frames_to_their_slot() {
     assert_eq!(file.value(0, 3, 4, 5), Some(11));
     assert_eq!(file.value(0, 4, 4, 5), Some(21));
     assert_eq!(file.value(0, 3, 4, 0), None);
+}
+
+#[test]
+fn another_layout_is_another_generation() {
+    let grid = small_grid();
+    let urls = ["chunks/a.mrf".to_owned()];
+    assert_ne!(
+        group_key(Group::Radar, &grid, &urls, Layout::HYBRID),
+        group_key(Group::Radar, &grid, &urls, Layout::PATCH)
+    );
 }

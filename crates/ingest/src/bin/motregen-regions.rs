@@ -44,9 +44,10 @@ struct Args {
     /// Bouw elke chunk ook los, om te zien welke velden de bytes dragen.
     #[arg(long)]
     per_chunk: bool,
-    /// patch (fase 1: regenrand + beweging, de client rekent de tussenbalken), cel (alleen eigen cellen, tussenbalken
-    /// per cel van de server in 1/256 byte) of cel-u8 (idem, afgerond op hele bytes).
-    #[arg(long, default_value = "patch")]
+    /// hybride (standaard: eigen cellen, HARMONIE-regen met rand + beweging, ECMWF +1), patch (fase 1: ook radar en
+    /// overige velden met rand), cel / cel-u8 / cel-delta (tussenbalken per cel van de server, in 1/256 byte, hele
+    /// bytes of als verschil met de lineaire interpolatie).
+    #[arg(long, default_value = "hybride")]
     layout: String,
 }
 
@@ -95,11 +96,7 @@ fn main() -> Result<()> {
             between: Some(BetweenPrecision::Delta),
             ..Layout::CELL
         },
-        "hybride" => Layout {
-            radar_rain_margin: 0,
-            field_margin: 0,
-            ..Layout::PATCH
-        },
+        "hybride" => Layout::HYBRID,
         other => anyhow::bail!("onbekende layout {other}"),
     };
     println!(
