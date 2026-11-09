@@ -19,7 +19,6 @@ Hooguit 3–4 knoppen per groep (PO 2026-09-25); de eerste groep start open.
 | Kaart | Legendaknop telefoon (alleen URL) | `?dev&legendaknop=schaal-eenheid` (standaard: het chipje als miniatuur van de legenda, vier kleurblokjes van de actieve modus plus de eenheid), `schaal` (alleen de blokjes) of `woord` (het woord "Legenda"); alleen op de telefoon, desktop heeft geen knop. Zie `docs/kaartstijl.md` | Claude (U107) | 2026-11-23 |
 | Kaart | Zonneschijn in Lucht: weergave | ?dev&zon=uur, kwartier, vlak of vlak-lijn (standaard); proef MIP-38 | orkestrator (PO 2026-10-18) | 2026-10-25 |
 | Tabel | Dagen: lijst onder tabel | uit (standaard): de urentabel glijdt over in 3 u, dagdelen en dag/nacht tot dag 10 (U91b, `TABLE_LADDER` in `web/src/core/ladder.ts`); aan: de uurtabel tot het eind van HARMONIE met de lijst "Komende dagen" eronder (U91). Sleutel `dagenlijst` | orkestrator (U91b) | 2026-11-01 |
-| Regen | Regenisolijnen | lijnen binnen de regen op vaste intensiteiten, alleen bij menging rand: stappen 1 · 5 · 10 · 20 mm/u (standaard, PO 2026-10-17) / kleurgrenzen 1 · 2 · 13 mm/u (proef U86) / klassen 2,5 · 10 · 50 mm/u / dicht 0,5 · 1 · 2 · 5 · 10 · 20 mm/u / geen (alleen de buitenrand) | U86 | 2026-10-23 |
 | Wolkenkaart | Wolkenbeeld | vormen / oude sluier op dezelfde live modeldata | PM / MIP-34 | na PO-keuze, uiterlijk 2026-10-19 |
 | Wolkenkaart | Voorbeeldlucht | live / gaten / sluier / dicht / overgang; laatste vier gefingeerde conceptgevallen, niet bewaard tussen bezoeken | PM / MIP-34 | idem |
 | Lucht nu | strakblauw · mooie wolkenlucht · melkachtig · grijs · Mordor | tijd, klasse en gekozen locatie op 0,1° als menselijk anker voor de wolkenanalyse | U46 | na de analyse |
@@ -45,7 +44,9 @@ Wind houdt dichtheid 620/MP, intensiteit 0,5, lijnbreedte 2,5 px en tempo 1; de 
 Eerste regen blijft vroeg. De herkomst staat bij de constanten in `rain-palette.ts`, `rain-presentation.ts`,
 `rain-smoothing.ts`, `isolines.ts`, `wind-presentation.ts` en de vroege regenaanvraag in `App.tsx`.
 De bot gebruikt nog `PRE_U77_RAIN_LOOK` (palet en menging `huidig`) voor zijn oude compositor;
-de overige paletten en mengingen zijn weg. Regenisolijnen blijven instelbaar.
+de overige paletten en mengingen zijn weg. Sinds U107 (orkestrator/PO 2026-11-09) is ook Regenisolijnen (U86, vervallen
+2026-10-23) weg: de lijnen staan vast op 1 · 5 · 10 · 20 mm/u (`DEFAULT_RAIN_LOOK`, PO 2026-10-17); de groep Regen in het
+paneel bestaat niet meer.
 
 De overige elf windparameters (Afstand per leven, Fade-in/-out, Max. leeftijd, Spawn-jitter,
 Snelheidsdemping, Buffer-rest, Buffer-DPR max, Kopintensiteit, Contrast, Max. fps) zijn sinds
@@ -68,7 +69,7 @@ Rig-schakelaar zonder knop: `dev-speelregel` = `venster` zet onder `?dev` de oud
 (spelen pas na laadfase "window"), zodat de mobiele laadrig oud en nieuw uit één build meet
 (`koud-spelend-vensterregel`). Eigenaar U54; vervalt zodra de PO de speelregel heeft bevestigd.
 De knop "Scherm en scroll" schrijft `dev-viewport` (`aan`/`uit`, U62).
-Regenisolijnen schrijft `dev-regenisolijnen` (U86); alleen onder `?dev` gelezen.
+De oude sleutel `dev-regenisolijnen` (U86) wordt bij elk laden gewist (`RETIRED_STORAGE_KEYS` in `web/src/core/dev-settings.ts`).
 Tuning/debug: `perf` en de eenmalige `perf-cold`. Oude sleutels, ook die van de in U89 verwijderde
 knoppen (`dev-regenpalet`, `dev-regenmenging`, `dev-regencontrast`, `dev-regen-wind-lucht`,
 `dev-regenveld-radar`, `dev-regenveld-harmonie`, `dev-regenveld-meet`, `dev-eerste-regen` en

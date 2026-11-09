@@ -57,7 +57,7 @@ import { RainLayer } from './core/rain-layer'
 import { rainSampling, rainWarpLimit } from './core/rain-smoothing'
 import { LayerOverlay } from './core/overlay-canvas'
 import { rainColormap } from './core/rain-chart'
-import { DEFAULT_RAIN_LOOK, loadRainLookChoice, RAIN_LOOK_STORAGE_KEYS, rainIsolineClasses, rainOutlines, rainUsesStraightAlpha, type RainLook, type RainLookChoice } from './core/rain-palette'
+import { DEFAULT_RAIN_LOOK, rainIsolineClasses, rainOutlines, rainUsesStraightAlpha, type RainLook } from './core/rain-palette'
 import { grantedStartFix, loadLastLocation, loadLastSavedPlaceId, loadMapView, resolveStartLocation, storeLastLocation, storeLastSavedPlaceId, storeMapView, type StartLocation } from './core/location-memory'
 import { attachPinNavigation, PAN_ZOOM_ONLY, PIN_EDGE_MARGIN, restrictMapGestures } from './core/pin-navigation'
 import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedPlace } from './core/saved-places'
@@ -79,7 +79,7 @@ import { mapLabelSize } from './core/map-labels'
 import { legendButtonVariant, legendIsOpen, PHONE_LAYOUT_QUERY, readLegendChoice, storeLegendChoice } from './core/legend-choice'
 import { MapLabelCollision } from './core/map-collision'
 import { WINDSOCK_LAG_MINUTES, type WindSlice } from './core/windsock-flow'
-import { clearTuningStorage, nightCue, TABLE_CONTRASTS, type TableContrast } from './core/dev-settings'
+import { clearTuningStorage, forgetRetiredStorage, nightCue, TABLE_CONTRASTS, type TableContrast } from './core/dev-settings'
 import { watchIdle } from './core/activity'
 import { CLOUD_LAYERS, type CloudLayer } from './core/cloud-section'
 import { browserUsageEnvironment, createUsageTracker, installUsageBeacon, sanitizeUsageLabel, storedUsageLabel, USAGE_LABEL_STORAGE_KEY } from './core/usage'
@@ -225,6 +225,8 @@ function basemapTileKey(event: { sourceId?: string; tile?: { tileID?: { key?: st
 
 export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const devMode = new URLSearchParams(window.location.search).has('dev')
+  // Afgevallen proeven (o.a. Regenisolijnen, U86) laten geen sleutel meer achter.
+  forgetRetiredStorage(window.localStorage)
   const windsockOptions = windsockDevOptions(new URLSearchParams(devMode ? window.location.search : ''))
   const stillMode = new URLSearchParams(window.location.search).get('still') === '1'
   let rigFreeCamera = false
@@ -530,7 +532,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let tableNavigationUntil = Number.NEGATIVE_INFINITY
   // Dag of nacht van de koppenrij: de tabelachtergrond voert dezelfde kleur.
   const [tableHeadSky, setTableHeadSky] = createSignal<HourSky>()
-  const [rainLookChoice, setRainLookChoice] = createSignal<RainLookChoice>(devMode ? loadRainLookChoice() : DEFAULT_RAIN_LOOK)
   const [cloudMapForms, setCloudMapForms] = createSignal(!devMode || localStorage.getItem('motregen-cloud-map') !== 'sluier')
   const [cloudMapSample, setCloudMapSample] = createSignal<CloudMapSample>('live')
   const [viewportDiagnose, setViewportDiagnose] = createSignal(devMode && localStorage.getItem(VIEWPORT_DIAGNOSE_STORAGE_KEY) === 'aan')
@@ -1562,10 +1563,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     layer.setWarpLimit(rainWarpLimit((pair.rightFrame.epoch - pair.leftFrame.epoch) / 60_000))
   }
 
-  function changeRainLookChoice(patch: Partial<RainLookChoice>): void {
-    for (const [name, value] of Object.entries(patch)) localStorage.setItem(RAIN_LOOK_STORAGE_KEYS[name as keyof RainLookChoice], String(value))
-    setRainLookChoice({ ...rainLookChoice(), ...patch })
-  }
+
 
   function applyRainColours(): void {
     const look = untrack(rainColourLook)
@@ -3011,7 +3009,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     clearTuningStorage()
     batch(() => {
       setViewportDiagnose(false)
-      setRainLookChoice(DEFAULT_RAIN_LOOK)
       setCloudMapForms(true)
       setCloudMapSample('live')
       setDayListMode(false)
@@ -3379,8 +3376,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   // Lucht-focus en dag/nacht lopen niet via applyFocus.
   createEffect(() => { rainLook(); if (map) { applyRainPresentation(); map.triggerRepaint() } })
   const rainColourLook = createMemo((): RainLook => {
-    const choice = rainLookChoice()
-    return { ...DEFAULT_RAIN_LOOK, ...choice, theme: mapSurfaceTheme() }
+    return { ...DEFAULT_RAIN_LOOK, theme: mapSurfaceTheme() }
   }, undefined, { equals: sameFields })
   createEffect(() => { rainColourLook(); applyRainColours() })
   let basemapBlend: BlendTarget[] | undefined
@@ -3472,13 +3468,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     onCleanup(() => document.removeEventListener('pointerdown', outside, true))
   })
   const legendTap = () => { if (isPhoneLayout() && legendOpen()) toggleLegend() }
-  // Zonder regenisolijnen (`?dev`, stand geen) toont Weer toch de regenklassen, op de standaardgrenzen en zonder lijn.
-  const rainLegendClasses = createMemo(() => {
-    const look = rainColourLook()
-    const classes = rainIsolineClasses(look)
-    return classes.length ? classes : rainIsolineClasses({ ...look, isolines: DEFAULT_RAIN_LOOK.isolines }).map((band) => ({ ...band, line: band.fill }))
-  })
-  const rainIsolineLegend = createMemo(() => rainLegendClasses().map((band) => ({
+  const rainIsolineLegend = createMemo(() => rainIsolineClasses(rainColourLook()).map((band) => ({
     label: band.from === undefined ? `<${band.to!.toLocaleString('nl-NL')}`
       : band.to === undefined ? `${band.from.toLocaleString('nl-NL')}+`
       : `${band.from.toLocaleString('nl-NL')}–${band.to.toLocaleString('nl-NL')}`,
@@ -3832,8 +3822,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
             onCloudMapForms={(enabled) => { setCloudMapForms(enabled); localStorage.setItem('motregen-cloud-map', enabled ? 'vormen' : 'sluier') }}
             cloudMapSample={cloudMapSample()}
             onCloudMapSample={setCloudMapSample}
-            rainLook={rainLookChoice()}
-            onRainLook={changeRainLookChoice}
             viewportDiagnose={viewportDiagnose()}
             onViewportDiagnose={(enabled) => { setViewportDiagnose(enabled); localStorage.setItem(VIEWPORT_DIAGNOSE_STORAGE_KEY, enabled ? 'aan' : 'uit') }}
             perfVisible={perfVisible()}

@@ -1,7 +1,6 @@
 import { createSignal, For, type JSX } from 'solid-js'
 import { copyText } from '../core/clipboard'
 import { appendSkyDiaryEntry, SKY_DIARY_CLASSES, skyDiaryJson, TABLE_CONTRASTS, type SkyDiaryClass, type TableContrast } from '../core/dev-settings'
-import { RAIN_ISOLINE_RATES, RAIN_ISOLINE_SETS, type RainIsolineSetName, type RainLookChoice } from '../core/rain-palette'
 import { CLOUD_MAP_SAMPLES, type CloudMapSample } from '../core/cloud-map'
 
 // Alleen via ?dev; hooguit 3–4 knoppen per groep (PO 2026-09-25). Elke knop staat in
@@ -15,8 +14,6 @@ interface Props {
   onCloudMapForms: (enabled: boolean) => void
   cloudMapSample: CloudMapSample
   onCloudMapSample: (sample: CloudMapSample) => void
-  rainLook: RainLookChoice
-  onRainLook: (patch: Partial<RainLookChoice>) => void
   viewportDiagnose: boolean
   onViewportDiagnose: (enabled: boolean) => void
   perfVisible: boolean
@@ -33,7 +30,6 @@ interface Props {
   onUsageLabel: (text: string) => void
 }
 
-const RAIN_ISOLINE_HINT = 'Lijnen binnen de regen op vaste intensiteiten, alleen bij menging rand. Kleurgrenzen (standaard): 1, 2 en 13 mm/u. Klassen: 2,5, 10 en 50 mm/u (licht/matig/zwaar/zeer zwaar). Dicht: zes lijnen. Proef U86, vervalt 2026-10-23.'
 export default function DevPanel(props: Props) {
   const [skyClass, setSkyClass] = createSignal<SkyDiaryClass>('mooie wolkenlucht')
   const [skyNotice, setSkyNotice] = createSignal('')
@@ -84,13 +80,6 @@ export default function DevPanel(props: Props) {
       <Control label="Voorbeeldlucht" output={props.cloudMapSample} hint="Live gebruikt de modeldata. Gaten, sluier, dicht en overgang zijn gefingeerde voorbeelden om de vormen en de menging te bekijken.">
         <select aria-label="Voorbeeldlucht" value={props.cloudMapSample} onChange={(event) => props.onCloudMapSample(event.currentTarget.value as CloudMapSample)}>
           <For each={CLOUD_MAP_SAMPLES}>{(sample) => <option value={sample}>{sample}</option>}</For>
-        </select>
-      </Control>
-    </Group>
-    <Group title="Regen">
-      <Control label="Regenisolijnen" output={props.rainLook.isolines ?? 'geen'} hint={RAIN_ISOLINE_HINT}>
-        <select value={props.rainLook.isolines ?? 'geen'} onChange={(event) => props.onRainLook({ isolines: event.currentTarget.value as RainIsolineSetName })}>
-          <For each={RAIN_ISOLINE_SETS}>{(set) => <option value={set}>{set}{RAIN_ISOLINE_RATES[set].length ? ` (${RAIN_ISOLINE_RATES[set].join(' · ').replaceAll('.', ',')} mm/u)` : ''}</option>}</For>
         </select>
       </Control>
     </Group>

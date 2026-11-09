@@ -33,9 +33,6 @@ export interface RainLook {
   isolines?: RainIsolineSetName
 }
 
-/** De overgebleven regenknop; palet en menging staan vast. */
-export type RainLookChoice = Pick<RainLook, 'isolines'>
-
 // U89, PO 2026-10-17: violet-laat, rand en contrast 0 vastgezet op de bestaande productwaarden.
 export const DEFAULT_RAIN_CONTRAST = 0
 export const DEFAULT_RAIN_LOOK: RainLook = { palette: 'violet-laat', blend: 'rand', theme: 'light', contrast: DEFAULT_RAIN_CONTRAST, isolines: 'stappen' }
@@ -46,10 +43,6 @@ export const DEFAULT_RAIN_LOOK: RainLook = { palette: 'violet-laat', blend: 'ran
  * het dagpalet. Zodra de bot (of de Rust-renderer, U76) echte alfa-over en een tabel per thema heeft kan dit weg.
  */
 export const PRE_U77_RAIN_LOOK: RainLook = { palette: 'huidig', blend: 'huidig', theme: 'light' }
-
-export const RAIN_LOOK_STORAGE_KEYS = {
-  isolines: 'motregen-dev-regenisolijnen',
-} as const
 
 /** Byte van een regenintensiteit (mm/u) in de mrf v0-regentabel (docs/mrf.md); niet afgerond. */
 export function rainRateIndex(rate: number): number {
@@ -370,11 +363,4 @@ export function rainIsolineClasses(look: RainLook): RainIsolineClass[] {
   })]
 }
 
-type LookStorage = Pick<Storage, 'getItem'>
 
-export function loadRainLookChoice(storage: LookStorage = localStorage): RainLookChoice {
-  const storedIsolines = storage.getItem(RAIN_LOOK_STORAGE_KEYS.isolines) as RainIsolineSetName
-  return {
-    isolines: RAIN_ISOLINE_SETS.includes(storedIsolines) ? storedIsolines : DEFAULT_RAIN_LOOK.isolines,
-  }
-}

@@ -46,6 +46,22 @@ export function clearTuningStorage(storage: ResettableStorage = localStorage): s
   return removed
 }
 
+/**
+ * Sleutels van afgevallen proeven die ook buiten "Reset alle instellingen" weg moeten, omdat ze anders onder `?dev`
+ * een oud beeld zouden geven: `dev-regenisolijnen` (U86, vervallen 2026-10-23; de lijnen staan vast op 1 · 5 · 10 · 20
+ * mm/u, PO 2026-10-17).
+ */
+export const RETIRED_STORAGE_KEYS: readonly string[] = ['motregen-dev-regenisolijnen']
+
+/** Bij het laden: afgevallen sleutels wissen. Zonder opslag (privévenster) niets. */
+export function forgetRetiredStorage(storage: Pick<Storage, 'removeItem'> | undefined): void {
+  try {
+    for (const key of RETIRED_STORAGE_KEYS) storage?.removeItem(key)
+  } catch {
+    // Geen toegang tot opslag: er valt ook niets te wissen.
+  }
+}
+
 type DiaryStorage = Pick<Storage, 'getItem' | 'setItem'>
 
 export function loadSkyDiary(storage: DiaryStorage = localStorage): SkyDiaryEntry[] {
