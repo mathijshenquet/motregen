@@ -77,3 +77,51 @@ de U109-build geeft hetzelfde beeld (74,9 s, loadavg 15). De HARMONIE-chunks voo
 gevoel worden pas rond 60 s aangevraagd; tot de laadfase stil is gaat er 9,4 MB over de lijn. De U102-nulmeting van
 vanochtend (eigen basis) gaf 5,8–11 s. Puntreeksen en tabeldata zijn U102-terrein; deze track verandert daar niets
 aan. Repro: `MOTREGEN_PERF_MODES_OPTIONS='{"origin":"<int-preview>","modes":["weer"],"profiles":["telefoon"],"repeat":1,"outputDirectory":"…","interactions":false,"trace":false}' scripts/e2e-slot.sh pnpm exec playwright test --config playwright.perf-modes.config.ts --project perf`.
+
+## Tijd tot eerste tekening per laag (PO-aanvulling), nulmeting op de U109-build
+
+Bron: `tmp/u109/q1/matrix` (`scripts/u109-queue.sh`, stap 1), U109-build `dist-D` (= int + de bovenstaande
+wijzigingen, die geen laadvolgorde veranderen). Eén run per cel; de loadavg staat per rij. **Telefoonrijen hebben
+load 14–45 gehad: tijden indicatief.** "·" = laag hoort niet bij die modus, "—" = niet getekend in de laadfase
+(zon: na zonsondergang; deeltjes: de achtergrondwind start bewust pas bij idle). De temperatuurgetallen in Gevoel
+stonden in deze run nog niet gemeten (haak in `IsolineLabels` daarna toegevoegd, 59bc268). Legenda's zijn op de
+telefoon in deze rig niet zichtbaar (smalle viewport).
+
+| profiel | modus | load | basiskaart | regen | wolken | zon | temperatuurvlakken | temperatuurgetallen | bft-vlakken | windzakken | deeltjes | legenda | histogram | tabel |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| desktop koud | gevoel | 38.14 | 1,37 s | — | · | · | 2,91 s | — | · | · | · | 0,67 s | 2,60 s | 3,77 s |
+| desktop koud | lucht | 31.89 | 1,36 s | — | 4,50 s | — | · | · | · | · | · | — | — | 4,99 s |
+| desktop koud | weer | 31.27 | 1,04 s | 2,02 s | · | · | · | · | · | · | 8,48 s | 0,47 s | 3,43 s | 5,30 s |
+| desktop koud | wind | 31.1 | 1,10 s | · | · | · | · | · | 2,75 s | 2,59 s | — | 0,53 s | 2,33 s | 3,66 s |
+| desktop warm | gevoel | 41.69 | 0,67 s | — | · | · | 1,90 s | — | · | · | · | 0,26 s | 2,50 s | 3,03 s |
+| desktop warm | lucht | 38.66 | 1,30 s | — | 4,75 s | — | · | · | · | · | · | — | — | 4,97 s |
+| desktop warm | weer | 30.74 | 0,73 s | 0,56 s | · | · | · | · | · | · | 6,11 s | 0,25 s | 2,00 s | 3,83 s |
+| desktop warm | wind | 34.33 | 0,83 s | · | · | · | · | · | 2,51 s | 2,38 s | 7,00 s | 0,29 s | 3,49 s | 3,98 s |
+| telefoon 4G koud | gevoel | 16.2 | 4,23 s | — | · | · | 7,36 s | — | · | · | · | — | 8,71 s | 70,79 s |
+| telefoon 4G koud | lucht | 13.83 | 4,34 s | — | 9,38 s | — | · | · | · | · | · | — | — | 62,37 s |
+| telefoon 4G koud | weer | 15.3 | 8,08 s | 3,49 s | · | · | · | · | · | · | 16,86 s | — | 15,99 s | 74,86 s |
+| telefoon 4G koud | wind | 44.72 | 3,15 s | · | · | · | · | · | 9,81 s | 8,77 s | 12,98 s | — | 11,72 s | 31,78 s |
+| telefoon 4G warm | gevoel | 25.33 | 3,89 s | — | · | · | 12,60 s | — | · | · | · | — | 22,66 s | 84,60 s |
+| telefoon 4G warm | lucht | 19.87 | 3,27 s | — | 10,48 s | — | · | · | · | · | · | — | — | 63,74 s |
+| telefoon 4G warm | weer | 20.36 | 4,10 s | 2,68 s | · | · | · | · | · | · | 10,28 s | — | 9,63 s | 68,18 s |
+| telefoon 4G warm | wind | 35.17 | 4,79 s | · | · | · | · | · | 7,99 s | 7,34 s | — | — | 7,89 s | 7,25 s |
+
+
+**Na een moduswissel** (ms vanaf de klik tot de eerste tekening van elke laag van de doelmodus; per profiel alle
+wissels uit de vier startmodi, min–max):
+
+| profiel | → Lucht: wolken | → Gevoel: temperatuurvlakken | → Wind: Bft-vlakken | → Wind: windzakken | → Wind: deeltjes | → Weer: regen staat al |
+| --- | ---: | ---: | ---: | ---: | ---: | --- |
+| desktop koud | 764–1.018 ms | 151–573 ms | 373–1.566 ms | 32–60 ms | 8–376 ms | ja |
+| desktop warm | 239–1.041 ms | 404–470 ms | 173–1.526 ms | 30–218 ms | 4–551 ms | ja |
+| telefoon 4G koud | 760–3.089 ms | 99–1.585 ms | 269–1.025 ms | 35–125 ms | 5–501 ms | ja |
+| telefoon 4G warm | 432–1.852 ms | 281–1.445 ms | 270–809 ms | 25–140 ms | 15–420 ms | ja |
+
+Volledige tabel per wissel: `tmp/u109/q1/layers.md` (te regenereren met `pnpm exec tsx scripts/u109-report.ts --layers <map>`).
+
+Lezing:
+1. Lucht is de traagste modus: wolken pas na 4,5–4,8 s op desktop en 9–10 s op de telefoon bij een koude start, en
+   0,4–3,1 s na een wissel. Het Lucht-histogram werd in geen enkele run binnen de tijd compleet (U102-terrein).
+2. Een wissel naar Wind zet windzakken binnen 25–220 ms neer; de Bft-vlakken volgen pas na 0,2–1,6 s (velden laden
+   en een GPU-snede). Naar Gevoel: vlakken na 0,1–1,6 s.
+3. Basiskaart op de telefoon 3,2–8,1 s, regen 2,7–3,5 s: de regen staat er dus vaak vóór de basiskaart.
