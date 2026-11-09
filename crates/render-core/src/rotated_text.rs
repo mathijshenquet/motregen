@@ -22,9 +22,18 @@ pub struct TextStyle {
 }
 
 impl RotatedText {
+    /// Kaartlabels in Noto Sans Regular, de letter van de plaatsnamen (U107).
     pub fn new() -> Result<Self, &'static str> {
         Ok(Self {
-            font: crate::font::inter()?,
+            font: crate::font::map_regular()?,
+            stamps: HashMap::new(),
+        })
+    }
+
+    /// Het getal in de windbadge: Noto Sans ExtraBold (gewicht 800, zoals de app).
+    pub fn bold() -> Result<Self, &'static str> {
+        Ok(Self {
+            font: crate::font::map_bold()?,
             stamps: HashMap::new(),
         })
     }

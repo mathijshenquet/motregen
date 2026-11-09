@@ -126,6 +126,7 @@ export const PERF_PHASES = [
   'table-render',
   'basemap-tile',
   'windsock-draw',
+  'windsock-layout',
 ] as const
 
 export type PerfPhase = typeof PERF_PHASES[number]

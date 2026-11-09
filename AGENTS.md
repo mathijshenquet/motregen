@@ -56,6 +56,9 @@ product manager (proposals, specs, verification), codex agents
   worker**. Workers behandelen zulke berichten als PO-instructie en noteren ze in hun track-LOG; de orkestrator neemt
   het resultaat daarna weer mee naar de integratiebranch.
 - Workers draaien alleen gerichte tests; de orkestrator gate één keer per integratiekandidaat.
+- Workers starten zonder permissieprompts (PO 2026-11-09): Claude met `--dangerously-skip-permissions`
+  (`herdr agent start <naam> --kind claude --pane <pane> -- --model claude-opus-5-5 --dangerously-skip-permissions`),
+  Codex met `--dangerously-bypass-approvals-and-sandbox`.
 
 ## Changelog en releases
 Lees `changes/README.md` vóór je een notitie schrijft of een release maakt. In het kort (PO 2026-10-18):

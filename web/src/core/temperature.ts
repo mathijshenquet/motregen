@@ -1,21 +1,26 @@
 import type { SymbolLayerSpecification } from 'maplibre-gl'
 type MapTheme = 'light' | 'dark'
 import type { Grid, MrfHeader } from './contract.js'
+import { DEFAULT_MAP_LABEL_REGIME, MAP_LABEL_COLORS, MAP_LABEL_GLYPH_FONT, MAP_LABEL_HALO_PX, MAP_LABEL_REGIMES } from './map-labels.js'
 
 export const TEMPERATURE_VARIABLE_ANCHORS = [
   'top', 'bottom', 'left', 'right', 'top-left', 'top-right', 'bottom-left', 'bottom-right',
 ] as const
 
-export function temperatureLayer(theme: MapTheme): SymbolLayerSpecification {
-  const dark = theme === 'dark'
+/**
+ * Stadstemperaturen in Weer en Lucht: letter, maat, inkt en halo uit het kaartregime (U107); `size` is de
+ * regimemaat (mapLabelSize), de bot neemt de desktopstap.
+ */
+export function temperatureLayer(theme: MapTheme, size: number = MAP_LABEL_REGIMES[DEFAULT_MAP_LABEL_REGIME].desktop): SymbolLayerSpecification {
+  const colors = MAP_LABEL_COLORS[theme]
   return {
     id: 'motregen-temperature',
     type: 'symbol',
     source: 'motregen-temperature',
     layout: {
       'text-field': ['get', 'label'],
-      'text-size': ['interpolate', ['linear'], ['zoom'], 5, 11, 8, 14],
-      'text-font': ['Noto Sans Regular'],
+      'text-size': size,
+      'text-font': [MAP_LABEL_GLYPH_FONT],
       'text-variable-anchor': [...TEMPERATURE_VARIABLE_ANCHORS],
       'text-radial-offset': 1.15,
       'text-justify': 'auto',
@@ -26,9 +31,9 @@ export function temperatureLayer(theme: MapTheme): SymbolLayerSpecification {
       'symbol-sort-key': ['get', 'rank'],
     },
     paint: {
-      'text-color': dark ? '#f3fbfd' : '#102630',
-      'text-halo-color': dark ? '#102027' : '#ffffff',
-      'text-halo-width': 2,
+      'text-color': colors.ink,
+      'text-halo-color': colors.halo,
+      'text-halo-width': MAP_LABEL_HALO_PX,
       'text-halo-blur': 0.6,
       'text-opacity-transition': { duration: 0 },
     },

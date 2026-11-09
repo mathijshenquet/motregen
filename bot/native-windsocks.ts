@@ -1,8 +1,8 @@
 import sharp from 'sharp'
-import { selectTemperaturePlaces } from '../web/src/core/temperature.js'
-import { beaufortNumber, beaufortScale, windVanePlaces, windVaneSpacingPx } from '../web/src/core/wind-beaufort.js'
+import { beaufortNumber, beaufortScale } from '../web/src/core/wind-beaufort.js'
+import { mapPlaceSpacingPx, nestedPlaces } from '../web/src/core/map-places.js'
 import { DEFAULT_WINDSOCK_BADGE, WINDSOCK_BADGE, WINDSOCK_BANDS, WINDSOCK_STYLE, windsockBadge, windsockBand, windsockInflated, windsockShape, type Point, type WindsockShape } from '../web/src/core/wind-glyph.js'
-import { DEFAULT_WINDSOCK_CURVATURE, DEFAULT_WINDSOCK_FLUTTER, flutterBends, sampleWind, windsockPhase, WINDSOCK_FLUTTERS, WINDSOCK_LAG_MINUTES, windsockHeadings, type WindsockField, type WindSlice } from '../web/src/core/windsock-flow.js'
+import { advanceSock, angleDifference, DEFAULT_WINDSOCK_CURVATURE, sampleWind, SOCK_SNAP_SECONDS, swayBends, windsockPhase, WINDSOCK_LAG_MINUTES, windsockHeadings, type SockMotion, type WindsockField, type WindSlice } from '../web/src/core/windsock-flow.js'
 import { FRAME, FRAME_PIXELS } from './config.js'
 import { nativeProjection } from './native-projection.js'
 import type { NativeRainData, RainFrame } from './native-rain.js'
@@ -24,6 +24,9 @@ const LABEL_STYLE = 'windsock'
  */
 export class NativeWindsocks {
   private readonly zipped = new WeakMap<Uint8Array, Float32Array>()
+  /** Momentum en golffase per plaats, per filmframe verder gestapt (U107: zoals de app, deterministisch). */
+  private readonly motions = new Map<string, SockMotion>()
+  private drawnSeconds = -Infinity
   private constructor(private readonly text: NativeText) {}
 
   static async prepare(): Promise<NativeWindsocks> {
@@ -68,11 +71,13 @@ export class NativeWindsocks {
     return vectors
   }
 
-  /** `seconds`: filmtijd, voor de trilling. */
+  /** `seconds`: filmtijd; opeenvolgende frames stappen het momentum en de golf verder, een sprong zet ze direct. */
   async draw(rgb: Buffer, field: WindsockField, seconds: number, theme: NativeTheme, opacity = 1): Promise<void> {
     if (opacity <= 0) return
     const projection = nativeProjection(field.grid)
-    const flutter = WINDSOCK_FLUTTERS[DEFAULT_WINDSOCK_FLUTTER]
+    const elapsed = seconds - this.drawnSeconds
+    const snap = !(elapsed > 0) || elapsed > SOCK_SNAP_SECONDS
+    this.drawnSeconds = seconds
     for (const place of windsockPlaces()) {
       const x = place.lng * Math.PI / 180 * MERCATOR_RADIUS
       const y = Math.log(Math.tan(Math.PI / 4 + place.lat * Math.PI / 360)) * MERCATOR_RADIUS
@@ -82,9 +87,12 @@ export class NativeWindsocks {
       const compass = wind && windsockHeadings(field, x, y, DEFAULT_WINDSOCK_CURVATURE)
       if (!wind || !compass) continue
       const speed = Math.hypot(wind[0], wind[1])
-      const strength = beaufortScale(speed)
-      const bends = flutterBends(flutter, strength, seconds, windsockPhase(place.name))
-      const shape = windsockShape(strength, compass.map((heading, index) => heading + (bends?.[index] ?? 0)), 'kaart')
+      const motion = this.motions.get(place.name) ?? { wave: 0 }
+      this.motions.set(place.name, motion)
+      advanceSock(motion, compass[0]!, beaufortScale(speed), elapsed, snap)
+      const strength = Math.max(0, motion.strength!.value)
+      const bends = swayBends(strength, motion.wave, seconds, windsockPhase(place.name))
+      const shape = windsockShape(strength, compass.map((heading, index) => motion.heading!.value + angleDifference(compass[0]!, heading) + bends[index]!), 'kaart')
       const [offsetX, offsetY] = WINDSOCK_ANCHOR_OFFSETS[place.name] ?? [0, 0]
       await this.drawSock(rgb, screenX + offsetX * FRAME.scale, screenY + offsetY * FRAME.scale, shape, String(beaufortNumber(speed)), theme, opacity)
     }
@@ -114,7 +122,7 @@ export class NativeWindsocks {
 
 /** De plaatsen met een zak in het vaste botbeeld; ook de Rust-renderer krijgt deze lijst (render-mode-constants). */
 export function windsockPlaces() {
-  return selectTemperaturePlaces(NATIVE_VIEW.zoom, windVaneSpacingPx(FRAME.width, FRAME.height), windVanePlaces)
+  return nestedPlaces(NATIVE_VIEW.zoom, mapPlaceSpacingPx(FRAME.width, FRAME.height))
 }
 
 export function thickLine([ax, ay]: Point, [bx, by]: Point, halfWidth: number): Point[] {

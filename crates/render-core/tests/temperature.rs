@@ -109,6 +109,7 @@ fn isotherms_take_the_darkened_fill_color_and_fall_back_where_there_is_no_fill()
         let line = LineColor::Isotherm {
             fallback,
             fill: &fill,
+            shade: mode_constants().isoline.temperature_line_fill_shade,
         };
         field_raster::lines(&mut rgb, &segment, line, 1.0);
         let offset = (row * size.width + 200) * 3;

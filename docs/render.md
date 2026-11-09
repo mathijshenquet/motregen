@@ -15,8 +15,8 @@ De gewone Windmodus van de webapp behoudt regen. Tempo en vensters staan uitslui
 Het tempo is 9,33 kaartminuten per seconde voor regen/temperatuur en 9,375 voor Wind;
 de app met `PLAYBACK_TEMPO_HOURS = 8` mat op 2026-10-11 9,35.
 Regen en gevoelstemperatuur behouden elk 85 JPEG-stills −2…+12 uur per tien minuten. Alle invoer komt van
-schijf. Het programma start alleen ffmpeg; tekst en temperatuurpunten worden rechtstreeks met het ingebedde
-Inter-lettertype getekend. `--mode wind` maakt de windfilm; `--mode feels` maakt de gevoelstemperatuurfilm
+schijf. Het programma start alleen ffmpeg; tekst wordt rechtstreeks getekend met ingebedde letters: kaartgetallen en
+-labels in Noto Sans (de letter van de plaatsnamen, `docs/kaartstijl.md`), klok en voettekst in Inter. `--mode wind` maakt de windfilm; `--mode feels` maakt de gevoelstemperatuurfilm
 en 85 stills. Stills binnen het filmvenster delen hun RGB-loopframe; eerdere en latere stills worden in dezelfde
 renderpass alleen als JPEG gemaakt. Geen still verdwijnt door het kortere filmvenster. De renderer eindigt na deze generatie.
 
@@ -50,6 +50,11 @@ Temperatuurlabels blijven van de namen af (U103): standaard boven de plaats, and
 (de volgorde van de MapLibre-ankers), en vallen weg als niets vrij is; de keuze hangt aan de breedte van `00°`, zodat
 een label binnen een film niet verspringt. Isolijn- en isobaarlabels houden hun ankers zoals in de app en worden
 alleen niet getekend zolang ze op een naam liggen.
+Sinds U107 heeft Gevoelstemperatuur geen lijnlabels meer: lijnen en banden liggen op x,5 °C en een heel getal staat op
+een schijf in de kleur van zijn band op de gedeelde plekken (`MAP_PLACES`, `nestedPlaces` bij de botzoom), met de
+uitwijkladder van de app tegen het naammasker, het klokpaneel en het voetpaneel. De windzakken volgen het veld met
+momentum en wuiven met een opgetelde golffase; die toestand gaat per filmframe mee in de keten (`FieldState`), zodat
+de film deterministisch is en de framecache klopt. Stills beginnen zonder toestand.
 Het native botkader past Nederland (inclusief Zeeland, Limburg en de Wadden), zonder Vlaanderen als
 fitdoel. De bovenstrook van 48 pixels is verwijderd met behoud van zoom en bodemlijn. Het klokpaneel
 sluit linksboven aan op de beeldrand; alleen rechtsonder is rond. Tijd, Amsterdamse datum (zoals `zo 11 okt`)
@@ -121,7 +126,7 @@ drukextremen, isolijnlabels en klok/voettekst. De film verwerkt geen regenraster
 De regenroosterheader blijft nodig voor dezelfde kadermaskering. De Node-pixelroute volgt dezelfde laagkeuze;
 de browserterugval verbergt regen uitsluitend bij `stillMode` met het Wind-preset. Gewone web-Wind blijft gelijk.
 Gevoelstemperatuur tekent de gedempte
-basiskaart, kleurvlakken, isothermen en labels. Gedraaide tekst wordt rechtstreeks met Inter gerasterd;
+basiskaart, kleurvlakken, isothermen en getallen op plekken. Gedraaide tekst wordt rechtstreeks met Noto Sans gerasterd;
 pixelgelijkheid met de oude browseratlas is geen eis (MIP-29). Per kaartframe bepaalt de gedeelde tijdlogica dag/nacht.
 
 `wind-loop.mp4` heeft 297 gecodeerde frames bij 15/2 fps; `feels-loop.mp4` heeft 223 bij 28/5 fps. Alleen `feels` levert

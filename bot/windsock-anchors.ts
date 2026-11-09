@@ -1,7 +1,7 @@
 import { writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
-import { windVanePlaces } from '../web/src/core/wind-beaufort.js'
+import { MAP_PLACES } from '../web/src/core/map-places.js'
 import { WINDSOCK_BADGE, WINDSOCK_SHAPE } from '../web/src/core/wind-glyph.js'
 import { FRAME, FRAME_PIXELS } from './config.js'
 import { nativeProjection } from './native-projection.js'
@@ -46,7 +46,7 @@ export async function windsockAnchors(namesPath: string): Promise<Record<string,
   const placed: Array<[number, number]> = []
   const anchors: Record<string, [number, number]> = {}
   // Eerst de plaatsen van het botbeeld, in volgorde van belang; hun badges houden elkaar vrij.
-  for (const place of [...windVanePlaces].sort((left, right) => Number(shown.has(right.name)) - Number(shown.has(left.name)))) {
+  for (const place of [...MAP_PLACES].sort((left, right) => Number(shown.has(right.name)) - Number(shown.has(left.name)))) {
     const [cityX, cityY] = screen(place.lng, place.lat)
     let best: { score: number; offset: [number, number] } | undefined
     for (const distance of RADII) {
@@ -69,7 +69,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const [namesPath] = process.argv.slice(2)
   if (!namesPath) throw new Error('usage: pnpm -C bot exec tsx windsock-anchors.ts NAMES_PNG')
   const anchors = await windsockAnchors(namesPath)
-  const lines = windVanePlaces.map((place) => `  ${JSON.stringify(place.name)}: [${anchors[place.name]!.join(', ')}],`)
+  const lines = MAP_PLACES.map((place) => `  ${JSON.stringify(place.name)}: [${anchors[place.name]!.join(', ')}],`)
   await writeFile(new URL('../web/src/core/windsock-anchors.ts', import.meta.url), `/**
  * Verschuiving van elke windzak t.o.v. zijn plaats in CSS-px (x naar rechts, y naar beneden), zodat badge en zak
  * naast de plaatsnaam staan (U101). Gegenereerd door bot/windsock-anchors.ts uit het naammasker van de bot; niet

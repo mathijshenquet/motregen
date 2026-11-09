@@ -1,0 +1,10 @@
+== :4377
+storm, trilling: zakken|max-Bft 24|7.8; windsock-draw 141 tekeningen in 10 s (venster 265), p50 1.40 ms, p95 5.80 ms; pagina-fps 29.5; hoofdthread bezet 90 %
+data (max ~5 Bft): zakken|max-Bft 24|4.8; windsock-draw 145 tekeningen in 10 s (venster 278), p50 1.40 ms, p95 5.10 ms; pagina-fps 27.6; hoofdthread bezet 91 %
+stil > 30 s: zakken|max-Bft 24|4.8; windsock-draw -143 tekeningen in 10 s (venster 724), p50 0.70 ms, p95 3.20 ms; pagina-fps 24; hoofdthread bezet 90 %
+tabel in beeld: zakken|max-Bft 0|0; windsock-draw 0 tekeningen in 10 s (venster 115), p50 0.80 ms, p95 3.40 ms; pagina-fps 59; hoofdthread bezet 36 %
+== :4378
+storm, trilling: zakken|max-Bft 26|7.8; windsock-draw 92 tekeningen in 10 s (venster 148), p50 3.90 ms, p95 17.10 ms; pagina-fps 15; hoofdthread bezet 97 %
+data (max ~5 Bft): zakken|max-Bft 26|4.8; windsock-draw 99 tekeningen in 10 s (venster 202), p50 1.70 ms, p95 14.40 ms; pagina-fps 18.5; hoofdthread bezet 96 %
+stil > 30 s: zakken|max-Bft 26|4.8; windsock-draw -66 tekeningen in 10 s (venster 152), p50 1.80 ms, p95 47.50 ms; pagina-fps 13.8; hoofdthread bezet 96 %
+tabel in beeld: zakken|max-Bft 0|0; windsock-draw 0 tekeningen in 10 s (venster 12), p50 6.70 ms, p95 42.60 ms; pagina-fps 36; hoofdthread bezet 97 %

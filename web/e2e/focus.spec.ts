@@ -30,14 +30,14 @@ test('hovering the feels-like column fades isolines in and the context out, and 
   await expect.poll(async () => Number(await shell(page).getAttribute('data-focus'))).toBeGreaterThan(0)
   await expect(shell(page)).toHaveAttribute('data-focus', '1.00')
   await expect.poll(async () => Number(await shell(page).getAttribute('data-isolines'))).toBeGreaterThan(0)
-  await expect.poll(() => page.locator('.isoline-label').count()).toBeGreaterThan(0)
+  await expect.poll(() => page.locator('.temperature-number').count()).toBeGreaterThan(0)
   await page.screenshot({ path: testInfo.outputPath('focus-light.png') })
 
   await page.mouse.move(5, 5)
   await expect(shell(page)).toHaveAttribute('data-focus', '0.00')
   // Na de uitfade wordt de bron geleegd: een volgende hover laat geen verouderde lijnen invaden.
   await expect(shell(page)).toHaveAttribute('data-isolines', '0')
-  await expect(page.locator('.isoline-label')).toHaveCount(0)
+  await expect(page.locator('.temperature-number')).toHaveCount(0)
 
   await page.locator('.temperature-cell').nth(5).hover()
   await expect(shell(page)).toHaveAttribute('data-focus', '1.00')
@@ -247,7 +247,7 @@ test('pinned focus at rest does no contour or worker work', async ({ page }, tes
   await pausePlayback(page)
   await heading(page).click()
   await expect(shell(page)).toHaveAttribute('data-focus', '1.00')
-  await expect.poll(() => page.locator('.isoline-label').count()).toBeGreaterThan(0)
+  await expect.poll(() => page.locator('.temperature-number').count()).toBeGreaterThan(0)
   await page.waitForTimeout(1_000)
   const counters = () => page.evaluate(() => (window as typeof window & { __motregenIsolines: () => { passes: number; fillPasses: number; labelRounds: number } }).__motregenIsolines())
   const before = await counters()
@@ -281,7 +281,7 @@ test('pinned isolines re-render after a manifest refresh with a new run and afte
   await heading(page).blur()
   await page.mouse.move(5, 5)
   await expect(shell(page)).toHaveAttribute('data-focus', '1.00')
-  await expect.poll(() => page.locator('.isoline-label').count()).toBeGreaterThan(0)
+  await expect.poll(() => page.locator('.temperature-number').count()).toBeGreaterThan(0)
   await page.waitForTimeout(1_000)
 
   const rest = await isolineCounters(page)

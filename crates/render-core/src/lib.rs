@@ -13,6 +13,7 @@ pub mod motion;
 pub mod name_mask;
 pub mod overlay;
 pub mod palette;
+pub mod place_numbers;
 pub mod pressure;
 pub mod projection;
 pub mod rain;

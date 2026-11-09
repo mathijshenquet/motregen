@@ -22,7 +22,10 @@ export interface MapPlate { water: WaterMask; rgb: Buffer; key: string; path: st
 
 export class NativeMaps {
   private readonly plates = new Map<NativeTheme, Promise<MapPlate>>()
-  constructor(private readonly origin: string, private readonly directory: string, private readonly context: () => Promise<BrowserContext>) {}
+  constructor(
+    private readonly origin: string, private readonly directory: string, private readonly context: () => Promise<BrowserContext>,
+    private readonly stylePath = (theme: NativeTheme) => `/basemap/${theme === 'light' ? 'licht' : 'donker'}.json`,
+  ) {}
 
   clear(): void { this.plates.clear() }
 
@@ -36,7 +39,7 @@ export class NativeMaps {
   }
 
   private async load(theme: NativeTheme, grid: Grid): Promise<MapPlate> {
-    const styleUrl = new URL(`/basemap/${theme === 'light' ? 'licht' : 'donker'}.json`, this.origin)
+    const styleUrl = new URL(this.stylePath(theme), this.origin)
     const response = await fetch(styleUrl, { signal: AbortSignal.timeout(15_000) })
     if (!response.ok) throw new Error(`Basiskaartstijl ontbreekt (${response.status})`)
     const style = await response.json() as StyleSpecification
