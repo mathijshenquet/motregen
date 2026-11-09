@@ -1,5 +1,29 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-11-10 00:15 CET — uitrol eval-2026-11-09: snelheid, windzakken, gevoel met zon, diagramkaart (Claude, w9)
+
+1. Live (main 3213c83 + legendafix b93308d), drie nixos-upgrades, alle Result=success, geen gefaalde units:
+   U100 temperatuur vaste schaal, U101 windzakken, U103 bot groter, U104 tabel/radar 6 u, U105 gevoel met zon
+   (MIP-41), U107 consistentie (kaartstijl.md, legenda), U109 optimalisatie, U110 winddeeltjes, U102 regiobestanden
+   (MIP-40, `regionsInManifest = true` op prod), U108 diagram als standaardkaart (MIP-42; archief 3,6 MB i.p.v.
+   24,3 MB). Geen release/versie: PO wilde eerst uitrollen, changelog morgen.
+2. Gate op int: web 742/742, bot 153/153, render/ingest cargo exit 0, changelog:check, build, gerichte desktop-e2e
+   (57 + 12 + 24 passed). Merge-seams: perf-modes-rig (U102/U109 beide toegevoegd; U109-versie + 12 s koud),
+   rig-returntype (U102 neemt de rig op in tsconfig.node).
+3. Spot-check prod: regiobestanden 148 per groep (6,8 MB), alle /regions/-requests 200, geen consolefouten op
+   telefoon/desktop in vier modi; Cloudflare geeft origin-br door (index.js 132 kB br, ook bij zstd-aanbod) — geen
+   Compression Rule nodig; basiskaart nl-b4c7c6e4cd75f938 206; botplaat 23:45 op diagram. Telefoon 4G (belaste host,
+   load 10–54): histogram koud 3,7–6,2 s (was ~7,8 s), warm 2,7–3,6 s (was ~7 s), tabel koud 4–7 s (was 69–75 s);
+   één uitschieter 20 s tijdens loadpiek.
+4. PO-feedback live verwerkt: windlegenda één regel zonder zonewoorden (woord als title), donker boven een
+   nachtkaart, Bft gecentreerd.
+5. Open met PO: changelog-concepten (windzakken, temperatuur, gevoel met zon, kaart-diagram) goedkeuren, dan
+   release.sh + changelog:post; u108-keuze z9-ronde (nu nee).
+6. Open voor agents/mij: perfbudget-run op rustige host (int vs vorige main); U102 B1 (tabelrij blijft op lage
+   prioriteit) en eerste afspeelstap +0,3–0,7 s; dev-opties kaart=nu|strak|diagram-wegen vervallen 2026-11-23;
+   opruimen: workers u102/u107/u108/u109 sluiten, previews 4308/4377/4378/4391/4393/4394 en data-servers 18393/18394;
+   C10 dagrapport stale bronnen (MIP-35).
+
 ## 2026-10-19 07:40 CEST — v0.4.0 live: zon in Lucht, ICON-D2, /lucht, framecache (Claude, w9)
 
 1. In main (cd39172, tag v0.4.0): U92 Lucht in de bot, U93 radar-CAS, U94, U96 zon in Lucht (+ PO-iteratie: gevulde
