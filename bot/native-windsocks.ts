@@ -1,6 +1,6 @@
 import sharp from 'sharp'
-import { selectTemperaturePlaces } from '../web/src/core/temperature.js'
-import { beaufortNumber, beaufortScale, windVanePlaces, windVaneSpacingPx } from '../web/src/core/wind-beaufort.js'
+import { beaufortNumber, beaufortScale } from '../web/src/core/wind-beaufort.js'
+import { mapPlaceSpacingPx, nestedPlaces } from '../web/src/core/map-places.js'
 import { DEFAULT_WINDSOCK_BADGE, WINDSOCK_BADGE, WINDSOCK_BANDS, WINDSOCK_STYLE, windsockBadge, windsockBand, windsockInflated, windsockShape, type Point, type WindsockShape } from '../web/src/core/wind-glyph.js'
 import { DEFAULT_WINDSOCK_CURVATURE, DEFAULT_WINDSOCK_FLUTTER, flutterBends, sampleWind, windsockPhase, WINDSOCK_FLUTTERS, WINDSOCK_LAG_MINUTES, windsockHeadings, type WindsockField, type WindSlice } from '../web/src/core/windsock-flow.js'
 import { FRAME, FRAME_PIXELS } from './config.js'
@@ -114,7 +114,7 @@ export class NativeWindsocks {
 
 /** De plaatsen met een zak in het vaste botbeeld; ook de Rust-renderer krijgt deze lijst (render-mode-constants). */
 export function windsockPlaces() {
-  return selectTemperaturePlaces(NATIVE_VIEW.zoom, windVaneSpacingPx(FRAME.width, FRAME.height), windVanePlaces)
+  return nestedPlaces(NATIVE_VIEW.zoom, mapPlaceSpacingPx(FRAME.width, FRAME.height))
 }
 
 export function thickLine([ax, ay]: Point, [bx, by]: Point, halfWidth: number): Point[] {

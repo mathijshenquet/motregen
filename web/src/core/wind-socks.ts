@@ -1,12 +1,14 @@
 import type { Map as MapLibreMap } from 'maplibre-gl'
 import { beaufortScale } from './wind-beaufort.js'
-import { DEFAULT_WINDSOCK_BADGE, windsockBadge, windsockShape, type WindsockShape } from './wind-glyph.js'
+import { DEFAULT_WINDSOCK_BADGE, WINDSOCK_SAMPLES, windsockBadge, windsockShape, type WindsockShape } from './wind-glyph.js'
 import { advanceWave, angleDifference, DEFAULT_WINDSOCK_CURVATURE, followSpring, sampleWind, swayBends, WINDSOCK_MOMENTUM, windsockHeadings, windsockPhase, type Spring, type WindsockField } from './windsock-flow.js'
 import type { TemperaturePlace } from './temperature.js'
 import { windValue, type WindUnit } from './weather.js'
 import { recordPerfPhase } from './perf.js'
 import { WINDSOCK_ANCHOR_OFFSETS } from './windsock-anchors.js'
 import { drawStyledSock, windsockStyleName, type WindsockStyleName } from './wind-sock-styles.js'
+import { MapLabelPlacer, type Offset, type Placement } from './map-label-placement.js'
+import { MAP_LABEL_FONT_FAMILY, mapLabelRegime, mapLabelSize, type MapLabelRegime } from './map-labels.js'
 
 interface Sock {
   place: TemperaturePlace
@@ -14,8 +16,10 @@ interface Sock {
   x: number
   y: number
   phase: number
-  /** Naast de plaatsnaam (CSS-px). */
-  offset: readonly [number, number]
+  /** Voorkeursplek naast de plaatsnaam (CSS-px, uit het naammasker van de bot); de ladder begint hier. */
+  offset: Offset
+  /** Gekozen plek van de laatste indeling; zonder plek valt de zak weg (geen ruimte naast naam, pin of bediening). */
+  placed?: Placement
   /** Getekende richting (kompasgraden) en windkracht, die het veld met momentum volgen. */
   heading?: Spring
   strength?: Spring
@@ -37,7 +41,19 @@ export interface WindsockLayerOptions {
   reducedMotion: () => boolean
   /** Alleen `?dev&windfactor=`: vermenigvuldigt de wind van de zakken, om harde wind te bekijken. */
   speedFactor: number
+  /** Alleen `?dev&regime=`: de typeschaalstap van het kaartregime (U107). */
+  regime: MapLabelRegime
+  /** De locatiepin: zakken wijken ervoor, zoals de getallen in Gevoel. */
+  pin: () => { lng: number; lat: number } | undefined
 }
+
+/** Ring van uitwijkplekken rond de voorkeursplek in CSS-px: eerst dichtbij, dan verder weg (zoals PLACE_LADDER). */
+const SOCK_RING: readonly Offset[] = [[0, 0], ...[14, 22, 30].flatMap((distance) => [0, 2, 6, 4, 1, 3, 5, 7].map((step): Offset => {
+  const angle = step / 8 * 2 * Math.PI - Math.PI / 2
+  return [Math.round(Math.cos(angle) * distance), Math.round(Math.sin(angle) * distance)]
+}))]
+/** Minimale tijd tussen twee indelingen tijdens pannen/zoomen; bij stilstand (idle) altijd opnieuw. */
+const LAYOUT_INTERVAL_MS = 250
 
 /**
  * De windzakken op een eigen 2D-canvas boven alle kaartlagen. Eén canvas in plaats van een DOM-element per
@@ -57,10 +73,14 @@ export class WindsockLayer {
   private drawnCamera = ''
   /** Wandklok (s) van de vorige tekening, voor het momentum. */
   private drawnAt = -Infinity
-  private readonly fontFamily: string
+  private readonly placer: MapLabelPlacer
+  private layoutDirty = true
+  private lastLayout = -Infinity
   draws = 0
   private readonly mapRendered = () => { if (this.camera() !== this.drawnCamera) this.draw() }
-  private readonly resized = () => this.draw()
+  private readonly resized = () => { this.layoutDirty = true; this.draw() }
+  /** Plaatsnamen staan pas vast als de kaart stilvalt: dan nog één keer opnieuw indelen. */
+  private readonly idle = () => { this.layoutDirty = true; this.draw() }
 
   constructor(private readonly map: MapLibreMap, private readonly options: WindsockLayerOptions) {
     this.canvas = document.createElement('canvas')
@@ -70,9 +90,18 @@ export class WindsockLayer {
     this.canvas.style.visibility = 'hidden'
     map.getCanvasContainer().append(this.canvas)
     this.context = this.canvas.getContext('2d')!
-    this.fontFamily = getComputedStyle(map.getContainer()).fontFamily
+    this.placer = new MapLabelPlacer(map, options.pin)
     map.on('render', this.mapRendered)
     map.on('resize', this.resized)
+    map.on('idle', this.idle)
+    // Canvas tekent niet opnieuw als de webfont binnenkomt: daarna één keer opnieuw.
+    void document.fonts?.load(`800 13px ${MAP_LABEL_FONT_FAMILY}`).then(() => this.draw())
+  }
+
+  /** De pin is verplaatst: direct opnieuw indelen (niet pas bij de volgende pan of tijdstap). */
+  pinMoved(): void {
+    this.layoutDirty = true
+    this.draw()
   }
 
   setPlaces(places: readonly TemperaturePlace[]): void {
@@ -83,6 +112,7 @@ export class WindsockLayer {
       const y = Math.log(Math.tan(Math.PI / 4 + place.lat * Math.PI / 360)) * MERCATOR_RADIUS
       return { place, x, y, phase: windsockPhase(place.name), offset: WINDSOCK_ANCHOR_OFFSETS[place.name] ?? [0, 0], wave: 0 }
     })
+    this.layoutDirty = true
     this.draw()
   }
 
@@ -116,6 +146,7 @@ export class WindsockLayer {
     this.stopAnimation()
     this.map.off('render', this.mapRendered)
     this.map.off('resize', this.resized)
+    this.map.off('idle', this.idle)
     this.canvas.remove()
   }
 
@@ -158,9 +189,11 @@ export class WindsockLayer {
     this.drawnAt = seconds
     let fluttering = false
     let settling = false
+    const size = mapLabelSize(window.innerWidth, window.innerHeight, this.options.regime)
+    if (this.layoutDirty || started - this.lastLayout >= LAYOUT_INTERVAL_MS) this.layout(size, started)
     for (const sock of this.socks) {
+      if (!sock.placed) continue
       const screen = this.map.project([sock.place.lng, sock.place.lat])
-      if (screen.x < -60 || screen.y < -60 || screen.x > width + 60 || screen.y > height + 60) continue
       const wind = sampleWind(field, 0, sock.x, sock.y)
       const compass = wind && windsockHeadings(field, sock.x, sock.y, DEFAULT_WINDSOCK_CURVATURE)
       if (!wind || !compass) continue
@@ -182,7 +215,7 @@ export class WindsockLayer {
       const base = sock.heading.value
       const headings = compass.map((heading, index) => base + angleDifference(target, heading) - bearing + (flutterBend?.[index] ?? 0))
       const shape = windsockShape(strength, headings, 'kaart')
-      this.drawSock(context, screen.x + sock.offset[0], screen.y + sock.offset[1], shape, String(windValue(speed, this.unit)), strength, sock.phase, seconds)
+      this.drawSock(context, screen.x + sock.placed.dx, screen.y + sock.placed.dy, shape, String(windValue(speed, this.unit)), strength, sock.phase, seconds, size)
       this.drawnCount++
       this.drawnMaxStrength = Math.max(this.drawnMaxStrength, strength)
     }
@@ -192,12 +225,28 @@ export class WindsockLayer {
     if (fluttering || settling) this.scheduleFlutter(started)
   }
 
-  private drawSock(context: CanvasRenderingContext2D, x: number, y: number, shape: WindsockShape, label: string, strength: number, phase: number, seconds: number): void {
+  /**
+   * Plek per zak met de gedeelde uitwijkregel (map-label-placement): de badge (de mast met het getal) mag niet over
+   * een plaatsnaam, de pin, de bediening of een andere badge vallen. De ladder begint bij de vaste voorkeursplek.
+   */
+  private layout(size: number, now: number): void {
+    this.layoutDirty = false
+    this.lastLayout = now
+    this.placer.begin()
+    const side = 2 * (windsockBadge(STRAIGHT, DEFAULT_WINDSOCK_BADGE, '0', size).cutRadius + 1)
+    for (const sock of this.socks) {
+      const screen = this.map.project([sock.place.lng, sock.place.lat])
+      const ladder = SOCK_RING.map(([dx, dy]): Offset => [sock.offset[0] + dx, sock.offset[1] + dy])
+      sock.placed = this.placer.place(screen.x, screen.y, { width: side, height: side }, ladder, sock.placed?.index)
+    }
+  }
+
+  private drawSock(context: CanvasRenderingContext2D, x: number, y: number, shape: WindsockShape, label: string, strength: number, phase: number, seconds: number, size: number): void {
     context.save()
     context.translate(x, y)
     drawStyledSock(this.options.style, {
-      context, shape, badge: windsockBadge(shape, DEFAULT_WINDSOCK_BADGE, label), label, strength, phase, seconds,
-      dark: this.dark, fontFamily: this.fontFamily,
+      context, shape, badge: windsockBadge(shape, DEFAULT_WINDSOCK_BADGE, label, size), label, strength, phase, seconds,
+      dark: this.dark, fontFamily: MAP_LABEL_FONT_FAMILY,
     })
     context.restore()
   }
@@ -228,7 +277,10 @@ export class WindsockLayer {
 }
 
 /** Dev-knoppen (`?dev&zakstijl=`, `&windfactor=`); zonder knop de gekozen windmodus. */
-export function windsockDevOptions(params: URLSearchParams): Omit<WindsockLayerOptions, 'reducedMotion'> {
+export function windsockDevOptions(params: URLSearchParams): Omit<WindsockLayerOptions, 'reducedMotion' | 'pin'> {
   const factor = Number(params.get('windfactor'))
-  return { style: windsockStyleName(params.get('zakstijl')), speedFactor: Number.isFinite(factor) && factor > 0 ? factor : 1 }
+  return { style: windsockStyleName(params.get('zakstijl')), speedFactor: Number.isFinite(factor) && factor > 0 ? factor : 1, regime: mapLabelRegime(params) }
 }
+
+/** Een rechte zak, alleen om de badgemaat te bepalen (die hangt niet van de vorm af). */
+const STRAIGHT = windsockShape(0, Array<number>(WINDSOCK_SAMPLES + 1).fill(0), 'kaart')

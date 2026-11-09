@@ -71,8 +71,11 @@ import { formatUv, uvChipLabel, uvLevel, uvReading } from './core/uv'
 import { WIND_UNITS, type WindUnit } from './core/weather'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
 import { DEFAULT_WIND_TUNING, MOBILE_WIND, WIND_MAX_FPS, WIND_PARAMETERS, WIND_SIMULATION_FPS, WindLayer } from './core/wind-layer'
-import { BEAUFORT_FEEL_ZONES, BEAUFORT_LEGEND, beaufortFrame, beaufortPalette, windClassOpacity, WIND_FILL, WIND_NIGHT_LINE_LIGHTEN, WIND_THIN_PARTICLE_WIDTH, windVanePlaces, windVaneSpacingPx } from './core/wind-beaufort'
+import { BEAUFORT_FEEL_ZONES, BEAUFORT_LEGEND, beaufortFrame, beaufortPalette, windClassOpacity, WIND_FILL, WIND_NIGHT_LINE_LIGHTEN, WIND_THIN_PARTICLE_WIDTH } from './core/wind-beaufort'
 import { WindsockLayer, windsockDevOptions } from './core/wind-socks'
+import { mapPlaceSpacingPx, nestedPlaces } from './core/map-places'
+import { mapLabelSize } from './core/map-labels'
+import { MapLabelCollision } from './core/map-collision'
 import { WINDSOCK_LAG_MINUTES, type WindSlice } from './core/windsock-flow'
 import { clearTuningStorage, nightCue, TABLE_CONTRASTS, type TableContrast } from './core/dev-settings'
 import { watchIdle } from './core/activity'
@@ -362,6 +365,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let temperaturePending = ''
   let temperatureTick: { frames: TimelineFrame[]; stepEpoch: number; zoom: number; width: number; height: number } | undefined
   let windsockLayer: WindsockLayer | undefined
+  let labelCollision: MapLabelCollision | undefined
   let shownWindsockRequest = 0
   let sunFeatureKey = ''
   let sunEpochBucket = Number.NaN
@@ -1000,8 +1004,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       map.on('dragstart', () => setMapSourceFaded(true))
       map.on('zoomend', () => { void showTemperature(); void showWindsocks() })
       map.on('moveend', () => {
+        labelCollision?.update()
         for (const set of isolineSets) { set.labels?.requestSpawn(); updateIsolineLabels(set) }
       })
+      map.on('resize', () => labelCollision?.update())
       map.on('click', (event) => {
         usage.mark('pin')
         pick(event.lngLat.lng, event.lngLat.lat, nearestPlace(event.lngLat.lng, event.lngLat.lat).name)
@@ -1803,7 +1809,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       set.labels?.clear()
       set.labels = undefined
     }
-    map.addLayer(temperatureLayer(mapSurfaceTheme()), beforeId)
+    const { clientWidth, clientHeight } = map.getContainer()
+    map.addLayer(temperatureLayer(mapSurfaceTheme(), mapLabelSize(clientWidth, clientHeight, windsockOptions.regime)), beforeId)
+    labelCollision ??= new MapLabelCollision(map, () => marker?.getLngLat())
+    labelCollision.attach(beforeId)
   }
 
   function applyRainPresentation(): void {
@@ -2082,7 +2091,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         if (set.kind !== 'cloud' && set.kind !== 'wind') {
           // Temperatuur: getallen op vaste plekken met een schijf in hun bandkleur (U100 ronde 3); isobaren: lijnlabels.
           set.labels = set.kind === 'temperature'
-            ? new TemperatureNumbers(renderedMap, grid, mapSurfaceTheme(), () => reducedMotion.matches, () => marker?.getLngLat(), (bubbles) => created.setBubbles(bubbles))
+            ? new TemperatureNumbers(renderedMap, grid, mapSurfaceTheme(), () => reducedMotion.matches, () => marker?.getLngLat(), (bubbles) => created.setBubbles(bubbles), windsockOptions.regime)
             : new IsolineLabels(renderedMap, grid, mapSurfaceTheme(), () => reducedMotion.matches, set.kind)
         }
         set.key = ''
@@ -2230,11 +2239,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         client.getHeader(frames[blends[0]!.left]!.u.chunk),
       ])
       if (request !== shownWindsockRequest || !map) return
-      windsockLayer ??= new WindsockLayer(map, { ...windsockOptions, reducedMotion: () => reducedMotion.matches })
+      windsockLayer ??= new WindsockLayer(map, { ...windsockOptions, reducedMotion: () => reducedMotion.matches, pin: () => marker?.getLngLat() })
       const { clientWidth, clientHeight } = map.getContainer()
       windsockLayer.setUnit(untrack(windUnit))
       windsockLayer.setTheme(untrack(mapSurfaceTheme) === 'dark')
-      windsockLayer.setPlaces(selectTemperaturePlaces(map.getZoom(), windVaneSpacingPx(clientWidth, clientHeight), windVanePlaces))
+      windsockLayer.setPlaces(nestedPlaces(map.getZoom(), mapPlaceSpacingPx(clientWidth, clientHeight)))
       windsockLayer.setOpacity(untrack(windFocus))
       windsockLayer.setField({ grid: header.grid, slices: [slices[0]!, slices[1]!, slices[2]!] })
     } catch {
@@ -2385,7 +2394,18 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       })
     }
     marker?.setLngLat([lng, lat])
+    pinMoved()
     void updatePointSeries(point, label)
+  }
+
+  /** Getallen en zakken wijken direct voor een verplaatste pin (U107), niet pas na de volgende pan of tijdstap. */
+  function pinMoved(): void {
+    labelCollision?.update()
+    windsockLayer?.pinMoved()
+    for (const set of isolineSets) {
+      set.labels?.requestSpawn()
+      updateIsolineLabels(set)
+    }
   }
 
   /** Centreer alleen als het punt anders buiten (of in de rand van) het vrije kaartvlak valt. */
@@ -3696,23 +3716,24 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         <footer class="still-attribution">KNMI · © OpenStreetMap</footer>
       </Show>
       <Show when={!stillMode && windLegendVisible()}>
-        <aside class="rain-isoline-legend wind-legend" aria-label="Windkracht in Beaufort">
+        <aside class="map-legend wind-legend" aria-label="Windkracht in Beaufort">
           <For each={BEAUFORT_FEEL_ZONES}>{(zone) => <span class="wind-zone">
             <span class="wind-zone-classes"><For each={BEAUFORT_LEGEND.slice(zone.from, zone.to + 1)}>{(entry, index) =>
               // Een minimum, anders zijn de bijna doorzichtige "lekker"-klassen in de legenda onzichtbaar.
               <span><i style={{ background: `color-mix(in srgb, ${entry.color} ${Math.round(Math.max(0.18, windClassOpacity(zone.from + index())) * 100)}%, transparent)` }} />{entry.label}</span>}</For></span>
             <em>{zone.word}</em>
           </span>}</For>
+          <small>Bft</small>
         </aside>
       </Show>
       <Show when={!stillMode && focusPinned() === 'weather' && rainIsolineLegend().length > 0}>
-        <aside class="rain-isoline-legend" aria-label="Isolijnen in de regen">
+        <aside class="map-legend rain-isoline-legend" aria-label="Isolijnen in de regen">
           <For each={rainIsolineLegend()}>{(band) => <span><i style={{ background: band.fill, 'border-left-color': band.line }} />{band.label}</span>}</For>
           <small>mm/u</small>
         </aside>
       </Show>
       <Show when={!stillMode && focusPinned() === 'temperature' && feelsLegend().length > 0}>
-        <aside class="feels-legend" aria-label="Kleurschaal gevoelstemperatuur">
+        <aside class="map-legend feels-legend" aria-label="Kleurschaal gevoelstemperatuur">
           <span>{FIXED_SCALE_LEGEND[0]}</span>
           <For each={feelsLegend()}>{(segment, index) => <>
             <i style={{ background: segment.background }} />

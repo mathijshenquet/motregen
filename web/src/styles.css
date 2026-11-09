@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+/* Kaartgetallen (U107, docs/kaartstijl.md): dezelfde letter als de plaatsnamen van de basiskaart, alleen de tekens
+   die getallen gebruiken (tools/fonts/build.sh). */
+@font-face {
+  font-family: "Noto Sans Kaart";
+  src: url("./assets/fonts/noto-sans-kaart.woff2") format("woff2");
+  font-weight: 400 800;
+  font-display: swap;
+}
+
 :root {
   font-family: Inter, ui-sans-serif, system-ui, sans-serif;
   color: #102630;
@@ -153,7 +162,7 @@ button { color: inherit; cursor: pointer; }
   font-size: 12px;
 }
 
-.rain-isoline-legend, .feels-legend {
+.map-legend {
   position: absolute;
   z-index: 10;
   left: 0;
@@ -169,15 +178,17 @@ button { color: inherit; cursor: pointer; }
   line-height: 1.4;
   pointer-events: none;
 }
-.rain-isoline-legend span { display: inline-flex; align-items: center; gap: 4px; }
-.rain-isoline-legend i { display: inline-block; width: 12px; height: 9px; border-left: 2px solid; border-radius: 1px; }
-.rain-isoline-legend small, .feels-legend small { color: var(--muted); font-size: 11px; }
-.feels-legend { gap: 3px; font-variant-numeric: tabular-nums; }
-.feels-legend i { display: inline-block; width: 18px; height: 8px; border-radius: 1px; }
-.feels-legend small { margin-left: 3px; }
-/* Windmodus-proef (U101): vlakke Bft-vakjes zonder lijnrand. */
-.wind-legend i { border-left: 0; width: 13px; }
+/* Eén legendavorm (U107): linksonder, 11 px, vakjes 9 px hoog, eenheid klein aan het eind; klassen hebben een
+   vakje met hun naam erachter, een doorlopende schaal tikken tussen de vakjes. Op de telefoon verborgen. */
+.map-legend { font-variant-numeric: tabular-nums; }
+.map-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.map-legend i { display: inline-block; width: 12px; height: 9px; border-radius: 1px; }
+.map-legend small { margin-left: 2px; color: var(--muted); font-size: 11px; }
+.rain-isoline-legend i { border-left: 2px solid; }
+.feels-legend { gap: 3px; }
+.feels-legend i { width: 18px; }
 .wind-legend { align-items: flex-start; gap: 10px; }
+.wind-legend > small { align-self: flex-start; }
 .wind-zone { display: inline-flex; flex-direction: column; align-items: stretch; gap: 1px; }
 .wind-zone-classes { display: inline-flex; gap: 6px; }
 .wind-zone em { border-top: 1px solid color-mix(in srgb, var(--muted) 45%, transparent); padding-top: 1px; color: var(--muted); font-size: 11px; font-style: normal; text-align: center; }
@@ -1413,11 +1424,9 @@ td small { color: var(--muted); font-size: 9px; }
 .temperature-number { pointer-events: none; line-height: 1; white-space: nowrap; }
 .temperature-number span {
   display: block; padding: 3px 6px;
-  font-family: "Noto Sans", Inter, ui-sans-serif, system-ui, sans-serif;
-  font-size: 13px; font-weight: 400; font-variant-numeric: tabular-nums;
+  font-family: "Noto Sans Kaart", "Noto Sans", sans-serif;
+  font-size: var(--map-label-size); font-weight: 400; font-variant-numeric: tabular-nums;
 }
-/* temperatureLabelSize: kortste zijde < 600 px (telefoon) één stap kleiner. */
-@media (max-width: 599.98px), (max-height: 599.98px) { .temperature-number span { font-size: 12px; } }
 .temperature-number-light span {
   color: #102630;
   text-shadow: 0 0 1px #fff, 0 0 2px #fff, 1px 1px 1px #fff, -1px -1px 1px #fff, 1px -1px 1px #fff, -1px 1px 1px #fff;
@@ -1468,7 +1477,7 @@ td small { color: var(--muted); font-size: 9px; }
   /* De UV-chip staat linksonder op de kaart (U21: het merk staat rechtsboven). */
   .sidebar-nav { top: calc(var(--map-mobile) - 64px); }
   /* De regenlegenda kost op de telefoon kaart en botst met de bronvermelding; die laatste vervaagt na het begin. */
-  .rain-isoline-legend, .feels-legend { display: none; }
+  .map-legend { display: none; }
   .map-shell .source { transition: opacity .6s ease; }
   .map-shell.map-source-faded .source { opacity: 0; pointer-events: none; }
 }
