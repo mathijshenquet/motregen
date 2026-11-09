@@ -27,19 +27,52 @@ kost en hoe groot de fout dan wordt (fase 2), en zoekt de knie. **Er is nog niet
 
 ## 1. Wat de wachttijd nu veroorzaakt
 
-Gemeten met `pnpm perf:modes` (de eigen build van `main` met de prod-data van 2026-11-09), telefoon = de rig die op
-de PO-telefoon is gekalibreerd (renderer-quota 40 %), op 4G (9 Mbps, 60 ms RTT).
+Gemeten met `pnpm perf:modes --repeat 3` op 2026-11-09 11:35–12:13: de eigen build van `main` (e575c65, alleen de
+suite erbij) met de prod-data van dat moment. Telefoon = de rig die op de PO-telefoon is gekalibreerd (renderer-quota
+40 %), op 4G (9 Mbps, 60 ms RTT). Mediaan van 3 runs, tijden in s sinds navigatie. **De host was zwaar belast door
+andere tracks** (loadavg bij de start van een bezoek 7,7–175, mediaan 15,5): de bytes zijn betrouwbaar, de tijden
+zijn ruw en spreiden tot ×2 (telefoon koud Weer: histogram 7,3 / 11,3 / 19,3 s). Volledige samenvatting
+(ook per bron en lange frames): `docs/perf/u102/nulmeting-2026-11-09.md`.
 
-NULMETING-TABEL
+| profiel | modus | eerste kaart | histogram compleet | tabel compleet | vóór het histogram | laadfase |
+| --- | --- | ---: | ---: | ---: | ---: | ---: |
+| telefoon 4G koud | Weer | 3,5 s | 11,3 s | 11,2 s | 2.358 kB in 73 requests | 2.566 kB in 101 |
+| telefoon 4G koud | Lucht | 6,7 s | 8,5 s | 7,5 s | 2.560 kB in 99 | 2.708 kB in 134 |
+| telefoon 4G koud | Gevoel | 5,3 s | 8,7 s | 5,8 s | 2.537 kB in 80 | 2.741 kB in 105 |
+| telefoon 4G koud | Wind | 5,7 s | 7,6 s | 7,0 s | 2.740 kB in 81 | 2.972 kB in 118 |
+| telefoon 4G warm | Weer | 3,5 s | 11,0 s | 7,0 s | 0 kB | 0 kB |
+| telefoon 4G warm | Lucht | 4,1 s | 8,2 s | 4,8 s | 0 kB | 0 kB |
+| telefoon 4G warm | Gevoel | 3,0 s | 8,2 s | 3,7 s | 0 kB | 0 kB |
+| telefoon 4G warm | Wind | 3,2 s | 7,5 s | 4,3 s | 0 kB | 0 kB |
+| desktop koud | Weer | 1,7 s | 2,1 s | 2,2 s | 6.328 kB in 93 | 6.461 kB in 98 |
+| desktop koud | Lucht | 1,6 s | 1,8 s | 2,1 s | 6.449 kB in 99 | 6.600 kB in 104 |
+| desktop koud | Gevoel | 1,4 s | **32,1 s** | 1,8 s | 7.099 kB in 115 | 9.172 kB in 126 |
+| desktop koud | Wind | 1,8 s | **32,7 s** | 2,4 s | 7.284 kB in 132 | 9.176 kB in 143 |
+| desktop warm | Weer | 0,9 s | 1,2 s | 1,4 s | 0 kB | 0 kB |
+| desktop warm | Gevoel | 1,0 s | 31,2 s (2 van 3) | 1,1 s | 0 kB | 0 kB |
+| desktop warm | Wind | 0,8 s | 38,4 s (2 van 3) | 1,0 s | 0 kB | 0 kB |
 
-Wat erin zit, per bron, tot het histogram compleet is: zie de tweede tabel van de nulmeting. Drie dingen springen eruit:
+"Eerste kaart" = kaart onthuld én de frames van de kaartlaag van de modus rond nu gedecodeerd. "Histogram compleet" =
+alle frames die het histogram van die modus in het venster bij openen tekent, gedecodeerd. "Tabel compleet" = de
+rijen in beeld tonen gevoel, temperatuur en wind. Desktop warm Lucht: 1,1 / 2,1 / 1,4 s.
 
-1. **De telefoon wacht ook warm.** Een warme start draagt 0 B over en heeft het histogram toch pas na enkele
-   seconden: het decoderen van de rasters is daar het werk, niet het netwerk.
-2. **Bytes vóór het histogram.** Koud gaat er vóór een compleet histogram ruim 2 MB over de lijn (alle headers, de
-   regenframes in het venster en de uurvelden voor de tabel), bijna allemaal om één cel per frame te lezen.
-3. **ICON-D2 komt als laatste.** De zon in Lucht leunt op `radiation_direct` van ICON-D2; dat veld komt na de
-   HARMONIE-velden binnen, dus het histogram van Lucht is pas compleet als ook dat raster gedecodeerd is.
+Per bron, telefoon 4G koud Weer, in de laadfase: RTCOR 570 kB, nowcast 272 kB, seamless 224 kB, HARMONIE 778 kB
+(59 requests), UV 40 kB, app 516 kB, basiskaart 104 kB, plaatsenlijst 62 kB.
+
+Wat de wachttijd veroorzaakt:
+
+1. **Op de telefoon is het werk het decoderen, niet het netwerk.** Een warme start draagt 0 B over en heeft het
+   histogram toch pas na 7,5–11 s, nauwelijks sneller dan koud (7,6–11,3 s). Elke puntwaarde kost het decoderen van
+   een heel raster: in Weer ruim honderd regenframes van 1.250 × 1.350 cellen.
+2. **Koud gaat er 2,4–2,7 MB over de lijn vóór het histogram compleet is**, bijna allemaal rasters waarvan één cel
+   wordt gelezen. Op 9 Mbps is dat alleen al 2,1–2,4 s.
+3. **Op desktop missen Gevoel en Wind 30 s lang het verleden.** De uurvelden van de afgelopen uren (bij openen om
+   12:10 de uren 09:00–11:00 lokale tijd, het linkerderde van de scrubber) vraagt een ruim apparaat pas aan in de
+   30-s-idle-stap (L2); na 8 s begint de gevoelslijn pas bij "Nu", na 35 s loopt hij vanaf 10u. Op de telefoon
+   (`in-view`) speelt dit niet. Dit is een los te verhelpen punt, ook zonder
+   deze MIP.
+4. **De DWD-data (ICON-D2) is niet de rem.** De directe straling voor de zon in Lucht is op de telefoon na 3,2 s
+   binnen, HARMONIE pas na 12,1 s. Het histogram wacht op alles samen, niet op één bron als laatste.
 
 ## 2. Regiogrootte
 
@@ -76,7 +109,8 @@ op main, nog niet uitgerold). Zie §4.
 - **droog en zonnig**: 2026-11-09 10:15 UTC, live (`tools/fetch-data-snapshot.sh`), regen in 7 % (vooral de
   HARMONIE-regen van morgen). Alleen deze heeft ICON-D2.
 
-Reproduceren: `cd web && pnpm exec tsx scripts/regio-knie.ts <snapshot>... --json uit.json`.
+Reproduceren: `cd web && pnpm exec tsx scripts/regio-knie.ts <snapshot>... --json uit.json`; de volledige uitvoer van
+deze meting staat in `docs/perf/u102/regio-knie-2026-11-09.txt`.
 
 ### Bytes en bestanden (natte snapshot)
 
@@ -131,19 +165,19 @@ het 6 km-raster (in EPSG:3857; ≈ 3,7 km echt).
 
 | variant | per locatie | 4G-tijd na manifest | gevoel MAE | wind, andere klasse | regen omgeslagen |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| nu (hele rasters) | NULMETING-BYTES | NULMETING-TIJD | 0 | 0 | 0 |
+| nu (hele rasters), telefoon 4G koud | 2.358–2.740 kB | 7,6–11,3 s tot histogram (gemeten, incl. decoderen) | 0 | 0 | 0 |
 | midden, 210 regio's | 1,1 kB | 61 ms | 0,58 °C | 24 % | 2,9 % |
 | midden, 810 regio's | 1,1 kB | 61 ms | 0,38 °C | 17 % | 1,8 % |
 | **alle gridpunten, 210 regio's** | **13,5 kB (p95 29,9 kB)** | **70 ms (p95 76 ms)** | **0** | **0** | **0** |
 | alle gridpunten, 49 regio's | 53,4 kB (p95 158 kB) | 97 ms (p95 159 ms) | 0 | 0 | 0 |
 | alle gridpunten, 810 regio's | 4,5 kB (p95 7,9 kB) | 63 ms (p95 64 ms) | 0 | 0 | 0 |
 
-(natte snapshot; 4G-tijd = model van §2, zonder decodeertijd; die is voor 13 kB zstd geschat op enkele ms, niet
+(Regiovarianten: natte snapshot; 4G-tijd = model van §2, zonder decodeertijd; die is voor 13 kB zstd geschat op enkele ms, niet
 gemeten op de telefoon.)
 
 **Er is geen afweging tussen bytes en fout:** alle varianten zitten binnen één RTT. De midden-variant bespaart
 12 kB (≈ 10 ms op 4G) en kost daarvoor een halve graad en een kwart andere Beaufort-getallen. Binnen "alle
-gridpunten" is de knie de regiogrootte: boven ~200 regio's is een bestand RTT-gedomineerd (70 → 63 ms bij 4× zoveel
+gridpunten" is de knie de regiogrootte: boven ~200 regio's is een bestand RTT-gedomineerd (70 → 63 ms bij 3,5× zoveel
 bestanden); onder ~100 regio's wordt het natte radarbestand groot (p95 111 kB bij 49 regio's, 40 kB bij 100).
 
 ## 4. Bronnen, gebruik in de client, kosten in de ingest
@@ -185,7 +219,7 @@ inclusief het uitknippen; natte snapshot):
 
 1. **Alle gridpunten, 210 regio's (zijde ≈ 25 km), drie groepen (radar, harmonie, extra), later ECMWF als vierde.**
    Fout 0 (de client leest zijn eigen cel), 13,5 kB per locatie op een natte dag (p95 30 kB), 70 ms op 4G na het
-   manifest. Nu: NULMETING-SAMENVATTING.
+   manifest. Nu: 2,4–2,7 MB en 7,6–11,3 s tot het histogram op de telefoon, warm nog 7,5–11 s.
 2. **Geen midden- of gemiddelde-variant.** Die bespaart ≈ 10 ms en kost een halve graad en een kwart andere
    Beaufort-getallen.
 3. **Eerst meten, dan bouwen**: de bouw in twee tracks. Ingest (`crates/ingest`: regiobestanden en de
@@ -200,3 +234,5 @@ A2. Moet de weekverwachting (ECMWF) in de eerste bouw mee, of pas als de ECMWF-j
 meten?
 A3. Zeeregio's krijgen geen bestand; een locatie op zee valt terug op het huidige pad. Goed, of wil je de
 Noordzeekust en de Waddenzee met een rand meenemen?
+A4. Los van deze MIP: op desktop laden Gevoel en Wind de afgelopen uren pas na 30 s (§1 punt 3; de scrubber na 8 s en
+na 35 s: `docs/perf/u102/desktop-gevoel-08s-scrubber.png`, `…-35s-scrubber.png`). Wil je dat als kleine fix vóór de regiobestanden?

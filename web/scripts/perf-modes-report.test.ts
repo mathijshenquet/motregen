@@ -22,6 +22,8 @@ describe('perf-modes-report', () => {
     expect(classifyRequest('https://motregen.nl/data/chunks/rtcor-20261109T0955-h3-g1c.mrf')).toBe('rtcor')
     expect(classifyRequest('https://motregen.nl/data/chunks/harmonie-wind_u_ms-20261109T0700-h48-l1-24-g6f8b.mrf')).toBe('harmonie')
     expect(classifyRequest('https://motregen.nl/plaatsen-4d18b8790eecd5af.json')).toBe('plaatsen')
+    expect(classifyRequest('https://motregen.nl/data/chunks/icon-d2-radiation_direct-20261109T09-g4a.mrf')).toBe('icon_d2')
+    expect(classifyRequest('https://motregen.nl/data/chunks/uv_clear-20261109T0938-g1.mrf')).toBe('uv')
     expect(classifyRequest('https://motregen.nl/data/manifest.json?s=1')).toBe('manifest')
     expect(classifyRequest('https://motregen.nl/assets/index-abc.js')).toBe('app')
     expect(classifyRequest('https://tiles.example/planet.pmtiles')).toBe('basemap')

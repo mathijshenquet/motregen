@@ -53,6 +53,8 @@ export function classifyRequest(url: string): DataSource {
   if (chunk) {
     const source = CHUNK_SOURCES.find((candidate) => chunk[1]!.startsWith(`${candidate}-`))
     if (source) return source
+    if (chunk[1]!.startsWith('icon-d2-')) return 'icon_d2'
+    if (chunk[1]!.startsWith('uv_clear-')) return 'uv'
   }
   if (/\/plaatsen[^/]*\.json$/.test(path)) return 'plaatsen'
   if (/\.(?:pmtiles|pbf|mvt)$/.test(path) || path.includes('/tiles/') || path.includes('/basemap/') || path.endsWith('style.json') || path.includes('/fonts/') || path.includes('/sprites/')) return 'basemap'
@@ -168,6 +170,16 @@ export interface VisitReport {
   longFrames: Record<string, LongFrameStats>
   /** Alle requests tot het einde van de laadfase, voor nader onderzoek per bron. */
   network?: NetworkEntry[]
+}
+
+/** Bronsommen opnieuw uit de opgeslagen requests, bijvoorbeeld na een betere classificatie. */
+export function withRecomputedTotals(report: VisitReport): VisitReport {
+  if (!report.network) return report
+  return {
+    ...report,
+    untilHistogram: totalsBySource(report.network, report.milestones.histogramCompleteMs ?? report.milestones.settledMs),
+    untilSettled: totalsBySource(report.network, report.milestones.settledMs),
+  }
 }
 
 export function median(values: readonly number[]): number | null {

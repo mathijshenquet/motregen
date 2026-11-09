@@ -1,7 +1,7 @@
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process'
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { MAP_MODES, renderSummary, type MapMode, type VisitReport } from './perf-modes-report'
+import { MAP_MODES, median, renderSummary, withRecomputedTotals, type MapMode, type VisitReport } from './perf-modes-report'
 import { rigPorts } from './rig-host'
 
 // U102 meetsuite (C7): `pnpm perf:modes [--target prod|build] [--origin URL] [--modes weer,wind|all]
@@ -12,6 +12,15 @@ import { rigPorts } from './rig-host'
 
 const LIVE_ORIGIN = 'https://motregen.nl'
 const args = process.argv.slice(2)
+// `--summary-only <map>`: alleen de samenvatting van een eerdere run opnieuw maken.
+if (args[0] === '--summary-only') {
+  const directory = resolve(args[1] ?? '')
+  const reports = readReports(directory).map(withRecomputedTotals)
+  const summary = summaryText(directory.split('/').at(-1)!, reports[0]?.origin ?? '?', reports)
+  writeFileSync(join(directory, 'summary.md'), summary)
+  console.log(summary)
+  process.exit(0)
+}
 const settings = { target: 'build', origin: undefined as string | undefined, modes: [...MAP_MODES] as MapMode[], profiles: ['telefoon', 'desktop'], repeat: 1, interactions: true }
 for (let index = 0; index < args.length; index++) {
   const [flag, inline] = args[index]!.split('=')
@@ -57,15 +66,23 @@ const run = spawnSync('bash', ['scripts/perf-lock.sh', 'scripts/e2e-slot.sh', 'p
 })
 if (preview?.pid) process.kill(-preview.pid, 'SIGTERM')
 
-const reports = existsSync(outputDirectory)
-  ? readdirSync(outputDirectory).filter((file) => file.endsWith('.json')).sort().map((file) => JSON.parse(readFileSync(join(outputDirectory, file), 'utf8')) as VisitReport)
-  : []
-const header = `# perf:modes ${stamp}\n\norigin ${origin}, ${reports.length} bezoeken, loadavg ${[...new Set(reports.map((report) => report.loadAverage))].join(' / ')}\n\n`
-const summary = header + renderSummary(reports)
+const reports = readReports(outputDirectory)
+const summary = summaryText(stamp, origin, reports)
 writeFileSync(join(outputDirectory, 'summary.md'), summary)
 console.log(summary)
 console.log(`Samenvatting: ${join(outputDirectory, 'summary.md')}`)
 process.exit(run.status ?? 1)
+
+function readReports(directory: string): VisitReport[] {
+  if (!existsSync(directory)) return []
+  return readdirSync(directory).filter((file) => file.endsWith('.json')).sort().map((file) => JSON.parse(readFileSync(join(directory, file), 'utf8')) as VisitReport)
+}
+
+function summaryText(stamp: string, origin: string, reports: VisitReport[]): string {
+  const loads = reports.map((report) => report.loadAverage)
+  const header = `# perf:modes ${stamp}\n\norigin ${origin}, ${reports.length} bezoeken, loadavg bij de start van een bezoek ${Math.min(...loads)}–${Math.max(...loads)} (mediaan ${median(loads)})\n\n`
+  return header + renderSummary(reports)
+}
 
 async function waitForOrigin(url: string): Promise<void> {
   for (let attempt = 0; attempt < 60; attempt++) {
