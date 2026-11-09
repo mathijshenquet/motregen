@@ -266,11 +266,13 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let windInitializationIdle: number | undefined
   let windInitializationTimer: number | undefined
   let windParallelCompilation = false
-  onCleanup(() => {
+  function cancelWindInitialization(): void {
     if (windInitializationFrame !== undefined) cancelAnimationFrame(windInitializationFrame)
     if (windInitializationIdle !== undefined) cancelIdle(windInitializationIdle)
     window.clearTimeout(windInitializationTimer)
-  })
+    windInitializationFrame = windInitializationIdle = windInitializationTimer = undefined
+  }
+  onCleanup(cancelWindInitialization)
   let shownWindRequest = 0
   let shownTemperatureRequest = 0
   let shownSunRequest = 0
@@ -697,6 +699,13 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const playbackReady = createMemo(() => mapRendering() && mapReady())
   const playbackActive = createMemo(() => playing() && playbackReady())
   createEffect(() => { if (!stillMode && mapReady() && !playing()) scheduleWindInitialization() })
+  // U110: in de windmodus zijn de deeltjes de inhoud; daar geen uitstel achter de regen (in Firefox, zonder
+  // KHR_parallel_shader_compile, was dat 5 s plus een idle-wachttijd), maar opzetten zodra kaart en windtijdlijn er zijn.
+  createEffect(() => {
+    if (stillMode || focusPinned() !== 'wind' || !mapReady() || !windTimeline().length || windLayer) return
+    cancelWindInitialization()
+    void attachWindLayer()
+  })
   const [resetNotice, setResetNotice] = createSignal(false)
   let resetNoticeTimer: number | undefined
   const [updateReady, setUpdateReady] = createSignal(false)
@@ -1601,9 +1610,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const started = performance.now()
     const wind = mountWind(windGrid)
     const submitMs = performance.now() - started
+    // De u/v-velden laden tijdens het compileren; showWind wacht zelf op ready.
+    const shown = showWind()
     await wind?.ready.catch(() => {})
     if (perfPhasesEnabled()) perf.recordPhase({ phase: 'wind-initialize', startTime: started, duration: performance.now() - started, detail: { submitMs, parallel: windParallelCompilation } })
-    await showWind()
+    await shown
   }
 
   function scheduleWindInitialization(): void {

@@ -102,3 +102,22 @@ for (const fallback of [false, true]) {
     await expect(page.locator('.map-overlay-motregen-wind')).toHaveCount(fallback ? 0 : 1)
   })
 }
+
+test('in de windmodus komen de deeltjes direct na de eerste regen, ook zonder parallelle shadercompile (U110)', async ({ page }) => {
+  await page.addInitScript(() => {
+    const getExtension = WebGL2RenderingContext.prototype.getExtension
+    WebGL2RenderingContext.prototype.getExtension = function (name: string) {
+      return name === 'KHR_parallel_shader_compile' ? null : getExtension.call(this, name)
+    }
+  })
+  await page.goto('/wind?perf=1', { waitUntil: 'commit' })
+  await page.waitForFunction(() => window.__motregenPerf?.snapshot().firstCursorMs != null)
+  await page.waitForFunction(() => (globalThis as { __motregenWind?: { dispersion: () => { particles: number } } }).__motregenWind?.dispersion().particles! > 0)
+  const start = await page.evaluate(() => {
+    const trace = window.__motregenPerf!.traceSlice(0, performance.now())
+    return trace.measures.find((measure) => measure.phase === 'wind-initialize')!.startTime - window.__motregenPerf!.snapshot().firstCursorMs!
+  })
+  // Was ≥ 5 s plus een idle-wachttijd (Firefox, PO-profiel 2026-11-09: 9 s na navigatie).
+  expect(start).toBeLessThan(1_000)
+})
+
