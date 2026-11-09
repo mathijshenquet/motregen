@@ -20,9 +20,12 @@ for (const { path, legend } of modes) {
     await expect(page.locator(`#map-legend${legend}`)).toBeVisible()
     const box = await button.boundingBox()
     const shell = await page.locator('.map-shell').boundingBox()
-    // Rechtsonder in de kaart, overal op dezelfde plek.
-    expect(Math.round(shell!.x + shell!.width - box!.x - box!.width)).toBe(12)
+    // Linksonder in de kaart (PO 2026-11-09), overal op dezelfde plek; de legenda rechts ernaast.
+    expect(Math.round(box!.x - shell!.x)).toBe(12)
+    expect(Math.round(shell!.y + shell!.height - box!.y - box!.height)).toBe(12)
     expect(Math.round(box!.width)).toBe(44)
+    const legendBox = await page.locator('#map-legend').boundingBox()
+    expect(legendBox!.x).toBeGreaterThan(box!.x + box!.width)
     await button.click()
     await expect(button).toHaveAttribute('aria-expanded', 'false')
     await expect(page.locator('#map-legend')).toHaveCount(0)
@@ -47,6 +50,10 @@ test.describe('telefoonbreedte', () => {
       const [panelBox, buttonBox] = [await panel.boundingBox(), await button.boundingBox()]
       expect(Math.round(panelBox!.height)).toBe(Math.round(buttonBox!.height))
       expect(Math.abs(panelBox!.y - buttonBox!.y)).toBeLessThanOrEqual(1)
+      expect(panelBox!.x).toBeGreaterThan(buttonBox!.x + buttonBox!.width)
+      // Boven de bronregel rechtsonder: de open band raakt hem niet.
+      const source = await page.locator('.map-shell .source').boundingBox()
+      if (source) expect(panelBox!.y + panelBox!.height).toBeLessThanOrEqual(source.y + 1)
       // Eén rij: niets loopt onder de band uit.
       expect(await panel.evaluate((element) => element.scrollHeight <= element.clientHeight + 1)).toBe(true)
     })

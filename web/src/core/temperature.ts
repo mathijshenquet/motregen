@@ -1,7 +1,7 @@
 import type { SymbolLayerSpecification } from 'maplibre-gl'
 type MapTheme = 'light' | 'dark'
 import type { Grid, MrfHeader } from './contract.js'
-import { DEFAULT_MAP_LABEL_REGIME, MAP_LABEL_COLORS, MAP_LABEL_GLYPH_FONT, MAP_LABEL_HALO_PX, MAP_LABEL_REGIMES } from './map-labels.js'
+import { MAP_LABEL_COLORS, MAP_LABEL_GLYPH_FONT, MAP_LABEL_HALO_PX, MAP_LABEL_SIZES } from './map-labels.js'
 
 export const TEMPERATURE_VARIABLE_ANCHORS = [
   'top', 'bottom', 'left', 'right', 'top-left', 'top-right', 'bottom-left', 'bottom-right',
@@ -9,9 +9,9 @@ export const TEMPERATURE_VARIABLE_ANCHORS = [
 
 /**
  * Stadstemperaturen in Weer en Lucht: letter, maat, inkt en halo uit het kaartregime (U107); `size` is de
- * regimemaat (mapLabelSize), de bot neemt de desktopstap.
+ * kaartmaat (mapLabelSize), de bot neemt de desktopmaat.
  */
-export function temperatureLayer(theme: MapTheme, size: number = MAP_LABEL_REGIMES[DEFAULT_MAP_LABEL_REGIME].desktop): SymbolLayerSpecification {
+export function temperatureLayer(theme: MapTheme, size: number = MAP_LABEL_SIZES.desktop): SymbolLayerSpecification {
   const colors = MAP_LABEL_COLORS[theme]
   return {
     id: 'motregen-temperature',

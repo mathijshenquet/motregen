@@ -7,19 +7,8 @@ export const MAP_LABEL_FONT_FAMILY = '"Noto Sans Kaart", "Noto Sans", sans-serif
 /** De naam in de MapLibre-stijl voor symboollagen (dezelfde letter als glyph-PBF). */
 export const MAP_LABEL_GLYPH_FONT = 'Noto Sans Regular'
 
-/** Typeschaal: `compact` is de PO-keuze van U100 (13 px desktop, 12 telefoon); `ruim` één stap groter. */
-export const MAP_LABEL_REGIMES = {
-  compact: { phone: 12, desktop: 13 },
-  ruim: { phone: 13, desktop: 14 },
-} as const
-export type MapLabelRegime = keyof typeof MAP_LABEL_REGIMES
-export const DEFAULT_MAP_LABEL_REGIME: MapLabelRegime = 'compact'
-
-/** Alleen `?dev&regime=`: de typeschaalstap (U107, nog niet gekozen). */
-export function mapLabelRegime(params: URLSearchParams): MapLabelRegime {
-  const value = params.has('dev') ? params.get('regime') : null
-  return value && value in MAP_LABEL_REGIMES ? value as MapLabelRegime : DEFAULT_MAP_LABEL_REGIME
-}
+/** Typeschaal (PO-keuze 2026-11-09 "compact", zoals U100): 13 px desktop, 12 px telefoon; de bot neemt de desktopmaat. */
+export const MAP_LABEL_SIZES = { phone: 12, desktop: 13 } as const
 
 /** Telefoon: kortste zijde onder 600 CSS-px. */
 export function isPhoneMap(width: number, height: number): boolean {
@@ -27,8 +16,8 @@ export function isPhoneMap(width: number, height: number): boolean {
 }
 
 /** Lettermaat van elk kaartgetal (temperatuur, gevoel, windbadge) in CSS-px. */
-export function mapLabelSize(width: number, height: number, regime: MapLabelRegime = DEFAULT_MAP_LABEL_REGIME): number {
-  return MAP_LABEL_REGIMES[regime][isPhoneMap(width, height) ? 'phone' : 'desktop']
+export function mapLabelSize(width: number, height: number): number {
+  return MAP_LABEL_SIZES[isPhoneMap(width, height) ? 'phone' : 'desktop']
 }
 
 /** Inkt en halo van vrijstaande kaartgetallen, gelijk aan de plaatsnamen van de basiskaart. */

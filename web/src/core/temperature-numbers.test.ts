@@ -1,21 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import { placeNamePaddingPx } from './map-label-placement'
-import { mapDiscFontPx, mapDiscRadius, mapLabelRegime, mapLabelSize } from './map-labels'
+import { mapDiscFontPx, mapDiscRadius, mapLabelSize } from './map-labels'
 import { MAP_PLACES, mapPlaceSpacingPx, nestedPlaces } from './map-places'
 import { islandBox } from './temperature-numbers'
 
 describe('kaartstijl-regime (U107)', () => {
-  it('uses 13 px on desktop and 12 px on a phone, one step larger in the ruim regime', () => {
+  it('uses 13 px on desktop and 12 px on a phone (PO-keuze compact)', () => {
     expect(mapLabelSize(1440, 900)).toBe(13)
     expect(mapLabelSize(402, 844)).toBe(12)
-    expect(mapLabelSize(1440, 900, 'ruim')).toBe(14)
-    expect(mapLabelSize(402, 844, 'ruim')).toBe(13)
-  })
-
-  it('reads the regime only under ?dev', () => {
-    expect(mapLabelRegime(new URLSearchParams('regime=ruim'))).toBe('compact')
-    expect(mapLabelRegime(new URLSearchParams('dev&regime=ruim'))).toBe('ruim')
-    expect(mapLabelRegime(new URLSearchParams('dev&regime=reus'))).toBe('compact')
   })
 
   it('shares one disc shape: the wind badge radius 9.5 at 13 px, wider for longer labels', () => {

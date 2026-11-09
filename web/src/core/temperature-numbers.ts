@@ -6,7 +6,7 @@ import { TEMPERATURE_ISOLINE_OFFSET, TEMPERATURE_ISOLINE_STEP, type IsolineFeatu
 import type { IsolineBubble } from './isoline-layer'
 import { sampleSlice, type FieldSlice } from './isoline-spline'
 import { MapLabelPlacer, PLACE_LADDER } from './map-label-placement'
-import { mapDiscRadius, mapLabelSize, type MapLabelRegime } from './map-labels'
+import { mapDiscRadius, mapLabelSize } from './map-labels'
 import { MAP_PLACES, mapPlaceSpacingPx, MAX_PLACE_NUMBERS, nestedPlaces } from './map-places'
 
 /**
@@ -78,7 +78,6 @@ export class TemperatureNumbers implements IsolineLabelling {
     pin: () => { lng: number; lat: number } | undefined,
     /** Schijven in de bandkleur onder de getallen (IsolineLayer.setBubbles). */
     private readonly onBubbles: (bubbles: IsolineBubble[]) => void = () => undefined,
-    private readonly regime?: MapLabelRegime,
   ) {
     this.placer = new MapLabelPlacer(map, pin)
   }
@@ -186,7 +185,7 @@ export class TemperatureNumbers implements IsolineLabelling {
   }
 
   private size(): number {
-    return mapLabelSize(window.innerWidth, window.innerHeight, this.regime)
+    return mapLabelSize(window.innerWidth, window.innerHeight)
   }
 
   private setText(label: Shown, value: number): void {

@@ -2,7 +2,7 @@ import { chromium } from '@playwright/test'
 
 // Kosten van de windzakken (U101 ronde 3) op het telefoonprofiel: 402×844, dpr 3, 4× CPU-rem (zoals mobile-4g).
 // Per scenario 10 s meten met de PerfHud-monitor (`?perf`): de fase `windsock-draw` en de fps van de pagina.
-// usage: pnpm exec tsx scripts/windsock-perf.ts ORIGIN TIJD [EXTRA-DEV-QUERY]   (bv. regime=ruim)
+// usage: pnpm exec tsx scripts/windsock-perf.ts ORIGIN TIJD [EXTRA-DEV-QUERY]   (bv. windfactor=2)
 //   WINDSOCK_PERF_SOFTWARE_2D=1 rastert de 2D-canvas in software (swiftshader-GPU-2D is pathologisch traag, zie U101-LOG).
 const [origin, time, extra] = process.argv.slice(2)
 if (!origin || !time) throw new Error('usage: pnpm exec tsx scripts/windsock-perf.ts ORIGIN TIJD')

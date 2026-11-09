@@ -12,7 +12,7 @@ import { NETHERLANDS_FLANDERS_BOUNDS } from '../web/src/core/map-frame.js'
 import { BEAUFORT_COLORS, BEAUFORT_LOWER_MS, CODES_PER_FORCE, WIND_FILL, WIND_NIGHT_LINE_LIGHTEN, WIND_THIN_PARTICLE_WIDTH } from '../web/src/core/wind-beaufort.js'
 import { DEFAULT_WINDSOCK_BADGE, WINDSOCK_BADGE, WINDSOCK_BANDS, WINDSOCK_SAMPLES, WINDSOCK_SHAPE, WINDSOCK_STYLE } from '../web/src/core/wind-glyph.js'
 import { DEFAULT_WINDSOCK_CURVATURE, MAX_BEND_DEGREES, SOCK_SNAP_SECONDS, WINDSOCK_LAG_MINUTES, WINDSOCK_MOMENTUM, WINDSOCK_STREAM_KM, WINDSOCK_SWAY_NUMBERS, windsockPhase } from '../web/src/core/windsock-flow.js'
-import { DEFAULT_MAP_LABEL_REGIME, DISC_MIN_EM, MAP_LABEL_REGIMES, mapDiscRadius } from '../web/src/core/map-labels.js'
+import { DISC_MIN_EM, MAP_LABEL_SIZES, mapDiscRadius } from '../web/src/core/map-labels.js'
 import { MAP_PLACES, mapPlaceSpacingPx, MAX_PLACE_NUMBERS, nestedPlaces } from '../web/src/core/map-places.js'
 import { PLACE_LADDER } from '../web/src/core/map-label-placement.js'
 import { NATIVE_VIEW } from './native-view.js'
@@ -73,11 +73,11 @@ export function modeConstants() {
 }
 
 /**
- * Kaartregime (U107, docs/kaartstijl.md): de bot neemt de desktopstap; de schijfregel als getallen plus een controle
+ * Kaartregime (U107, docs/kaartstijl.md): de bot neemt de desktopmaat; de schijfregel als getallen plus een controle
  * (`disc_fixture`); de gevoelsgetallen op dezelfde geneste plekken als de app bij de botzoom.
  */
 function mapLabelConstants() {
-  const size = MAP_LABEL_REGIMES[DEFAULT_MAP_LABEL_REGIME].desktop
+  const size = MAP_LABEL_SIZES.desktop
   return {
     size, disc: { min_em: DISC_MIN_EM, char_em: 0.3, pad: 4 }, ladder: PLACE_LADDER, maximum: MAX_PLACE_NUMBERS,
     temperature_offset: isoline.TEMPERATURE_ISOLINE_OFFSET,

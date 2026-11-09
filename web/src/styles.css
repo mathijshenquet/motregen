@@ -165,9 +165,9 @@ button { color: inherit; cursor: pointer; }
 .map-legend {
   position: absolute;
   z-index: 10;
-  right: calc(12px + 44px + 8px + env(safe-area-inset-right));
+  left: calc(12px + 44px + 8px + env(safe-area-inset-left));
   bottom: var(--legend-bottom);
-  max-width: calc(100% - 12px - 44px - 8px - 12px);
+  max-width: calc(100% - 12px - 44px - 8px - 12px - env(safe-area-inset-left));
   min-height: 44px;
   display: flex;
   flex-wrap: wrap;
@@ -183,12 +183,13 @@ button { color: inherit; cursor: pointer; }
   line-height: 1.4;
   pointer-events: none;
 }
-/* Legenda-knop (U107, PO 2026-11-09): één ronde kaartknop rechtsonder boven de bronregel, in elke modus, telefoon
-   en desktop; de legenda opent links ernaast. */
-.map-shell { --legend-bottom: 28px; }
+/* Legenda-knop (U107, PO 2026-11-09): één ronde kaartknop linksonder, waar de legenda vroeger stond, in elke modus,
+   telefoon en desktop; de legenda opent rechts ernaast. De bronregel staat rechtsonder; op de telefoon reikt een
+   open band daaronder, dus daar staat de knop een bronregel hoger. */
+.map-shell { --legend-bottom: 12px; }
 .map-legend-button {
   position: absolute;
-  right: calc(12px + env(safe-area-inset-right));
+  left: calc(12px + env(safe-area-inset-left));
   bottom: var(--legend-bottom);
   z-index: 5;
   width: 44px;
@@ -202,8 +203,8 @@ button { color: inherit; cursor: pointer; }
 .map-legend-button[aria-expanded="true"] { color: var(--accent); }
 /* Altijd 44 × 44, ook onder de smalle-schermregel voor .round-action (38 px): de band ernaast is even hoog. */
 .map-shell .map-legend-button { width: 44px; min-width: 44px; height: 44px; }
-/* Eén legendavorm (U107): linksonder, 11 px, vakjes 9 px hoog, eenheid klein aan het eind; klassen hebben een
-   vakje met hun naam erachter, een doorlopende schaal tikken tussen de vakjes. Op de telefoon verborgen. */
+/* Eén legendavorm (U107): naast de knop linksonder, 11 px, vakjes 9 px hoog, eenheid klein aan het eind; klassen hebben een
+   vakje met hun naam erachter, een doorlopende schaal tikken tussen de vakjes. Op de telefoon dicht tot je de knop gebruikt. */
 .map-legend { font-variant-numeric: tabular-nums; }
 .map-legend span { display: inline-flex; align-items: center; gap: 4px; }
 .map-legend i { display: inline-block; width: 12px; height: 9px; border-radius: 1px; }
@@ -1529,8 +1530,10 @@ td small { color: var(--muted); font-size: 9px; }
   .search.open { width: calc(100% - 74px - env(safe-area-inset-left) - env(safe-area-inset-right)); }
   .search-results { max-height: min(380px, calc(60svh - 76px)); }
   .map-brand { top: calc(env(safe-area-inset-top) + 12px); right: calc(env(safe-area-inset-right) + 12px); }
-  /* De UV-chip staat linksonder op de kaart (U21: het merk staat rechtsboven). */
+  /* De UV-chip staat linksonder op de kaart (U21: het merk staat rechtsboven); met de legenda-knop daar één rij hoger. */
   .sidebar-nav { top: calc(var(--map-mobile) - 64px); }
+  .map-shell { --legend-bottom: 24px; }
+  body:has(.map-legend-button) .sidebar-nav { top: calc(var(--map-mobile) - 64px - 54px); }
   /* De regenlegenda kost op de telefoon kaart en botst met de bronvermelding; die laatste vervaagt na het begin. */
   .map-shell .source { transition: opacity .6s ease; }
   .map-shell.map-source-faded .source { opacity: 0; pointer-events: none; }

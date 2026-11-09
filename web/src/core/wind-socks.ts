@@ -8,7 +8,7 @@ import { recordPerfPhase } from './perf.js'
 import { WINDSOCK_ANCHOR_OFFSETS } from './windsock-anchors.js'
 import { drawSock } from './wind-sock-draw.js'
 import { MapLabelPlacer, type Offset, type Placement } from './map-label-placement.js'
-import { MAP_LABEL_FONT_FAMILY, mapLabelRegime, mapLabelSize, type MapLabelRegime } from './map-labels.js'
+import { MAP_LABEL_FONT_FAMILY, mapLabelSize } from './map-labels.js'
 
 interface Sock {
   place: TemperaturePlace
@@ -48,8 +48,6 @@ export interface WindsockLayerOptions {
   reducedMotion: () => boolean
   /** Alleen `?dev&windfactor=`: vermenigvuldigt de wind van de zakken, om harde wind te bekijken. */
   speedFactor: number
-  /** Alleen `?dev&regime=`: de typeschaalstap van het kaartregime (U107). */
-  regime: MapLabelRegime
   /** De locatiepin: zakken wijken ervoor, zoals de getallen in Gevoel. */
   pin: () => { lng: number; lat: number } | undefined
 }
@@ -232,7 +230,7 @@ export class WindsockLayer {
     this.drawnAt = seconds
     let fluttering = false
     let settling = false
-    const size = mapLabelSize(window.innerWidth, window.innerHeight, this.options.regime)
+    const size = mapLabelSize(window.innerWidth, window.innerHeight)
     // Indelen bij een nieuwe stand (pin, plekken, stilstand) of tijdens bewegen hooguit om de LAYOUT_INTERVAL_MS.
     if (this.layoutDirty || (this.drawnCamera !== this.layoutCamera && started - this.lastLayout >= LAYOUT_INTERVAL_MS)) {
       this.layoutCamera = this.drawnCamera
@@ -324,10 +322,10 @@ export class WindsockLayer {
   }
 }
 
-/** Dev-knoppen (`?dev&windfactor=`, `&regime=`); zonder knop de gekozen windmodus. */
+/** Dev-knop `?dev&windfactor=`; zonder knop de gekozen windmodus. */
 export function windsockDevOptions(params: URLSearchParams): Omit<WindsockLayerOptions, 'reducedMotion' | 'pin'> {
   const factor = Number(params.get('windfactor'))
-  return { speedFactor: Number.isFinite(factor) && factor > 0 ? factor : 1, regime: mapLabelRegime(params) }
+  return { speedFactor: Number.isFinite(factor) && factor > 0 ? factor : 1 }
 }
 
 function sameField(next: WindsockField | undefined, current: WindsockField | undefined): boolean {

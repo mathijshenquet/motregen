@@ -75,6 +75,7 @@ import { BEAUFORT_FEEL_ZONES, BEAUFORT_LEGEND, beaufortFrame, beaufortPalette, w
 import { WindsockLayer, windsockDevOptions } from './core/wind-socks'
 import { mapPlaceSpacingPx, nestedPlaces } from './core/map-places'
 import { mapLabelSize } from './core/map-labels'
+import { legendIsOpen, PHONE_LAYOUT_QUERY, readLegendChoice, storeLegendChoice } from './core/legend-choice'
 import { MapLabelCollision } from './core/map-collision'
 import { WINDSOCK_LAG_MINUTES, type WindSlice } from './core/windsock-flow'
 import { clearTuningStorage, nightCue, TABLE_CONTRASTS, type TableContrast } from './core/dev-settings'
@@ -1810,7 +1811,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       set.labels = undefined
     }
     const { clientWidth, clientHeight } = map.getContainer()
-    map.addLayer(temperatureLayer(mapSurfaceTheme(), mapLabelSize(clientWidth, clientHeight, windsockOptions.regime)), beforeId)
+    map.addLayer(temperatureLayer(mapSurfaceTheme(), mapLabelSize(clientWidth, clientHeight)), beforeId)
     labelCollision ??= new MapLabelCollision(map, () => marker?.getLngLat())
     labelCollision.attach(beforeId)
   }
@@ -2091,7 +2092,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         if (set.kind !== 'cloud' && set.kind !== 'wind') {
           // Temperatuur: getallen op vaste plekken met een schijf in hun bandkleur (U100 ronde 3); isobaren: lijnlabels.
           set.labels = set.kind === 'temperature'
-            ? new TemperatureNumbers(renderedMap, grid, mapSurfaceTheme(), () => reducedMotion.matches, () => marker?.getLngLat(), (bubbles) => created.setBubbles(bubbles), windsockOptions.regime)
+            ? new TemperatureNumbers(renderedMap, grid, mapSurfaceTheme(), () => reducedMotion.matches, () => marker?.getLngLat(), (bubbles) => created.setBubbles(bubbles))
             : new IsolineLabels(renderedMap, grid, mapSurfaceTheme(), () => reducedMotion.matches, set.kind)
         }
         set.key = ''
@@ -3443,11 +3444,27 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   // Legenda van de isolijnen binnen de regen (U86): alleen als die lijnen echt op de kaart staan.
   const windLegendVisible = () => windFocus() >= 0.5
   /**
-   * Eén legenda-knop voor alle modi (PO 2026-11-09, U107): opent en sluit de legenda van de actieve modus. Op de
-   * telefoon begint hij dicht (PO: legenda's daar voorlopig verborgen), op desktop open; niet bewaard.
+   * Eén legenda-knop voor alle modi (PO 2026-11-09, U107): opent en sluit de legenda van de actieve modus. Zonder
+   * eigen keuze volgt hij de layout live (desktop open, telefoon dicht), ook als het venster pas na het laden breed
+   * wordt; een klik is een keuze voor dit apparaat (legend-choice.ts).
    */
-  const [legendOpen, setLegendOpen] = createSignal(!window.matchMedia('(max-width: 959px)').matches)
-  const rainIsolineLegend = createMemo(() => rainIsolineClasses(rainColourLook()).map((band) => ({
+  const phoneLayout = window.matchMedia(PHONE_LAYOUT_QUERY)
+  const [isPhoneLayout, setIsPhoneLayout] = createSignal(phoneLayout.matches)
+  phoneLayout.addEventListener('change', (event) => setIsPhoneLayout(event.matches))
+  const [legendChoice, setLegendChoice] = createSignal(readLegendChoice(window.localStorage))
+  const legendOpen = () => legendIsOpen(legendChoice(), isPhoneLayout())
+  function toggleLegend(): void {
+    const choice = legendOpen() ? 'dicht' : 'open'
+    setLegendChoice(choice)
+    storeLegendChoice(window.localStorage, choice)
+  }
+  // Zonder regenisolijnen (`?dev`, stand geen) toont Weer toch de regenklassen, op de standaardgrenzen en zonder lijn.
+  const rainLegendClasses = createMemo(() => {
+    const look = rainColourLook()
+    const classes = rainIsolineClasses(look)
+    return classes.length ? classes : rainIsolineClasses({ ...look, isolines: DEFAULT_RAIN_LOOK.isolines }).map((band) => ({ ...band, line: band.fill }))
+  })
+  const rainIsolineLegend = createMemo(() => rainLegendClasses().map((band) => ({
     label: band.from === undefined ? `<${band.to!.toLocaleString('nl-NL')}`
       : band.to === undefined ? `${band.from.toLocaleString('nl-NL')}+`
       : `${band.from.toLocaleString('nl-NL')}–${band.to.toLocaleString('nl-NL')}`,
@@ -3466,7 +3483,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const activeLegend = createMemo((): FocusKind | undefined => {
     if (windLegendVisible()) return 'wind'
     const mode = focusPinned()
-    if (mode === 'weather') return rainIsolineLegend().length ? 'weather' : undefined
+    if (mode === 'weather') return 'weather'
     if (mode === 'temperature') return feelsLegend().length ? 'temperature' : undefined
     return mode === 'air' ? 'air' : undefined
   })
@@ -3729,7 +3746,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       </Show>
       <Show when={!stillMode && activeLegend()}>
         <button type="button" class="map-legend-button round-action" aria-controls="map-legend" aria-expanded={legendOpen()}
-          aria-label={legendOpen() ? 'Legenda verbergen' : 'Legenda tonen'} title="Legenda" onClick={() => setLegendOpen((open) => !open)}>
+          aria-label={legendOpen() ? 'Legenda verbergen' : 'Legenda tonen'} title="Legenda" onClick={toggleLegend}>
           <Palette size={20} strokeWidth={1.75} />
         </button>
       </Show>

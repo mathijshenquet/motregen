@@ -20,10 +20,11 @@ komen uit de basiskaart en vallen hier buiten; het regime sluit erop aan.
 `mapLabelSize` (`web/src/core/map-labels.ts`): elk kaartgetal (stadstemperatuur, gevoelsgetal, windbadge) heeft
 dezelfde maat.
 
-| regime | telefoon (kortste zijde < 600 px) | desktop | bot |
-|---|---:|---:|---:|
-| `compact` (standaard, PO-keuze U100) | 12 px | 13 px | 13 px |
-| `ruim` (`?dev&regime=ruim`, proef) | 13 px | 14 px | — |
+| telefoon (kortste zijde < 600 px) | desktop | bot |
+|---:|---:|---:|
+| 12 px | 13 px | 13 px |
+
+PO-keuze 2026-11-09 ("compact", zoals U100); de proef met een stap groter is weg.
 
 De bot neemt de desktopstap op zijn eigen schaal (`FRAME.scale`); de maat staat in de modusconstanten.
 Stadstemperaturen schalen niet meer mee met de zoom.
@@ -75,9 +76,16 @@ stadstemperaturen, plaatsnamen, gevoelsgetallen, windzakken, pin, bediening.
 
 ## Legenda
 
-Eén legenda-knop voor alle modi (PO 2026-11-09): een ronde kaartknop van 44 px rechtsonder, boven de bronregel, in
-Weer, Lucht, Gevoel en Wind, telefoon en desktop. Hij opent en sluit de legenda van de actieve modus, die links naast
-de knop staat. Desktop begint open, telefoon dicht (legenda's daar voorlopig verborgen); de keuze wordt niet bewaard.
+Eén legenda-knop voor alle modi (PO 2026-11-09): een ronde kaartknop van 44 px linksonder, waar de legenda vroeger
+stond (12 px van de rand; op de telefoon 24 px van onder, zodat een open band de bronregel rechtsonder niet raakt), in
+Weer, Lucht, Gevoel en Wind, telefoon en desktop. Hij opent en sluit de legenda van de actieve modus, die rechts naast
+de knop staat. De UV-chip op de telefoon staat dan één rij hoger.
+
+- Startstand: zonder eigen keuze volgt hij de layout, ook live (desktop met zijpaneel open, telefoon dicht; wordt het
+  venster na het laden breed, dan gaat hij open). Een klik is een keuze voor dit apparaat (`motregen-legend`,
+  gebruikersstaat).
+- Weer heeft altijd een legenda: staan de regenisolijnen uit (`?dev`, stand geen), dan de regenklassen op de
+  standaardgrenzen, zonder lijn.
 
 - Vorm: afgerond paneel in de kleur van de bediening (tint mee met de hemel), 11 px, vakjes 9 px hoog, eenheid klein
   aan het eind (`mm/u`, `°C`, `Bft`).

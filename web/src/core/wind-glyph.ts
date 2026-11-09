@@ -127,7 +127,7 @@ export interface WindsockBadge {
 /**
  * Witte badge met het getal, rechtop (PO 2026-11-09, U101 punt 7: het meedraaiende getal op de banden was niet
  * leesbaar). De plek volgt de zak; vorm en maat uit het kaartregime (U107, mapDiscRadius): drie cijfers (km/u)
- * krijgen een kleinere letter, twee cijfers een iets grotere schijf. `size`: de regimemaat (13 desktop/bot).
+ * krijgen een kleinere letter, twee cijfers een iets grotere schijf. `size`: de kaartmaat (13 desktop/bot).
  */
 export function windsockBadge(shape: WindsockShape, position: WindsockBadgePosition, label: string, size: number = WINDSOCK_BADGE.fontPx): WindsockBadge {
   const [x, y] = shape.axis[position === 'mond' ? 0 : WINDSOCK_SAMPLES / 2]!

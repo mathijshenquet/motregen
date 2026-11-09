@@ -16,7 +16,6 @@ Hooguit 3–4 knoppen per groep (PO 2026-09-25); de eerste groep start open.
 | Tabel | Dag/nacht-contrast | breed is standaard (PO 2026-10-18); rail: neutrale rijen met links een strook in de luchtkleur van het moment, schemering op de echte tijden (`web/src/core/sky-rail.ts`); symbool: maantje bij nachtrijen en een heel lichte koele tint; sterren: spaarzame puntjes in nachtrijen; breed: de hele tabel zachter getint; smal: alleen dagdelen en dag/nacht; sterk: het oude contrast. Sleutel `dagnacht-contrast`; directe link `?dev&contrast=<waarde>` | orkestrator (U91b) | 2026-11-01 |
 | Kaart | Basiskaartvariant (alleen URL) | `?dev&kaart=nu` (standaard), `licht` (rustiger palet, zelfde archief), `licht-rivieren` (licht + doorlopende rivier-middellijnen, archief met laag `waterway`) of `atlas` (papiertoon, rivieren in inktblauw, lint langs de landsgrens; 's nachts donkere zee). Stijlen in `web/public/dev-kaart/` (buiten de precache), gemaakt door `tools/basemap/variants.mts`; MIP-42 | Claude (U108) | 2026-11-23 |
 | Kaart | Windzak: windfactor (alleen URL) | `?dev&windfactor=2.2` vermenigvuldigt de wind van de zakken (alleen de zakken, niet de vlakken), om harde wind en de trilling te bekijken als de data die niet heeft. U101 ronde 3 | Claude (U101) | 2026-11-23 |
-| Kaart | Kaartregime: typeschaal (alleen URL) | `?dev&regime=compact` (standaard: kaartgetallen en windbadge 13 px desktop / 12 telefoon, PO-keuze U100) of `ruim` (één stap groter: 14 / 13); geldt voor stadstemperaturen, gevoelsgetallen en windbadges tegelijk. Zie `docs/kaartstijl.md` | Claude (U107) | 2026-11-23 |
 | Kaart | Zonneschijn in Lucht: weergave | ?dev&zon=uur, kwartier, vlak of vlak-lijn (standaard); proef MIP-38 | orkestrator (PO 2026-10-18) | 2026-10-25 |
 | Tabel | Dagen: lijst onder tabel | uit (standaard): de urentabel glijdt over in 3 u, dagdelen en dag/nacht tot dag 10 (U91b, `TABLE_LADDER` in `web/src/core/ladder.ts`); aan: de uurtabel tot het eind van HARMONIE met de lijst "Komende dagen" eronder (U91). Sleutel `dagenlijst` | orkestrator (U91b) | 2026-11-01 |
 | Regen | Regenisolijnen | lijnen binnen de regen op vaste intensiteiten, alleen bij menging rand: kleurgrenzen 1 · 2 · 13 mm/u (standaard in de proef) / klassen 2,5 · 10 · 50 mm/u / dicht 0,5 · 1 · 2 · 5 · 10 · 20 mm/u / geen (alleen de buitenrand) | U86 | 2026-10-23 |
@@ -60,7 +59,7 @@ De U64-kaartstartproef (`VITE_MAP_START=tegel`, `?dev&kaartstart=tegel`) is verv
 
 ## Opslag (`localStorage`, prefix `motregen-`)
 
-Gebruikersstaat (blijft bij reset): `theme`, `saved-places`, `last-saved-place`, `map-view`,
+Gebruikersstaat (blijft bij reset): `legend` (`open`/`dicht`: de eigen keuze van de legenda-knop op dit apparaat; zonder keuze volgt hij de layout, U107), `theme`, `saved-places`, `last-saved-place`, `map-view`,
 `expressive` (standaard aan; hemel en streken in de grafiek plus dag/nacht-kleuring in de tabel, U58 — de
 oude `table-day-night` wordt bij het laden gemigreerd: uit → expressief uit) en `sky-diary` (tijd, vijfklassenlabel en gekozen locatie
 afgerond op 0,1°; U46).
