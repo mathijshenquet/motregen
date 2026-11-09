@@ -195,6 +195,8 @@ en afspelen. Het masker staat op dat punt altijd volledig aan (overlay; in MapLi
 6. **Overlay-resolutie**: alle overlays tekenen op volle DPR (Pixel 5: 2,75 → ~2,5 MP per canvas, tot zes
    canvassen). Een DPR-plafond van 2 voor vlakken/sluier scheelt ~45 % pixels, maar is zichtbaar; als `?dev`-variant
    met screenshots voorleggen.
+7. **Race in de vroege regenaanvraag** (zie "Bevinding" onder de eindtabel): in 1 op 3 telefoonruns ~1 s ttfp
+   verlies, in int en U109; eerst instrumenteren in `MrfClient`/`fetch-planner`.
 
 ### Na de GL-sync-fix (build E = HEAD-code, `tmp/u109/q1/kosten-E`, load 11–19)
 
