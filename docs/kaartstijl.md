@@ -85,8 +85,9 @@ stadstemperaturen, plaatsnamen, gevoelsgetallen, windzakken, pin, bediening.
 
 ## Legenda
 
-Eén inhoud per modus (Weer: regenklassen; Lucht: zon, wolken, regen; Gevoel: de vaste schaal; Wind: Bft-klassen met
-zonewoorden), 11 px, vakjes 9 px hoog, eenheid klein aan het eind (`mm/u`, `°C`, `Bft`). Klassen hebben een vakje met
+Een legenda verklaart alleen een kleur- of symboolcodering op de kaart: Weer de regenklassen, Gevoel de vaste schaal,
+Wind de Bft-klassen met zonewoorden. Lucht heeft er geen (PO 2026-11-09): de dekking volgt de bedekking, laag, middel en
+hoog verschillen alleen in vorm (bollen, vlokken, slierten) en ☀ spreekt voor zich; daar staat dus ook geen chip. Vorm: 11 px, vakjes 9 px hoog, eenheid klein aan het eind (`mm/u`, `°C`, `Bft`). Klassen hebben een vakje met
 hun naam, een doorlopende schaal tikken tussen de vakjes. Weer heeft altijd een legenda: staan de regenisolijnen uit
 (`?dev`, stand geen), dan de regenklassen op de standaardgrenzen, zonder lijn.
 

@@ -4,7 +4,6 @@ import { expect, test } from '@playwright/test'
 // zichtbaar en zonder knop; op de telefoon een kleine chip linksonder die de legenda als één band ernaast opent.
 const modes = [
   { path: '/weer', legend: '.rain-isoline-legend' },
-  { path: '/lucht', legend: '.air-legend' },
   { path: '/gevoel', legend: '.feels-legend' },
   { path: '/wind', legend: '.wind-legend' },
 ]
@@ -22,6 +21,18 @@ for (const { path, legend } of modes) {
     expect(Math.round(shell!.y + shell!.height - box!.y - box!.height)).toBe(0)
     // Eén regel; Wind heeft de zonewoorden eronder, zoals vóór U107.
     expect(box!.height).toBeLessThan(path === '/wind' ? 44 : 24)
+  })
+}
+
+// Lucht codeert niets dat uitleg nodig heeft (PO 2026-11-09): geen legenda en geen chip, desktop en telefoon.
+for (const viewport of [{ width: 1440, height: 900 }, { width: 402, height: 844 }]) {
+  test(`Lucht ${viewport.width} px: geen legenda en geen chip`, async ({ page }, testInfo) => {
+    test.skip(testInfo.project.name !== 'desktop', 'één profiel volstaat; de breedte zet de layout')
+    await page.setViewportSize(viewport)
+    await page.goto('/lucht')
+    await expect(page.locator('.map-splash.ready')).toBeAttached()
+    await expect(page.locator('.map-legend')).toHaveCount(0)
+    await expect(page.locator('.map-legend-button')).toHaveCount(0)
   })
 }
 

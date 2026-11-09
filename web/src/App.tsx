@@ -3485,8 +3485,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (windLegendVisible()) return 'wind'
     const mode = focusPinned()
     if (mode === 'weather') return 'weather'
-    if (mode === 'temperature') return feelsLegend().length ? 'temperature' : undefined
-    return mode === 'air' ? 'air' : undefined
+    // Lucht codeert niets dat uitleg nodig heeft (wolken zijn wolken, ☀ is zon): geen legenda (PO 2026-11-09).
+    return mode === 'temperature' && feelsLegend().length ? 'temperature' : undefined
   })
   /** De chip `schaal`: een mini-kleurschaal in de kleuren van de actieve modus. */
   const legendChipColors = createMemo((): string[] => {
@@ -3494,7 +3494,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       case 'weather': return rainIsolineLegend().slice(0, 4).map((band) => band.fill)
       case 'temperature': return feelsLegend().filter((_, index) => index % 2 === 0 || index === feelsLegend().length - 1).slice(0, 4).map((segment) => segment.background)
       case 'wind': return [4, 6, 8, 10].map((force) => BEAUFORT_LEGEND[force]!.color)
-      case 'air': return ['#ffd978', '#f4f6f7', '#4a86e8']
       default: return []
     }
   })
@@ -3778,13 +3777,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         <aside id="map-legend" class="map-legend rain-isoline-legend" aria-label="Isolijnen in de regen">
           <For each={rainIsolineLegend()}>{(band) => <span><i style={{ background: band.fill, 'border-left-color': band.line }} />{band.label}</span>}</For>
           <small>mm/u</small>
-        </aside>
-      </Show>
-      <Show when={!stillMode && legendOpen() && activeLegend() === 'air'}>
-        <aside id="map-legend" class="map-legend air-legend" aria-label="Zon en wolken">
-          <span><b class="air-legend-sun" aria-hidden="true">☀</b>zon</span>
-          <span><i class="air-legend-cloud" />wolken</span>
-          <span><i class="air-legend-rain" />regen</span>
         </aside>
       </Show>
       <Show when={!stillMode && legendOpen() && activeLegend() === 'temperature'}>

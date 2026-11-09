@@ -191,10 +191,6 @@ button { color: inherit; cursor: pointer; }
 .feels-legend i { width: 18px; }
 .wind-legend { align-items: flex-start; gap: 10px; }
 .wind-legend > small { align-self: flex-start; }
-.air-legend-sun { color: #e7a900; font-size: 13px; font-weight: 400; line-height: 1; }
-.map-shell.sky-night .air-legend-sun { color: #ffd978; }
-.air-legend-cloud { background: #f4f6f7; box-shadow: inset 0 0 0 1px rgba(16, 38, 48, .25); }
-.air-legend-rain { background: #4a86e8; }
 .wind-zone { display: inline-flex; flex-direction: column; align-items: stretch; gap: 1px; }
 .wind-zone-classes { display: inline-flex; gap: 6px; }
 .wind-zone em { border-top: 1px solid color-mix(in srgb, var(--muted) 45%, transparent); padding-top: 1px; color: var(--muted); font-size: 11px; font-style: normal; text-align: center; }
@@ -241,7 +237,7 @@ button { color: inherit; cursor: pointer; }
     font-size: 10px; line-height: 1.2; white-space: nowrap; pointer-events: auto;
   }
   .map-legend::-webkit-scrollbar { display: none; }
-  .map-legend .wind-zone-classes > span, .map-legend:is(.rain-isoline-legend, .air-legend) > span {
+  .map-legend .wind-zone-classes > span, .map-legend.rain-isoline-legend > span {
     flex-direction: column; align-items: stretch; gap: 2px; min-width: 20px; padding: 0 2px; text-align: center;
   }
   /* Niet krimpen: past de band niet, dan scrollt hij. */
@@ -250,10 +246,8 @@ button { color: inherit; cursor: pointer; }
   /* Regen: lucht tussen de labels, de vakjes lopen onder die lucht door (één band). */
   .map-legend.rain-isoline-legend > span { padding: 0 4px; }
   .map-legend.rain-isoline-legend > span > i { margin: 0 -4px; }
-  :is(.rain-isoline-legend, .air-legend, .wind-zone-classes) > span > i { width: auto; height: 8px; border-radius: 0; }
+  :is(.rain-isoline-legend, .wind-zone-classes) > span > i { width: auto; height: 8px; border-radius: 0; }
   .map-legend:is(.rain-isoline-legend), .map-legend .wind-zone-classes { gap: 0; }
-  .air-legend .air-legend-sun { height: 8px; font-size: 10px; line-height: 8px; }
-  .air-legend > span + span { margin-left: 4px; }
   .wind-zone em { font-size: 10px; }
   .feels-legend { gap: 2px; }
   .feels-legend i { width: 14px; }
