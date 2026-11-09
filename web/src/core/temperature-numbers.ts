@@ -3,13 +3,14 @@ import type { Grid } from './contract'
 import type { MapTheme } from './basemap'
 import type { ShortRing } from './isoline-contours'
 import type { LabelTuning } from './isoline-label-anchors'
-import type { IsolineFeatureCollection } from './isolines'
+import { TEMPERATURE_ISOLINE_STEP, type IsolineFeatureCollection } from './isolines'
+import type { IsolineBubble } from './isoline-layer'
 import { sampleSlice, type FieldSlice } from './isoline-spline'
 import { selectTemperaturePlaces, temperaturePlaces, type TemperaturePlace } from './temperature'
 
 /**
  * ?dev-proef U100 ronde 3 (`?dev&templabels=`, vervalt 2026-11-23): waar de temperatuurgetallen in Gevoel staan.
- * `lijn` is het huidige beeld (getal op de isolijn); de andere drie zetten een getal met een eilandje op een plek
+ * `lijn` is het huidige beeld (getal op de isolijn); de andere drie zetten een getal met een halo op een plek
  * en laten de isolijnen ongelabeld. `-half`/`vlakken`: isolijnen op x,5 °C, zodat elk vlak één heel getal is.
  */
 export const TEMPERATURE_LABEL_LOOKS = ['lijn', 'plekken', 'vlakken', 'plekken-half'] as const
@@ -231,10 +232,12 @@ interface Shown {
   key: string
   lng: number
   lat: number
-  /** Waar de waarde gelezen wordt (rastercellen); bij plekken de plek zelf, ook als het eilandje opzij staat. */
+  /** Waar de waarde gelezen wordt (rastercellen): het midden van het getal, dus een lijn erover laat het omslaan. */
   column: number
   row: number
   value: number
+  /** Band onder het midden (k ≤ (T − offset)/stap < k + 1): de kleur van de schijf. */
+  band: number
   marker: Marker
   text: HTMLElement
   dying: boolean
@@ -252,8 +255,8 @@ export interface IsolineLabelling {
 }
 
 /**
- * Getallen met een eilandje (DOM-markers, boven de isolijncanvas zodat het eilandje de lijn afdekt). Ze wijken voor
- * geplaatste plaatsnamen (queryRenderedFeatures op het vak van het eilandje), de locatiepin en elkaar.
+ * Getallen met een halo (DOM-markers boven de isolijncanvas, zodat de halo de lijn eronder dempt). Ze wijken voor
+ * geplaatste plaatsnamen (queryRenderedFeatures op het vak van het getal), de locatiepin en elkaar.
  */
 export class TemperatureNumbers implements IsolineLabelling {
   private shown: Shown[] = []
@@ -276,9 +279,11 @@ export class TemperatureNumbers implements IsolineLabelling {
     private readonly grid: Grid,
     private theme: MapTheme,
     private readonly reducedMotion: () => boolean,
-    private readonly plan: Required<Pick<TemperatureLabelPlan, 'numbers'>>,
+    private readonly plan: Required<TemperatureLabelPlan>,
     private readonly tuning: () => LabelTuning,
     private readonly pin: () => { lng: number; lat: number } | undefined,
+    /** Schijven in de bandkleur onder de getallen (IsolineLayer.setBubbles). */
+    private readonly onBubbles: (bubbles: IsolineBubble[]) => void = () => undefined,
   ) {}
 
   get count(): number {
@@ -312,6 +317,7 @@ export class TemperatureNumbers implements IsolineLabelling {
     for (const label of this.shown) label.marker.remove()
     this.shown = []
     this.dirty = true
+    this.onBubbles([])
   }
 
   update(slice: FieldSlice, _rings: readonly ShortRing[] = [], now = performance.now()): void {
@@ -319,41 +325,48 @@ export class TemperatureNumbers implements IsolineLabelling {
     if (!this.listening) { this.map.on('idle', this.onIdle); this.listening = true }
     for (const label of this.shown) {
       if (label.dying) continue
-      const value = this.valueAt(slice, label.column, label.row)
-      if (value === undefined) { this.kill(label); continue }
-      if (value === label.value) continue
+      const reading = this.readingAt(slice, label.column, label.row)
+      if (!reading) { this.kill(label); continue }
+      label.band = reading.band
+      if (reading.value === label.value) continue
       // Een vlakgetal hoort bij zijn vlak: schuift de rand eroverheen, dan maakt het plaats voor een nieuw getal.
       if (this.plan.numbers === 'vlakken') { this.kill(label); this.dirty = true; continue }
-      label.value = value
-      label.text.textContent = `${value}°`
+      label.value = reading.value
+      label.text.textContent = `${reading.value}°`
     }
-    if (!this.dirty && now - this.lastLayout < LAYOUT_INTERVAL_MS) return
-    this.dirty = false
-    this.lastLayout = now
-    this.chrome = this.chromeBoxes()
-    if (this.plan.numbers === 'plekken') this.layoutPlaces(slice)
-    else this.layoutRegions(slice)
+    if (this.dirty || now - this.lastLayout >= LAYOUT_INTERVAL_MS) {
+      this.dirty = false
+      this.lastLayout = now
+      this.chrome = this.chromeBoxes()
+      if (this.plan.numbers === 'plekken') this.layoutPlaces(slice)
+      else this.layoutRegions(slice)
+    }
+    const size = this.tuning().size
+    this.onBubbles(this.shown.filter((label) => !label.dying).map((label) => ({
+      lng: label.lng, lat: label.lat, band: label.band, radius: bubbleRadius(`${label.value}°`, size),
+    })))
   }
 
   private layoutPlaces(slice: FieldSlice): void {
     const { clientWidth: width, clientHeight: height } = this.map.getContainer()
     const size = this.tuning().size
     const boxes: Box[] = []
-    const wanted = new Map<string, { lng: number; lat: number; column: number; row: number; value: number }>()
+    const wanted = new Map<string, Placed>()
     for (const place of selectTemperaturePlaces(this.map.getZoom(), placeNumberSpacingPx(width, height), TEMPERATURE_NUMBER_PLACES)) {
       if (wanted.size >= MAX_PLACE_NUMBERS) break
-      const [column, row] = this.toCell(place.lng, place.lat)
-      const value = this.valueAt(slice, column, row)
-      if (value === undefined) continue
       const origin = this.map.project([place.lng, place.lat])
-      const box = islandBox(`${value}°`, size)
+      const step = islandBox('0°', size).height
       for (const [dx, dy] of PLACE_OFFSETS) {
-        const x = origin.x + dx * box.height, y = origin.y + dy * box.height
-        const candidate = boxAt(x, y, box)
+        const x = origin.x + dx * step, y = origin.y + dy * step
+        // De waarde onder het getal zelf, niet onder de plek: het getal moet kloppen met het vlak waarin het staat.
+        const lngLat = this.map.unproject([x, y])
+        const [column, row] = this.toCell(lngLat.lng, lngLat.lat)
+        const reading = this.readingAt(slice, column, row)
+        if (!reading) continue
+        const candidate = boxAt(x, y, islandBox(`${reading.value}°`, size))
         if (!this.free(candidate, boxes, width, height)) continue
         boxes.push(candidate)
-        const lngLat = this.map.unproject([x, y])
-        wanted.set(place.name, { lng: lngLat.lng, lat: lngLat.lat, column, row, value })
+        wanted.set(place.name, { lng: lngLat.lng, lat: lngLat.lat, column, row, ...reading })
         break
       }
     }
@@ -384,12 +397,14 @@ export class TemperatureNumbers implements IsolineLabelling {
         return false
       },
     }, previous)
-    const wanted = new Map<string, { lng: number; lat: number; column: number; row: number; value: number }>()
+    const wanted = new Map<string, Placed>()
     for (const label of chosen) {
       const kept = previous.find((candidate) => candidate.x === label.x && candidate.y === label.y && candidate.value === label.value)
       const lngLat = this.map.unproject([label.x, label.y])
       const [column, row] = this.toCell(lngLat.lng, lngLat.lat)
-      wanted.set(kept?.key ?? `vlak-${++this.serial}`, { lng: lngLat.lng, lat: lngLat.lat, column, row, value: label.value })
+      const reading = this.readingAt(slice, column, row)
+      if (!reading || reading.value !== label.value) continue
+      wanted.set(kept?.key ?? `vlak-${++this.serial}`, { lng: lngLat.lng, lat: lngLat.lat, column, row, ...reading })
     }
     this.apply(wanted)
   }
@@ -430,7 +445,7 @@ export class TemperatureNumbers implements IsolineLabelling {
     return (this.map.getStyle()?.layers ?? []).filter((layer) => layer.type === 'symbol' && layer.id.startsWith('label_')).map((layer) => layer.id)
   }
 
-  private apply(wanted: Map<string, { lng: number; lat: number; column: number; row: number; value: number }>): void {
+  private apply(wanted: Map<string, Placed>): void {
     for (const label of this.shown) {
       if (label.dying) continue
       const next = wanted.get(label.key)
@@ -443,6 +458,7 @@ export class TemperatureNumbers implements IsolineLabelling {
       }
       label.column = next.column
       label.row = next.row
+      label.band = next.band
       if (next.value !== label.value) {
         label.value = next.value
         label.text.textContent = `${next.value}°`
@@ -451,7 +467,7 @@ export class TemperatureNumbers implements IsolineLabelling {
     for (const [key, next] of wanted) this.add(key, next)
   }
 
-  private add(key: string, next: { lng: number; lat: number; column: number; row: number; value: number }): void {
+  private add(key: string, next: Placed): void {
     const element = document.createElement('div')
     element.className = `temperature-number temperature-number-${this.theme}`
     element.setAttribute('aria-hidden', 'true')
@@ -474,9 +490,11 @@ export class TemperatureNumbers implements IsolineLabelling {
     }, this.reducedMotion() ? 0 : FADE_MS)
   }
 
-  private valueAt(slice: FieldSlice, column: number, row: number): number | undefined {
+  /** Het getal (afgerond) en de band waarin het staat, zoals de shader die kleurt. */
+  private readingAt(slice: FieldSlice, column: number, row: number): { value: number; band: number } | undefined {
     const value = this.valueExact(slice, column, row)
-    return value === undefined ? undefined : Math.round(value)
+    if (value === undefined) return undefined
+    return { value: Math.round(value), band: Math.floor((value - this.plan.offset) / TEMPERATURE_ISOLINE_STEP) }
   }
 
   /** Dezelfde B-spline-snede als de shader, dus het getal klopt met de kleur eronder. */
@@ -494,8 +512,14 @@ export class TemperatureNumbers implements IsolineLabelling {
 }
 
 interface Box { left: number; top: number; right: number; bottom: number }
+interface Placed { lng: number; lat: number; column: number; row: number; value: number; band: number }
 
-/** Afmeting van het eilandje in px (zie .temperature-number): tabelcijfers ±0,6 em, padding 6 × 3 px. */
+/** Straal van de schijf onder een getal in CSS-px: de cijfers (±0,6 em per teken) met wat lucht. */
+export function bubbleRadius(label: string, size: number): number {
+  return Math.ceil(label.length * size * 0.3 + 4)
+}
+
+/** Botsvak van een getal in px (zie .temperature-number): tabelcijfers ±0,6 em, padding 6 × 3 px. */
 export function islandBox(label: string, size: number): { width: number; height: number } {
   return { width: Math.ceil(label.length * size * 0.6 + 12), height: Math.ceil(size + 6) }
 }

@@ -2149,7 +2149,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         if (set.kind !== 'cloud') {
           const numbers = set.kind === 'temperature' ? temperatureLabelPlan.numbers : undefined
           set.labels = numbers
-            ? new TemperatureNumbers(renderedMap, grid, mapSurfaceTheme(), () => reducedMotion.matches, { numbers }, labelTuning, () => marker?.getLngLat())
+            ? new TemperatureNumbers(renderedMap, grid, mapSurfaceTheme(), () => reducedMotion.matches, { numbers, offset: temperatureLabelPlan.offset }, labelTuning, () => marker?.getLngLat(), (bubbles) => created.setBubbles(bubbles))
             : new IsolineLabels(renderedMap, grid, mapSurfaceTheme(), () => reducedMotion.matches, set.kind, labelTuning)
         }
         set.key = ''

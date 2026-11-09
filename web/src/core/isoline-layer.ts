@@ -93,6 +93,38 @@ vec4 sampleField(vec2 uv, float time) {
        + g1.y * (g0.x * sampleTime(vec2(h0.x, h1.y), time) + g1.x * sampleTime(vec2(h1.x, h1.y), time));
 }`
 
+// Getallen met een eigen vlak (U100 ronde 3, PO 2026-11-09): elk getal krijgt een schijf in de kleur van zijn band,
+// zacht verenigd (smin) met die band. Afstanden in doelpixels (gl_FragCoord, onder = 0); de band-SDF is (s − grens)/|∇s|.
+export const MAX_BUBBLES = 64
+const bubbleSdf = `
+uniform vec4 u_bubbles[${MAX_BUBBLES}];
+uniform int u_bubble_count;
+uniform float u_bubble_soft;
+float smin(float a, float b, float k) {
+  float h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
+  return mix(b, a, h) - k * h * (1.0 - h);
+}
+// Dichtstbijzijnde schijf: .x afstand tot haar rand, .y index (−1: geen).
+vec2 nearestBubble(vec2 px) {
+  float best = 1e9, index = -1.0;
+  for (int i = 0; i < ${MAX_BUBBLES}; i++) {
+    if (i >= u_bubble_count) break;
+    float d = length(px - u_bubbles[i].xy) - u_bubbles[i].z;
+    if (d < best) { best = d; index = float(i); }
+  }
+  return vec2(best, index);
+}
+// Buiten deze afstand tot de schijf is de unie gelijk aan de band zelf (smin = min): daar nemen de gewone lijnen het over.
+float bubbleZone(float disk) {
+  return 1.0 - smoothstep(u_bubble_soft, u_bubble_soft + 3.0, disk);
+}
+// Unie van band k (k ≤ s < k + 1) en de schijf; < 0 = binnen.
+float bubbleUnion(float disk, float k, float s, float gradient) {
+  float band = max(k - s, s - (k + 1.0)) / max(gradient, 1e-6);
+  return smin(band, disk, u_bubble_soft);
+}
+`
+
 // Vulling per band (bandmidden → palet), zie fillSample in temperature-palette.ts: dezelfde
 // formule, hier per pixel. De lijnfade komt uit het ringraster van de tracer (lusjes),
 // zodat kleur en lijn met dezelfde factor vervagen.
@@ -105,6 +137,7 @@ uniform float u_palette_t[${PALETTE_STOPS}];
 uniform vec3 u_palette_c[${PALETTE_STOPS}];
 uniform sampler2D u_ring;
 uniform float u_has_ring;
+${bubbleSdf}
 
 vec3 palette(float temperature) {
   if (temperature <= u_palette_t[0]) return u_palette_c[0];
@@ -121,6 +154,7 @@ vec3 band(float index) {
 void main() {
   vec2 field = sampleField(v_uv, u_time).rg;
   float s = (field.r - u_offset) / u_step;
+  float gradient = length(vec2(dFdx(s), dFdy(s)));
   float level = floor(s + 0.5);
   float offset = s - level;
   float fade = 1.0;
@@ -134,6 +168,13 @@ void main() {
   if (u_fill_value.y > u_fill_value.x) opacity *= smoothstep(u_fill_value.x, u_fill_value.y, field.r);
   // Verloop (PO-optie): kleur op de veldwaarde zelf i.p.v. per band.
   vec3 rgb = u_fill_smooth > 0.5 ? palette(field.r) : mix(band(level - 1.0), band(level), upper);
+  if (u_bubble_count > 0) {
+    vec2 near = nearestBubble(gl_FragCoord.xy);
+    if (near.y >= 0.0 && near.x < u_bubble_soft + 3.0) {
+      float k = u_bubbles[int(near.y)].w;
+      rgb = mix(rgb, band(k), clamp(0.5 - bubbleUnion(near.x, k, s, gradient), 0.0, 1.0));
+    }
+  }
   color = vec4(rgb * opacity, opacity);
 }`
 
@@ -203,6 +244,7 @@ void main() {
 
 const lineFragment = `#version 300 es
 precision highp float;
+${bubbleSdf}
 uniform float u_half_width;
 uniform float u_line_alpha;
 uniform vec3 u_color;
@@ -216,9 +258,47 @@ void main() {
   float t = clamp(dot(v_px - v_a, ab) / max(dot(ab, ab), 1e-8), 0.0, 1.0);
   float d = length(v_px - (v_a + ab * t));
   float line = clamp(u_half_width + 0.5 - d, 0.0, 1.0) * u_line_alpha * mix(v_alpha.x, v_alpha.y, t);
+  // Bij een getal tekent de bubbelpass de lijn (om de schijf heen); hier vloeit de vectorlijn daarin over.
+  if (u_bubble_count > 0) line *= 1.0 - bubbleZone(nearestBubble(gl_FragCoord.xy).x);
   if (line <= 0.0) discard;
   color = vec4(u_color * line, line);
 }`
+
+// De lijnen rond een getal: de rand van de unie (band ∪ schijf) en de overige niveaus buiten de unie, als SDF.
+// Additief op de vectorlijnen, die in dezelfde zone uitvloeien. Het veld alleen binnen een zone: de rest valt vooraf af.
+const bubbleLineFragment = `#version 300 es
+${fieldSampling}
+${bubbleSdf}
+uniform float u_half_width;
+uniform float u_line_alpha;
+uniform vec3 u_color;
+float levelOf(vec2 uv) {
+  return (sampleField(uv, u_time).r - u_offset) / u_step;
+}
+void main() {
+  vec2 dx = dFdx(v_uv), dy = dFdy(v_uv);
+  vec2 near = nearestBubble(gl_FragCoord.xy);
+  float zone = near.y < 0.0 ? 0.0 : bubbleZone(near.x);
+  if (zone <= 0.0) discard;
+  vec2 field = sampleField(v_uv, u_time).rg;
+  if (field.g < 0.5) discard;
+  float s = (field.r - u_offset) / u_step;
+  float gradient = length(vec2(levelOf(v_uv + dx) - s, levelOf(v_uv + dy) - s));
+  float k = u_bubbles[int(near.y)].w;
+  float union_ = bubbleUnion(near.x, k, s, gradient);
+  float edge = clamp(u_half_width + 0.5 - abs(union_), 0.0, 1.0);
+  float level = floor(s + 0.5);
+  float other = level == k || level == k + 1.0 ? 0.0
+    : clamp(u_half_width + 0.5 - abs(s - level) / max(gradient, 1e-6), 0.0, 1.0) * smoothstep(u_half_width + 1.0, u_half_width + 3.0, union_);
+  float line = max(edge, other) * u_line_alpha * zone;
+  if (line <= 0.0) discard;
+  color = vec4(u_color * line, line);
+}`
+
+/** Een getal met een eigen vlak: plek, straal in CSS-px en de bandindex k (k ≤ (T − offset)/step < k + 1). */
+export interface IsolineBubble { lng: number; lat: number; radius: number; band: number }
+/** Zachtheid van de unie schijf ∪ band in CSS-px. */
+const BUBBLE_SOFT_PX = 8
 
 export interface IsolinePassStats {
   passes: number
@@ -286,6 +366,9 @@ export class IsolineLayer implements CustomLayerInterface {
   private opacity = 0
   private version = 1
   private line?: WebGLProgram
+  private bubbleLine?: WebGLProgram
+  private bubbles: readonly IsolineBubble[] = []
+  private bubbleKey = ''
   private corners?: WebGLBuffer
   private readonly tracer: ContourTracer
   private requestedTrace = ''
@@ -339,6 +422,7 @@ export class IsolineLayer implements CustomLayerInterface {
       for (const parameter of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T, gl.TEXTURE_WRAP_R]) gl.texParameteri(gl.TEXTURE_3D, parameter, gl.CLAMP_TO_EDGE)
     }
     this.line = link(gl, lineVertex, lineFragment)
+    this.bubbleLine = link(gl, quadVertex, bubbleLineFragment)
     this.corners = gl.createBuffer()!
     gl.bindBuffer(gl.ARRAY_BUFFER, this.corners)
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, -1, 1, -1, 0, 1, 1, 1]), gl.STATIC_DRAW)
@@ -487,6 +571,32 @@ export class IsolineLayer implements CustomLayerInterface {
     this.requestedTrace = ''
     this.tracer.setPaused(paused)
     if (!paused) this.repaint()
+  }
+
+  /** Getallen die een eigen vlak krijgen (vulling en lijnen buigen eromheen); alleen een wijziging kost een pass. */
+  setBubbles(bubbles: readonly IsolineBubble[]): void {
+    const key = bubbles.map((bubble) => `${bubble.lng},${bubble.lat},${bubble.radius},${bubble.band}`).join(';')
+    if (key === this.bubbleKey) return
+    this.bubbleKey = key
+    this.bubbles = bubbles.slice(0, MAX_BUBBLES)
+    this.invalidate()
+  }
+
+  /** Schijven in doelpixels (onder = 0) voor een doel van `width` × `height`. */
+  private useBubbles(gl: WebGL2RenderingContext, uniform: (name: string) => WebGLUniformLocation | null, width: number, height: number): void {
+    const container = this.map?.getContainer()
+    const cssWidth = Math.max(1, container?.clientWidth ?? width), cssHeight = Math.max(1, container?.clientHeight ?? height)
+    const scaleX = width / cssWidth, scaleY = height / cssHeight
+    const data = new Float32Array(MAX_BUBBLES * 4)
+    const count = this.map ? this.bubbles.length : 0
+    for (let index = 0; index < count; index++) {
+      const bubble = this.bubbles[index]!
+      const point = this.map!.project([bubble.lng, bubble.lat])
+      data.set([point.x * scaleX, (cssHeight - point.y) * scaleY, bubble.radius * scaleX, bubble.band], index * 4)
+    }
+    gl.uniform4fv(uniform('u_bubbles[0]'), data)
+    gl.uniform1i(uniform('u_bubble_count'), count)
+    gl.uniform1f(uniform('u_bubble_soft'), BUBBLE_SOFT_PX * scaleX)
   }
 
   setStyle(style: IsolineStyle): void {
@@ -638,6 +748,7 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.uniform1f(uniform('u_half_width'), halfWidth)
     gl.uniform1f(uniform('u_line_alpha'), alpha)
     gl.uniform3f(uniform('u_color'), ...this.style.color)
+    this.useBubbles(gl, uniform, width, height)
     const attributes: number[] = []
     const bind = (name: string, buffer: WebGLBuffer, size: number, stride: number, offset: number, divisor: number) => {
       const location = gl.getAttribLocation(program, name)
@@ -659,6 +770,16 @@ export class IsolineLayer implements CustomLayerInterface {
       gl.disableVertexAttribArray(location)
     }
     gl.blendEquation(gl.FUNC_ADD)
+    if (this.bubbles.length && this.bubbleLine) {
+      const bubbleUniform = this.useField(gl, this.bubbleLine, matrix, slice.time, false)
+      gl.enable(gl.BLEND)
+      gl.blendFunc(gl.ONE, gl.ONE)
+      gl.uniform1f(bubbleUniform('u_half_width'), halfWidth)
+      gl.uniform1f(bubbleUniform('u_line_alpha'), alpha)
+      gl.uniform3f(bubbleUniform('u_color'), ...this.style.color)
+      this.useBubbles(gl, bubbleUniform, width, height)
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+    }
     gl.disable(gl.BLEND)
     this.stats.passPixels += width * height
     restore()
@@ -779,6 +900,7 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.bindTexture(gl.TEXTURE_2D, slice.ringTexture)
     gl.uniform1i(uniform('u_ring'), 2)
     gl.uniform1f(uniform('u_has_ring'), slice.hasRing ? 1 : 0)
+    if (!this.style.cloudMap) this.useBubbles(gl, uniform, width, height)
     if (this.style.cloudMap) {
       gl.uniform2f(uniform('u_cloud_origin'), this.grid.x0, this.grid.y0)
       gl.uniform2f(uniform('u_cloud_extent'), this.grid.dx * this.grid.width, this.grid.dy * this.grid.height)
@@ -816,12 +938,14 @@ export class IsolineLayer implements CustomLayerInterface {
   }
 
   /** Veldquad en de gedeelde sampling-uniforms; `ratio` is doelpixels per CSS-pixel. */
-  private useField(gl: WebGL2RenderingContext, program: WebGLProgram, matrix: ArrayLike<number>, time: number): (name: string) => WebGLUniformLocation | null {
+  private useField(gl: WebGL2RenderingContext, program: WebGLProgram, matrix: ArrayLike<number>, time: number, clear = true): (name: string) => WebGLUniformLocation | null {
     gl.disable(gl.BLEND)
     gl.disable(gl.DEPTH_TEST)
     gl.disable(gl.STENCIL_TEST)
-    gl.clearColor(0, 0, 0, 0)
-    gl.clear(gl.COLOR_BUFFER_BIT)
+    if (clear) {
+      gl.clearColor(0, 0, 0, 0)
+      gl.clear(gl.COLOR_BUFFER_BIT)
+    }
     gl.useProgram(program)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.quad!)
     const position = gl.getAttribLocation(program, 'a_pos')
