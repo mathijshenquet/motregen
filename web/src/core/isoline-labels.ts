@@ -1,11 +1,11 @@
-import { DEFAULT_LABEL_TUNING, lineLabelCandidates, LABEL_MIN_DISTANCE_PX, MAX_LABEL_ANCHORS, pointLabelCandidates, type LabelTuning } from './isoline-label-anchors.js'
+import { lineLabelCandidates, LABEL_MIN_DISTANCE_PX, LABEL_SPACING_PX, MAX_LABEL_ANCHORS } from './isoline-label-anchors.js'
 import type { Map as MapLibreMap } from 'maplibre-gl'
 import { Marker } from 'maplibre-gl'
 import type { Grid } from './contract'
 import type { MapTheme } from './basemap'
 import { isolineColor, isolineLabelText, type IsolineFeatureCollection, type IsolineKind } from './isolines'
 import { ringFadeAt, type ShortRing } from './isoline-contours'
-import { projectToLevel, sampleSlice, type FieldSlice, type SliceSample } from './isoline-spline'
+import { projectToLevel, type FieldSlice, type SliceSample } from './isoline-spline'
 
 const EARTH_RADIUS = 6378137
 
@@ -25,21 +25,6 @@ interface Anchor {
   dying: boolean
 }
 
-/** Puntlabel (U100-proef): de veldwaarde op een vaste plek waar geen lijnlabel in de buurt staat. */
-interface PointLabel {
-  column: number
-  row: number
-  value: number
-  marker: Marker
-  text: HTMLElement
-  dying: boolean
-}
-
-const MAX_POINT_LABELS = 80
-/** Geen puntlabel zo dicht op een isolijn: de tekst zou over de lijn vallen. */
-const POINT_LINE_CLEARANCE_PX = 14
-const VISIBLE_RING_FADE = 0.5
-
 /**
  * Lijnlabels als persistente ankers op het (x, y, t)-oppervlak van hun isolijn: elke snede
  * schuift het anker met een Newton-stap terug op de lijn, zodat labels meeglijden i.p.v. per
@@ -54,9 +39,6 @@ export class IsolineLabels {
   private opacity = 0
   private step = 1
   private rings: readonly ShortRing[] = []
-  private points: PointLabel[] = []
-  /** Maaswijdte (cellen) waarop de puntlabels staan; bij zoom of een andere straal begint het rooster opnieuw. */
-  private pointSpacing = 0
 
   constructor(
     private readonly map: MapLibreMap,
@@ -64,7 +46,6 @@ export class IsolineLabels {
     private theme: MapTheme,
     private readonly reducedMotion: () => boolean,
     private readonly kind: IsolineKind = 'temperature',
-    private readonly tuning: () => LabelTuning = () => DEFAULT_LABEL_TUNING,
   ) {}
 
   /** De kaart eronder is van licht naar donker gegaan (of terug): bestaande labels kleuren mee. */
@@ -72,8 +53,8 @@ export class IsolineLabels {
     if (theme === this.theme) return
     const previous = this.theme
     this.theme = theme
-    for (const { marker } of [...this.anchors, ...this.points]) {
-      const element = marker.getElement()
+    for (const anchor of this.anchors) {
+      const element = anchor.marker.getElement()
       element.classList.replace(`isoline-label-${previous}`, `isoline-label-${theme}`)
       element.style.color = isolineColor(theme, this.kind)
     }
@@ -99,19 +80,12 @@ export class IsolineLabels {
     if (opacity === this.opacity) return
     this.opacity = opacity
     for (const anchor of this.anchors) this.applyOpacity(anchor)
-    for (const point of this.points) point.marker.setOpacity(this.opacity)
   }
 
   clear(): void {
     for (const anchor of this.anchors) anchor.marker.remove()
     this.anchors = []
     this.lines = undefined
-    this.clearPoints()
-  }
-
-  private clearPoints(): void {
-    for (const point of this.points) point.marker.remove()
-    this.points = []
   }
 
   /**
@@ -140,90 +114,14 @@ export class IsolineLabels {
         if (!younger.dying && Math.hypot(anchor.column - younger.column, anchor.row - younger.row) < minCells) this.kill(younger)
       }
     }
-    this.updatePoints(slice, pxPerCell)
-    if (this.lines && (this.linesChanged || now - this.lastSpawn > SPAWN_INTERVAL_MS)) {
-      this.spawn(slice, pxPerCell, now)
-      this.spawnPoints(slice, pxPerCell)
-    }
-  }
-
-  /** Puntlabels volgen de waarde op hun plek en wijken voor een lijnlabel of een isolijn die dichtbij komt. */
-  private updatePoints(slice: FieldSlice, pxPerCell: number): void {
-    const radius = this.tuning().fill / pxPerCell
-    if (radius <= 0 || this.kind !== 'temperature' || Math.abs(radius - this.pointSpacing) > this.pointSpacing * 0.05) {
-      if (this.points.length) this.clearPoints()
-      this.pointSpacing = radius
-      return
-    }
-    for (const point of this.points) {
-      if (point.dying) continue
-      const value = this.pointValue(slice, point.column, point.row, pxPerCell)
-      if (value === undefined || this.nearLineLabel(point.column, point.row, radius)) { this.killPoint(point); continue }
-      if (value !== point.value) {
-        point.value = value
-        point.text.textContent = isolineLabelText(this.kind, value)
-      }
-    }
-  }
-
-  private spawnPoints(slice: FieldSlice, pxPerCell: number): void {
-    const radius = this.pointSpacing
-    if (radius <= 0) return
-    const view = this.viewInCells()
-    // Een rooster op halve straal vindt elk gat van straal R; puntlabels houden onderling R afstand.
-    for (const [column, row] of pointLabelCandidates(view, radius / 2)) {
-      if (this.points.filter((point) => !point.dying).length >= MAX_POINT_LABELS) break
-      if (column < 0 || row < 0 || column > slice.width - 1 || row > slice.height - 1) continue
-      if (this.points.some((point) => !point.dying && Math.hypot(point.column - column, point.row - row) < radius)) continue
-      if (this.nearLineLabel(column, row, radius)) continue
-      const value = this.pointValue(slice, column, row, pxPerCell)
-      if (value !== undefined) this.addPoint(column, row, value)
-    }
-  }
-
-  /** Afgeronde waarde op (column, row), of undefined zonder data of te dicht bij een isolijn. */
-  private pointValue(slice: FieldSlice, column: number, row: number, pxPerCell: number): number | undefined {
-    const sample = sampleSlice(slice, column, row)
-    if (sample.valid < 0.5) return undefined
-    const level = Math.round(sample.value / this.step) * this.step
-    const gradient = Math.hypot(sample.gx, sample.gy)
-    if (gradient > 1e-6 && Math.abs(sample.value - level) / gradient * pxPerCell < POINT_LINE_CLEARANCE_PX) return undefined
-    return Math.round(sample.value)
-  }
-
-  /** Een label op een vervaagd kort ringetje is nauwelijks te lezen en telt niet als getal in de buurt. */
-  private nearLineLabel(column: number, row: number, radius: number): boolean {
-    return this.anchors.some((anchor) => !anchor.dying && anchor.ringFade >= VISIBLE_RING_FADE && Math.hypot(anchor.column - column, anchor.row - row) < radius)
-  }
-
-  private addPoint(column: number, row: number, value: number): void {
-    const element = document.createElement('div')
-    element.className = `isoline-label isoline-point-label isoline-label-${this.theme}`
-    element.style.color = isolineColor(this.theme, this.kind)
-    const text = document.createElement('span')
-    text.textContent = isolineLabelText(this.kind, value)
-    text.style.opacity = '0'
-    if (!this.reducedMotion()) text.style.transition = `opacity ${FADE_MS}ms ease-out`
-    element.append(text)
-    const marker = new Marker({ element }).setLngLat(this.toLngLat(column, row)).setOpacity(this.opacity).addTo(this.map)
-    this.points.push({ column, row, value, marker, text, dying: false })
-    requestAnimationFrame(() => { text.style.opacity = '1' })
-  }
-
-  private killPoint(point: PointLabel): void {
-    point.dying = true
-    point.text.style.opacity = '0'
-    window.setTimeout(() => {
-      point.marker.remove()
-      this.points = this.points.filter((candidate) => candidate !== point)
-    }, this.reducedMotion() ? 0 : FADE_MS)
+    if (this.lines && (this.linesChanged || now - this.lastSpawn > SPAWN_INTERVAL_MS)) this.spawn(slice, pxPerCell, now)
   }
 
   private spawn(slice: FieldSlice, pxPerCell: number, now: number): void {
     this.lastSpawn = now
     this.linesChanged = false
     const view = this.viewInCells()
-    const spacing = this.tuning().spacing / pxPerCell
+    const spacing = LABEL_SPACING_PX / pxPerCell
     const minCells = LABEL_MIN_DISTANCE_PX / pxPerCell
     const living = () => this.anchors.filter((anchor) => !anchor.dying)
     for (const feature of this.lines!.features) {

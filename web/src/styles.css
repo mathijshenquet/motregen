@@ -1400,23 +1400,32 @@ td small { color: var(--muted); font-size: 9px; }
 
 .isoline-label {
   pointer-events: none;
-  font-size: var(--isoline-label-size, 11px);
+  font-size: 11px;
   font-weight: 600;
   line-height: 1;
   white-space: nowrap;
 }
 .isoline-label-light span { text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff; }
 .isoline-label-dark span { text-shadow: 0 0 2px #102027, 0 0 2px #102027, 0 0 3px #102027; }
-/* Puntlabel (U100-proef): de waarde tussen de lijnen, rechtop en iets lichter dan een lijnlabel. */
-.isoline-point-label { font-weight: 500; }
-/* Temperatuurgetal op een plek (U100 ronde 3, ?dev&templabels=): eilandje in de kaartstijl, dekt de lijn eronder af. */
+/* Temperatuurgetal op een plek (U100 ronde 3): staat op een schijf in de kleur van zijn eigen band
+   (IsolineLayer.setBubbles), letter en halo als de stadstemperaturen van de weerkaart (temperature.ts: Noto Sans
+   Regular, #102630, halo 2 px wit; PO 2026-11-09: "match de stijl van de weerkaart"). */
 .temperature-number { pointer-events: none; line-height: 1; white-space: nowrap; }
 .temperature-number span {
-  display: block; padding: 3px 6px; border-radius: 999px;
-  font-size: var(--isoline-label-size, 13px); font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+  display: block; padding: 3px 6px;
+  font-family: "Noto Sans", Inter, ui-sans-serif, system-ui, sans-serif;
+  font-size: 13px; font-weight: 400; font-variant-numeric: tabular-nums;
 }
-.temperature-number-light span { background: rgb(255 255 255 / .86); color: #102630; box-shadow: 0 0 0 1px rgb(16 38 48 / .16), 0 1px 2px rgb(16 38 48 / .18); }
-.temperature-number-dark span { background: rgb(16 32 39 / .86); color: #f3fbfd; box-shadow: 0 0 0 1px rgb(243 251 253 / .18), 0 1px 2px rgb(0 0 0 / .35); }
+/* temperatureLabelSize: kortste zijde < 600 px (telefoon) één stap kleiner. */
+@media (max-width: 599.98px), (max-height: 599.98px) { .temperature-number span { font-size: 12px; } }
+.temperature-number-light span {
+  color: #102630;
+  text-shadow: 0 0 1px #fff, 0 0 2px #fff, 1px 1px 1px #fff, -1px -1px 1px #fff, 1px -1px 1px #fff, -1px 1px 1px #fff;
+}
+.temperature-number-dark span {
+  color: #f3fbfd;
+  text-shadow: 0 0 1px #102027, 0 0 2px #102027, 1px 1px 1px #102027, -1px -1px 1px #102027, 1px -1px 1px #102027, -1px 1px 1px #102027;
+}
 
 /* Mobiel (U14/U42): het eerste scherm is kaart + scrubber + een voorproef van de tabel. De kleine
    viewportmaat houdt die geometrie vast terwijl de Firefox/Safari-browserbalk animeert. */

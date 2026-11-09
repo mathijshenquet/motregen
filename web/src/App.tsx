@@ -29,9 +29,9 @@ import { buildHourlyForecast, hourDarkness, isPassiveRow, PASSIVE_FORECAST_HOURS
 import { contextOpacity, DEFAULT_FOCUS_MODE, FOCUS_DIM, FocusMode, mapSaturation, rainPresentation, type FocusKind, windFocusIntensity } from './core/focus-mode'
 import { FrameBatcher } from './core/frame-batcher'
 import { latestRadarEpoch, type RefreshState } from './core/freshness'
-import { blendFrames, blurField, TEMPERATURE_ISOLINE_STEP, fieldRangeInView, isolineBlurPasses, isolineFrameWeights, type WeightedFrame, ISOLINE_EDGE_FADE_MS, FIXED_SCALE_FILL_OPACITY, ISOLINE_FILL_OPACITY, ISOLINE_RING_KM, ISOLINE_WINDOW, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineKind } from './core/isolines'
+import { blendFrames, blurField, TEMPERATURE_ISOLINE_OFFSET, TEMPERATURE_ISOLINE_STEP, fieldRangeInView, isolineBlurPasses, isolineFrameWeights, type WeightedFrame, ISOLINE_EDGE_FADE_MS, FIXED_SCALE_FILL_OPACITY, ISOLINE_FILL_OPACITY, ISOLINE_RING_KM, ISOLINE_WINDOW, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineKind } from './core/isolines'
 import { IsolineLabels } from './core/isoline-labels'
-import { lookLabelTuning, TEMPERATURE_LABEL_PLANS, temperatureLabelLook, TemperatureNumbers, type IsolineLabelling } from './core/temperature-numbers'
+import { TemperatureNumbers, type IsolineLabelling } from './core/temperature-numbers'
 import { sliceWeights } from './core/isoline-spline'
 import { TraceCore } from './core/isoline-tracer'
 import { prepareField, type PreparedField } from './core/isoline-field'
@@ -64,7 +64,6 @@ import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedP
 import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureCollection } from './core/sun'
 import { DEFAULT_LOCATION, stillMapTheme } from './core/still-theme.js'
 import { isSunUp, solarElevationSin } from './core/solar'
-import { clampLabelTuning, DEFAULT_LABEL_TUNING, LABEL_TUNING_PARAMETERS, loadLabelTuning, type LabelTuning } from './core/isoline-label-anchors'
 import { cssGradient, FIXED_SCALE_LEGEND, FIXED_SCALE_STOPS, loadTemperatureScale, paletteRange, paletteStops, referenceRange, storeTemperatureScale, type PaletteRange, type TemperatureScale } from './core/temperature-palette'
 import { selectTemperaturePlaces, temperatureLabelSpacingPx, temperatureLabels, temperatureLayer, type TemperatureFeatureCollection } from './core/temperature'
 import { buildTimeline, epochInWindow, frameBlend, scrubberViewWindow, seriesValueAt, timelineCoverage, timelineCursorAtEpoch, timelineEpochAtCursor, timelineHorizonEnd, timelineIndexesInWindow, timelinePlaybackRate, type EpochWindow } from './core/time-model'
@@ -612,13 +611,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const mobileWindDevice = matchMedia('(pointer: coarse), (max-width: 499px)').matches
   const [temperatureRange, setTemperatureRange] = createSignal<PaletteRange | undefined>()
   let temperatureRangeKey = ''
-  // ?dev-proef U100: isolijnlabels (grootte, afstand langs de lijn, puntlabels); zonder ?dev het huidige beeld.
-  // Ronde 3 (`templabels=`): waar de getallen staan; die vergelijking start van 13 px zonder opgeslagen schuiven.
-  const temperatureLabelVariant = devMode ? temperatureLabelLook(window.location.search) : undefined
-  const temperatureLabelPlan = TEMPERATURE_LABEL_PLANS[temperatureLabelVariant ?? 'lijn']
-  const [labelTuning, setLabelTuning] = createSignal<LabelTuning>(!devMode ? DEFAULT_LABEL_TUNING
-    : temperatureLabelVariant ? loadLabelTuning(window.location.search, undefined, lookLabelTuning(window.innerWidth, window.innerHeight))
-      : loadLabelTuning(window.location.search, localStorage))
   // U100: vast is standaard; relatief (MIP-37) is een instelling. Stills (bot-vergelijking) altijd vast.
   const [temperatureScale, setTemperatureScale] = createSignal<TemperatureScale>(stillMode ? 'vast' : loadTemperatureScale())
   const temperatureStops = createMemo(() => {
@@ -1861,7 +1853,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
 
   function isolineStyle(): IsolineStyle {
-    return { step: TEMPERATURE_ISOLINE_STEP, fill: temperatureScale() === 'vast' ? FIXED_SCALE_FILL_OPACITY : ISOLINE_FILL_OPACITY, fillSmooth: false, offset: temperatureLabelPlan.offset, palette: temperatureStops(), color: hexColor(isolineColor(mapSurfaceTheme())), lineOpacity: TEMPERATURE_LINE_FILL_OPACITY, lineFromFill: TEMPERATURE_LINE_FILL_SHADE }
+    return { step: TEMPERATURE_ISOLINE_STEP, fill: temperatureScale() === 'vast' ? FIXED_SCALE_FILL_OPACITY : ISOLINE_FILL_OPACITY, fillSmooth: false, offset: TEMPERATURE_ISOLINE_OFFSET, palette: temperatureStops(), color: hexColor(isolineColor(mapSurfaceTheme())), lineOpacity: TEMPERATURE_LINE_FILL_OPACITY, lineFromFill: TEMPERATURE_LINE_FILL_SHADE }
   }
 
   function cloudVeilStyle(): IsolineStyle {
@@ -2015,16 +2007,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     return true
   }
 
-  function changeLabelTuning(key: keyof LabelTuning, value: number): void {
-    const next = { ...labelTuning(), [key]: clampLabelTuning(key, value) }
-    setLabelTuning(next)
-    try { localStorage.setItem(`motregen-dev-${LABEL_TUNING_PARAMETERS[key]}`, String(next[key])) } catch { /* alleen deze sessie */ }
-    const set = temperatureIsolines
-    set.key = ''
-    set.labels?.clear()
-    void showIsolines(set)
-  }
-
   function changeTemperatureScale(scale: TemperatureScale): void {
     setTemperatureScale(scale)
     storeTemperatureScale(scale)
@@ -2098,10 +2080,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         set.fields = []
         set.labels?.clear()
         if (set.kind !== 'cloud' && set.kind !== 'wind') {
-          const numbers = set.kind === 'temperature' ? temperatureLabelPlan.numbers : undefined
-          set.labels = numbers
-            ? new TemperatureNumbers(renderedMap, grid, mapSurfaceTheme(), () => reducedMotion.matches, { numbers }, labelTuning, () => marker?.getLngLat())
-            : new IsolineLabels(renderedMap, grid, mapSurfaceTheme(), () => reducedMotion.matches, set.kind, labelTuning)
+          // Temperatuur: getallen op vaste plekken met een schijf in hun bandkleur (U100 ronde 3); isobaren: lijnlabels.
+          set.labels = set.kind === 'temperature'
+            ? new TemperatureNumbers(renderedMap, grid, mapSurfaceTheme(), () => reducedMotion.matches, () => marker?.getLngLat(), (bubbles) => created.setBubbles(bubbles))
+            : new IsolineLabels(renderedMap, grid, mapSurfaceTheme(), () => reducedMotion.matches, set.kind)
         }
         set.key = ''
         // Labels schuiven mee op exact de snede die de lijnen net kregen (zelfde cadans).
@@ -3691,7 +3673,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     <section
       class="map-shell"
       classList={{ 'sky-day': chromeSky()?.daylight === true, 'sky-night': chromeSky()?.daylight === false, 'map-source-faded': mapSourceFaded() }}
-      style={{ ...(chromeSky() && { '--day-overcast': chromeSky()!.overcast.toFixed(2) }), '--isoline-label-size': `${labelTuning().size}px` }}
+      style={chromeSky() ? { '--day-overcast': chromeSky()!.overcast.toFixed(2) } : undefined}
       aria-label="Regenkaart van Nederland" data-rendering={mapRendering()} data-rain-opacity={rainLook().opacity.toFixed(2)} data-rain-blend={rainLook().multiply ? 'multiply' : 'normal'} data-focus={focus().toFixed(2)} data-wind-focus={windFocus().toFixed(2)} data-wind-intensity={focusedWindTuning().intensity.toFixed(2)} data-isolines={isolineCount()}>
       <div ref={mapElement} class="map" />
       <div ref={splashElement} class="map-splash" classList={{ ready: mapReady() && firstMapImageShown() }} aria-hidden={mapReady() && firstMapImageShown()}>
@@ -3780,8 +3762,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
             usageBody={usageBody()}
             usageLabel={usageLabel()}
             onUsageLabel={changeUsageLabel}
-            labelTuning={labelTuning()}
-            onLabelTuning={changeLabelTuning}
           />
         </Show>
         <Freshness open={freshnessOpen()} mapEpoch={cursorMinute()} mapFrame={timeline()[cursorFrame()]} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} onOpen={pauseForFreshness} onClose={resumeAfterFreshness} onShare={shareCurrentState} shareNotice={shareNotice()}
