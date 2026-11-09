@@ -182,6 +182,19 @@ button { color: inherit; cursor: pointer; }
 .wind-vane { pointer-events: none; transition: opacity .2s linear; }
 .wind-vane svg { position: absolute; inset: 0; overflow: visible; }
 .wind-vane-arrow { fill: #17242b; stroke: #fff; stroke-width: 1.5px; paint-order: stroke; stroke-linejoin: round; }
+/* Wind-glyphs (U101 ronde 2): inkt en halo als tokens; op de kaart donkere inkt met witte halo, in de tabel de accentkleur. */
+.wind-glyph { --glyph-ink: #17242b; --glyph-halo: #fff; overflow: visible; }
+.wind-vane .wind-glyph { position: absolute; inset: 0; filter: drop-shadow(0 1px 1.5px rgb(0 0 0 / .28)); }
+.glyph-halo { fill: none; stroke: var(--glyph-halo); stroke-linecap: round; stroke-linejoin: round; }
+.glyph-ink { fill: var(--glyph-ink); }
+.glyph-ink-line { fill: none; stroke: var(--glyph-ink); stroke-linecap: round; stroke-linejoin: round; }
+.comet-tail-stop { stop-color: var(--glyph-ink); }
+.sock-orange { fill: #f2661c; }
+.sock-white { fill: #fbfbf8; }
+.wind-reading.with-glyph { grid-template-columns: 24px auto; }
+.wind-glyph-cell { display: inline-flex; width: 24px; height: 24px; justify-self: center; color: var(--accent); }
+.wind-glyph-cell .wind-glyph { --glyph-ink: currentColor; --glyph-halo: transparent; }
+.wind-glyph-cell .sock-outline { stroke: color-mix(in srgb, currentColor 70%, #000); }
 .wind-vane-disc {
   position: absolute; display: flex; align-items: center; justify-content: center; box-sizing: border-box;
   border: 1.5px solid #fff; border-radius: 50%; background: #17242b; color: #fff;

@@ -1,5 +1,6 @@
 import { Marker, type Map as MapLibreMap } from 'maplibre-gl'
 import type { WindVane } from './wind-beaufort.js'
+import { MAP_DISC_RADIUS, windGlyph, windGlyphSvg, type WindGlyphName } from './wind-glyph.js'
 
 /** Vaste maat (vlakken), groter (lijnen, zonder vlakken die de klasse al tonen) of pijl naar windkracht. */
 export type WindVaneSize = 'vast' | 'groot' | 'windkracht'
@@ -35,7 +36,8 @@ export class WindVaneMarkers {
   private readonly markers = new Map<string, { marker: Marker; element: HTMLElement; key: string }>()
   private opacity = 0
 
-  constructor(private readonly map: MapLibreMap, private readonly size: WindVaneSize) {}
+  /** Met `glyph` (ronde 2, `?dev&vaan=`) tekent de marker die glyph in plaats van de pijl. */
+  constructor(private readonly map: MapLibreMap, private readonly size: WindVaneSize, private readonly glyph?: WindGlyphName) {}
 
   setVanes(vanes: readonly WindVane[]): void {
     const seen = new Set<string>()
@@ -83,6 +85,10 @@ export class WindVaneMarkers {
   }
 
   private draw(element: HTMLElement, force: number, rotation: number): void {
+    if (this.glyph) {
+      this.drawGlyph(element, this.glyph, force, rotation)
+      return
+    }
     const geometry = vaneGeometry(this.size, force)
     const box = Math.ceil((geometry.radius + geometry.arrowLength + 4) * 2)
     const center = box / 2
@@ -93,5 +99,15 @@ export class WindVaneMarkers {
       `<path class="wind-vane-arrow" d="${vaneArrowPath(geometry, box)}"/></svg>` +
       `<span class="wind-vane-disc" style="width:${geometry.radius * 2}px;height:${geometry.radius * 2}px;` +
       `left:${center - geometry.radius}px;top:${center - geometry.radius}px;font-size:${geometry.fontPx}px">${force}</span>`
+  }
+
+  private drawGlyph(element: HTMLElement, glyph: WindGlyphName, force: number, rotation: number): void {
+    const { box } = windGlyph(glyph, force, 'kaart')
+    const center = box / 2
+    element.style.width = element.style.height = `${box}px`
+    element.style.visibility = this.opacity > 0 ? '' : 'hidden'
+    element.innerHTML = windGlyphSvg(glyph, force, 'kaart', rotation) +
+      `<span class="wind-vane-disc" style="width:${MAP_DISC_RADIUS * 2}px;` +
+      `height:${MAP_DISC_RADIUS * 2}px;left:${center - MAP_DISC_RADIUS}px;top:${center - MAP_DISC_RADIUS}px;font-size:14px">${force}</span>`
   }
 }
