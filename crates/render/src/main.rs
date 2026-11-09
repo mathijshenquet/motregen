@@ -7,6 +7,7 @@ mod frame_cache;
 mod modes;
 mod renderer;
 mod shared;
+mod windsocks;
 
 use anyhow::{Result, ensure};
 use clap::{Parser, ValueEnum};

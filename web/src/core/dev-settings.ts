@@ -8,6 +8,7 @@ export const PRESERVED_STORAGE_KEYS: readonly string[] = [
   'motregen-expressive',
   'motregen-sky-diary',
   'motregen-meetlabel',
+  'motregen-temperature-scale',
 ]
 
 /** ?dev-keuze Dag/nacht-contrast van de tabel (U91b, vervalt 2026-11-01). */

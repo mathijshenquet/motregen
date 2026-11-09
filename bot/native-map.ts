@@ -3,7 +3,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import { access, mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import { dirname, join, resolve } from 'node:path'
-import type { BrowserContext } from 'playwright'
+import type { BrowserContext, Page } from 'playwright'
 import type { Map as MapLibreMap, StyleSpecification } from 'maplibre-gl'
 import sharp from 'sharp'
 import { NATIVE_VIEW } from './native-view.js'
@@ -11,7 +11,8 @@ export { NATIVE_VIEW } from './native-view.js'
 import { mapFrameFromGrid } from '../web/src/core/map-frame.js'
 import type { Grid } from '../web/src/core/contract.js'
 import { captureLabelAtlas, type LabelAtlas } from './native-labels.js'
-import { FRAME } from './config.js'
+import { ELEMENT_SCALE, FRAME, FRAME_PIXELS } from './config.js'
+import { frameScreenshot } from './frame-capture.js'
 
 export type NativeTheme = 'light' | 'dark'
 const require = createRequire(import.meta.url)
@@ -47,7 +48,7 @@ export class NativeMaps {
       }
     }
     if (style.glyphs) style.glyphs = new URL(style.glyphs, styleUrl).href.replaceAll('%7B', '{').replaceAll('%7D', '}')
-    const key = createHash('sha256').update(JSON.stringify({ version: 2, style, theme, frame: FRAME, view: NATIVE_VIEW, grid })).digest('hex').slice(0, 24)
+    const key = createHash('sha256').update(JSON.stringify({ version: 3, style, theme, frame: FRAME, view: NATIVE_VIEW, grid })).digest('hex').slice(0, 24)
     const path = join(this.directory, `basemap-${theme}-${key}.png`)
     let cached: Omit<MapPlate, 'water'> | undefined
     try {
@@ -84,14 +85,15 @@ export class NativeMaps {
         map.addLayer({ id: 'motregen-grid-frame', type: 'line', source: 'motregen-grid-frame', paint: { 'line-color': theme === 'dark' ? '#8da6af' : '#405b64', 'line-opacity': 0.85, 'line-width': 1.5 } })
         await new Promise<void>((resolve) => map.once('idle', () => resolve()))
       }, { styleJson: JSON.stringify(style), view: NATIVE_VIEW, mask, theme })
-      const waterData = await page.evaluate(() => {
+      // Eén watercel per 6 CSS-px bij de oude schaal: dezelfde maskerresolutie als vóór ELEMENT_SCALE.
+      const waterData = await page.evaluate((cellsPerCss) => {
         const map = (window as unknown as { nativeMap: MapLibreMap }).nativeMap
         const layer = map.getStyle().layers.find((candidate) => 'source-layer' in candidate && candidate['source-layer'] === 'water')
         if (!layer || !('source' in layer) || typeof layer.source !== 'string') throw new Error('Waterbron ontbreekt')
         const canvas = document.createElement('canvas')
         const viewport = map.getCanvas()
-        canvas.width = Math.ceil(viewport.clientWidth / 6)
-        canvas.height = Math.ceil(viewport.clientHeight / 6)
+        canvas.width = Math.ceil(viewport.clientWidth * cellsPerCss)
+        canvas.height = Math.ceil(viewport.clientHeight * cellsPerCss)
         const context = canvas.getContext('2d')!
         context.fillStyle = '#fff'
         for (const feature of map.querySourceFeatures(layer.source, { sourceLayer: 'water' })) {
@@ -110,15 +112,17 @@ export class NativeMaps {
           }
         }
         return canvas.toDataURL('image/png').split(',')[1]!
-      })
+      }, ELEMENT_SCALE / 6)
       const waterPng = Buffer.from(waterData, 'base64')
       await writeFile(`${temporary}.water.png`, waterPng)
       await rename(`${temporary}.water.png`, `${path}.water.png`)
       const water = await sharp(waterPng).ensureAlpha().extractChannel(3).raw().toBuffer({ resolveWithObject: true })
       let plate = cached
       if (!plate) {
-        const png = await page.screenshot()
+        const png = await frameScreenshot(await page.screenshot())
         const rgb = await sharp(png).removeAlpha().raw().toBuffer()
+        await writeFile(`${temporary}.names.png`, await captureNameMask(page, rgb))
+        await rename(`${temporary}.names.png`, `${path}.names.png`)
         const labels = await captureLabelAtlas(page, theme, rgb)
         await writeFile(`${temporary}.labels.json`, JSON.stringify(labels))
         await rename(`${temporary}.labels.json`, `${path}.labels.json`)
@@ -131,3 +135,28 @@ export class NativeMaps {
     } finally { await page.close() }
   }
 }
+
+/**
+ * Waar de basiskaart namen tekent (plaatsen, provincies, landen, water), als grijswaardenmasker op FRAME_PIXELS: de
+ * Rust-renderer laat temperatuurlabels daaromheen uitwijken (U103). Verschil tussen de plaat met en zonder symboollagen.
+ */
+async function captureNameMask(page: Page, plate: Buffer): Promise<Buffer> {
+  const setSymbolVisibility = (visibility: 'none' | 'visible') => page.evaluate(async (visibility) => {
+    const map = (window as unknown as { nativeMap: MapLibreMap }).nativeMap
+    for (const layer of map.getStyle().layers) if (layer.type === 'symbol') map.setLayoutProperty(layer.id, 'visibility', visibility)
+    await new Promise<void>((resolve) => map.once('idle', () => resolve()))
+  }, visibility)
+  await setSymbolVisibility('none')
+  const bare = await sharp(await frameScreenshot(await page.screenshot())).removeAlpha().raw().toBuffer()
+  await setSymbolVisibility('visible')
+  const mask = Buffer.alloc(FRAME_PIXELS.width * FRAME_PIXELS.height)
+  for (let pixel = 0; pixel < mask.length; pixel++) {
+    const offset = pixel * 3
+    const difference = Math.abs(plate[offset]! - bare[offset]!) + Math.abs(plate[offset + 1]! - bare[offset + 1]!) + Math.abs(plate[offset + 2]! - bare[offset + 2]!)
+    // Zwakke halorand telt niet mee; de Rust-kant houdt zelf afstand rond het label.
+    if (difference > NAME_MASK_THRESHOLD) mask[pixel] = 255
+  }
+  return sharp(mask, { raw: { width: FRAME_PIXELS.width, height: FRAME_PIXELS.height, channels: 1 } }).toColourspace('b-w').png().toBuffer()
+}
+
+const NAME_MASK_THRESHOLD = 24

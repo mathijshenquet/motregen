@@ -153,7 +153,7 @@ button { color: inherit; cursor: pointer; }
   font-size: 12px;
 }
 
-.rain-isoline-legend {
+.rain-isoline-legend, .feels-legend {
   position: absolute;
   z-index: 10;
   left: 0;
@@ -171,7 +171,26 @@ button { color: inherit; cursor: pointer; }
 }
 .rain-isoline-legend span { display: inline-flex; align-items: center; gap: 4px; }
 .rain-isoline-legend i { display: inline-block; width: 12px; height: 9px; border-left: 2px solid; border-radius: 1px; }
-.rain-isoline-legend small { color: var(--muted); font-size: 11px; }
+.rain-isoline-legend small, .feels-legend small { color: var(--muted); font-size: 11px; }
+.feels-legend { gap: 3px; font-variant-numeric: tabular-nums; }
+.feels-legend i { display: inline-block; width: 18px; height: 8px; border-radius: 1px; }
+.feels-legend small { margin-left: 3px; }
+/* Windmodus-proef (U101): vlakke Bft-vakjes zonder lijnrand. */
+.wind-legend i { border-left: 0; width: 13px; }
+.wind-legend { align-items: flex-start; gap: 10px; }
+.wind-zone { display: inline-flex; flex-direction: column; align-items: stretch; gap: 1px; }
+.wind-zone-classes { display: inline-flex; gap: 6px; }
+.wind-zone em { border-top: 1px solid color-mix(in srgb, var(--muted) 45%, transparent); padding-top: 1px; color: var(--muted); font-size: 11px; font-style: normal; text-align: center; }
+
+/* Vaantje: donkere schijf met het Bft-getal, pijl naar waar de wind heen waait; witte rand voor elke ondergrond. */
+.wind-glyph { --glyph-ink: #17242b; overflow: visible; }
+.glyph-ink { fill: var(--glyph-ink); }
+.glyph-ink-line { fill: none; stroke: var(--glyph-ink); stroke-linecap: round; stroke-linejoin: round; }
+.sock-orange { fill: #f2661c; }
+.sock-white { fill: #fbfbf8; }
+.wind-glyph-cell { display: inline-flex; width: 24px; height: 24px; justify-self: center; color: var(--accent); }
+.wind-glyph-cell .wind-glyph { --glyph-ink: currentColor; }
+.wind-glyph-cell .sock-outline { stroke: color-mix(in srgb, currentColor 70%, #000); }
 
 .uv-chip {
   --uv-color: var(--uv-moderate);
@@ -325,6 +344,8 @@ button { color: inherit; cursor: pointer; }
 .about-theme { display: flex; }
 .about-theme button { flex: 1; }
 .about-wind-unit { margin-top: 8px; }
+.about-setting-label { margin: 0 0 6px; font-size: 13px; font-weight: 650; }
+.about-setting-hint { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
 .about-expressive { width: 100%; min-height: 44px; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 9px; margin-top: 8px; padding: 7px 9px; border: 1px solid var(--line-strong); border-radius: 9px; color: var(--text); background: var(--surface); text-align: left; }
 .about-expressive > svg { color: var(--muted); }
 .about-expressive > span { display: grid; line-height: 1.25; }
@@ -1003,14 +1024,13 @@ td small { color: var(--muted); font-size: 9px; }
 .air-temperature { display: block; color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: 0; }
 .wind-cell { color: var(--text); font-size: 11px; }
 /* Twee kolommen (PO 2026-09-25 live): icoontjes gecentreerd onder elkaar, tekst links uitgelijnd. */
-.wind-reading { display: inline-grid; grid-template-columns: 16px auto; align-items: center; justify-items: start; column-gap: 3px; row-gap: 1px; text-align: left; }
+.wind-reading { display: inline-grid; grid-template-columns: 24px auto; align-items: center; justify-items: start; column-gap: 3px; row-gap: 1px; text-align: left; }
 .wind-reading > svg { justify-self: center; margin: 0; }
 .wind-main { display: inline-flex; align-items: baseline; gap: 2px; line-height: 1.1; }
 .wind-gust-icon { color: color-mix(in srgb, var(--muted) 85%, transparent); }
 .wind-reading .wind-gust { margin: 0; color: color-mix(in srgb, var(--muted) 85%, transparent); font-size: 10px; font-weight: 600; line-height: 1.1; white-space: nowrap; }
 .wind-reading b { font-size: 13px; font-weight: 700; }
 .wind-reading small { margin-left: 1px; }
-.wind-arrow { flex: none; color: var(--accent); }
 
 /* Dag/nacht-contrast (U91b, PO 2026-10-17 "te veel contrast"): zachter voor de grove dagdelen en dag/nacht-rijen
    (smal) of voor de hele tabel (breed). Licht thema: de nacht wordt schemerblauw, de dag minder verzadigd. Donker
@@ -1380,13 +1400,23 @@ td small { color: var(--muted); font-size: 9px; }
 
 .isoline-label {
   pointer-events: none;
-  font-size: 11px;
+  font-size: var(--isoline-label-size, 11px);
   font-weight: 600;
   line-height: 1;
   white-space: nowrap;
 }
 .isoline-label-light span { text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff; }
 .isoline-label-dark span { text-shadow: 0 0 2px #102027, 0 0 2px #102027, 0 0 3px #102027; }
+/* Puntlabel (U100-proef): de waarde tussen de lijnen, rechtop en iets lichter dan een lijnlabel. */
+.isoline-point-label { font-weight: 500; }
+/* Temperatuurgetal op een plek (U100 ronde 3, ?dev&templabels=): eilandje in de kaartstijl, dekt de lijn eronder af. */
+.temperature-number { pointer-events: none; line-height: 1; white-space: nowrap; }
+.temperature-number span {
+  display: block; padding: 3px 6px; border-radius: 999px;
+  font-size: var(--isoline-label-size, 13px); font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.01em;
+}
+.temperature-number-light span { background: rgb(255 255 255 / .86); color: #102630; box-shadow: 0 0 0 1px rgb(16 38 48 / .16), 0 1px 2px rgb(16 38 48 / .18); }
+.temperature-number-dark span { background: rgb(16 32 39 / .86); color: #f3fbfd; box-shadow: 0 0 0 1px rgb(243 251 253 / .18), 0 1px 2px rgb(0 0 0 / .35); }
 
 /* Mobiel (U14/U42): het eerste scherm is kaart + scrubber + een voorproef van de tabel. De kleine
    viewportmaat houdt die geometrie vast terwijl de Firefox/Safari-browserbalk animeert. */
@@ -1429,7 +1459,7 @@ td small { color: var(--muted); font-size: 9px; }
   /* De UV-chip staat linksonder op de kaart (U21: het merk staat rechtsboven). */
   .sidebar-nav { top: calc(var(--map-mobile) - 64px); }
   /* De regenlegenda kost op de telefoon kaart en botst met de bronvermelding; die laatste vervaagt na het begin. */
-  .rain-isoline-legend { display: none; }
+  .rain-isoline-legend, .feels-legend { display: none; }
   .map-shell .source { transition: opacity .6s ease; }
   .map-shell.map-source-faded .source { opacity: 0; pointer-events: none; }
 }

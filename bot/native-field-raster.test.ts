@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest'
 import type { Grid } from '../web/src/core/contract.js'
+import { FIXED_SCALE_FILL_OPACITY } from '../web/src/core/isolines.js'
 import { sampleSlice } from '../web/src/core/isoline-spline.js'
 import { NativeFieldRaster } from './native-field-raster.js'
 import { nativeProjection } from './native-projection.js'
@@ -18,12 +19,12 @@ it('matches shared cubic sampling and premultiplied band fill, including invalid
   try {
     const native = await raster.compose(base, slice, false)
     const projection = nativeProjection(grid, size)
-    const alpha = Math.round(255 * 0.35 * slice.opacity)
+    const alpha = Math.round(255 * FIXED_SCALE_FILL_OPACITY * slice.opacity)
     const fill = new Uint8Array(6 * 6 * 3)
     for (let row = 0; row < 6; row++) for (let column = 0; column < 6; column++) {
       const sample = sampleSlice({ ...grid, fields: [field], weights: [1] }, projection.columns[column * 3]! + 1, projection.rows[row * 3]! + 1)
       const band = Math.floor(sample.value) + 128
-      for (let channel = 0; channel < 3; channel++) fill[(row * 6 + column) * 3 + channel] = Math.round(colors[band * 3 + channel]! * 255 * 0.35 * slice.opacity)
+      for (let channel = 0; channel < 3; channel++) fill[(row * 6 + column) * 3 + channel] = Math.round(colors[band * 3 + channel]! * 255 * FIXED_SCALE_FILL_OPACITY * slice.opacity)
     }
     for (let row = 0; row < 18; row++) for (let column = 0; column < 18; column++) {
       const sourceX = Math.max(0, Math.min(5, (column + 0.5) / 3 - 0.5)), sourceY = Math.max(0, Math.min(5, (row + 0.5) / 3 - 0.5))
@@ -43,16 +44,19 @@ it('matches shared cubic sampling and premultiplied band fill, including invalid
   } finally { await raster.close() }
 }, 15000)
 
-it('renders pressure lines without retaining or transferring an unused filled raster', async () => {
-  const grid: Grid = { crs: 'EPSG:3857', x0: 0, y0: 0, dx: 1, dy: -1, width: 2, height: 2 }
+it('fills the Beaufort bands of the wind film at the wind fill opacity', async () => {
+  const meters = 2 * Math.PI * 6378137 / (512 * 2 ** NATIVE_VIEW.zoom * (18 / 640))
+  const grid: Grid = { crs: 'EPSG:3857', x0: NATIVE_VIEW.lng * Math.PI / 180 * 6378137 - 9 * meters, y0: Math.log(Math.tan(Math.PI / 4 + NATIVE_VIEW.lat * Math.PI / 360)) * 6378137 + 9 * meters, dx: meters, dy: -meters, width: 18, height: 18 }
+  const field = { values: new Float32Array(324).fill(3.4), valid: new Float32Array(324).fill(1) }
+  const colors = Float32Array.from({ length: 768 }, (_, index) => Math.floor(index / 3) === 128 + 3 ? [0.2, 0.6, 0.4][index % 3]! : 0)
+  const slice: RasterSlice = { kind: 'wind', grid, field, colors, segments: new Float32Array(), opacity: 1 }
   const raster = new NativeFieldRaster(grid, { width: 18, height: 18 })
   const base = Buffer.alloc(18 * 18 * 3, 100)
-  const slice: RasterSlice = { kind: 'pressure', grid, segments: Float32Array.of(3, 9.5, 15, 9.5, 1, 1), opacity: 1 }
   try {
     const output = await raster.compose(base, slice, false)
-    expect(output.subarray(0, 3)).toEqual(base.subarray(0, 3))
-    expect(output.subarray((9 * 18 + 9) * 3, (9 * 18 + 9) * 3 + 3)).not.toEqual(Buffer.of(100, 100, 100))
-    expect(await raster.compose(base, { ...slice, opacity: 0 }, true)).toEqual(base)
-    expect(await raster.compose(base, slice, false)).toEqual(output)
+    const centre = (9 * 18 + 9) * 3
+    // Band 3 (3,4 Bft ligt tussen de lijnen 3 en 4); dekking 0,75 × opbouw smoothstep(0,5 → 8 Bft) bij 3,4 Bft.
+    const t = (3.4 - 0.5) / (8 - 0.5), alpha = 0.75 * t * t * (3 - 2 * t)
+    output.subarray(centre, centre + 3).forEach((value, channel) => expect(Math.abs(value - (100 * (1 - alpha) + [0.2, 0.6, 0.4][channel]! * 255 * alpha))).toBeLessThanOrEqual(1))
   } finally { await raster.close() }
 }, 15000)

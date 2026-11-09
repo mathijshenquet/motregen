@@ -5,6 +5,9 @@ use std::sync::OnceLock;
 pub struct ModeConstants {
     pub loops: LoopPlans,
     pub scale: f64,
+    /// Factor on the fixed pixel sizes of map labels and marks, tuned at scale 1.5 (U103). The clock panel and footer
+    /// stay at their scale-1.5 size (PO 2026-11-09).
+    pub element_scale: f64,
     pub wind: Wind,
     pub isoline: Isoline,
     pub labels: Labels,
@@ -12,6 +15,8 @@ pub struct ModeConstants {
     pub bounds: Bounds,
     pub palette: Palette,
     pub cloud: Cloud,
+    pub beaufort: Beaufort,
+    pub windsock: Windsock,
 }
 
 #[derive(Debug, Deserialize)]
@@ -106,14 +111,112 @@ pub struct Bounds {
 
 #[derive(Debug, Deserialize)]
 pub struct Palette {
-    pub ramp: Vec<String>,
-    pub cold: f64,
-    pub warm: f64,
-    pub minimum_span: f64,
-    pub overflow_step: f64,
-    pub overflow_steps: usize,
-    pub overflow_cold: String,
-    pub overflow_warm: String,
+    /// Vaste temperatuurschaal (U100) als (°C, rgb 0–1)-stops uit `FIXED_SCALE_STOPS`.
+    pub stops: Vec<(f64, [f64; 3])>,
+}
+
+/// Beaufortvlakken van de windfilm (U101), uit `wind-beaufort.ts`.
+#[derive(Debug, Deserialize)]
+pub struct Beaufort {
+    /// Ondergrens in m/s van Beaufort 1 t/m 12.
+    pub lower_ms: Vec<f64>,
+    pub colors: Vec<String>,
+    /// Quantisering van de continue Beaufortwaarde, zoals `beaufortFrame` in de app.
+    pub codes_per_force: f64,
+    pub fill_opacity: f64,
+    /// Dekking bouwt op van `clear_below` tot `full_at` Bft (`WIND_FILL`).
+    pub clear_below: f64,
+    pub full_at: f64,
+    /// Lijnkleur 's nachts: de vulkleur maal deze factor (`WIND_NIGHT_LINE_LIGHTEN`).
+    pub night_line_lighten: f64,
+}
+
+/// Windzakken van de windfilm (U101), uit `wind-glyph.ts` en `windsock-flow.ts`; maten in CSS-px.
+#[derive(Debug, Deserialize)]
+pub struct Windsock {
+    pub samples: usize,
+    pub bands: usize,
+    #[serde(rename = "maxLength")]
+    pub max_length: f64,
+    pub mouth: f64,
+    pub full_force: f64,
+    pub slack_length: f64,
+    pub slack_tail: f64,
+    pub full_tail_gain: f64,
+    pub slack_bend: f64,
+    pub style: WindsockStyle,
+    pub badge: WindsockBadge,
+    pub badge_at_mouth: bool,
+    pub stream_km: f64,
+    pub lag_minutes: f64,
+    pub max_bend: f64,
+    pub stream: bool,
+    pub lag: bool,
+    pub flutter: Flutter,
+    pub places: Vec<WindsockPlace>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WindsockStyle {
+    pub shadow: Shadow,
+    pub halo: Halo,
+    pub ink: f64,
+    pub hoop_half_width: f64,
+    pub mast: Mast,
+    pub orange: String,
+    pub white: String,
+    pub ink_color: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Shadow {
+    pub margin: f64,
+    pub offset_y: f64,
+    pub alpha: f64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Halo {
+    pub margin: f64,
+    pub light: f64,
+    pub dark: f64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Mast {
+    pub halo: f64,
+    pub ink: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WindsockBadge {
+    pub radius: f64,
+    pub gap: f64,
+    pub font_px: f64,
+    pub long_font_px: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Flutter {
+    pub start: f64,
+    pub amplitude: f64,
+    pub amplitude_per_force: f64,
+    pub max_amplitude: f64,
+    pub frequency: f64,
+    pub frequency_per_force: f64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct WindsockPlace {
+    pub lng: f64,
+    pub lat: f64,
+    pub phase: f64,
+    /// Naast de plaatsnaam, in CSS-px (`windsock-anchors.ts`).
+    pub offset: [f64; 2],
 }
 
 /// Wolkenkaart (U92), uit `cloud-map.ts`, `cloud-section.ts` en `isolines.ts`.
@@ -204,6 +307,16 @@ pub fn mode_constants() -> &'static ModeConstants {
         serde_json::from_str(include_str!("../assets/mode-constants.json"))
             .expect("generated mode constants")
     })
+}
+
+/// A pixel size tuned at scale 1.5, at the current element scale.
+pub fn element_px(pixels: f64) -> f64 {
+    pixels * mode_constants().element_scale
+}
+
+/// A text size in pixels tuned at scale 1.5, at the current element scale and rounded for the glyph cache.
+pub fn element_text(size: u32) -> u32 {
+    element_px(f64::from(size)).round() as u32
 }
 
 pub fn color(hex: &str) -> [u8; 3] {

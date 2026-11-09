@@ -4,6 +4,10 @@ import { nativeProjection } from './native-projection.js'
 import { FRAME, FRAME_PIXELS } from './config.js'
 import { WIND_PARAMETERS, WIND_FOCUS_INTENSITY, WIND_INITIAL_STAGGER_SECONDS, WIND_SIMULATION_FPS, windLifeScale, halfFloatTrailFloor, bufferDecay, windColor, windScreenSpeed, weakWindTempo, speedDamping, particleCountForViewport, headAlpha, expectedLifetime } from '../web/src/core/wind-presentation.js'
 import type { StillManifest } from './stills.js'
+import { WIND_THIN_PARTICLE_WIDTH } from '../web/src/core/wind-beaufort.js'
+
+/** Dunne deeltjes zoals in de windmodus van de app: de vlakken en windzakken dragen de waarde (U101). */
+const WIND_FILM_LINE_WIDTH = WIND_PARAMETERS.lineWidth * WIND_THIN_PARTICLE_WIDTH
 import type { NativeTheme, WaterMask } from './native-map.js'
 
 export function sampleWind(frame: RainFrame, column: number, row: number): number | undefined {
@@ -80,13 +84,13 @@ export class NativeWindData {
         return Math.max(0, opacity * coverage * strength * decay - floor * (1 - decay))
       }
       const tailX = headX - directionX * length, tailY = headY - directionY * length
-      drawStroke(rgb, FRAME_PIXELS, [tailX, tailY], [headX, headY], WIND_PARAMETERS.lineWidth * FRAME.scale, color, trailOpacity(travelled), coverage)
+      drawStroke(rgb, FRAME_PIXELS, [tailX, tailY], [headX, headY], WIND_FILM_LINE_WIDTH * FRAME.scale, color, trailOpacity(travelled), coverage)
       if (age >= duration) {
         const sinceRespawn = age % duration
         const previousLength = Math.min(lifeDistance, 3 * decayLength / FRAME.scale) * FRAME.scale
         const previousHeadX = screenX + directionX * lifeDistance * FRAME.scale / 2
         const previousHeadY = screenY + directionY * lifeDistance * FRAME.scale / 2
-        if (opacity * bufferDecay(WIND_PARAMETERS.bufferFade, sinceRespawn) >= 1 / 255) drawStroke(rgb, FRAME_PIXELS, [previousHeadX - directionX * previousLength, previousHeadY - directionY * previousLength], [previousHeadX, previousHeadY], WIND_PARAMETERS.lineWidth * FRAME.scale, color, trailOpacity(lifeDistance, sinceRespawn), coverage)
+        if (opacity * bufferDecay(WIND_PARAMETERS.bufferFade, sinceRespawn) >= 1 / 255) drawStroke(rgb, FRAME_PIXELS, [previousHeadX - directionX * previousLength, previousHeadY - directionY * previousLength], [previousHeadX, previousHeadY], WIND_FILM_LINE_WIDTH * FRAME.scale, color, trailOpacity(lifeDistance, sinceRespawn), coverage)
       }
     }
     return rgb

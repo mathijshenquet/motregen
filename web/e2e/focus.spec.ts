@@ -113,8 +113,8 @@ test('hovering the wind column brings the damped wind to full strength and dims 
   await windHeading(page).hover()
   await expect.poll(async () => Number(await shell(page).getAttribute('data-wind-focus'))).toBeGreaterThan(0)
   await expect(shell(page)).toHaveAttribute('data-wind-focus', '1.00')
-  // Overdag treedt de regen in Wind gedempt terug, op dekking 0,7 en zonder vermenigvuldigen (PO 2026-10-11, U77).
-  await expect(shell(page)).toHaveAttribute('data-rain-opacity', '0.70')
+  // Geen regen op de kaart in Wind (PO 2026-11-09, U101 ronde 3).
+  await expect(shell(page)).toHaveAttribute('data-rain-opacity', '0.00')
   await expect(shell(page)).toHaveAttribute('data-rain-blend', 'normal')
   expect(await windIntensity(page)).toBeCloseTo(0.8, 1)
   expect(await shell(page).getAttribute('data-focus')).toBe('0.00')
@@ -236,7 +236,8 @@ test('temperature focus desaturates only the basemap canvas and fills the bands,
   await expect(shell(page)).toHaveAttribute('data-focus', '0.00')
   // data-focus rondt af; de tween loopt nog een paar frames door.
   await expect.poll(() => saturation(page)).toBe(1)
-  expect(await page.locator('.maplibregl-canvas').evaluate((canvas) => getComputedStyle(canvas).filter)).toBe('none')
+  // --map-saturation is op drie decimalen afgerond: de klasse kan nog een frame langer staan dan "1.000".
+  await expect.poll(() => page.locator('.maplibregl-canvas').evaluate((canvas) => getComputedStyle(canvas).filter)).toBe('none')
   await expect.poll(() => fillCoverage(page)).toBe(0)
 })
 

@@ -16,6 +16,8 @@ import { cloudMapFragment, cloudFlowFragment } from './cloud-map-shader'
 export interface IsolineStyle {
   cloudMap?: CloudMapStyle
   step: number
+  /** Lijnen op k·step + offset (U100-proef: 0,5 °C, zodat elk vlak één heel getal is); standaard 0. */
+  offset?: number
   color: [number, number, number]
   /** Dekking van de bandvulling tussen de lijnen (0 = geen vulling). */
   fill: number
@@ -52,6 +54,7 @@ uniform vec2 u_grid_size;
 uniform float u_depth;
 uniform float u_time;
 uniform float u_step;
+uniform float u_offset;
 in vec2 v_uv;
 out vec4 color;
 
@@ -112,18 +115,18 @@ vec3 palette(float temperature) {
 }
 
 vec3 band(float index) {
-  return palette((index + 0.5) * u_step);
+  return palette((index + 0.5) * u_step + u_offset);
 }
 
 void main() {
   vec2 field = sampleField(v_uv, u_time).rg;
-  float s = field.r / u_step;
+  float s = (field.r - u_offset) / u_step;
   float level = floor(s + 0.5);
   float offset = s - level;
   float fade = 1.0;
   if (u_has_ring > 0.5) {
     float ringLevel = texelFetch(u_ring, min(ivec2(v_uv * u_grid_size), ivec2(u_grid_size) - 1), 0).r;
-    if (abs(ringLevel - level * u_step) < 0.01) fade *= texture(u_ring, v_uv).g;
+    if (abs(ringLevel - (level * u_step + u_offset)) < 0.01) fade *= texture(u_ring, v_uv).g;
   }
   float width = 1.0 - clamp(fade, 0.0, 1.0);
   float upper = width <= 0.0 ? step(0.0, offset) : clamp(0.5 + offset / width, 0.0, 1.0);
@@ -591,7 +594,7 @@ export class IsolineLayer implements CustomLayerInterface {
   private traceRequest(zoom: number, time: number): TraceRequest {
     const pxPerCell = Math.abs(this.grid.dx) / (2 * Math.PI * 6378137) * 512 * 2 ** zoom
     const toleranceCells = 2 ** Math.round(Math.log2(ISOLINE_TOLERANCE_PX / pxPerCell))
-    return { time, window: ISOLINE_WINDOW, step: this.style.step, toleranceCells, ringKm: ISOLINE_RING_KM }
+    return { time, window: ISOLINE_WINDOW, step: this.style.step, offset: this.style.offset ?? 0, toleranceCells, ringKm: ISOLINE_RING_KM }
   }
 
   private traced(result: TraceResult | undefined): void {
@@ -833,6 +836,7 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.uniform1f(uniform('u_depth'), this.depth)
     gl.uniform1f(uniform('u_time'), time)
     gl.uniform1f(uniform('u_step'), this.style.step)
+    gl.uniform1f(uniform('u_offset'), this.style.offset ?? 0)
     gl.activeTexture(gl.TEXTURE0)
     gl.bindTexture(gl.TEXTURE_3D, this.volume!)
     gl.uniform1i(uniform('u_field'), 0)

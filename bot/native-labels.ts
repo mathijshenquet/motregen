@@ -5,6 +5,7 @@ import { selectTemperaturePlaces, temperatureLabelSpacingPx, temperatureLayer, t
 import type { NativeTheme } from './native-map.js'
 import { NATIVE_VIEW } from './native-view.js'
 import { FRAME, FRAME_PIXELS } from './config.js'
+import { frameScreenshot } from './frame-capture.js'
 import type { RainFrame } from './native-rain.js'
 
 export interface LabelPatch { pixels: number[]; colors: string }
@@ -29,7 +30,7 @@ export async function captureLabelAtlas(page: Page, theme: NativeTheme, base: Bu
       source.setData({ type: 'FeatureCollection', features: places.map((place, rank) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [place.lng, place.lat] }, properties: { name: place.name, rank, label: `${value}°` } })) })
       await new Promise<void>((resolve) => map.once('idle', () => resolve()))
     }, { value, places })
-    const screenshot = await sharp(await page.screenshot()).removeAlpha().raw().toBuffer()
+    const screenshot = await sharp(await frameScreenshot(await page.screenshot())).removeAlpha().raw().toBuffer()
     const patches = points.map((point) => ({ point, pixels: [] as number[], colors: [] as number[] }))
     for (let offset = 0; offset < base.length; offset += 3) {
       if (screenshot[offset] === base[offset] && screenshot[offset + 1] === base[offset + 1] && screenshot[offset + 2] === base[offset + 2]) continue

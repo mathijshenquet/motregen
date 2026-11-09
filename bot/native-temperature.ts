@@ -1,29 +1,46 @@
 import type { Grid } from '../web/src/core/contract.js'
 import { frameBlend, timelineCoverage } from '../web/src/core/time-model.js'
-import { blendFrames, blurField, fieldRangeInView, isolineBlurPasses, isolineFrameWeights, adaptiveIsobarStep, ISOBAR_STEP_HPA, ISOLINE_EDGE_FADE_MS, ISOLINE_RING_KM, ISOLINE_TOLERANCE_PX, ISOLINE_WINDOW, isolineFeatures, type IsolineFeatureCollection } from '../web/src/core/isolines.js'
+import { blendFrames, blurField, isolineBlurPasses, isolineFrameWeights, ISOLINE_EDGE_FADE_MS, ISOLINE_RING_KM, ISOLINE_WINDOW, isolineFeatures, type IsolineFeatureCollection } from '../web/src/core/isolines.js'
 import { prepareField, type PreparedField } from '../web/src/core/isoline-field.js'
 import { sliceWeights, type FieldSlice } from '../web/src/core/isoline-spline.js'
 import { blendSlice, buildSegments, traceContours, shortRings, ringFadeRaster, type Contour, type ShortRing } from '../web/src/core/isoline-contours.js'
-import { paletteRange, paletteStops, bandColor, referenceRange, type PaletteRange } from '../web/src/core/temperature-palette.js'
-import { NETHERLANDS_FLANDERS_BOUNDS } from '../web/src/core/map-frame.js'
-import { NativeRainData } from './native-rain.js'
+import { bandColor, FIXED_SCALE_STOPS } from '../web/src/core/temperature-palette.js'
+import { NativeRainData, type RainFrame } from './native-rain.js'
+import { beaufortFrame, BEAUFORT_COLORS } from '../web/src/core/wind-beaufort.js'
 import { FRAME } from './config.js'
+import { isolineTolerancePx } from './native-view.js'
 import { nativeProjection } from './native-projection.js'
 import type { StillManifest } from './stills.js'
 
-export interface TemperatureSlice { grid: Grid; field: PreparedField; labelSlice?: FieldSlice; segments: Float32Array; contours: Contour[]; rings?: Float32Array; colors: Float32Array; opacity: number; kind: 'temperature' | 'pressure'; step: number; labelLines?: IsolineFeatureCollection; labelKey?: string }
-export type RasterSlice = Pick<TemperatureSlice, 'grid' | 'segments' | 'opacity'> & ({ kind: 'pressure' } | { kind: 'temperature'; field: PreparedField; rings?: Float32Array; colors: Float32Array })
+/** Gevoelstemperatuur, of de Beaufortvlakken van de windmodus (U101): de continue Bft uit u en v, zoals in de app. */
+export type NativeFieldKind = 'temperature' | 'wind'
+export interface TemperatureSlice { grid: Grid; field: PreparedField; labelSlice?: FieldSlice; segments: Float32Array; contours: Contour[]; rings?: Float32Array; colors: Float32Array; opacity: number; kind: NativeFieldKind; step: number; labelLines?: IsolineFeatureCollection; labelKey?: string }
+export type RasterSlice = Pick<TemperatureSlice, 'grid' | 'segments' | 'opacity'> & { kind: NativeFieldKind; field: PreparedField; rings?: Float32Array; colors: Float32Array }
 export type RasterGeometry = Pick<TemperatureSlice, 'grid' | 'segments' | 'opacity' | 'kind'> & { rings: ShortRing[] }
 
 export class NativeTemperatureData {
   readonly data: NativeRainData
   private readonly prepared = new Map<number, Promise<PreparedField>>()
   private colors?: Float32Array
-  private step = 1
+  private readonly step = 1
   private readonly labelLines = new Map<string, IsolineFeatureCollection>()
-  constructor(origin: string, private readonly manifest: StillManifest, private readonly kind: 'temperature' | 'pressure' = 'temperature') {
-    this.data = new NativeRainData(origin, manifest, kind === 'pressure' ? 'pressure_hpa' : 'feels_like_c')
-    this.step = kind === 'pressure' ? ISOBAR_STEP_HPA : 1
+  /** Alleen bij `wind`: de noordcomponent; `data` is dan de oostcomponent en geeft de tijdlijn. */
+  private readonly northward?: NativeRainData
+  constructor(origin: string, manifest: StillManifest, private readonly kind: NativeFieldKind = 'temperature') {
+    this.data = new NativeRainData(origin, manifest, kind === 'wind' ? 'wind_u_ms' : 'feels_like_c')
+    if (kind === 'wind') this.northward = new NativeRainData(origin, manifest, 'wind_v_ms')
+  }
+
+  /** Het uurframe op een exact uur als codes met hun quantisering (wind: Beaufort uit u en v). */
+  private async hourFrame(epoch: number): Promise<{ grid: Grid; data: Uint8Array; quant: Array<number | null> }> {
+    const exact = (frame: RainFrame) => frame.mix === 1 ? { data: frame.right, header: frame.rightHeader } : { data: frame.left, header: frame.leftHeader }
+    const eastward = await this.data.frame(epoch)
+    if (!this.northward) {
+      const { data, header } = exact(eastward)
+      return { grid: eastward.grid, data, quant: header.quant }
+    }
+    const east = exact(eastward), north = exact(await this.northward.frame(epoch))
+    return { grid: eastward.grid, ...beaufortFrame(east.data, north.data, east.header, north.header) }
   }
 
   field(index: number): Promise<PreparedField> {
@@ -31,9 +48,9 @@ export class NativeTemperatureData {
     if (!pending) {
       pending = (async () => {
         const weights = isolineFrameWeights(index, this.data.timeline.length, this.kind)
-        const frames = await Promise.all(weights.map(({ index }) => this.data.frame(this.data.timeline[index]!.epoch)))
+        const frames = await Promise.all(weights.map(({ index }) => this.hourFrame(this.data.timeline[index]!.epoch)))
         const grid = frames[0]!.grid
-        return prepareField(blurField(blendFrames(frames.map((frame, position) => ({ data: frame.mix === 1 ? frame.right : frame.left, quant: (frame.mix === 1 ? frame.rightHeader : frame.leftHeader).quant, weight: weights[position]!.weight })), grid.width, grid.height), isolineBlurPasses(this.kind)))
+        return prepareField(blurField(blendFrames(frames.map((frame, position) => ({ data: frame.data, quant: frame.quant, weight: weights[position]!.weight })), grid.width, grid.height), isolineBlurPasses(this.kind)))
       })()
       void pending.catch(() => this.prepared.delete(index))
     }
@@ -43,31 +60,20 @@ export class NativeTemperatureData {
     return pending
   }
 
+  /** De vaste schaal (U100), gelijk aan de standaard van de app; bij wind de Beaufortkleuren. */
   async prepare(): Promise<void> {
-    if (this.kind === 'pressure') { this.colors = new Float32Array(256 * 3); return }
-    const reference = referenceRange(this.manifest.feels_reference)
-    if (reference) { this.setColors(reference); return }
-    let min = Infinity, max = -Infinity
-    const now = Date.parse(this.manifest.now)
-    const horizon = now + 18 * 3600_000
-    for (const entry of this.data.timeline.filter((entry) => entry.epoch >= Math.floor(now / 3600_000) * 3600_000 && entry.epoch <= horizon)) {
-      const frame = await this.data.frame(entry.epoch)
-      const values = Float32Array.from(frame.mix === 1 ? frame.right : frame.left, (code) => (frame.mix === 1 ? frame.rightHeader : frame.leftHeader).quant[code] ?? NaN)
-      const valid = Float32Array.from(values, (value) => Number.isNaN(value) ? 0 : 1)
-      const range = fieldRangeInView(values, valid, frame.grid, NETHERLANDS_FLANDERS_BOUNDS)
-      if (range) { min = Math.min(min, range[0]); max = Math.max(max, range[1]) }
+    if (this.kind === 'wind') {
+      // Band k (tussen de lijnen k en k+1) is Beaufortklasse k, zoals beaufortPalette in de app.
+      this.colors = Float32Array.from({ length: 256 * 3 }, (_, index) => {
+        const force = Math.max(0, Math.min(BEAUFORT_COLORS.length - 1, Math.floor(index / 3) - 128))
+        return Number.parseInt(BEAUFORT_COLORS[force]!.slice(1 + (index % 3) * 2, 3 + (index % 3) * 2), 16) / 255
+      })
+      return
     }
-    const range = paletteRange(min, max)
-    if (!range) throw new Error('Temperatuurpalet heeft geen geldig bereik')
-    this.setColors(range)
+    this.colors = Float32Array.from({ length: 256 * 3 }, (_, index) => bandColor(Math.floor(index / 3) - 128, 1, FIXED_SCALE_STOPS)[index % 3]!)
   }
 
-  private setColors(range: PaletteRange): void {
-    const stops = paletteStops(range)
-    this.colors = Float32Array.from({ length: 256 * 3 }, (_, index) => bandColor(Math.floor(index / 3) - 128, 1, stops)[index % 3]!)
-  }
-
-  clear(): void { this.prepared.clear(); this.labelLines.clear(); this.data.clear() }
+  clear(): void { this.prepared.clear(); this.labelLines.clear(); this.data.clear(); this.northward?.clear() }
 
   private async blendedField(epoch: number) {
     const blend = frameBlend(this.data.timeline, epoch)
@@ -79,22 +85,17 @@ export class NativeTemperatureData {
   }
 
   async rasterSlice(epoch: number, geometry: RasterGeometry): Promise<RasterSlice> {
-    if (geometry.kind === 'pressure') return { kind: 'pressure', grid: geometry.grid, segments: geometry.segments, opacity: geometry.opacity }
     const { field } = await this.blendedField(epoch)
-    return { ...geometry, kind: 'temperature', field, rings: ringFadeRaster(geometry.rings, geometry.grid.width, geometry.grid.height), colors: this.colors! }
+    const rings = geometry.kind === 'temperature' ? ringFadeRaster(geometry.rings, geometry.grid.width, geometry.grid.height) : undefined
+    return { ...geometry, field, rings, colors: this.colors! }
   }
 
   async slice(epoch: number, options: { rasterizeRings?: boolean } = {}): Promise<TemperatureSlice> {
     const { blend, weights, fields, field, grid } = await this.blendedField(epoch)
     const projection = nativeProjection(grid)
-    if (this.kind === 'pressure') {
-      const nearest = await this.field(Math.round(blend.left + blend.mix))
-      const range = fieldRangeInView(nearest.values, nearest.valid, grid, projection.bounds)
-      if (range) this.step = adaptiveIsobarStep(range[0], range[1], this.step)
-    }
-    const toleranceCells = 2 ** Math.round(Math.log2(ISOLINE_TOLERANCE_PX * projection.cellsPerPixel * FRAME.scale))
+    const toleranceCells = 2 ** Math.round(Math.log2(isolineTolerancePx() * projection.cellsPerPixel * FRAME.scale))
     const contours = traceContours(field, grid, { step: this.step, toleranceCells })
-    const segments = buildSegments(contours, { ringKm: this.kind === 'pressure' ? 0 : ISOLINE_RING_KM }).data
+    const segments = buildSegments(contours, { ringKm: this.kind === 'wind' ? 0 : ISOLINE_RING_KM }).data
     for (let offset = 0; offset < segments.length; offset += 6) {
       const start = projection.point(segments[offset]!, segments[offset + 1]!)
       const end = projection.point(segments[offset + 2]!, segments[offset + 3]!)
@@ -103,7 +104,8 @@ export class NativeTemperatureData {
     const labelIndex = blend.mix < 0.5 ? blend.left : blend.right
     const labelKey = `${labelIndex}:${this.step}`
     let labelLines = this.labelLines.get(labelKey)
-    if (!labelLines) {
+    // De Bft-grenzen dragen geen label: de vlakken en de windzakken geven de waarde (zoals in de app).
+    if (!labelLines && this.kind !== 'wind') {
       const labelField = await this.field(labelIndex)
       const values = Float32Array.from(labelField.values, (value, index) => labelField.valid[index]! > 0.5 ? value : NaN)
       labelLines = isolineFeatures({ width: grid.width, height: grid.height, values }, grid, this.step, ISOLINE_RING_KM, this.kind)

@@ -1,6 +1,7 @@
 import { For, onMount } from 'solid-js'
 import { Dynamic } from 'solid-js/web'
 import { brand } from '../core/active-brand'
+import { TEMPERATURE_SCALES, type TemperatureScale } from '../core/temperature-palette'
 import { WIND_UNITS, type WindUnit } from '../core/weather'
 import { BUTTON_ICON, INLINE_ICON, Moon, Palette, Share2, Sun, SunMoon, X } from './icons'
 import { backdropHandlers } from './modal'
@@ -14,6 +15,7 @@ const THEME_CHOICES: Record<ThemeChoice, { icon: typeof Sun; label: string }> = 
   dark: { icon: Moon, label: 'Donker' },
 }
 const WIND_UNIT_CHOICES: Record<WindUnit, string> = { bft: 'Bft', kn: 'knopen', kmh: 'km/u', ms: 'm/s' }
+const TEMPERATURE_SCALE_CHOICES: Record<TemperatureScale, string> = { vast: 'Vast', relatief: 'Relatief' }
 interface Props extends Omit<AboutProps, 'onTripleTap' | 'sourcePrefix'> {
   onClose: () => void
 }
@@ -58,6 +60,16 @@ export default function AboutDialog(props: Props) {
             <span><b>Expressief</b><small>Hemel in de grafiek, dag en nacht in de tabel</small></span>
             <i aria-hidden="true">{props.expressive === false ? 'Uit' : 'Aan'}</i>
           </button>
+        </section>
+        <section class="about-settings" aria-labelledby="about-preferences-title">
+          <h3 id="about-preferences-title">Instellingen</h3>
+          <p class="about-setting-label" id="about-scale-label">Kleurschaal gevoelstemperatuur</p>
+          <div class="segmented about-theme" role="group" aria-labelledby="about-scale-label">
+            <For each={TEMPERATURE_SCALES}>{(scale) => <button type="button" classList={{ active: props.temperatureScale === scale }} aria-pressed={props.temperatureScale === scale} onClick={() => props.onTemperatureScale(scale)}>
+              {TEMPERATURE_SCALE_CHOICES[scale]}
+            </button>}</For>
+          </div>
+          <p class="about-setting-hint">{props.temperatureScale === 'vast' ? 'Elke temperatuur altijd dezelfde kleur.' : 'Kleuren gerekt over het bereik van gisteren.'}</p>
         </section>
         <header>
           <img src="/droplet.svg" alt="" />
