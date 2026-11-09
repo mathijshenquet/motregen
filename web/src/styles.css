@@ -172,6 +172,18 @@ button { color: inherit; cursor: pointer; }
 .rain-isoline-legend span { display: inline-flex; align-items: center; gap: 4px; }
 .rain-isoline-legend i { display: inline-block; width: 12px; height: 9px; border-left: 2px solid; border-radius: 1px; }
 .rain-isoline-legend small { color: var(--muted); font-size: 11px; }
+/* Windmodus-proef (U101): vlakke Bft-vakjes zonder lijnrand. */
+.wind-legend i { border-left: 0; width: 13px; }
+
+/* Vaantje: donkere schijf met het Bft-getal, pijl naar waar de wind heen waait; witte rand voor elke ondergrond. */
+.wind-vane { pointer-events: none; transition: opacity .2s linear; }
+.wind-vane svg { position: absolute; inset: 0; overflow: visible; }
+.wind-vane-arrow { fill: #17242b; stroke: #fff; stroke-width: 1.5px; paint-order: stroke; stroke-linejoin: round; }
+.wind-vane-disc {
+  position: absolute; display: flex; align-items: center; justify-content: center; box-sizing: border-box;
+  border: 1.5px solid #fff; border-radius: 50%; background: #17242b; color: #fff;
+  font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; box-shadow: 0 1px 2px rgb(0 0 0 / .25);
+}
 
 .uv-chip {
   --uv-color: var(--uv-moderate);
