@@ -83,3 +83,17 @@ describe('perf-modes-report', () => {
     expect(summary).toContain('1 / 10 ms / 60 ms')
   })
 })
+
+describe('splitUntil', () => {
+  it('telt elke milliseconde één keer: decode vóór overige CPU vóór wachten', async () => {
+    const { splitUntil } = await import('./perf-trace-split')
+    const split = splitUntil(100,
+      [{ startMs: 0, endMs: 20, cpuMs: 10, source: 'rtcor' }, { startMs: 10, endMs: 20, cpuMs: 10, source: 'harmonie' }],
+      [{ startMs: 15, endMs: 40, cpuMs: 25 }], [],
+      [{ requestedMs: 50, bytesReadyMs: 60, decodeStartMs: 70, decodedMs: 80 }])
+    expect(split.decodeWallMs).toEqual({ rtcor: 15, harmonie: 5 })
+    expect(split.otherWallMs).toBe(20)
+    expect(split.waitMs).toEqual({ wachtrij: 10, netwerk: 10, 'niet gevraagd': 10, idle: 30 })
+    expect(split.decodeCpuMs.rtcor).toBe(10)
+  })
+})

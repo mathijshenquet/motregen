@@ -39,6 +39,20 @@ export function mapFrames(manifest: Manifest, mode: MapMode, epoch = Date.parse(
   })
 }
 
+/**
+ * Wat de kaart zelf rond "nu" decodeert: het framepaar en de buffer die showFrame (App.tsx) voor het afspelen
+ * vooruithaalt, twee frames terug tot drie vooruit.
+ */
+export function mapBufferFrames(manifest: Manifest, mode: MapMode, epoch = Date.parse(manifest.now)): WantedFrame[] {
+  return MAP_FIELDS[mode].flatMap((field) => {
+    const timeline = buildTimeline(manifest, field)
+    const right = timeline.findIndex((frame) => frame.epoch >= epoch)
+    const upper = right < 0 ? timeline.length - 1 : right
+    const lower = right <= 0 || timeline[right]!.epoch === epoch ? upper : right - 1
+    return timeline.slice(Math.max(0, lower - 2), upper + 4).map((frame) => ({ url: frame.chunk.url, frameIndex: frame.frameIndex, field, epoch: frame.epoch }))
+  })
+}
+
 export type DataSource = 'manifest' | 'rtcor' | 'nowcast' | 'seamless' | 'harmonie' | 'icon_d2' | 'ecmwf' | 'uv' | 'basemap' | 'plaatsen' | 'app' | 'overig'
 export const DATA_SOURCES: readonly DataSource[] = ['manifest', 'rtcor', 'nowcast', 'seamless', 'harmonie', 'icon_d2', 'ecmwf', 'uv', 'basemap', 'plaatsen', 'app', 'overig']
 

@@ -61,9 +61,12 @@ Per bron, telefoon 4G koud Weer, in de laadfase: RTCOR 570 kB, nowcast 272 kB, s
 
 Wat de wachttijd veroorzaakt:
 
-1. **Op de telefoon is het werk het decoderen, niet het netwerk.** Een warme start draagt 0 B over en heeft het
-   histogram toch pas na 7,5–11 s, nauwelijks sneller dan koud (7,6–11,3 s). Elke puntwaarde kost het decoderen van
-   een heel raster: in Weer ruim honderd regenframes van 1.250 × 1.350 cellen.
+1. **Op de telefoon is het rekenwerk, niet het netwerk; het histogram staat in de decodewachtrij.** Een warme
+   start draagt 0 B over en heeft het histogram toch pas na 7,5–11 s, nauwelijks sneller dan koud (7,6–11,3 s).
+   Elke puntwaarde kost het decoderen van een heel raster: in Weer ruim honderd regenframes van 1.250 × 1.350
+   cellen. Een schone tracemeting (hieronder) laat zien dat de renderer de hele tijd aan zijn CPU-quota zit, met
+   mrf-decode als 16–20 % daarvan. Het laatste histogramframe wacht 5,7–6,0 s op een worker, achter ruim 140 andere
+   decodes.
 2. **Koud gaat er 2,4–2,7 MB over de lijn vóór het histogram compleet is**, bijna allemaal rasters waarvan één cel
    wordt gelezen. Op 9 Mbps is dat alleen al 2,1–2,4 s.
 3. **Op desktop missen Gevoel en Wind 30 s lang het verleden.** De uurvelden van de afgelopen uren (bij openen om
@@ -73,6 +76,45 @@ Wat de wachttijd veroorzaakt:
    deze MIP.
 4. **De DWD-data (ICON-D2) is niet de rem.** De directe straling voor de zon in Lucht is op de telefoon na 3,2 s
    binnen, HARMONIE pas na 12,1 s. Het histogram wacht op alles samen, niet op één bron als laatste.
+
+### Warm op de telefoon: waar de 8 s heen gaan
+
+Eén schone meting (2026-11-09 13:32, loadavg 0,80 vóór de start, 2,3–4,6 tijdens de meting zelf, 32 cores),
+telefoonprofiel, warm, 1 run per modus, met Chrome performance trace. Percentages van het renderer-CPU-budget
+(quota 40 % × de tijd tot histogram compleet). Details en reproductie: `docs/perf/u102/warm-telefoon-2026-11-09.md`.
+
+| | Weer | Gevoel |
+| --- | ---: | ---: |
+| histogram compleet, warm (0 B over de lijn) | 7.988 ms | 7.848 ms |
+| renderer-CPU-budget: 40 % quota × die tijd | 3.195 ms | 3.139 ms |
+| **gebruikt door de renderer** | **3.092 ms (97 %)** | **3.031 ms (97 %)** |
+| (a) mrf-decode RTCOR | 150 ms (5 %) | 141 ms (4 %) |
+| (a) mrf-decode nowcast | 115 ms (4 %) | 79 ms (3 %) |
+| (a) mrf-decode seamless | 56 ms (2 %) | 143 ms (5 %) |
+| (a) mrf-decode HARMONIE | 164 ms (5 %) | 210 ms (7 %) |
+| (a) mrf-decode overig (beweging, UV, wolken) | 9 ms (0 %) | 28 ms (1 %) |
+| (b) hoofddraad | 1.114 ms (35 %) | 877 ms (28 %) |
+| (b) thread-pool: V8 (JIT-compilatie, GC), scriptstreaming, raster | 999 ms (31 %) | 1.306 ms (42 %) |
+| (b) compositor en overige renderer-draden | 397 ms (12 %) | 93 ms (3 %) |
+| (b) andere workers (kaart, isolijnen) | 89 ms (3 %) | 154 ms (5 %) |
+| (c) budget ongebruikt | 104 ms (3 %) | 108 ms (3 %) |
+| (c) wandklok zonder enige lopende taak: wachtrij U52 / niet gevraagd (U49, laagtimers) / netwerk / idle | 4 / 8 / 0 / 0 ms | 4 / 24 / 0 / 0 ms |
+| laatste histogramframe: bytes binnen → op een worker → klaar | 2.004 → 7.972 → 7.988 ms (RTCOR) | 2.143 → 7.824 → 7.848 ms (HARMONIE) |
+| gemiddelde tijd van een histogramframe in de decodewachtrij | 3.898 ms | 2.954 ms |
+| decodes vóór histogram compleet | 139 frames, 493 ms CPU | 144 frames, 601 ms CPU |
+| … die de kaart in de eerste 10 s ook nodig had | 9 frames, 206 ms | 10 frames, 192 ms |
+| … alleen voor het histogram | 72 frames, 248 ms | 11 frames, 34 ms |
+| … voor tabel en andere lagen | 58 frames, 30 ms | 123 frames, 347 ms |
+| histogramframes die de kaart ook nodig had | 6 van 78 | 7 van 18 |
+
+- **Mrf-decode is 16–20 % van het werk**, de hoofddraad 28–35 % en V8 op de thread-pool 31–42 %. Dat laatste is
+  voor meer dan 80 % niet nader benoemd in de trace; waarschijnlijk JIT-compilatie.
+- **Het histogram wacht in de wachtrij van U52**: zijn laatste frame is na ≈ 2 s binnen en staat 5,7–6,0 s achter
+  andere decodes, die door de volle quota elk veel langer duren dan hun CPU-tijd. Het decoderen zelf kost
+  16–24 ms. Stilstand zonder lopende taak: < 30 ms.
+- **Voor deze MIP**: een regiobestand haalt het histogram uit die wachtrij, en ook de 72 (Weer) en 123 (Gevoel)
+  decodes die alleen voor histogram, tabel en andere lagen zijn. Hoe snel het histogram dan staat, hangt af van de
+  hoofddraad, die nog steeds vol zit met de kaart; dat is niet gemeten.
 
 ## 2. Regiogrootte
 

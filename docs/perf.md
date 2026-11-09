@@ -701,6 +701,11 @@ Uitvoer: per bezoek een JSON (inclusief alle requests van de laadfase) en `summa
 vergelijken (modus tegen modus, voor tegen na), niet met een echte telefoon-GPU. De perf-lock wacht tot de
 loadavg ≤ 8 is; de loadavg tijdens de runs staat in de samenvatting.
 
+Met `--trace` krijgt elk warm bezoek een Chrome performance trace (naast het rapport, als `.trace`) en `?perf`.
+`pnpm exec tsx scripts/perf-trace-split.ts [--quota 0.4] <rapport.json>...` splitst dan de tijd tot het histogram
+compleet is in mrf-decode-CPU per bron, overige renderer-CPU en wachten, tegen het CPU-budget van de quota. Het
+script toont ook welke decodes de kaart zelf nodig had. Voorbeeld: `docs/perf/u102/warm-telefoon-2026-11-09.md`.
+
 ## Mobiele laadrig
 
 U53 begint met de echte PO-opnames van 2026-10-07. De kleine, gehashte

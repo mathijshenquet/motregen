@@ -3,7 +3,7 @@ import { loadavg } from 'node:os'
 import { join } from 'node:path'
 import { chromium, devices, test, type Browser, type BrowserContext, type CDPSession, type Page } from '@playwright/test'
 import type { Manifest } from '../src/core/contract'
-import type { LoadTraceSnapshot, PerfSnapshot } from '../src/core/perf'
+import type { LoadTraceSnapshot, PerfSnapshot, PerfTraceSlice } from '../src/core/perf'
 import {
   framesCompleteMs, histogramFrames, longFramesIn, mapFrames, MODE_BUTTONS, totalsBySource,
   type LongFrame, type MapMode, type NetworkEntry, type PhaseWindow, type VisitReport,
@@ -12,7 +12,7 @@ import {
 // U102 fase 1 (C7): kaartmodi × profielen op live data. Start via `pnpm perf:modes` (scripts/perf-modes.ts),
 // die de opties in MOTREGEN_PERF_MODES_OPTIONS zet en de perf-lock neemt.
 
-interface SuiteOptions { origin: string; modes: MapMode[]; profiles: ProfileId[]; repeat: number; outputDirectory: string; interactions: boolean }
+interface SuiteOptions { origin: string; modes: MapMode[]; profiles: ProfileId[]; repeat: number; outputDirectory: string; interactions: boolean; trace: boolean }
 type ProfileId = 'telefoon' | 'desktop'
 
 const options = JSON.parse(process.env.MOTREGEN_PERF_MODES_OPTIONS ?? '{}') as SuiteOptions
@@ -67,8 +67,11 @@ for (const profileId of options.profiles ?? []) {
             await context.route('**/hit', (route) => route.abort())
           }
           for (const visit of ['koud', 'warm'] as const) {
-            const report = await measureVisit(context, profileId, profile, mode, visit, run)
             const name = `${profileId}-${visit}-${mode}-run${run}`
+            // Met --trace krijgt het warme bezoek een Chrome-trace en `?perf` (decodefasen per frame), voor
+            // scripts/perf-trace-split.ts; het koude bezoek vult alleen de cache.
+            const tracePath = options.trace && visit === 'warm' ? join(options.outputDirectory, `${name}.trace`) : undefined
+            const report = await measureVisit(browser, context, profileId, profile, mode, visit, run, tracePath)
             mkdirSync(options.outputDirectory, { recursive: true })
             writeFileSync(join(options.outputDirectory, `${name}.json`), `${JSON.stringify(report, null, 2)}\n`)
             const shown = (ms: number | null) => ms === null ? '—' : `${Math.round(ms)} ms`
@@ -83,8 +86,9 @@ for (const profileId of options.profiles ?? []) {
   }
 }
 
-async function measureVisit(context: BrowserContext, profileId: ProfileId, profile: SuiteProfile, mode: MapMode, visit: 'koud' | 'warm', run: number): Promise<VisitReport> {
+async function measureVisit(browser: Browser, context: BrowserContext, profileId: ProfileId, profile: SuiteProfile, mode: MapMode, visit: 'koud' | 'warm', run: number, tracePath?: string): Promise<VisitReport & { traced?: TracedVisit }> {
   const page = await context.newPage()
+  if (tracePath) await browser.startTracing(page, { path: tracePath, categories: TRACE_CATEGORIES })
   const cdp = await context.newCDPSession(page)
   const network = await recordNetwork(cdp)
   if (profile.network) {
@@ -99,7 +103,7 @@ async function measureVisit(context: BrowserContext, profileId: ProfileId, profi
   })
   const capturedAt = new Date().toISOString()
   const loadAverage = Math.round(loadavg()[0]! * 100) / 100
-  await page.goto(new URL(`/?modus=${mode}`, options.origin).href, { waitUntil: 'commit' })
+  await page.goto(new URL(`/?modus=${mode}${tracePath ? '&perf' : ''}`, options.origin).href, { waitUntil: 'commit' })
 
   let state = await readState(page)
   let histogram: ReturnType<typeof framesCompleteMs> = { completeMs: null, missing: [] }
@@ -125,6 +129,17 @@ async function measureVisit(context: BrowserContext, profileId: ProfileId, profi
     if (settled && quiet) break
   }
   const settledMs = state.now
+  let traced: TracedVisit | undefined
+  if (tracePath && manifest) {
+    // Het merkteken legt de paginaklok vast op de traceklok (ts van dezelfde mark in de trace).
+    const page_ = await page.evaluate(() => {
+      const mark = performance.mark('u102-trace-sync')
+      const monitor = (window as typeof window & { __motregenPerf?: { traceSlice: () => PerfTraceSlice } }).__motregenPerf
+      return { syncMs: mark.startTime, measures: monitor?.traceSlice().measures ?? [] }
+    })
+    await browser.stopTracing()
+    traced = { manifest, loadTrace: state.trace, syncMs: page_.syncMs, decodes: page_.measures.filter((measure) => measure.phase === 'frame-decode') }
+  }
   const revealed = state.snapshot?.mapRevealedMs ?? null
   const firstMapMs = revealed === null || map.completeMs === null ? null : Math.max(revealed, map.completeMs)
   const entries = network.entries(state.timeOrigin)
@@ -141,8 +156,13 @@ async function measureVisit(context: BrowserContext, profileId: ProfileId, profi
     untilSettled: totalsBySource(entries, settledMs),
     longFrames: Object.fromEntries(phases.map((phase) => [phase.name, longFramesIn(longFrames, phase)])),
     network: entries.filter((entry) => entry.startMs <= settledMs),
+    ...(traced ? { traced } : {}),
   }
 }
+
+export interface TracedVisit { manifest: Manifest; loadTrace: LoadTraceSnapshot | null; syncMs: number; decodes: PerfTraceSlice['measures'] }
+
+const TRACE_CATEGORIES = ['toplevel', 'devtools.timeline', 'disabled-by-default-devtools.timeline', 'v8.execute', 'blink.user_timing', 'loading', '__metadata']
 
 interface PageState { now: number; timeOrigin: number; snapshot: PerfSnapshot | null; trace: LoadTraceSnapshot | null; tableCompleteMs: number | null; tableRows: number }
 

@@ -5,7 +5,8 @@ import { MAP_MODES, median, renderSummary, withRecomputedTotals, type MapMode, t
 import { rigPorts } from './rig-host'
 
 // U102 meetsuite (C7): `pnpm perf:modes [--target prod|build] [--origin URL] [--modes weer,wind|all]
-// [--profiles telefoon,desktop] [--repeat N] [--no-interactions]`. Op aanvraag en in de dagelijkse run, nooit per merge.
+// [--profiles telefoon,desktop] [--repeat N] [--no-interactions] [--trace]`. --trace: Chrome-trace van elk warm bezoek
+// (met `?perf`), te splitsen met scripts/perf-trace-split.ts. Op aanvraag en in de dagelijkse run, nooit per merge.
 // build (standaard) = deze werkboom gebouwd en geserveerd met vite preview, data van https://motregen.nl/data;
 //   de proxy haalt het sessiemerk weg, dus de bezoeken tellen niet in het dagrapport.
 // prod = https://motregen.nl zoals hij live staat; sessies krijgen het meetlabel perf-u102 (MIP-35), geen baken.
@@ -21,7 +22,7 @@ if (args[0] === '--summary-only') {
   console.log(summary)
   process.exit(0)
 }
-const settings = { target: 'build', origin: undefined as string | undefined, modes: [...MAP_MODES] as MapMode[], profiles: ['telefoon', 'desktop'], repeat: 1, interactions: true }
+const settings = { target: 'build', origin: undefined as string | undefined, modes: [...MAP_MODES] as MapMode[], profiles: ['telefoon', 'desktop'], repeat: 1, interactions: true, trace: false }
 for (let index = 0; index < args.length; index++) {
   const [flag, inline] = args[index]!.split('=')
   const value = () => {
@@ -35,6 +36,7 @@ for (let index = 0; index < args.length; index++) {
   else if (flag === '--profiles') settings.profiles = value().split(',')
   else if (flag === '--repeat') settings.repeat = Number(value())
   else if (flag === '--no-interactions') settings.interactions = false
+  else if (flag === '--trace') settings.trace = true
   else throw new Error(`Onbekende optie: ${args[index]}`)
 }
 if (!['prod', 'build'].includes(settings.target)) throw new Error('--target is prod of build')
@@ -60,7 +62,7 @@ if (settings.target === 'build' && !settings.origin) {
 }
 
 console.log(`perf:modes → ${origin}; modi ${settings.modes.join(', ')}; profielen ${settings.profiles.join(', ')}; ${settings.repeat}×; uitvoer ${outputDirectory}`)
-const suiteOptions = { origin, modes: settings.modes, profiles: settings.profiles, repeat: settings.repeat, outputDirectory, interactions: settings.interactions }
+const suiteOptions = { origin, modes: settings.modes, profiles: settings.profiles, repeat: settings.repeat, outputDirectory, interactions: settings.interactions, trace: settings.trace }
 const run = spawnSync('bash', ['scripts/perf-lock.sh', 'scripts/e2e-slot.sh', 'pnpm', 'exec', 'playwright', 'test', '--config', 'playwright.perf-modes.config.ts', '--project', 'perf'], {
   stdio: 'inherit', env: { ...process.env, MOTREGEN_PERF_MODES_OPTIONS: JSON.stringify(suiteOptions) },
 })
