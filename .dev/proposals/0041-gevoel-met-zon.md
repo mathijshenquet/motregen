@@ -1,6 +1,6 @@
 # MIP-41 — Gevoelstemperatuur met zon
 
-Status: accepted · auteur: worker U105 (opus-5.5) voor de orkestrator · 2026-11-09 · PO-besluit 2026-11-09: "doe maar Steadman met zon"
+Status: accepted · auteur: worker U105 (opus-5.5) voor de orkestrator · 2026-11-09 · PO-besluit 2026-11-09: "doe maar Steadman met zon", variant `zon` ("G akkoord")
 
 ## Het probleem
 
@@ -28,12 +28,13 @@ bijna altijd 1–3 °C onder de lucht, ook op een zonnige dag. Buienradar toont 
 3. **Bron HARMONIE, niet ICON-D2.** Dat is één model met dezelfde wolken als temperatuur en wind, over de volle
    60 u. ICON-D2-direct verbetert de zonneschijnduur een dag vooruit nauwelijks (MIP-39) en zou op +48 u een knik
    geven.
-4. **Kiezen op zicht.** `?dev&gevoel=nu|zon|zon-sterk` rekent de gevoelskaart en de tabel in de client om:
-   ingestwaarde plus het verschil tussen deze vorm en MIP-10. `zon-sterk` gebruikt 2·Q. Dat is ongeveer de
+4. **Kiezen op zicht.** `?dev&gevoel=nu|zon|zon-sterk` (U105, inmiddels weg) rekende de gevoelskaart en de tabel in de client om:
+   ingestwaarde plus het verschil tussen deze vorm en MIP-10. `zon-sterk` gebruikte 2·Q. Dat is ongeveer de
    volledige stralingsbalans van iemand op een open veld (diffuus, grondreflectie en hemeltekort erbij), dus een
    bovengrens. Na de PO-keuze gaat de gekozen vorm naar de ingest en verdwijnt de dev-optie.
 
-Getallen (middag 20 april, De Bilt, zon 48°; `pnpm exec tsx web/scripts/gevoel-zon.ts tabel`):
+Getallen (middag 20 april, De Bilt, zon 48°; berekend met de U105-client, de `zon`-kolom is getest in
+`crates/ingest/src/feels.rs`):
 
 | situatie | Q | nu | zon | zon-sterk |
 | --- | ---: | ---: | ---: | ---: |
@@ -57,5 +58,7 @@ Getallen (middag 20 april, De Bilt, zon 48°; `pnpm exec tsx web/scripts/gevoel-
 
 ## Besluit
 
-PO 2026-11-09: "doe maar Steadman met zon". De vorm en de Q-kalibratie zijn aangenomen. De keuze tussen `zon` en
-`zon-sterk` volgt op zicht; daarna gaat de vorm naar de ingest (aparte stap).
+PO 2026-11-09: "doe maar Steadman met zon". De vorm en de Q-kalibratie zijn aangenomen. Op de vergelijkingsbladen
+koos de PO variant **`zon`** (`Q = 0,7 · f_p(β) · I_n`, geen dubbele Q; "G akkoord", 2026-11-09). De ingest rekent
+`feels_like_c` sindsdien zo (`crates/ingest/src/feels.rs`, U105); de dev-optie `?dev&gevoel` en de omrekening in de
+client zijn weg. Open vraag 2 (winter) blijft open: onder 10 °C geldt JAG/TI zonder zon.

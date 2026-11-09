@@ -66,8 +66,9 @@ in de lijnen niet te zien.
 
 ## Gevoelstemperatuur
 
-Definitie volgens MIP-10. De afleiding gebeurt per cel vóór kwantisatie, met
-`T` de 2m-temperatuur in °C, `RH` de 2m-relatieve vochtigheid en `v =
+Definitie volgens MIP-10, boven de windchill-zone met zon volgens MIP-41
+(`crates/ingest/src/feels.rs`). De afleiding gebeurt per cel vóór kwantisatie,
+met `T` de 2m-temperatuur in °C, `RH` de 2m-relatieve vochtigheid en `v =
 sqrt(u²+v²)` de 10m-windsnelheid in m/s.
 
 1. **`T ≤ 10 °C`: KNMI-windchill (JAG/TI).** Bij `v ≥ 1,3 m/s`:
@@ -78,10 +79,11 @@ sqrt(u²+v²)` de 10m-windsnelheid in m/s.
    de exponent 0,16 herleidt naar 1,5 m) en geldigheid (−46 tot +10 °C, wind
    1,3–49,0 m/s) staan in KNMI TR-309 §2.3 (vgl. 2.3), het KNMI-rapport
    waarmee KNMI in 2009 op JAG/TI overging.
-2. **`T ≥ 15 °C`: Steadman apparent temperature, BoM-vorm zonder straling.**
+2. **`T ≥ 15 °C`: Steadman apparent temperature, BoM-vorm mét straling** (zie Met zon hieronder).
 
-   `AT = T + 0,33e − 0,70v − 4,00`, met dampdruk
-   `e = RH · 6,105 · exp(17,27T / (237,7 + T))` in hPa (RH als fractie).
+   `AT = T + 0,348e − 0,70v + 0,70·Q/(v + 10) − 4,25`, met dampdruk
+   `e = RH · 6,105 · exp(17,27T / (237,7 + T))` in hPa (RH als fractie). Tot MIP-41 (november 2026) was het
+   de vorm zonder straling, `T + 0,33e − 0,70v − 4,00`.
 
    Wind is ook hier de 10m-wind, zoals BoM voorschrijft.
 3. **`10 < T < 15 °C`: lineaire overgang** tussen beide:
@@ -112,13 +114,9 @@ implementatie JAG/TI-methode](https://cdn.knmi.nl/knmi/pdf/bibliotheek/knmipubTR
 [Bureau of Meteorology — Thermal comfort observations](https://www.bom.gov.au/info/thermal_stress/).
 
 
-### Met zon (MIP-41, nu als `?dev&gevoel=zon` in de client)
+### Met zon (MIP-41)
 
-Tak 2 krijgt de BoM-vorm **mét straling** (Steadman 1994):
-
-`AT = T + 0,348e − 0,70v + 0,70·Q/(v + 10) − 4,25`
-
-met `Q` de netto door het lichaam geabsorbeerde straling in W/m² lichaamsoppervlak. In Steadmans
+Tak 2 is de BoM-vorm **mét straling** (Steadman 1994), met `Q` de netto door het lichaam geabsorbeerde straling in W/m² lichaamsoppervlak. In Steadmans
 afleiding is `Q = h_r·(T_mrt − T)`: de extra straling ten opzichte van een omgeving op luchttemperatuur
 (de schaduwvorm). Tak 1 (windchill tot en met 10 °C) en de overgangsband van tak 3 blijven gelijk; in
 de band mengt de stralingsvorm mee, dus bij 10 °C is gevoel nog steeds exact JAG/TI.
@@ -149,19 +147,25 @@ bij bewolking horen. Het reikt ook maar 48 u tegen HARMONIE's 60 u, dus gevoel z
 krijgen. MIP-39 mat dat ICON-D2-direct de zonneschijnduur een dag vooruit nauwelijks beter maakt
 (10,5 tegen 10,7 min/u). Erbs op HARMONIE-globaal is één bron, consistent met de rest van de cel.
 
-**Sanity** (20 april 11:40 UTC, De Bilt, zon 48°; `TEMPERATURES=15 pnpm exec tsx scripts/gevoel-zon.ts tabel`):
+**Sanity** (20 april 11:40 UTC, De Bilt, zon 48°; getest in `crates/ingest/src/feels.rs`):
 
-| situatie | Q | nu (MIP-10) | zon (MIP-41) | zon-sterk (2·Q) |
-| --- | ---: | ---: | ---: | ---: |
-| zon, 15 °C, 2 Bft (2,5 m/s), RH 60 %, 700 W/m² | 101 W/m² | 12,6 °C | 18,2 °C | 23,9 °C |
-| bewolkt, 15 °C, 3 Bft (4,4 m/s), RH 85 %, 150 W/m² | 0 W/m² | 12,7 °C | 12,7 °C | 12,7 °C |
+| situatie | Q | zonder straling (MIP-10) | met zon (MIP-41) |
+| --- | ---: | ---: | ---: |
+| zon, 15 °C, 2 Bft (2,5 m/s), RH 60 %, 700 W/m² | 101 W/m² | 12,6 °C | 18,2 °C |
+| bewolkt, 15 °C, 3 Bft (4,4 m/s), RH 85 %, 150 W/m² | 0 W/m² | 12,7 °C | 12,7 °C |
 
-**Bovengrens `zon-sterk` = 2·Q.** Telt men ook de diffuse hemel en het teruggekaatste licht van de grond
-(albedo 0,2) als extra en trekt men het langgolvige tekort van een heldere hemel af (SOLWEIG-hoekfactoren),
-dan komt Q in dezelfde lentesituatie rond 180 W/m², T_mrt ≈ T + 30 K (handschatting U105). Dat is een
-persoon midden op een open veld en het maximum van wat de formule kan zeggen; Steadman (1971) noemde
-7–14 °C extra in volle zon, afhankelijk van de wind (geciteerd in Theor. Appl. Climatol. 2011,
-[doi:10.1007/s00704-010-0388-2](https://doi.org/10.1007/s00704-010-0388-2)). BoM publiceert zelf alleen de vorm zonder straling, omdat Q in de praktijk lastig te bepalen is.
+In de ingest loopt het gevoel van een lead één lead achter, omdat het de straling van het uur erna nodig heeft;
+het laatste uur van een run gebruikt alleen zijn eigen uur. Kosten: ~60 ms CPU per daglead op het 2 km-raster,
+~1,6 s per run, zo’n 3 % van een HARMONIE-ingest van ~55 s
+(`cargo run --release -p motregen-ingest --example feels_cost -- <cache>/arome/<run>`).
+
+**Geen dubbele Q.** In de vergelijking (U105) stond ook `2·Q` als bovengrens. Telt men de diffuse hemel en het
+teruggekaatste licht van de grond (albedo 0,2) mee en trekt men het langgolvige tekort van een heldere hemel af
+(SOLWEIG-hoekfactoren), dan komt Q in dezelfde lentesituatie rond 180 W/m², T_mrt ≈ T + 30 K (handschatting
+U105): iemand midden op een open veld. De PO koos de directe zon (MIP-41). Steadman (1971) noemde 7–14 °C extra
+in volle zon, afhankelijk van de wind (geciteerd in Theor. Appl. Climatol. 2011,
+[doi:10.1007/s00704-010-0388-2](https://doi.org/10.1007/s00704-010-0388-2)). BoM publiceert zelf alleen de vorm
+zonder straling, omdat Q in de praktijk lastig te bepalen is.
 
 **Winter blijft winter.** Bij `T ≤ 10 °C` telt zon niet mee, ook niet op een heldere novemberdag met lage
 zon (Q 120–150 W/m² op 9 november 2026): JAG/TI kent geen stralingsterm.
