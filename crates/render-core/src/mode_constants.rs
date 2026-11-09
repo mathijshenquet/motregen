@@ -25,6 +25,11 @@ pub struct ModeConstants {
 pub struct MapLabel {
     pub size: f64,
     pub disc: Disc,
+    /// `PLACE_LADDER`: uitwijkplekken in labelhoogtes, eerst op de plek.
+    pub ladder: Vec<[f64; 2]>,
+    pub maximum: usize,
+    /// Isolijnen van de gevoelstemperatuur op k + offset (U100: x,5 °C).
+    pub temperature_offset: f64,
     pub disc_fixture: Vec<DiscFixture>,
     /// Plekken van de gevoelsgetallen bij de botzoom (`nestedPlaces`, zoals de app).
     pub places: Vec<MapPlace>,

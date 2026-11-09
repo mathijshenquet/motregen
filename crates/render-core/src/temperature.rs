@@ -1,9 +1,9 @@
 use crate::{
     constants::constants,
-    mode_constants::{element_px, element_text},
+    mode_constants::{element_px, mode_constants},
     name_mask::{NameMask, Rect},
     projection::{Grid, Projection, point_value},
-    text::Text,
+    text::{Face, Text},
 };
 
 pub struct TemperaturePair<'a> {
@@ -115,7 +115,9 @@ pub fn draw_temperature(
 ) {
     let color = if night { [243, 251, 253] } else { [16, 38, 48] };
     let halo = if night { [16, 32, 39] } else { [255, 255, 255] };
-    let size = element_text(20);
+    // Kaartregime (U107): Noto Sans op de regimemaat, zoals de stadstemperaturen in de app.
+    let previous = text.set_face(Face::Map);
+    let size = (mode_constants().map_label.size * mode_constants().scale).round() as u32;
     let slots = temperature_slots(text, projection, names, size);
     for (place, slot) in constants().places.iter().zip(slots) {
         let Some(slot) = slot else {
@@ -159,4 +161,5 @@ pub fn draw_temperature(
             Some(halo),
         );
     }
+    text.set_face(previous);
 }

@@ -7,7 +7,7 @@ import type { IsolineBubble } from './isoline-layer'
 import { sampleSlice, type FieldSlice } from './isoline-spline'
 import { MapLabelPlacer, PLACE_LADDER } from './map-label-placement'
 import { mapDiscRadius, mapLabelSize, type MapLabelRegime } from './map-labels'
-import { MAP_PLACES, mapPlaceSpacingPx, nestedPlaces } from './map-places'
+import { MAP_PLACES, mapPlaceSpacingPx, MAX_PLACE_NUMBERS, nestedPlaces } from './map-places'
 
 /**
  * Temperatuurgetallen in Gevoel (U100 ronde 3, PO-keuze 2026-11-09 "plekken-half"): een getal op vaste plekken naast
@@ -18,7 +18,6 @@ import { MAP_PLACES, mapPlaceSpacingPx, nestedPlaces } from './map-places'
 const FADE_MS = 300
 const LAYOUT_INTERVAL_MS = 750
 const EARTH_RADIUS = 6378137
-const MAX_PLACE_NUMBERS = 60
 
 interface Shown {
   key: string

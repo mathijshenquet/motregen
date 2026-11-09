@@ -73,10 +73,12 @@ impl Text {
             Face::Ui => &self.ui,
             Face::Map => &self.map,
         };
-        self.glyphs.entry((face, character, size)).or_insert_with(|| {
-            let (metrics, alpha) = font.rasterize(character, size as f32);
-            Glyph { metrics, alpha }
-        })
+        self.glyphs
+            .entry((face, character, size))
+            .or_insert_with(|| {
+                let (metrics, alpha) = font.rasterize(character, size as f32);
+                Glyph { metrics, alpha }
+            })
     }
 
     pub fn draw(

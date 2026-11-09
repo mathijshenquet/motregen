@@ -17,6 +17,9 @@ export const MAP_PLACES: readonly TemperaturePlace[] = [
   { name: 'Eems', lng: 6.75, lat: 53.6 },
 ]
 
+/** Hooguit zoveel getallen tegelijk op de kaart. */
+export const MAX_PLACE_NUMBERS = 60
+
 /** Minimale schermafstand tussen twee plekken: ±30–40 over NL op telefoon en desktop (U101). */
 export const MAP_PLACE_SPACING = { viewportFraction: 1 / 16, minimumPx: 40, maximumPx: 64 } as const
 

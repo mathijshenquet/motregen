@@ -3,8 +3,8 @@
 //! in `assets/windsock-fixtures.json` na.
 
 use crate::mode_constants::{disc_radius, mode_constants};
-use serde::{Deserialize, Serialize};
 use crate::projection::Grid;
+use serde::{Deserialize, Serialize};
 
 pub type Point = [f64; 2];
 
@@ -522,16 +522,35 @@ pub struct SockMotion {
 }
 
 /// `advanceSock`: één stap naar het veld; geeft terug of de zak nog beweegt.
-pub fn advance_sock(motion: &mut SockMotion, target: f64, force: f64, elapsed: f64, snap: bool) -> bool {
+pub fn advance_sock(
+    motion: &mut SockMotion,
+    target: f64,
+    force: f64,
+    elapsed: f64,
+    snap: bool,
+) -> bool {
     let momentum = &mode_constants().windsock.momentum;
-    let (Some(heading), Some(strength)) = (motion.heading.as_mut(), motion.strength.as_mut()) else {
-        motion.heading = Some(Spring { value: target, velocity: 0.0 });
-        motion.strength = Some(Spring { value: force, velocity: 0.0 });
+    let (Some(heading), Some(strength)) = (motion.heading.as_mut(), motion.strength.as_mut())
+    else {
+        motion.heading = Some(Spring {
+            value: target,
+            velocity: 0.0,
+        });
+        motion.strength = Some(Spring {
+            value: force,
+            velocity: 0.0,
+        });
         return false;
     };
     if snap {
-        *heading = Spring { value: target, velocity: 0.0 };
-        *strength = Spring { value: force, velocity: 0.0 };
+        *heading = Spring {
+            value: target,
+            velocity: 0.0,
+        };
+        *strength = Spring {
+            value: force,
+            velocity: 0.0,
+        };
         return false;
     }
     let shortest = heading.value + angle_difference(heading.value, target);
@@ -546,10 +565,15 @@ pub fn sway_bends(strength: f64, wave: f64, seconds: f64, phase: f64) -> Vec<f64
     let settings = &mode_constants().windsock;
     let sway = &settings.sway;
     let tau = 2.0 * std::f64::consts::PI;
-    let wavelength = sway.wavelength.min.max(sway.wavelength.base - sway.wavelength.per_force * strength);
+    let wavelength = sway
+        .wavelength
+        .min
+        .max(sway.wavelength.base - sway.wavelength.per_force * strength);
     let wavenumber = tau / wavelength;
     let calm = (strength / sway.amplitude.calm_force).min(1.0);
-    let swing = calm * (sway.amplitude.max - sway.amplitude.drop * (strength / sway.amplitude.taut_force).min(1.0));
+    let swing = calm
+        * (sway.amplitude.max
+            - sway.amplitude.drop * (strength / sway.amplitude.taut_force).min(1.0));
     (0..=settings.samples)
         .map(|index| {
             let t = index as f64 / settings.samples as f64;

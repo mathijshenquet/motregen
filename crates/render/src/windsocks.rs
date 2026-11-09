@@ -48,7 +48,12 @@ pub struct SockPose {
 
 /// `pairs`: (oost, noord) op de kaarttijd, een half en een heel `lag_minutes` eerder. Stapt de keten één filmframe
 /// verder (`seconds`), zoals `WindsockLayer.draw` in de app per animatieframe.
-pub fn advance(chain: &mut SockChain, grid: &Grid, pairs: &[(Pair, Pair); 3], seconds: f64) -> Vec<SockPose> {
+pub fn advance(
+    chain: &mut SockChain,
+    grid: &Grid,
+    pairs: &[(Pair, Pair); 3],
+    seconds: f64,
+) -> Vec<SockPose> {
     let settings = &mode_constants().windsock;
     let vectors: Vec<_> = pairs
         .iter()
@@ -75,10 +80,14 @@ pub fn advance(chain: &mut SockChain, grid: &Grid, pairs: &[(Pair, Pair); 3], se
         grid: &pairs[0].0.left.grid,
         slices: [slice(0), slice(1), slice(2)],
     };
-    let elapsed = chain.seconds.map_or(f64::NAN, |previous| seconds - previous);
-    let snap = !(elapsed > 0.0) || elapsed > settings.snap_seconds;
+    let elapsed = chain
+        .seconds
+        .map_or(f64::NAN, |previous| seconds - previous);
+    let snap = elapsed.is_nan() || elapsed <= 0.0 || elapsed > settings.snap_seconds;
     chain.seconds = Some(seconds);
-    chain.motions.resize(settings.places.len(), SockMotion::default());
+    chain
+        .motions
+        .resize(settings.places.len(), SockMotion::default());
     let transform = screen(grid);
     let size = &constants().size;
     let scale = mode_constants().scale;
@@ -101,7 +110,13 @@ pub fn advance(chain: &mut SockChain, grid: &Grid, pairs: &[(Pair, Pair); 3], se
         };
         let speed = wind[0].hypot(wind[1]);
         let target = compass[0];
-        windsock::advance_sock(motion, target, windsock::beaufort_scale(speed), elapsed, snap);
+        windsock::advance_sock(
+            motion,
+            target,
+            windsock::beaufort_scale(speed),
+            elapsed,
+            snap,
+        );
         let (Some(heading), Some(strength)) = (motion.heading, motion.strength) else {
             continue;
         };
@@ -115,7 +130,9 @@ pub fn advance(chain: &mut SockChain, grid: &Grid, pairs: &[(Pair, Pair); 3], se
             headings: compass
                 .iter()
                 .zip(&bends)
-                .map(|(compass, bend)| heading.value + windsock::angle_difference(target, *compass) + bend)
+                .map(|(compass, bend)| {
+                    heading.value + windsock::angle_difference(target, *compass) + bend
+                })
                 .collect(),
             strength,
             label: windsock::beaufort_number(speed).to_string(),

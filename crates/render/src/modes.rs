@@ -3,7 +3,7 @@ use crate::{
     encode::{Video, jpeg},
     fields::{Fields, Pair, Slice, pair},
     frame_cache::{Key, ModeCache, Parts, Prediction},
-    renderer::{FileMedia, FramePlan, Media, Options, Profile, frame_plans, name_mask, plates},
+    renderer::{FileMedia, FramePlan, Media, Options, Profile, frame_plans, name_masks, plates},
 };
 use anyhow::{Context, Result, ensure};
 use rayon::prelude::*;
@@ -13,7 +13,9 @@ use render_core::{
     field_raster::{self, FillStyle, LineColor},
     isoline_labels::label_text_size,
     mode_constants::{color, mode_constants},
+    name_mask::NameMask,
     overlay::{ClockOptions, clock_appearance, clock_panel_bounds, draw_overlay_title},
+    place_numbers::{BandedField, draw_place_numbers},
     projection::Projection,
     rotated_text::{RotatedText, TextStyle},
     text::Text,
@@ -56,6 +58,8 @@ struct Worker {
 
 struct Painter<'a> {
     plates: &'a [Vec<u8>; 2],
+    /// Namen op de platen: de gevoelsgetallen blijven ervan af (U107).
+    names: &'a [NameMask; 2],
     water: &'a [WaterMask; 2],
     projection: &'a Projection,
     colors: &'a [f32],
@@ -165,6 +169,22 @@ impl Painter<'_> {
         }
         let halo = if input.night { [16, 32, 39] } else { [255; 3] };
         let labels_started = Instant::now();
+        if !self.wind {
+            draw_place_numbers(
+                &mut worker.text,
+                &mut rgb,
+                &self.plates[usize::from(input.night)],
+                &self.names[usize::from(input.night)],
+                BandedField {
+                    field: &input.slice.field,
+                    projection: self.projection,
+                    colors: self.colors,
+                    alpha: (fill_opacity * input.slice.opacity) as f32,
+                },
+                input.night,
+                clock_bounds,
+            );
+        }
         for label in &input.slice.labels {
             worker.labels.draw_excluding(
                 &mut rgb,
@@ -488,12 +508,8 @@ pub fn render(
     } else {
         &mode_constants().loops.feels
     };
-    let fields = Fields::new(
-        data_directory,
-        manifest,
-        wind,
-        name_mask(basemap_directory, "light")?,
-    )?;
+    let fields = Fields::new(data_directory, manifest, wind)?;
+    let names = name_masks(basemap_directory)?;
     let east = wind
         .then(|| Dataset::new(data_directory, manifest, "wind_u_ms"))
         .transpose()?;
@@ -666,6 +682,7 @@ pub fn render(
             for works in &input_receiver {
                 let painter = Painter {
                     plates: &plates,
+                    names: &names,
                     water: &water,
                     projection: &projection,
                     colors: &colors,
