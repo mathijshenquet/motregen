@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest'
 import type { Grid } from '../web/src/core/contract.js'
+import { FIXED_SCALE_FILL_OPACITY } from '../web/src/core/isolines.js'
 import { sampleSlice } from '../web/src/core/isoline-spline.js'
 import { NativeFieldRaster } from './native-field-raster.js'
 import { nativeProjection } from './native-projection.js'
@@ -18,12 +19,12 @@ it('matches shared cubic sampling and premultiplied band fill, including invalid
   try {
     const native = await raster.compose(base, slice, false)
     const projection = nativeProjection(grid, size)
-    const alpha = Math.round(255 * 0.35 * slice.opacity)
+    const alpha = Math.round(255 * FIXED_SCALE_FILL_OPACITY * slice.opacity)
     const fill = new Uint8Array(6 * 6 * 3)
     for (let row = 0; row < 6; row++) for (let column = 0; column < 6; column++) {
       const sample = sampleSlice({ ...grid, fields: [field], weights: [1] }, projection.columns[column * 3]! + 1, projection.rows[row * 3]! + 1)
       const band = Math.floor(sample.value) + 128
-      for (let channel = 0; channel < 3; channel++) fill[(row * 6 + column) * 3 + channel] = Math.round(colors[band * 3 + channel]! * 255 * 0.35 * slice.opacity)
+      for (let channel = 0; channel < 3; channel++) fill[(row * 6 + column) * 3 + channel] = Math.round(colors[band * 3 + channel]! * 255 * FIXED_SCALE_FILL_OPACITY * slice.opacity)
     }
     for (let row = 0; row < 18; row++) for (let column = 0; column < 18; column++) {
       const sourceX = Math.max(0, Math.min(5, (column + 0.5) / 3 - 0.5)), sourceY = Math.max(0, Math.min(5, (row + 0.5) / 3 - 0.5))
