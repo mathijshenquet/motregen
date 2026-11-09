@@ -22,6 +22,9 @@ async function socksHidden(page: Page): Promise<void> {
 
 test('windzakken alleen in Wind: helemaal weg na Wind → Gevoel, ook bij snel wisselen', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'één profiel volstaat')
+  // Geen isobaren in de windmodus (PO 2026-11-09, U101 ronde 2): de luchtdruk wordt ook niet meer opgehaald.
+  const pressureRequests: string[] = []
+  page.on('request', (request) => { if (request.url().includes('pressure_hpa')) pressureRequests.push(request.url()) })
   await page.goto('/')
   await expect(page.locator('.map-splash.ready')).toBeAttached()
   await expect(page.locator('.temperature-cell').first()).toBeVisible()
@@ -31,6 +34,8 @@ test('windzakken alleen in Wind: helemaal weg na Wind → Gevoel, ook bij snel w
   await expect.poll(async () => Number((await socks(page).getAttribute('data-socks'))?.split('|')[0])).toBeGreaterThan(0)
   await expect(socks(page)).toHaveCSS('opacity', '1')
   await expect(shell(page)).toHaveAttribute('data-rain-opacity', '0.00')
+  await expect(shell(page)).toHaveAttribute('data-isobars', '0')
+  expect(pressureRequests).toEqual([])
 
   await pin(temperatureHeading(page), page)
   await socksHidden(page)
