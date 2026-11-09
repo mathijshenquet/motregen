@@ -5,7 +5,7 @@
   "sources": {
     "basemap": {
       "type": "vector",
-      "url": "pmtiles:///data/basemap/nl-8f2c3ef5582e467a.pmtiles",
+      "url": "pmtiles:///data/basemap/nl-bdc61e3eaf011f44.pmtiles",
       "attribution": "© <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>"
     }
   },
@@ -65,7 +65,7 @@
       "paint": {
         "fill-antialias": false,
         "fill-color": "hsla(98,61%,72%,0.7)",
-        "fill-opacity": 0.4,
+        "fill-opacity": 0.8,
         "fill-outline-color": "rgba(0,0,0,0)"
       }
     },

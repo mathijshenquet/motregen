@@ -80,12 +80,17 @@ function buildStyle(theme: 'light' | 'dark', name: string, archive: string) {
   return style
 }
 
+// Standaard (MIP-42): `diagram` op het archief uit manifest.json. `?dev&kaart=nu` is de vorige kaart (manifest-nu.json,
+// ongewijzigde stijl); de overige varianten staan buiten public/basemap, zodat de precache ze niet aan iedere bezoeker geeft.
+const standard = BASEMAP_VARIANTS.find((variant) => variant.name === 'diagram')!
+const previous = variantArchive('nu')
+mkdirSync(resolve(root, 'web/public/dev-kaart'), { recursive: true })
 for (const [theme, name] of [['light', 'licht'], ['dark', 'donker']] as const) {
-  writeFileSync(resolve(root, `web/public/basemap/${name}.json`), `${JSON.stringify(buildStyle(theme, name, filename), null, 2)}\n`)
-  // U108-proef (`?dev&kaart=`): varianten buiten public/basemap, zodat de precache ze niet aan iedere bezoeker geeft.
-  mkdirSync(resolve(root, 'web/public/dev-kaart'), { recursive: true })
+  writeFileSync(resolve(root, `web/public/basemap/${name}.json`), `${JSON.stringify(applyVariant(buildStyle(theme, name, filename), standard, theme), null, 2)}\n`)
+  if (previous) writeFileSync(resolve(root, `web/public/dev-kaart/nu-${name}.json`), `${JSON.stringify(buildStyle(theme, name, previous), null, 2)}\n`)
   for (const variant of BASEMAP_VARIANTS) {
-    const archive = variant.archive === 'basis' ? filename : variantArchive(variant.archive)
+    if (variant === standard) continue
+    const archive = variantArchive(variant.archive)
     if (!archive) continue
     const style = applyVariant(buildStyle(theme, name, archive), variant, theme)
     writeFileSync(resolve(root, `web/public/dev-kaart/${variant.name}-${name}.json`), `${JSON.stringify(style, null, 2)}\n`)

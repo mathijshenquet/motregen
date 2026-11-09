@@ -1,11 +1,11 @@
 {
   "version": 8,
-  "name": "motregen — licht — licht-rivieren",
+  "name": "motregen — donker",
   "glyphs": "/basemap/fonts/{fontstack}/{range}.pbf",
   "sources": {
     "basemap": {
       "type": "vector",
-      "url": "pmtiles:///data/basemap/nl-965b910bc27fe00f.pmtiles",
+      "url": "pmtiles:///data/basemap/nl-91e2043db5c73799.pmtiles",
       "attribution": "© <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a>"
     }
   },
@@ -14,7 +14,7 @@
       "id": "background",
       "type": "background",
       "paint": {
-        "background-color": "#f7f5f1"
+        "background-color": "#101d21"
       }
     },
     {
@@ -23,8 +23,8 @@
       "source": "basemap",
       "source-layer": "landcover",
       "paint": {
-        "fill-color": "#e4ecda",
-        "fill-opacity": 0.6,
+        "fill-color": "#23382c",
+        "fill-opacity": 0.7,
         "fill-outline-color": "rgba(0,0,0,0)",
         "fill-antialias": false
       },
@@ -78,19 +78,7 @@
         ]
       ],
       "paint": {
-        "fill-color": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          9,
-          "#eeebe5",
-          12,
-          "#efe7dc"
-        ],
+        "fill-color": "#26302c",
         "fill-outline-color": "rgba(0,0,0,0)",
         "fill-antialias": false
       }
@@ -123,8 +111,8 @@
       ],
       "paint": {
         "fill-antialias": false,
-        "fill-color": "#d9e6cc",
-        "fill-opacity": 0.55,
+        "fill-color": "#203a2d",
+        "fill-opacity": 0.4,
         "fill-outline-color": "rgba(0,0,0,0)"
       }
     },
@@ -156,8 +144,8 @@
       ],
       "paint": {
         "fill-antialias": false,
-        "fill-color": "#dfe9d3",
-        "fill-opacity": 0.45,
+        "fill-color": "#2b4033",
+        "fill-opacity": 0.3,
         "fill-outline-color": "rgba(0,0,0,0)"
       }
     },
@@ -176,154 +164,9 @@
         "wetland"
       ],
       "paint": {
-        "fill-color": "#e0ebdd",
+        "fill-color": "#263b34",
         "fill-opacity": 0.8,
         "fill-antialias": false
-      }
-    },
-    {
-      "id": "river_1",
-      "type": "line",
-      "source": "basemap",
-      "source-layer": "waterway",
-      "minzoom": 5,
-      "filter": [
-        "==",
-        [
-          "get",
-          "rank"
-        ],
-        1
-      ],
-      "layout": {
-        "line-cap": "round",
-        "line-join": "round"
-      },
-      "paint": {
-        "line-color": "#a3c0da",
-        "line-width": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          5,
-          0.8,
-          6,
-          1.1,
-          7,
-          1.5,
-          8,
-          1.9,
-          10,
-          2.6,
-          12,
-          3.4
-        ]
-      }
-    },
-    {
-      "id": "river_2",
-      "type": "line",
-      "source": "basemap",
-      "source-layer": "waterway",
-      "minzoom": 7,
-      "filter": [
-        "==",
-        [
-          "get",
-          "rank"
-        ],
-        2
-      ],
-      "layout": {
-        "line-cap": "round",
-        "line-join": "round"
-      },
-      "paint": {
-        "line-color": "#a3c0da",
-        "line-width": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          7,
-          0.5,
-          8,
-          0.8,
-          10,
-          1.4,
-          12,
-          2
-        ],
-        "line-opacity": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          7,
-          0.5,
-          8,
-          1
-        ]
-      }
-    },
-    {
-      "id": "river_3",
-      "type": "line",
-      "source": "basemap",
-      "source-layer": "waterway",
-      "minzoom": 9,
-      "filter": [
-        "==",
-        [
-          "get",
-          "rank"
-        ],
-        3
-      ],
-      "layout": {
-        "line-cap": "round",
-        "line-join": "round"
-      },
-      "paint": {
-        "line-color": "#a3c0da",
-        "line-width": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          9,
-          0.4,
-          10,
-          0.8,
-          12,
-          1.3
-        ],
-        "line-opacity": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          9,
-          0.5,
-          10,
-          1
-        ]
       }
     },
     {
@@ -332,7 +175,8 @@
       "source": "basemap",
       "source-layer": "water",
       "paint": {
-        "fill-color": "#bfd5e8"
+        "fill-color": "#183746",
+        "fill-outline-color": "#183746"
       }
     },
     {
@@ -362,7 +206,7 @@
         ]
       ],
       "paint": {
-        "fill-color": "#f2eddb",
+        "fill-color": "#4a4432",
         "fill-outline-color": "rgba(0,0,0,0)",
         "fill-antialias": false
       }
@@ -384,8 +228,8 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#8d8c91",
-        "line-opacity": 0.7,
+        "line-color": "#688087",
+        "line-opacity": 0.85,
         "line-width": [
           "interpolate",
           [
@@ -395,9 +239,9 @@
             "zoom"
           ],
           4,
-          0.7,
+          0.8,
           11,
-          1.3
+          1.6
         ]
       }
     },
@@ -427,8 +271,8 @@
         ]
       ],
       "paint": {
-        "line-color": "#9eabaf",
-        "line-opacity": 0.6,
+        "line-color": "#80969c",
+        "line-opacity": 0.72,
         "line-width": [
           "interpolate",
           [
@@ -620,9 +464,9 @@
         ]
       },
       "paint": {
-        "text-color": "#2a2a2a",
+        "text-color": "#c7d5d8",
         "text-halo-blur": 1,
-        "text-halo-color": "#ffffff",
+        "text-halo-color": "#101d21",
         "text-halo-width": 1
       }
     },
@@ -798,9 +642,9 @@
         ]
       },
       "paint": {
-        "text-color": "#2a2a2a",
+        "text-color": "#c7d5d8",
         "text-halo-blur": 1,
-        "text-halo-color": "#ffffff",
+        "text-halo-color": "#101d21",
         "text-halo-width": 1
       }
     },
@@ -858,8 +702,8 @@
         ]
       },
       "paint": {
-        "text-color": "#848f91",
-        "text-halo-color": "#f7f5f1",
+        "text-color": "#a8babc",
+        "text-halo-color": "#101d21",
         "text-halo-width": 1
       }
     },
@@ -1037,9 +881,9 @@
         ]
       },
       "paint": {
-        "text-color": "#2a2a2a",
+        "text-color": "#c7d5d8",
         "text-halo-blur": 1,
-        "text-halo-color": "#ffffff",
+        "text-halo-color": "#101d21",
         "text-halo-width": 1
       }
     }

@@ -12,7 +12,7 @@ import type { Manifest } from '../web/src/core/contract.js'
 
 const [origin, data, out, ...requested] = process.argv.slice(2)
 if (!origin || !data || !out) throw new Error('Gebruik: basemap-variant-plates.ts ORIGIN DATA OUT [variant…]')
-const variants = requested.length ? requested : ['nu', 'licht', 'licht-rivieren', 'atlas', 'strak']
+const variants = requested.length ? requested : ['nu', 'strak', 'diagram', 'diagram-wegen']
 const manifest = JSON.parse(await readFile(join(data, 'manifest.json'), 'utf8')) as Manifest
 const chunk = manifest.chunks.find((candidate) => !candidate.field || candidate.field === 'rain_rate')
 if (!chunk) throw new Error('Regen ontbreekt')
@@ -24,7 +24,7 @@ try {
   const context = await browser.newContext({ viewport: FRAME_VIEWPORT, deviceScaleFactor: FRAME.scale, locale: 'nl-NL', serviceWorkers: 'block' })
   for (const variant of variants) {
     const name = (theme: NativeTheme) => theme === 'light' ? 'licht' : 'donker'
-    const stylePath = (theme: NativeTheme) => variant === 'nu' ? `/basemap/${name(theme)}.json` : `/dev-kaart/${variant}-${name(theme)}.json`
+    const stylePath = (theme: NativeTheme) => variant === 'diagram' ? `/basemap/${name(theme)}.json` : `/dev-kaart/${variant}-${name(theme)}.json`
     const cache = join(out, 'cache', variant)
     const maps = new NativeMaps(origin, cache, async () => context, stylePath)
     for (const theme of ['light', 'dark'] as const) await maps.get(theme, grid)

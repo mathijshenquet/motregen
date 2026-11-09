@@ -9,7 +9,7 @@ import { join } from 'node:path'
 const [shots, out, bot, closeups] = process.argv.slice(2)
 if (!shots || !out) throw new Error('usage: pnpm exec tsx scripts/basemap-variant-sheet.ts SHOTS_DIR OUT_DIR [BOT_DIR]')
 mkdirSync(out, { recursive: true })
-const VARIANTS = (process.env.MOTREGEN_KAART_VARIANTEN ?? 'nu licht licht-rivieren atlas strak').split(' ')
+const VARIANTS = (process.env.MOTREGEN_KAART_VARIANTEN ?? 'nu strak diagram diagram-wegen').split(' ')
 const CELL = 420
 const GAP = 6
 const LABEL = 30

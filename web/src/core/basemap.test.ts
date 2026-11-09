@@ -37,7 +37,7 @@ describe('eigen basiskaart', () => {
     it(`${name} gebruikt alleen ons schema met leesbare plaatsnamen en provinciegrenzen`, () => {
       const style = styles[index]!
       expect(validateStyleMin(style)).toEqual([])
-      const schema = new Set(['water', 'landcover', 'boundary', 'place'])
+      const schema = new Set(['water', 'landcover', 'boundary', 'place', 'waterway'])
       expect(Object.keys(style.sources)).toEqual(['basemap'])
       for (const layer of style.layers) {
         if ('source-layer' in layer) expect(schema.has(layer['source-layer']!)).toBe(true)

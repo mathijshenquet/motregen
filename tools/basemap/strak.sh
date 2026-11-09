@@ -7,7 +7,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 scratch="${MOTREGEN_BASEMAP_SCRATCH:-tmp/basemap}/strak"
 mkdir -p "$scratch"
-base="tools/basemap/tiles/$(jq -r .filename tools/basemap/tiles/manifest.json)"
+base="tools/basemap/tiles/$(jq -r .filename tools/basemap/tiles/manifest-nu.json)"
 
 (cd web && node --import tsx ../tools/basemap/extract-layer.mts "../$base" 10 landcover "../$scratch/landcover-z10.geojsonl")
 rm -f "$scratch/source.gpkg"

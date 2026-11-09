@@ -12,7 +12,7 @@ base_scratch="${MOTREGEN_BASEMAP_SCRATCH:-tmp/basemap}"
 scratch="$base_scratch/diagram"
 sources="${MOTREGEN_DIAGRAM_SOURCES:-$base_scratch/water-src}"
 mkdir -p "$scratch"
-base="tools/basemap/tiles/$(jq -r .filename tools/basemap/tiles/manifest.json)"
+base="tools/basemap/tiles/$(jq -r .filename tools/basemap/tiles/manifest-nu.json)"
 # σ en kleinste deel per klasse (px van de zoom); vastgesteld met diagram-metric.mts, zie MIP-42.
 # Per klasse: morfologie (glad | open:R | sluit:R, R in px van de zoom) en daarna effenen met σ (px).
 # Water wordt geopend: sloten en smalle rivierstukken verdwijnen (de rivierlijnen dekken ze), land krimpt niet.
@@ -25,17 +25,20 @@ modes_urban="${MOTREGEN_DIAGRAM_MODES_URBAN:-4:sluit:0.5 5:sluit:0.5 6:sluit:0.4
 amin=2
 
 if [ ! -f "$scratch/source.gpkg" ]; then
+  if [ ! -f "$scratch/region.geojsonl" ]; then
   for pbf in "$sources"/*.osm.pbf; do
     osmium tags-filter "$pbf" wr/natural=water,wood wr/waterway=riverbank wr/landuse=reservoir,basin,forest,residential,commercial,industrial,retail \
       w/highway=motorway -o "$scratch/filtered-$(basename "$pbf")" --overwrite
   done
   osmium merge "$scratch"/filtered-*.osm.pbf -o "$scratch/merged.osm.pbf" --overwrite
-  osmium extract --bbox 2.3108,50.3256,7.4192,53.6844 --strategy smart "$scratch/merged.osm.pbf" -o "$scratch/region.osm.pbf" --overwrite
+  # Zelfde landbedekkingskader als build.sh ([0,49,10,55]): bij contain-zoom staan ook BE en DE in beeld.
+  osmium extract --bbox 0,49,10,55 --strategy smart "$scratch/merged.osm.pbf" -o "$scratch/region.osm.pbf" --overwrite
   osmium export "$scratch/region.osm.pbf" --geometry-types polygon,linestring -f geojsonseq --output "$scratch/region.geojsonl" --overwrite
+  fi
   rm -f "$scratch/source.gpkg"
   layer() {  # naam, geometrietype, where
     ogr2ogr -f GPKG $([ -f "$scratch/source.gpkg" ] && echo -update) "$scratch/source.gpkg" "$scratch/region.geojsonl" -nln "$1" \
-      -t_srs EPSG:3857 -nlt "$2" -where "$3"
+      -t_srs EPSG:3857 -nlt "$2" -where "$3" -select natural,waterway,landuse,highway
   }
   layer water MULTIPOLYGON "OGR_GEOMETRY IN ('POLYGON','MULTIPOLYGON') AND (\"natural\" = 'water' OR waterway = 'riverbank' OR landuse IN ('reservoir', 'basin'))"
   ogr2ogr -f GPKG -update -append "$scratch/source.gpkg" /vsigzip/tools/basemap/ocean.geojson.gz -nln water -t_srs EPSG:3857 -nlt MULTIPOLYGON
@@ -61,14 +64,18 @@ fi
 ogr2ogr -f GPKG -update -overwrite "$scratch/source.gpkg" "$scratch/canal.geojsonl" -nln canal -t_srs EPSG:3857 -nlt MULTILINESTRING \
   -lco GEOMETRY_NAME=geom -dialect SQLite \
   -sql "SELECT ST_LineMerge(ST_Union(geometry)) AS geometry, name FROM \"canal\" WHERE name IN ('$(sed "s/|/','/g" <<< "$canals")') GROUP BY name"
-MOTREGEN_RIVER_TILES_ONLY=1 bash tools/basemap/rivers.sh
+bash tools/basemap/rivers.sh
 for rank in 1 2 3; do
   ogr2ogr -f GPKG -update -overwrite "$scratch/source.gpkg" "$base_scratch/rivers/rivers.gpkg" "rank$rank" -nln "river$rank"
 done
 
-# Kader in EPSG:3857 (archiefgrenzen 2,31–7,42 °O, 50,33–53,68 °N).
-read -r min_x min_y max_x max_y <<< "$(printf '%s\n' "2.3108 50.3256" "7.4192 53.6844" | gdaltransform -s_srs EPSG:4326 -t_srs EPSG:3857 -output_xy | tr '\n' ' ')"
-export scratch min_x min_y max_x max_y sigma_water sigma_wood sigma_urban modes_water modes_wood modes_urban amin
+# Kader in EPSG:3857. z4–7: het kustwaterkader van het archief [-5,48,13,57] (contain-zoom toont ruimte buiten de
+# app-grenzen, en de z4-starttegels liggen daar). z8–10: de app-grenzen (2,31–7,42 °O, 50,33–53,68 °N) plus 0,3°,
+# omdat de app het beeld daar binnen de grenzen houdt.
+frame() { printf '%s\n' "$1 $2" "$3 $4" | gdaltransform -s_srs EPSG:4326 -t_srs EPSG:3857 -output_xy | tr '\n' ' '; }
+wide_frame="$(frame -5 48 13 57)"
+app_frame="$(frame 2.0108 50.0256 7.7192 53.9844)"
+export scratch wide_frame app_frame sigma_water sigma_wood sigma_urban modes_water modes_wood modes_urban amin
 # Eén zoom × klasse: rasteren, vervagen, contour, vereenvoudigen, kleine delen weg → part-z<zoom>-<klasse>.gpkg.
 generalize() {
   local zoom="$1" class="$2"
@@ -76,6 +83,8 @@ generalize() {
   px="$(awk -v z="$zoom" 'BEGIN { print 40075016.6856 / (256 * 2^z) }')"
   ss=4; [ "$zoom" -ge 9 ] && ss=2
   resolution="$(awk -v p="$px" -v s="$ss" 'BEGIN { printf "%.6f", p / s }')"
+  local min_x min_y max_x max_y
+  if [ "$zoom" -le 7 ]; then read -r min_x min_y max_x max_y <<< "$wide_frame"; else read -r min_x min_y max_x max_y <<< "$app_frame"; fi
   read -r left top right bottom <<< "$(awk -v a="$min_x" -v b="$max_y" -v c="$max_x" -v d="$min_y" -v p="$px" \
     'BEGIN { printf "%.6f %.6f %.6f %.6f\n", int(a / p - 1) * p, int(b / p + 1) * p, int(c / p + 1) * p, int(d / p - 1) * p }')"
   sigma_var="sigma_$class"; sigma="${!sigma_var}"

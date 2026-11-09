@@ -1,4 +1,4 @@
-// U108: stelt een archief samen uit het huidige archief (manifest.json) plus extra tegellagen uit MBTiles (GDAL-MVT).
+// U108: stelt een archief samen uit het tilemaker-archief (manifest-nu.json, de kaart van vóór MIP-42) plus extra tegellagen uit MBTiles (GDAL-MVT).
 // `--replace laag:van-tot` haalt een bestaande laag in dat zoombereik weg (de extra lagen vervangen hem). Een MVT is een
 // protobufbericht met herhaalde `layers`, dus lagen gaan er als ruwe bytes uit en in; ongewijzigde tegels blijven
 // bytegelijk. Schrijft tools/basemap/tiles/nl-<hash>.pmtiles en manifest-<naam>.json.
@@ -56,7 +56,7 @@ function layerSlices(data: Uint8Array): Array<{ name: string; bytes: Uint8Array 
 }
 
 const tilesDirectory = resolve(root, 'tools/basemap/tiles')
-const base = JSON.parse(readFileSync(resolve(tilesDirectory, 'manifest.json'), 'utf8'))
+const base = JSON.parse(readFileSync(resolve(tilesDirectory, 'manifest-nu.json'), 'utf8'))
 const archive = new PMTiles(new FileSource(new File([readFileSync(resolve(tilesDirectory, base.filename))], base.filename)))
 const header = await archive.getHeader()
 const metadata = await archive.getMetadata()

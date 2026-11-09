@@ -2,6 +2,19 @@
 
 Status: draft · auteur: worker U108 (opus-5.5) voor de orkestrator · gemeten 2026-11-09 · PO-wens 2026-11-09
 
+## Keuze PO (2026-11-09, via de orkestrator) en wat er in de uitrol zit
+
+1. `diagram` **zonder** snelwegen wordt de standaard voor web en bot; `?dev&kaart=nu|strak|diagram-wegen` blijven
+   dev-opties (vervallen 2026-11-23).
+2. Geen extra ronde op z9.
+3. Bos iets voller: dekking 0,8 (licht effectief 28 → 56 %), 's nachts tint `#2b5140` in plaats van `#203a2d`.
+
+Bij de omzetting bleek het rasterkader te krap. Op z4–7 (contain-zoom en de z4-starttegels) loopt het nu tot het
+kustwaterkader van prod, [-5,48,13,57]. Landbedekking komt uit hetzelfde kader als `build.sh`, [0,49,10,55], zodat BE
+en DE ook kernen en bos hebben. Het archief is daardoor 3.595.424 B (`nl-b4c7c6e4cd75f938`); de cijfers hieronder
+gelden voor het eerdere NL-kader. `manifest-nu.json` bewaart het tilemaker-archief van vóór MIP-42 (basis voor
+`compose`, `strak` en `?dev&kaart=nu`).
+
 ## Hoofdrichting: `diagram` (Herijking PO 2026-11-09)
 
 De PO: "het eigenlijke doel is onze eigen meer diagrammatische kaart, die een stuk lichter is dan de libremap en meer

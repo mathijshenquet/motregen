@@ -7,7 +7,7 @@ import { join } from 'node:path'
 // De worker bekijkt de beelden zelf. Gebruik: pnpm exec tsx scripts/basemap-variant-shots.ts ORIGIN OUT_DIR [variant…]
 const [origin, outDir, ...requested] = process.argv.slice(2)
 if (!origin || !outDir) throw new Error('usage: pnpm exec tsx scripts/basemap-variant-shots.ts ORIGIN OUT_DIR [variant…]')
-const variants = requested.length ? requested : ['nu', 'licht', 'licht-rivieren', 'atlas', 'strak']
+const variants = requested.length ? requested : ['nu', 'strak', 'diagram', 'diagram-wegen']
 mkdirSync(outDir, { recursive: true })
 
 const DEVICES = {
