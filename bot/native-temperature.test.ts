@@ -46,5 +46,5 @@ it('turns u and v into the continuous Beaufort field and colours band k as Beauf
   expect(slice.kind).toBe('wind')
   expect(slice.labelLines).toBeUndefined()
   for (const value of slice.field.values) expect(value).toBeCloseTo(5 + (10 - 8) / (10.8 - 8), 1)
-  expect([...slice.colors.subarray((128 + 5) * 3, (128 + 5) * 3 + 3)].map((channel) => Math.round(channel * 255))).toEqual([0x5a, 0xa5, 0x47])
+  expect([...slice.colors.subarray((128 + 5) * 3, (128 + 5) * 3 + 3)].map((channel) => Math.round(channel * 255))).toEqual([0xf0, 0xc9, 0x5b])
 })

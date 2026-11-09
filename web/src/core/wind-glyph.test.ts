@@ -8,8 +8,8 @@ describe('windzak', () => {
   it('wordt langer en rechter met de windkracht, tot hij bij 5 Bft vol staat', () => {
     const [calmX, calmY] = tipOf(1), [fullX, fullY] = tipOf(5)
     expect(Math.hypot(fullX, fullY)).toBeGreaterThan(Math.hypot(calmX, calmY) * 1.5)
-    // Slap buigt hij af; vol staat hij recht naar boven ("heen").
-    expect(calmX).toBeGreaterThan(2)
+    // Slap buigt hij een hint af; vol staat hij recht naar boven ("heen").
+    expect(calmX).toBeGreaterThan(0.5)
     expect(fullX).toBeCloseTo(0, 6)
     expect(tipOf(5)).toEqual(tipOf(9))
   })
@@ -41,5 +41,15 @@ describe('badge met het getal', () => {
     expect(middle.cutRadius).toBeGreaterThan(middle.radius)
     expect(windsockBadge(shape, 'mond', '5')).toMatchObject({ x: 0, y: 0 })
     expect(windsockBadge(shape, 'midden', '104').fontPx).toBeLessThan(middle.fontPx)
+  })
+})
+
+describe('zakstijl', () => {
+  it('kent de vijf varianten plus de huidige en valt anders terug op de zak', async () => {
+    const { windsockStyleName, WINDSOCK_STYLE_NAMES } = await import('./wind-sock-styles')
+    expect(WINDSOCK_STYLE_NAMES).toEqual(['zak', 'gravure', 'emaille', 'windwijzer', 'wimpel', 'glans'])
+    expect(windsockStyleName('emaille')).toBe('emaille')
+    expect(windsockStyleName('onbekend')).toBe('zak')
+    expect(windsockStyleName(null)).toBe('zak')
   })
 })

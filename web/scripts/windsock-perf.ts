@@ -2,21 +2,22 @@ import { chromium } from '@playwright/test'
 
 // Kosten van de windzakken (U101 ronde 3) op het telefoonprofiel: 402×844, dpr 3, 4× CPU-rem (zoals mobile-4g).
 // Per scenario 10 s meten met de PerfHud-monitor (`?perf`): de fase `windsock-draw` en de fps van de pagina.
-// usage: pnpm exec tsx scripts/windsock-perf.ts ORIGIN TIJD
-const [origin, time] = process.argv.slice(2)
+// usage: pnpm exec tsx scripts/windsock-perf.ts ORIGIN TIJD [EXTRA-DEV-QUERY]   (bv. zakstijl=gravure)
+//   WINDSOCK_PERF_SOFTWARE_2D=1 rastert de 2D-canvas in software (swiftshader-GPU-2D is pathologisch traag, zie U101-LOG).
+const [origin, time, extra] = process.argv.slice(2)
 if (!origin || !time) throw new Error('usage: pnpm exec tsx scripts/windsock-perf.ts ORIGIN TIJD')
 const scenarios = [
   { name: 'storm, trilling', query: 'windfactor=2.2' },
   { name: 'storm, fladder=uit', query: 'windfactor=2.2&fladder=uit' },
   { name: 'data (max ~5 Bft)', query: '' },
 ]
-const browser = await chromium.launch({ headless: true, args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] })
+const browser = await chromium.launch({ headless: true, args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader', ...(process.env.WINDSOCK_PERF_SOFTWARE_2D ? ['--disable-accelerated-2d-canvas'] : [])] })
 for (const scenario of scenarios) {
   const context = await browser.newContext({ viewport: { width: 402, height: 844 }, deviceScaleFactor: 3, hasTouch: true, isMobile: true, timezoneId: 'Europe/Amsterdam' })
   const page = await context.newPage()
   page.setDefaultTimeout(120_000)
   const cdp = await context.newCDPSession(page)
-  await page.goto(new URL(`/wind?dev&perf&${scenario.query}&t=${time}`, origin).href)
+  await page.goto(new URL(`/wind?dev&perf&${scenario.query}${extra ? `&${extra}` : ''}&t=${time}`, origin).href)
   await page.locator('.scrubber-placeholder').waitFor({ state: 'detached' })
   await page.locator('.freshness-close').click()
   await page.locator('.map-overlay-windsocks[data-socks]').waitFor({ state: 'attached' })

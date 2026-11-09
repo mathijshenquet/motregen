@@ -10,7 +10,7 @@ use rayon::prelude::*;
 use render_core::{
     clock::ClockTransition,
     constants::constants,
-    field_raster::{self, LineColor},
+    field_raster::{self, FillStyle, LineColor},
     isoline_labels::label_text_size,
     mode_constants::{color, mode_constants},
     overlay::{ClockOptions, clock_appearance, clock_panel_bounds, draw_overlay_title},
@@ -116,14 +116,27 @@ impl Painter<'_> {
             self.colors,
             &input.slice.rings,
             input.slice.opacity,
-            fill_opacity,
+            FillStyle {
+                opacity: fill_opacity,
+                by_value: self.wind.then(|| {
+                    let beaufort = &mode_constants().beaufort;
+                    (beaufort.clear_below as f32, beaufort.full_at as f32)
+                }),
+            },
         );
+        // 's Nachts verdwijnt een verdonkerde lijn in de donkere vlakken; voor wind dan lichter dan de vulling.
+        let shade = if self.wind && input.night {
+            mode_constants().beaufort.night_line_lighten
+        } else {
+            settings.temperature_line_fill_shade
+        };
         field_raster::lines(
             &mut rgb,
             &input.slice.segments,
             LineColor::Isotherm {
                 fallback: line_color,
                 fill: &fill,
+                shade,
             },
             input.slice.opacity,
         );

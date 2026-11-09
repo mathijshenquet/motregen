@@ -9,7 +9,7 @@ import * as labels from '../web/src/core/isoline-label-anchors.js'
 import * as map from '../web/src/core/map-presentation.js'
 import * as palette from '../web/src/core/temperature-palette.js'
 import { NETHERLANDS_FLANDERS_BOUNDS } from '../web/src/core/map-frame.js'
-import { BEAUFORT_COLORS, BEAUFORT_LOWER_MS, CODES_PER_FORCE, WIND_FILL_OPACITY, WIND_THIN_PARTICLE_WIDTH } from '../web/src/core/wind-beaufort.js'
+import { BEAUFORT_COLORS, BEAUFORT_LOWER_MS, CODES_PER_FORCE, WIND_FILL, WIND_NIGHT_LINE_LIGHTEN, WIND_THIN_PARTICLE_WIDTH } from '../web/src/core/wind-beaufort.js'
 import { DEFAULT_WINDSOCK_BADGE, WINDSOCK_BADGE, WINDSOCK_BANDS, WINDSOCK_SAMPLES, WINDSOCK_SHAPE, WINDSOCK_STYLE } from '../web/src/core/wind-glyph.js'
 import { DEFAULT_WINDSOCK_CURVATURE, DEFAULT_WINDSOCK_FLUTTER, MAX_BEND_DEGREES, WINDSOCK_FLUTTERS, WINDSOCK_LAG_MINUTES, WINDSOCK_STREAM_KM, windsockPhase } from '../web/src/core/windsock-flow.js'
 import { windsockPlaces } from './native-windsocks.js'
@@ -48,7 +48,8 @@ export function modeConstants() {
       line_profile: map.lineProfile(map.isolineWidthCss(ELEMENT_ZOOM) * FRAME.scale),
       light_temperature: isoline.isolineColor('light', 'temperature'), dark_temperature: isoline.isolineColor('dark', 'temperature'),
       light_pressure: isoline.isolineColor('light', 'pressure'), dark_pressure: isoline.isolineColor('dark', 'pressure') },
-    beaufort: { lower_ms: BEAUFORT_LOWER_MS, colors: BEAUFORT_COLORS, codes_per_force: CODES_PER_FORCE, fill_opacity: WIND_FILL_OPACITY },
+    beaufort: { lower_ms: BEAUFORT_LOWER_MS, colors: BEAUFORT_COLORS, codes_per_force: CODES_PER_FORCE, fill_opacity: WIND_FILL.opacity,
+      clear_below: WIND_FILL.clearBelow, full_at: WIND_FILL.fullAt, night_line_lighten: WIND_NIGHT_LINE_LIGHTEN },
     windsock: {
       samples: WINDSOCK_SAMPLES, bands: WINDSOCK_BANDS, ...WINDSOCK_SHAPE.sizes.kaart, full_force: WINDSOCK_SHAPE.fullForce,
       slack_length: WINDSOCK_SHAPE.slackLength, slack_tail: WINDSOCK_SHAPE.slackTail, full_tail_gain: WINDSOCK_SHAPE.fullTailGain,

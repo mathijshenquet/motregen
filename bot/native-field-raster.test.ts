@@ -55,7 +55,8 @@ it('fills the Beaufort bands of the wind film at the wind fill opacity', async (
   try {
     const output = await raster.compose(base, slice, false)
     const centre = (9 * 18 + 9) * 3
-    // Band 3 (3,4 Bft ligt tussen de lijnen 3 en 4), dekking WIND_FILL_OPACITY = 0,65.
-    expect([...output.subarray(centre, centre + 3)]).toEqual([0.2, 0.6, 0.4].map((channel) => Math.round(100 * 0.35 + channel * 255 * 0.65)))
+    // Band 3 (3,4 Bft ligt tussen de lijnen 3 en 4); dekking 0,75 × opbouw smoothstep(0,5 → 8 Bft) bij 3,4 Bft.
+    const t = (3.4 - 0.5) / (8 - 0.5), alpha = 0.75 * t * t * (3 - 2 * t)
+    output.subarray(centre, centre + 3).forEach((value, channel) => expect(Math.abs(value - (100 * (1 - alpha) + [0.2, 0.6, 0.4][channel]! * 255 * alpha))).toBeLessThanOrEqual(1))
   } finally { await raster.close() }
 }, 15000)

@@ -124,6 +124,11 @@ pub struct Beaufort {
     /// Quantisering van de continue Beaufortwaarde, zoals `beaufortFrame` in de app.
     pub codes_per_force: f64,
     pub fill_opacity: f64,
+    /// Dekking bouwt op van `clear_below` tot `full_at` Bft (`WIND_FILL`).
+    pub clear_below: f64,
+    pub full_at: f64,
+    /// Lijnkleur 's nachts: de vulkleur maal deze factor (`WIND_NIGHT_LINE_LIGHTEN`).
+    pub night_line_lighten: f64,
 }
 
 /// Windzakken van de windfilm (U101), uit `wind-glyph.ts` en `windsock-flow.ts`; maten in CSS-px.

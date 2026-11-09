@@ -6,10 +6,18 @@ import { temperaturePlaces, type TemperaturePlace } from './temperature.js'
 export const BEAUFORT_LOWER_MS = [0.3, 1.6, 3.4, 5.5, 8.0, 10.8, 13.9, 17.2, 20.8, 24.5, 28.5, 32.7] as const
 export const BEAUFORT_MAX = 12
 
-/** Groen licht → donker tot en met 5 Bft, vanaf 6 Bft oranje → rood (PO-referentie Buienradar, U101). */
+/**
+ * Fietsweer (PO 2026-11-09, U101 ronde 4: "how does it feel"): tot 3 Bft bijna kleurloos (lekker), 4–5 zacht geel
+ * (tegenwind die je voelt), 6–7 oranje (zwaar), vanaf 8 rood naar donker (storm). Het contrast zit waar het ertoe
+ * doet; de dekking bouwt op met de windkracht (WIND_FILL), zodat de kaart bij rustig weer zichtbaar blijft.
+ */
 export const BEAUFORT_COLORS: readonly string[] = [
-  '#f2f9ec', '#e0f1d2', '#c8e6b0', '#a8d68b', '#82c166', '#5aa547',
-  '#f7b44f', '#f08f38', '#e4662b', '#cf3f24', '#ac241e', '#861719', '#5f0e13',
+  '#f7f5ee', '#f3f1e6', '#eeebdb', '#e6e2cc', '#f4df8a', '#f0c95b', '#ef9a3d', '#e8742f', '#d84a33', '#b92f37', '#93233f', '#6e1d45', '#4a173f',
+]
+
+/** Welke klassen samen één gevoel zijn; de legenda zet het woord eronder. */
+export const BEAUFORT_FEEL_ZONES: ReadonlyArray<{ word: string; from: number; to: number }> = [
+  { word: 'lekker', from: 0, to: 3 }, { word: 'tegenwind', from: 4, to: 5 }, { word: 'zwaar', from: 6, to: 7 }, { word: 'storm', from: 8, to: 10 },
 ]
 
 export function beaufortNumber(speed: number): number {
@@ -98,5 +106,16 @@ export function windVaneSpacingPx(width: number, height: number): number {
 
 /** Lijnbreedtefactor van de deeltjes bij volle windfocus: ze geven beweging, de vlakken en zakken de waarde. */
 export const WIND_THIN_PARTICLE_WIDTH = 0.55
-/** Dekking van de Beaufortvlakken; veel hoger dan Gevoel (0,35), want de klasse moet zonder legenda leesbaar zijn. */
-export const WIND_FILL_OPACITY = 0.65
+/**
+ * Dekking van de Beaufortvlakken: bijna doorzichtig onder `clearBelow` Bft, vol (`opacity`) vanaf `fullAt`
+ * (PO 2026-11-09: "te heftig, ik zie de kaart amper"). App, Node-bot en Rust bouwen hem zo op.
+ */
+export const WIND_FILL = { opacity: 0.75, clearBelow: 0.5, fullAt: 8 } as const
+
+/** De dekking van klasse `force` (midden van de band), zoals de vulling hem opbouwt; voor de legenda. */
+export function windClassOpacity(force: number): number {
+  const t = Math.max(0, Math.min(1, (force + 0.5 - WIND_FILL.clearBelow) / (WIND_FILL.fullAt - WIND_FILL.clearBelow)))
+  return WIND_FILL.opacity * t * t * (3 - 2 * t)
+}
+/** Lijnkleur van de Bft-grenzen 's nachts: de vulkleur maal deze factor (lichter), overdag verdonkerd zoals Gevoel. */
+export const WIND_NIGHT_LINE_LIGHTEN = 1.45

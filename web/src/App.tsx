@@ -72,7 +72,7 @@ import { formatUv, uvChipLabel, uvLevel, uvReading } from './core/uv'
 import { WIND_UNITS, type WindUnit } from './core/weather'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
 import { DEFAULT_WIND_TUNING, MOBILE_WIND, WIND_MAX_FPS, WIND_PARAMETERS, WIND_SIMULATION_FPS, WindLayer } from './core/wind-layer'
-import { BEAUFORT_LEGEND, beaufortFrame, beaufortPalette, WIND_FILL_OPACITY, WIND_THIN_PARTICLE_WIDTH, windVanePlaces, windVaneSpacingPx } from './core/wind-beaufort'
+import { BEAUFORT_FEEL_ZONES, BEAUFORT_LEGEND, beaufortFrame, beaufortPalette, windClassOpacity, WIND_FILL, WIND_NIGHT_LINE_LIGHTEN, WIND_THIN_PARTICLE_WIDTH, windVanePlaces, windVaneSpacingPx } from './core/wind-beaufort'
 import { WindsockLayer, windsockDevOptions } from './core/wind-socks'
 import { WINDSOCK_LAG_MINUTES, type WindSlice } from './core/windsock-flow'
 import { clearTuningStorage, nightCue, TABLE_CONTRASTS, type TableContrast } from './core/dev-settings'
@@ -1874,7 +1874,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
 
   /** Beaufortvlakken met grenslijnen in een donkerder tint van de vlakken. */
   function windBeaufortStyle(): IsolineStyle {
-    return { step: 1, fill: WIND_FILL_OPACITY, fillSmooth: false, palette: beaufortPalette(), color: hexColor(isolineColor(mapSurfaceTheme())), lineOpacity: TEMPERATURE_LINE_FILL_OPACITY, lineFromFill: TEMPERATURE_LINE_FILL_SHADE }
+    // 's Nachts verdwijnt een verdonkerde lijn in de donkere vlakken (PO 2026-11-09); daar lichter dan de vulling.
+    const lineFromFill = mapSurfaceTheme() === 'dark' ? WIND_NIGHT_LINE_LIGHTEN : TEMPERATURE_LINE_FILL_SHADE
+    return { step: 1, fill: WIND_FILL.opacity, fillByValue: [WIND_FILL.clearBelow, WIND_FILL.fullAt], fillSmooth: false, palette: beaufortPalette(), color: hexColor(isolineColor(mapSurfaceTheme())), lineOpacity: TEMPERATURE_LINE_FILL_OPACITY, lineFromFill }
   }
 
   /** De gewogen uurframes achter het veld van `frame` (druk: met zijn buren, zie isolineFrameWeights). */
@@ -3713,8 +3715,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       </Show>
       <Show when={!stillMode && windLegendVisible()}>
         <aside class="rain-isoline-legend wind-legend" aria-label="Windkracht in Beaufort">
-          <For each={BEAUFORT_LEGEND}>{(entry) => <span><i style={{ background: `color-mix(in srgb, ${entry.color} ${Math.round(WIND_FILL_OPACITY * 100)}%, transparent)` }} />{entry.label}</span>}</For>
-          <small>Bft</small>
+          <For each={BEAUFORT_FEEL_ZONES}>{(zone) => <span class="wind-zone">
+            <span class="wind-zone-classes"><For each={BEAUFORT_LEGEND.slice(zone.from, zone.to + 1)}>{(entry, index) =>
+              // Een minimum, anders zijn de bijna doorzichtige "lekker"-klassen in de legenda onzichtbaar.
+              <span><i style={{ background: `color-mix(in srgb, ${entry.color} ${Math.round(Math.max(0.18, windClassOpacity(zone.from + index())) * 100)}%, transparent)` }} />{entry.label}</span>}</For></span>
+            <em>{zone.word}</em>
+          </span>}</For>
         </aside>
       </Show>
       <Show when={!stillMode && focusPinned() === 'weather' && rainIsolineLegend().length > 0}>
