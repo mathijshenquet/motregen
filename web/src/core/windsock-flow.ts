@@ -141,11 +141,6 @@ export function windsockPhase(name: string): number {
   return (hash >>> 0) % 628 / 100
 }
 
-/** Beweging van de zak in de app (`?dev&beweging=`): wuiven met momentum (standaard) of de stofgolf van ronde 3. */
-export const WINDSOCK_MOTIONS = ['wuiven', 'golf'] as const
-export type WindsockMotion = typeof WINDSOCK_MOTIONS[number]
-export const DEFAULT_WINDSOCK_MOTION: WindsockMotion = 'wuiven'
-
 /**
  * Wuiven (PO 2026-11-09): zoals een vlag of wimpel echt wuift. De zak zit vast aan de mast en een golf loopt door de
  * stof naar het losse eind: bij de mast bijna geen uitslag, naar de staart steeds meer, en de staart loopt in fase

@@ -56,7 +56,7 @@ fn main() -> io::Result<()> {
     let rows = doubles(&mut input, height)?;
 
     loop {
-        let mut header = [0; 48];
+        let mut header = [0; 56];
         match input.read_exact(&mut header) {
             Ok(()) => (),
             Err(error) if error.kind() == io::ErrorKind::UnexpectedEof => break,
@@ -75,6 +75,8 @@ fn main() -> io::Result<()> {
         });
         let segment_count = u32::from_le_bytes(header[8..12].try_into().unwrap()) as usize;
         let has_rings = u32::from_le_bytes(header[12..16].try_into().unwrap()) != 0;
+        let clear_below = f32::from_le_bytes(header[48..52].try_into().unwrap());
+        let full_at = f32::from_le_bytes(header[52..56].try_into().unwrap());
         let mut rgb = vec![0; width * height * 3];
         input.read_exact(&mut rgb)?;
         let values = floats(&mut input, grid_width * grid_height)?;
@@ -169,7 +171,12 @@ fn main() -> io::Result<()> {
                     };
                     let lower = ((level as isize - 1 + 128).clamp(0, 255)) as usize * 3;
                     let upper = ((level as isize + 128).clamp(0, 255)) as usize * 3;
-                    let alpha = fill_opacity * smooth((validity - 0.3) / 0.4) * opacity;
+                    let by_value = if full_at > clear_below {
+                        smooth((value - clear_below) / (full_at - clear_below))
+                    } else {
+                        1.0
+                    };
+                    let alpha = fill_opacity * smooth((validity - 0.3) / 0.4) * opacity * by_value;
                     let destination = (row * fill_width + column) * 4;
                     for channel in 0..3 {
                         let color = colors[lower + channel] * (1.0 - upper_weight)

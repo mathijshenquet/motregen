@@ -9,7 +9,7 @@ import { promisify } from 'node:util'
 import type { Grid } from '../web/src/core/contract.js'
 import { FIXED_SCALE_FILL_OPACITY, ISOLINE_FILL_RESOLUTION, isolineColor } from '../web/src/core/isolines.js'
 import { TEMPERATURE_LINE_OPACITY, isolineWidthCss, lineProfile } from '../web/src/core/map-presentation.js'
-import { WIND_FILL_OPACITY } from '../web/src/core/wind-beaufort.js'
+import { WIND_FILL } from '../web/src/core/wind-beaufort.js'
 import { ELEMENT_ZOOM } from './native-view.js'
 import { BASE_FRAME_SCALE, FRAME, FRAME_PIXELS } from './config.js'
 import { nativeProjection } from './native-projection.js'
@@ -88,17 +88,19 @@ export class NativeFieldRaster {
     const rgb = Buffer.alloc(base.length)
     const received = new Promise<void>((finish, fail) => { this.output = { bytes: rgb, offset: 0, finish, fail } })
     void received.catch(() => undefined)
-    const header = Buffer.alloc(48)
+    const header = Buffer.alloc(56)
     header.writeFloatLE(slice.opacity, 0); header.writeUInt32LE(night ? 1 : 0, 4)
     // Bytes 16–19 zijn vrij sinds de isobaren uit de windfilm gingen (U101).
     header.writeUInt32LE(slice.segments.length / 6, 8); header.writeUInt32LE(slice.rings ? 1 : 0, 12)
     const profile = lineProfile(isolineWidthCss(ELEMENT_ZOOM) * FRAME.scale)
-    header.writeFloatLE(slice.kind === 'wind' ? WIND_FILL_OPACITY : FIXED_SCALE_FILL_OPACITY, 20)
+    header.writeFloatLE(slice.kind === 'wind' ? WIND_FILL.opacity : FIXED_SCALE_FILL_OPACITY, 20)
     header.writeFloatLE(TEMPERATURE_LINE_OPACITY * profile.alpha, 24)
     header.writeFloatLE(profile.halfWidth, 28)
     const color = Number.parseInt(isolineColor(night ? 'dark' : 'light', slice.kind).slice(1), 16)
     for (let channel = 0; channel < 3; channel++) header.writeFloatLE((color >> ((2 - channel) * 8)) & 255, 32 + channel * 4)
     header.writeFloatLE(ISOLINE_FILL_RESOLUTION / BASE_FRAME_SCALE, 44)
+    // Wind: dekking bouwt op met de waarde (Bft), zoals fillByValue in de app; 0/0 = vaste dekking.
+    if (slice.kind === 'wind') { header.writeFloatLE(WIND_FILL.clearBelow, 48); header.writeFloatLE(WIND_FILL.fullAt, 52) }
     await this.write(header); await this.write(base)
     const fields = [slice.field.values, slice.field.valid, slice.colors, slice.segments, ...(slice.rings ? [slice.rings] : [])]
     for (const field of fields) await this.write(Buffer.from(field.buffer, field.byteOffset, field.byteLength))

@@ -1,7 +1,7 @@
 import type { Map as MapLibreMap } from 'maplibre-gl'
 import { beaufortScale } from './wind-beaufort.js'
-import { DEFAULT_WINDSOCK_BADGE, WINDSOCK_BADGE_POSITIONS, windsockBadge, windsockShape, type WindsockBadgePosition, type WindsockShape } from './wind-glyph.js'
-import { advanceWave, angleDifference, DEFAULT_WINDSOCK_CURVATURE, DEFAULT_WINDSOCK_FLUTTER, DEFAULT_WINDSOCK_MOTION, flutterBends, followSpring, WINDSOCK_MOMENTUM, type Spring, swayBends, WINDSOCK_MOTIONS, type WindsockMotion, sampleWind, windsockPhase, WINDSOCK_CURVATURES, WINDSOCK_FLUTTERS, windsockHeadings, type WindsockCurvature, type WindsockField, type WindsockFlutter, type WindsockFlutterName } from './windsock-flow.js'
+import { DEFAULT_WINDSOCK_BADGE, windsockBadge, windsockShape, type WindsockShape } from './wind-glyph.js'
+import { advanceWave, angleDifference, DEFAULT_WINDSOCK_CURVATURE, followSpring, sampleWind, swayBends, WINDSOCK_MOMENTUM, windsockHeadings, windsockPhase, type Spring, type WindsockField } from './windsock-flow.js'
 import type { TemperaturePlace } from './temperature.js'
 import { windValue, type WindUnit } from './weather.js'
 import { recordPerfPhase } from './perf.js'
@@ -32,10 +32,7 @@ export const WINDSOCK_FLUTTER_FPS = 30
 const MERCATOR_RADIUS = 6378137
 
 export interface WindsockLayerOptions {
-  curvature: WindsockCurvature
-  flutter: WindsockFlutter | undefined
-  motion: WindsockMotion
-  badge: WindsockBadgePosition
+  /** Alleen `?dev&zakstijl=`: de tekenstijl (U101 ronde 4, nog niet gekozen). */
   style: WindsockStyleName
   reducedMotion: () => boolean
   /** Alleen `?dev&windfactor=`: vermenigvuldigt de wind van de zakken, om harde wind te bekijken. */
@@ -154,10 +151,10 @@ export class WindsockLayer {
     context.setTransform(ratio, 0, 0, ratio, 0, 0)
     const bearing = this.map.getBearing()
     const seconds = performance.now() / 1000
-    const flutter = this.options.reducedMotion() ? undefined : this.options.flutter
+    const animate = !this.options.reducedMotion()
     // Na een pauze (verborgen tab, Wind net open) of zonder beweging springt de zak direct naar het veld.
     const elapsed = seconds - this.drawnAt
-    const snap = !flutter || !(elapsed > 0) || elapsed > 1
+    const snap = !animate || !(elapsed > 0) || elapsed > 1
     this.drawnAt = seconds
     let fluttering = false
     let settling = false
@@ -165,7 +162,7 @@ export class WindsockLayer {
       const screen = this.map.project([sock.place.lng, sock.place.lat])
       if (screen.x < -60 || screen.y < -60 || screen.x > width + 60 || screen.y > height + 60) continue
       const wind = sampleWind(field, 0, sock.x, sock.y)
-      const compass = wind && windsockHeadings(field, sock.x, sock.y, this.options.curvature)
+      const compass = wind && windsockHeadings(field, sock.x, sock.y, DEFAULT_WINDSOCK_CURVATURE)
       if (!wind || !compass) continue
       const speed = Math.hypot(wind[0], wind[1]) * this.options.speedFactor
       const target = compass[0]!
@@ -180,8 +177,7 @@ export class WindsockLayer {
       }
       const strength = Math.max(0, sock.strength.value)
       if (!snap) sock.wave = advanceWave(sock.wave, strength, elapsed)
-      const flutterBend = !flutter ? undefined
-        : this.options.motion === 'wuiven' ? swayBends(strength, sock.wave, seconds, sock.phase) : flutterBends(flutter, strength, seconds, sock.phase)
+      const flutterBend = animate ? swayBends(strength, sock.wave, seconds, sock.phase) : undefined
       if (flutterBend) fluttering = true
       const base = sock.heading.value
       const headings = compass.map((heading, index) => base + angleDifference(target, heading) - bearing + (flutterBend?.[index] ?? 0))
@@ -200,7 +196,7 @@ export class WindsockLayer {
     context.save()
     context.translate(x, y)
     drawStyledSock(this.options.style, {
-      context, shape, badge: windsockBadge(shape, this.options.badge, label), label, strength, phase, seconds,
+      context, shape, badge: windsockBadge(shape, DEFAULT_WINDSOCK_BADGE, label), label, strength, phase, seconds,
       dark: this.dark, fontFamily: this.fontFamily,
     })
     context.restore()
@@ -231,14 +227,8 @@ export class WindsockLayer {
   }
 }
 
-/** Dev-knoppen van ronde 3 en 4 (`?dev&kromming=`, `&fladder=`, `&beweging=`, `&badge=`, `&zakstijl=`, `&windfactor=`); zonder knop de defaults. */
+/** Dev-knoppen (`?dev&zakstijl=`, `&windfactor=`); zonder knop de gekozen windmodus. */
 export function windsockDevOptions(params: URLSearchParams): Omit<WindsockLayerOptions, 'reducedMotion'> {
-  const curvature = WINDSOCK_CURVATURES.find((name) => name === params.get('kromming')) ?? DEFAULT_WINDSOCK_CURVATURE
-  const flutterName = params.get('fladder')
-  const flutter = flutterName === 'uit' ? undefined
-    : WINDSOCK_FLUTTERS[flutterName && flutterName in WINDSOCK_FLUTTERS ? flutterName as WindsockFlutterName : DEFAULT_WINDSOCK_FLUTTER]
   const factor = Number(params.get('windfactor'))
-  const badge = WINDSOCK_BADGE_POSITIONS.find((name) => name === params.get('badge')) ?? DEFAULT_WINDSOCK_BADGE
-  const motion = WINDSOCK_MOTIONS.find((name) => name === params.get('beweging')) ?? DEFAULT_WINDSOCK_MOTION
-  return { curvature, flutter, motion, badge, style: windsockStyleName(params.get('zakstijl')), speedFactor: Number.isFinite(factor) && factor > 0 ? factor : 1 }
+  return { style: windsockStyleName(params.get('zakstijl')), speedFactor: Number.isFinite(factor) && factor > 0 ? factor : 1 }
 }
