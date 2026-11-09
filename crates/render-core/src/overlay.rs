@@ -13,6 +13,20 @@ pub struct ClockOptions {
 // MIP-32: 64 pixels op de 576-brede Telegram-screenshot, omgerekend naar 960 uitvoerpixels.
 pub const CLOCK_PANEL_TOP: i32 = 107;
 
+const FOOTER_HEIGHT: i32 = 78;
+const FOOTER_RIGHT: i32 = 360;
+
+/// Het voetpaneel linksonder (motregen.nl, bron): kaartgetallen blijven ervan af, zoals van de klok (U107).
+pub fn footer_bounds() -> [f64; 4] {
+    let height = f64::from(crate::constants::constants().size.height as i32);
+    [
+        0.0,
+        height - f64::from(FOOTER_HEIGHT),
+        f64::from(FOOTER_RIGHT),
+        height,
+    ]
+}
+
 pub fn clock_panel_bounds(text: &mut Text, title: &str) -> [f64; 4] {
     let width = title
         .lines()
@@ -136,8 +150,8 @@ pub fn draw_overlay_title(
     rounded_panel(
         rgb,
         -20,
-        size.height as i32 - 78,
-        380,
+        size.height as i32 - FOOTER_HEIGHT,
+        FOOTER_RIGHT + 20,
         100,
         22,
         footer_background,

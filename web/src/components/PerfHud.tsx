@@ -148,6 +148,7 @@ const phaseLabels: Record<PerfPhase, string> = {
   'table-render': 'Tabel',
   'basemap-tile': 'Kaarttegel',
   'windsock-draw': 'Windzakken',
+  'windsock-layout': 'Zakken indelen',
 }
 
 function phaseLabel(phase: PerfPhase): string {

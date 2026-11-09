@@ -148,17 +148,29 @@ export function windsockPhase(name: string): number {
  * en korter, tot flapperen. Daarbovenop draait de hele zak traag mee met de vlagen, met naijlende staart (momentum).
  * Hoeken in graden per asstuk.
  */
-export const WINDSOCK_SWAY = {
-  /** Golffrequentie in Hz: loom ~0,45 bij 1 Bft, vlot ~1,8 bij 5 Bft, flapperend ~3,7 bij 8 Bft. */
-  frequency: (strength: number) => 0.3 + 0.1 * strength + 0.04 * strength * strength,
-  /** Golflengte in zaklengtes: lang bij weinig wind (een zwiep), korter bij harde wind (rimpels). */
-  wavelength: (strength: number) => Math.max(1.1, 2.9 - 0.26 * strength),
-  /** Uitslag aan de staart in graden: ruim (~12°) bij 1 Bft, strak (~6°) vanaf 5 Bft. */
-  amplitude: (strength: number) => Math.min(1, strength / 1.5) * (18 - 12 * Math.min(1, strength / 5)),
-  /** Deel van de uitslag dat de mast nog meekrijgt. */
+/**
+ * Getallen van het wuiven; Rust (render-core windsock::sway_bends) krijgt ze via de modusconstanten.
+ * - frequentie in Hz = f0 + f1·s + f2·s²: loom ~0,45 bij 1 Bft, vlot ~1,8 bij 5 Bft, flapperend ~3,7 bij 8 Bft;
+ * - golflengte in zaklengtes = max(min, base − perForce·s): lang bij weinig wind (een zwiep), korter bij harde wind;
+ * - uitslag aan de staart in graden = min(1, s/calmForce) · (max − drop·min(1, s/tautForce)): ~12° bij 1 Bft, ~6°
+ *   vanaf 5 Bft;
+ * - root: deel van de uitslag dat de mast nog meekrijgt; gust: trage vlaag (graden, Hz, seconden naijlen staart).
+ */
+export const WINDSOCK_SWAY_NUMBERS = {
+  frequency: [0.3, 0.1, 0.04],
+  wavelength: { base: 2.9, perForce: 0.26, min: 1.1 },
+  amplitude: { max: 18, drop: 12, calmForce: 1.5, tautForce: 5 },
   root: 0.12,
-  /** Trage vlaag: uitslag in graden, frequentie in Hz en hoeveel seconden de staart achterloopt. */
   gust: { amplitude: 4, frequency: 0.13, lag: 0.6 },
+} as const
+
+const { frequency: SWAY_FREQUENCY, wavelength: SWAY_WAVELENGTH, amplitude: SWAY_AMPLITUDE } = WINDSOCK_SWAY_NUMBERS
+export const WINDSOCK_SWAY = {
+  frequency: (strength: number) => SWAY_FREQUENCY[0] + SWAY_FREQUENCY[1] * strength + SWAY_FREQUENCY[2] * strength * strength,
+  wavelength: (strength: number) => Math.max(SWAY_WAVELENGTH.min, SWAY_WAVELENGTH.base - SWAY_WAVELENGTH.perForce * strength),
+  amplitude: (strength: number) => Math.min(1, strength / SWAY_AMPLITUDE.calmForce) * (SWAY_AMPLITUDE.max - SWAY_AMPLITUDE.drop * Math.min(1, strength / SWAY_AMPLITUDE.tautForce)),
+  root: WINDSOCK_SWAY_NUMBERS.root,
+  gust: WINDSOCK_SWAY_NUMBERS.gust,
 } as const
 
 /**
@@ -170,7 +182,7 @@ export function swayBends(strength: number, wave: number, seconds: number, phase
   const { wavelength, amplitude, root, gust } = WINDSOCK_SWAY
   const wavenumber = 2 * Math.PI / wavelength(strength)
   const swing = amplitude(strength)
-  const calm = Math.min(1, strength / 1.5)
+  const calm = Math.min(1, strength / SWAY_AMPLITUDE.calmForce)
   return Array.from({ length: WINDSOCK_SAMPLES + 1 }, (_, index) => {
     const t = index / WINDSOCK_SAMPLES
     const travel = wave - wavenumber * t + phase
@@ -208,3 +220,32 @@ export function followSpring(spring: Spring, target: number, elapsed: number, ti
 
 /** Tijdconstanten van het momentum: richting en windkracht van de zak. */
 export const WINDSOCK_MOMENTUM = { heading: 0.6, strength: 0.8 } as const
+
+/** Beweging van één zak: momentum op richting (kompasgraden) en kracht (Bft), plus de opgetelde golffase. */
+export interface SockMotion {
+  heading?: Spring
+  strength?: Spring
+  wave: number
+}
+
+/**
+ * Eén stap van een zak naar het veld (doelrichting `target`, doelkracht `force`) over `elapsed` seconden: momentum
+ * op richting en kracht, dan de golf verder met de getekende kracht. `snap` (na een pauze, eerste beeld, still)
+ * zet hem direct op het doel. App, Node-bot en Rust (render-core windsock::advance_sock) doen precies dit; de bot
+ * stapt per filmframe, dus de film is deterministisch. Geeft terug of de zak nog beweegt.
+ */
+export function advanceSock(motion: SockMotion, target: number, force: number, elapsed: number, snap: boolean): boolean {
+  if (snap || !motion.heading || !motion.strength) {
+    motion.heading = { value: target, velocity: 0 }
+    motion.strength = { value: force, velocity: 0 }
+    return false
+  }
+  // Kortste weg: het doel ligt nooit meer dan 180° van de huidige richting.
+  followSpring(motion.heading, motion.heading.value + angleDifference(motion.heading.value, target), elapsed, WINDSOCK_MOMENTUM.heading)
+  followSpring(motion.strength, force, elapsed, WINDSOCK_MOMENTUM.strength)
+  motion.wave = advanceWave(motion.wave, Math.max(0, motion.strength.value), elapsed)
+  return Math.abs(motion.heading.velocity) > 0.05 || Math.abs(motion.strength.velocity) > 0.005
+}
+
+/** Langer dan dit (s) tussen twee stappen: de zak springt naar het veld in plaats van er traag naartoe te draaien. */
+export const SOCK_SNAP_SECONDS = 1

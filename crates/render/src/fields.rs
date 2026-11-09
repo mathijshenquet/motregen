@@ -1,14 +1,14 @@
+use crate::windsocks::SockChain;
 use crate::{
     data::{Dataset, Raster},
     frame_cache::KeyBuilder,
 };
 use anyhow::{Context, Result, ensure};
 use render_core::{
-    contours::{self, Contour},
+    contours,
     field::{Field, slice_weights},
-    isoline_labels::{Label, Labels, Placement, Screen},
+    isoline_labels::{Label, Labels, Screen},
     mode_constants::mode_constants,
-    name_mask::NameMask,
     projection::{Grid, Projection},
     time::{Manifest, frame_blend},
     windsock,
@@ -64,10 +64,12 @@ pub struct Slice {
     pub opacity: f64,
 }
 
-/// What a slice carries over to the next one: the label anchors.
+/// What a slice carries over to the next one: the label anchors and, for wind, the motion of the socks (U107).
 #[derive(Deserialize, Serialize)]
 struct FieldState {
     labels: Labels,
+    #[serde(default)]
+    socks: SockChain,
 }
 
 pub struct Fields<'a> {
@@ -76,10 +78,9 @@ pub struct Fields<'a> {
     /// Only for wind: the northward component; `data` is then the eastward one and carries the timeline.
     pub north: Option<Dataset<'a>>,
     prepared: Vec<(usize, Arc<Field>)>,
-    line_cache: Vec<(usize, Vec<Contour>)>,
     labels: Labels,
-    /// Labels are placed once for both themes; the names sit at the same place on the light and dark plate.
-    names: NameMask,
+    /// Wind: momentum and wave of the socks, stepped once per film frame in `Sources::input`.
+    pub socks: SockChain,
     /// Wind (U101): Beaufort bands from u and v, without labels; otherwise the feels-like temperature.
     wind: bool,
     pub fields_us: u128,
@@ -88,12 +89,7 @@ pub struct Fields<'a> {
 }
 
 impl<'a> Fields<'a> {
-    pub fn new(
-        directory: &Path,
-        manifest: &'a Manifest,
-        wind: bool,
-        names: NameMask,
-    ) -> Result<Self> {
+    pub fn new(directory: &Path, manifest: &'a Manifest, wind: bool) -> Result<Self> {
         let mut data = Dataset::new(
             directory,
             manifest,
@@ -117,9 +113,8 @@ impl<'a> Fields<'a> {
             grid,
             north,
             prepared: Vec::new(),
-            line_cache: Vec::new(),
             labels: Labels::default(),
-            names,
+            socks: SockChain::default(),
             wind,
             fields_us: 0,
             contours_us: 0,
@@ -186,12 +181,14 @@ impl<'a> Fields<'a> {
     pub fn state(&self) -> Result<Vec<u8>> {
         Ok(serde_json::to_vec(&FieldState {
             labels: self.labels.clone(),
+            socks: self.socks.clone(),
         })?)
     }
 
     pub fn restore(&mut self, state: &[u8]) -> Result<()> {
         let state: FieldState = serde_json::from_slice(state)?;
         self.labels = state.labels;
+        self.socks = state.socks;
         Ok(())
     }
 
@@ -238,12 +235,19 @@ impl<'a> Fields<'a> {
                 fields.push((self.field(index)?, weight));
             }
         }
-        let field = Arc::new(Field::blend(
+        let mut field = Field::blend(
             &fields
                 .iter()
                 .map(|(field, weight)| (field.as_ref(), *weight))
                 .collect::<Vec<_>>(),
-        ));
+        );
+        // Gevoel: lijnen en banden op x,5 °C (U100), dus het hele veld een halve graad omlaag; de getallen tellen
+        // de offset weer op.
+        if !self.wind {
+            let offset = mode_constants().map_label.temperature_offset as f32;
+            field.values.iter_mut().for_each(|value| *value -= offset);
+        }
+        let field = Arc::new(field);
         let screen = screen(&self.grid);
         self.fields_us += started
             .elapsed()
@@ -295,50 +299,9 @@ impl<'a> Fields<'a> {
         let fields_before = self.fields_us;
         let decode_before = self.data.decode_us;
         let opacity = self.edge_opacity(time);
-        // De Bft-grenzen dragen geen label: vlakken en windzakken geven de waarde (zoals in de app).
-        let labels = if self.wind {
-            Vec::new()
-        } else {
-            let label_index = if blend.mix < 0.5 {
-                blend.left
-            } else {
-                blend.right
-            };
-            if !self
-                .line_cache
-                .iter()
-                .any(|(cached, _)| *cached == label_index)
-            {
-                let label_field = self.field(label_index)?;
-                let lines = contours::label_lines(
-                    &label_field,
-                    &self.grid,
-                    1.0,
-                    mode_constants().isoline.ring_km,
-                );
-                if self.line_cache.len() >= 2 {
-                    self.line_cache.remove(0);
-                }
-                self.line_cache.push((label_index, lines));
-            }
-            let lines = &self
-                .line_cache
-                .iter()
-                .find(|(cached, _)| *cached == label_index)
-                .unwrap()
-                .1;
-            self.labels.place(Placement {
-                field: &field,
-                lines,
-                contours: &contours,
-                screen,
-                step: 1.0,
-                key: self.data.frames[label_index].epoch,
-                pressure: false,
-                opacity,
-                names: Some(&self.names),
-            })
-        };
+        // Geen labels op de lijnen: in Wind geven vlakken en zakken de waarde, in Gevoel de getallen op vaste
+        // plekken (U107, `place_numbers`), zoals in de app.
+        let labels = Vec::new();
         self.labels_us += started
             .elapsed()
             .as_micros()
@@ -357,7 +320,8 @@ impl<'a> Fields<'a> {
         if self.wind {
             windsock::beaufort_palette()
         } else {
-            render_core::field_palette::Palette::fixed().bands()
+            render_core::field_palette::Palette::fixed()
+                .bands_offset(mode_constants().map_label.temperature_offset)
         }
     }
 }

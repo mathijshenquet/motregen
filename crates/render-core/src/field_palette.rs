@@ -72,9 +72,14 @@ impl Palette {
     }
 
     pub fn bands(&self) -> Vec<f32> {
+        self.bands_offset(0.0)
+    }
+
+    /// Banden tussen lijnen op k + `offset` (U100: x,5 °C): band k krijgt de kleur van zijn midden.
+    pub fn bands_offset(&self, offset: f64) -> Vec<f32> {
         (-128..128)
             .flat_map(|band| {
-                self.color(f64::from(band) + 0.5)
+                self.color(f64::from(band) + 0.5 + offset)
                     .map(|channel| channel as f32)
             })
             .collect()

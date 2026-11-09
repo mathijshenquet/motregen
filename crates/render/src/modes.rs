@@ -3,7 +3,7 @@ use crate::{
     encode::{Video, jpeg},
     fields::{Fields, Pair, Slice, pair},
     frame_cache::{Key, ModeCache, Parts, Prediction},
-    renderer::{FileMedia, FramePlan, Media, Options, Profile, frame_plans, name_mask, plates},
+    renderer::{FileMedia, FramePlan, Media, Options, Profile, frame_plans, name_masks, plates},
 };
 use anyhow::{Context, Result, ensure};
 use rayon::prelude::*;
@@ -13,7 +13,9 @@ use render_core::{
     field_raster::{self, FillStyle, LineColor},
     isoline_labels::label_text_size,
     mode_constants::{color, mode_constants},
+    name_mask::NameMask,
     overlay::{ClockOptions, clock_appearance, clock_panel_bounds, draw_overlay_title},
+    place_numbers::{BandedField, draw_place_numbers},
     projection::Projection,
     rotated_text::{RotatedText, TextStyle},
     text::Text,
@@ -43,18 +45,23 @@ struct Input {
     slice: Slice,
     /// (oost, noord) op de kaarttijd, een half en een heel `lag_minutes` eerder (windzakken, U101).
     wind: Option<[(Pair, Pair); 3]>,
+    /// De zakken van dit filmframe, met momentum uit de keten (U107).
+    socks: Vec<crate::windsocks::SockPose>,
 }
 
 struct Worker {
     text: Text,
     labels: RotatedText,
+    /// Het getal in de windbadge, vet (U107).
+    badges: RotatedText,
 }
 
 struct Painter<'a> {
     plates: &'a [Vec<u8>; 2],
+    /// Namen op de platen: de gevoelsgetallen blijven ervan af (U107).
+    names: &'a [NameMask; 2],
     water: &'a [WaterMask; 2],
     projection: &'a Projection,
-    grid: &'a render_core::projection::Grid,
     colors: &'a [f32],
     workers: &'a [Mutex<Worker>; 2],
     now: i64,
@@ -157,18 +164,27 @@ impl Painter<'_> {
                     alpha: &water.alpha,
                 },
             );
-            crate::windsocks::draw(
-                &mut rgb,
-                &mut worker.labels,
-                self.grid,
-                pairs,
-                input.simulation_seconds,
-                input.night,
-            );
+            crate::windsocks::draw(&mut rgb, &mut worker.badges, &input.socks, input.night);
             profile.strokes_us += started.elapsed().as_micros();
         }
         let halo = if input.night { [16, 32, 39] } else { [255; 3] };
         let labels_started = Instant::now();
+        if !self.wind {
+            draw_place_numbers(
+                &mut worker.text,
+                &mut rgb,
+                &self.plates[usize::from(input.night)],
+                &self.names[usize::from(input.night)],
+                BandedField {
+                    field: &input.slice.field,
+                    projection: self.projection,
+                    colors: self.colors,
+                    alpha: (fill_opacity * input.slice.opacity) as f32,
+                },
+                input.night,
+                clock_bounds,
+            );
+        }
         for label in &input.slice.labels {
             worker.labels.draw_excluding(
                 &mut rgb,
@@ -252,6 +268,10 @@ impl<'a> Sources<'a> {
         } else {
             None
         };
+        let grid = self.fields.grid.clone();
+        let socks = wind.as_ref().map_or_else(Vec::new, |pairs| {
+            crate::windsocks::advance(&mut self.fields.socks, &grid, pairs, simulation_seconds)
+        });
         Ok(Input {
             epoch: time,
             simulation_seconds,
@@ -260,6 +280,7 @@ impl<'a> Sources<'a> {
             night: dark(time),
             slice,
             wind,
+            socks,
         })
     }
 
@@ -487,12 +508,8 @@ pub fn render(
     } else {
         &mode_constants().loops.feels
     };
-    let fields = Fields::new(
-        data_directory,
-        manifest,
-        wind,
-        name_mask(basemap_directory, "light")?,
-    )?;
+    let fields = Fields::new(data_directory, manifest, wind)?;
+    let names = name_masks(basemap_directory)?;
     let east = wind
         .then(|| Dataset::new(data_directory, manifest, "wind_u_ms"))
         .transpose()?;
@@ -548,6 +565,7 @@ pub fn render(
         Ok(Mutex::new(Worker {
             text: Text::new().map_err(anyhow::Error::msg)?,
             labels: RotatedText::new().map_err(anyhow::Error::msg)?,
+            badges: RotatedText::bold().map_err(anyhow::Error::msg)?,
         }))
     });
     let [first, second] = workers;
@@ -574,7 +592,6 @@ pub fn render(
     let plans = frame_plans(&loop_epochs, &still_epochs);
     let painter_workers = [first?, second?];
     let projection = Projection::new(&sources.fields.grid);
-    let field_grid = sources.fields.grid.clone();
     let frame_step = loop_plan.loop_offsets[1] - loop_plan.loop_offsets[0];
     let mut chain = Vec::new();
     let mut total = Profile::default();
@@ -665,9 +682,9 @@ pub fn render(
             for works in &input_receiver {
                 let painter = Painter {
                     plates: &plates,
+                    names: &names,
                     water: &water,
                     projection: &projection,
-                    grid: &field_grid,
                     colors: &colors,
                     workers: &painter_workers,
                     now,

@@ -1,4 +1,4 @@
-//! De windzakken van de windfilm (U101), zoals `bot/native-windsocks.ts`: vorm, stroming en trilling uit
+//! De windzakken van de windfilm (U101), zoals `bot/native-windsocks.ts`: vorm, stroming, momentum en wuiven uit
 //! `render_core::windsock`, getekend als vlakken met een badge die de zak wegknipt.
 
 use crate::{
@@ -10,8 +10,9 @@ use render_core::{
     mode_constants::{color, mode_constants},
     projection::{Grid, project},
     rotated_text::{RotatedText, TextStyle},
-    windsock::{self, Cut, Point, Shape, Vectors, WindSlice, WindsockField},
+    windsock::{self, Cut, Point, Shape, SockMotion, Vectors, WindSlice, WindsockField},
 };
+use serde::{Deserialize, Serialize};
 
 /// u en v van één uurframe, gelezen via hun quantisering.
 struct RasterVectors<'a> {
@@ -27,15 +28,32 @@ impl Vectors for RasterVectors<'_> {
     }
 }
 
-/// `pairs`: (oost, noord) op de kaarttijd, een half en een heel `lag_minutes` eerder.
-pub fn draw(
-    rgb: &mut [u8],
-    labels: &mut RotatedText,
+/// Momentum en golffase van alle zakken, doorgegeven van filmframe naar filmframe (U107; `FieldState`, dus ook in
+/// de framecache-keten). Een still begint leeg en springt direct naar het veld.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct SockChain {
+    /// Filmseconden van de vorige stap.
+    seconds: Option<f64>,
+    /// Per plaats in `mode_constants().windsock.places`.
+    motions: Vec<SockMotion>,
+}
+
+/// Wat het tekenen van één zak nodig heeft: de getekende richtingen per asstuk, kracht en het Bft-getal.
+pub struct SockPose {
+    point: Point,
+    headings: Vec<f64>,
+    strength: f64,
+    label: String,
+}
+
+/// `pairs`: (oost, noord) op de kaarttijd, een half en een heel `lag_minutes` eerder. Stapt de keten één filmframe
+/// verder (`seconds`), zoals `WindsockLayer.draw` in de app per animatieframe.
+pub fn advance(
+    chain: &mut SockChain,
     grid: &Grid,
     pairs: &[(Pair, Pair); 3],
     seconds: f64,
-    night: bool,
-) {
+) -> Vec<SockPose> {
     let settings = &mode_constants().windsock;
     let vectors: Vec<_> = pairs
         .iter()
@@ -62,9 +80,19 @@ pub fn draw(
         grid: &pairs[0].0.left.grid,
         slices: [slice(0), slice(1), slice(2)],
     };
+    let elapsed = chain
+        .seconds
+        .map_or(f64::NAN, |previous| seconds - previous);
+    let snap = elapsed.is_nan() || elapsed <= 0.0 || elapsed > settings.snap_seconds;
+    chain.seconds = Some(seconds);
+    chain
+        .motions
+        .resize(settings.places.len(), SockMotion::default());
     let transform = screen(grid);
     let size = &constants().size;
-    for place in &settings.places {
+    let scale = mode_constants().scale;
+    let mut poses = Vec::new();
+    for (place, motion) in settings.places.iter().zip(&mut chain.motions) {
         let (x, y) = project(place.lng, place.lat);
         let point = transform.point([(x - grid.x0) / grid.dx - 0.5, (y - grid.y0) / grid.dy - 0.5]);
         if point[0] < -90.0
@@ -81,26 +109,42 @@ pub fn draw(
             continue;
         };
         let speed = wind[0].hypot(wind[1]);
-        let strength = windsock::beaufort_scale(speed);
-        let bends = windsock::flutter_bends(&settings.flutter, strength, seconds, place.phase);
-        let headings: Vec<_> = compass
-            .iter()
-            .enumerate()
-            .map(|(index, heading)| heading + bends.as_ref().map_or(0.0, |bends| bends[index]))
-            .collect();
-        let shape = windsock::shape(strength, &headings);
-        let scale = mode_constants().scale;
-        draw_sock(
-            rgb,
-            labels,
-            [
+        let target = compass[0];
+        windsock::advance_sock(
+            motion,
+            target,
+            windsock::beaufort_scale(speed),
+            elapsed,
+            snap,
+        );
+        let (Some(heading), Some(strength)) = (motion.heading, motion.strength) else {
+            continue;
+        };
+        let strength = strength.value.max(0.0);
+        let bends = windsock::sway_bends(strength, motion.wave, seconds, place.phase);
+        poses.push(SockPose {
+            point: [
                 point[0] + place.offset[0] * scale,
                 point[1] + place.offset[1] * scale,
             ],
-            &shape,
-            &windsock::beaufort_number(speed).to_string(),
-            night,
-        );
+            headings: compass
+                .iter()
+                .zip(&bends)
+                .map(|(compass, bend)| {
+                    heading.value + windsock::angle_difference(target, *compass) + bend
+                })
+                .collect(),
+            strength,
+            label: windsock::beaufort_number(speed).to_string(),
+        });
+    }
+    poses
+}
+
+pub fn draw(rgb: &mut [u8], badges: &mut RotatedText, poses: &[SockPose], night: bool) {
+    for pose in poses {
+        let shape = windsock::shape(pose.strength, &pose.headings);
+        draw_sock(rgb, badges, pose.point, &shape, &pose.label, night);
     }
 }
 

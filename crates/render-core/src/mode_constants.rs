@@ -17,6 +17,48 @@ pub struct ModeConstants {
     pub cloud: Cloud,
     pub beaufort: Beaufort,
     pub windsock: Windsock,
+    pub map_label: MapLabel,
+}
+
+/// Kaartregime (U107, `map-labels.ts`): lettermaat van kaartgetallen in CSS-px en de schijfregel.
+#[derive(Debug, Deserialize)]
+pub struct MapLabel {
+    pub size: f64,
+    pub disc: Disc,
+    /// `PLACE_LADDER`: uitwijkplekken in labelhoogtes, eerst op de plek.
+    pub ladder: Vec<[f64; 2]>,
+    pub maximum: usize,
+    /// Isolijnen van de gevoelstemperatuur op k + offset (U100: x,5 °C).
+    pub temperature_offset: f64,
+    pub disc_fixture: Vec<DiscFixture>,
+    /// Plekken van de gevoelsgetallen bij de botzoom (`nestedPlaces`, zoals de app).
+    pub places: Vec<MapPlace>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Disc {
+    pub min_em: f64,
+    pub char_em: f64,
+    pub pad: f64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct DiscFixture {
+    pub label: String,
+    pub radius: f64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct MapPlace {
+    pub name: String,
+    pub lng: f64,
+    pub lat: f64,
+}
+
+/// `mapDiscRadius`: straal van de schijf onder een kaartgetal in CSS-px.
+pub fn disc_radius(label: &str, size: f64) -> f64 {
+    let disc = &mode_constants().map_label.disc;
+    (size * disc.min_em).max(label.chars().count() as f64 * size * disc.char_em + disc.pad)
 }
 
 #[derive(Debug, Deserialize)]
@@ -152,8 +194,51 @@ pub struct Windsock {
     pub max_bend: f64,
     pub stream: bool,
     pub lag: bool,
-    pub flutter: Flutter,
+    pub sway: Sway,
+    pub momentum: Momentum,
+    pub snap_seconds: f64,
     pub places: Vec<WindsockPlace>,
+}
+
+/// `WINDSOCK_SWAY_NUMBERS` (windsock-flow.ts): het wuiven.
+#[derive(Debug, Deserialize)]
+pub struct Sway {
+    pub frequency: [f64; 3],
+    pub wavelength: SwayWavelength,
+    pub amplitude: SwayAmplitude,
+    pub root: f64,
+    pub gust: Gust,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SwayWavelength {
+    pub base: f64,
+    pub per_force: f64,
+    pub min: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SwayAmplitude {
+    pub max: f64,
+    pub drop: f64,
+    pub calm_force: f64,
+    pub taut_force: f64,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Gust {
+    pub amplitude: f64,
+    pub frequency: f64,
+    pub lag: f64,
+}
+
+/// `WINDSOCK_MOMENTUM`: tijdconstanten (s) van richting en kracht.
+#[derive(Debug, Deserialize)]
+pub struct Momentum {
+    pub heading: f64,
+    pub strength: f64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -197,17 +282,6 @@ pub struct WindsockBadge {
     pub gap: f64,
     pub font_px: f64,
     pub long_font_px: f64,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Flutter {
-    pub start: f64,
-    pub amplitude: f64,
-    pub amplitude_per_force: f64,
-    pub max_amplitude: f64,
-    pub frequency: f64,
-    pub frequency_per_force: f64,
 }
 
 #[derive(Debug, Deserialize)]

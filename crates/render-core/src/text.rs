@@ -7,17 +7,33 @@ struct Glyph {
     alpha: Vec<u8>,
 }
 
+/// Letter van een tekst: bediening (Inter) of kaart (Noto Sans, U107).
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Face {
+    Ui,
+    Map,
+}
+
 pub struct Text {
-    font: Arc<Font>,
-    glyphs: HashMap<(char, u32), Glyph>,
+    ui: Arc<Font>,
+    map: Arc<Font>,
+    face: Face,
+    glyphs: HashMap<(Face, char, u32), Glyph>,
 }
 
 impl Text {
     pub fn new() -> Result<Self, &'static str> {
         Ok(Self {
-            font: crate::font::inter()?,
+            ui: crate::font::inter()?,
+            map: crate::font::map_regular()?,
+            face: Face::Ui,
             glyphs: HashMap::new(),
         })
+    }
+
+    /// Kies de letter voor de volgende metingen en tekeningen; geeft de vorige terug.
+    pub fn set_face(&mut self, face: Face) -> Face {
+        std::mem::replace(&mut self.face, face)
     }
 
     pub fn width(&mut self, text: &str, size: u32) -> f32 {
@@ -52,10 +68,17 @@ impl Text {
     }
 
     fn glyph(&mut self, character: char, size: u32) -> &Glyph {
-        self.glyphs.entry((character, size)).or_insert_with(|| {
-            let (metrics, alpha) = self.font.rasterize(character, size as f32);
-            Glyph { metrics, alpha }
-        })
+        let face = self.face;
+        let font = match face {
+            Face::Ui => &self.ui,
+            Face::Map => &self.map,
+        };
+        self.glyphs
+            .entry((face, character, size))
+            .or_insert_with(|| {
+                let (metrics, alpha) = font.rasterize(character, size as f32);
+                Glyph { metrics, alpha }
+            })
     }
 
     pub fn draw(

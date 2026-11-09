@@ -2,8 +2,9 @@
 //! `wind-beaufort.ts` en de polygoonvuller van `bot/native-windsocks.ts`. De tests rekenen de Node-uitkomsten
 //! in `assets/windsock-fixtures.json` na.
 
-use crate::mode_constants::{Flutter, mode_constants};
+use crate::mode_constants::{disc_radius, mode_constants};
 use crate::projection::Grid;
+use serde::{Deserialize, Serialize};
 
 pub type Point = [f64; 2];
 
@@ -158,15 +159,18 @@ pub struct Badge {
 pub fn badge(shape: &Shape, at_mouth: bool, label: &str) -> Badge {
     let settings = &mode_constants().windsock;
     let center = shape.axis[if at_mouth { 0 } else { settings.samples / 2 }];
+    // Schijfregel van het kaartregime (U107, `windsockBadge`): één cijfer 9,5 px, twee cijfers ruimer.
+    let font_px = if label.chars().count() > 2 {
+        settings.badge.long_font_px
+    } else {
+        settings.badge.font_px
+    };
+    let radius = disc_radius("0", settings.badge.font_px).max(disc_radius(label, font_px));
     Badge {
         center,
-        radius: settings.badge.radius,
-        cut_radius: settings.badge.radius + settings.badge.gap,
-        font_px: if label.chars().count() > 2 {
-            settings.badge.long_font_px
-        } else {
-            settings.badge.font_px
-        },
+        radius,
+        cut_radius: radius + settings.badge.gap,
+        font_px,
     }
 }
 
@@ -287,36 +291,6 @@ pub fn headings(
         bends
             .into_iter()
             .map(|bend| base + bend.clamp(-settings.max_bend, settings.max_bend))
-            .collect(),
-    )
-}
-
-/// `flutterBends`: een golf van mond naar staart, vanaf `flutter.start` Bft.
-pub fn flutter_bends(
-    flutter: &Flutter,
-    strength: f64,
-    seconds: f64,
-    phase: f64,
-) -> Option<Vec<f64>> {
-    if strength < flutter.start {
-        return None;
-    }
-    let samples = mode_constants().windsock.samples;
-    let above = strength - flutter.start;
-    let amplitude = flutter
-        .max_amplitude
-        .min(flutter.amplitude + flutter.amplitude_per_force * above);
-    let frequency = flutter.frequency + flutter.frequency_per_force * above;
-    let onset = (above * 2.0).min(1.0);
-    Some(
-        (0..=samples)
-            .map(|index| {
-                let t = index as f64 / samples as f64;
-                onset
-                    * amplitude
-                    * t.powf(1.3)
-                    * (2.0 * std::f64::consts::PI * (frequency * seconds - 1.1 * t) + phase).sin()
-            })
             .collect(),
     )
 }
@@ -508,4 +482,107 @@ pub fn thick_line(from: Point, to: Point, half_width: f64) -> Vec<Point> {
         [to[0] - normal[0], to[1] - normal[1]],
         [from[0] - normal[0], from[1] - normal[1]],
     ]
+}
+
+/// Kritisch gedempte veer (`Spring` in windsock-flow.ts): waarde en snelheid per seconde.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct Spring {
+    pub value: f64,
+    pub velocity: f64,
+}
+
+/// `followSpring`: exacte stap van de kritisch gedempte veer naar `target`, zonder doorschieten.
+pub fn follow_spring(spring: &mut Spring, target: f64, elapsed: f64, time_constant: f64) {
+    let omega = 2.0 / time_constant;
+    let offset = spring.value - target;
+    let push = (spring.velocity + omega * offset) * elapsed;
+    let decay = (-omega * elapsed).exp();
+    spring.value = target + (offset + push) * decay;
+    spring.velocity = (spring.velocity - omega * push) * decay;
+}
+
+fn sway_frequency(strength: f64) -> f64 {
+    let [constant, linear, square] = mode_constants().windsock.sway.frequency;
+    constant + linear * strength + square * strength * strength
+}
+
+/// `advanceWave`: de golffase loopt verder met de frequentie van deze windkracht.
+pub fn advance_wave(wave: f64, strength: f64, elapsed: f64) -> f64 {
+    let tau = 2.0 * std::f64::consts::PI;
+    // JavaScript `%` en Rust `%` houden allebei het teken van het deeltal.
+    (wave + tau * sway_frequency(strength) * elapsed) % (tau * 1000.0)
+}
+
+/// Beweging van één zak (`SockMotion`): momentum op richting en kracht, plus de golffase.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct SockMotion {
+    pub heading: Option<Spring>,
+    pub strength: Option<Spring>,
+    pub wave: f64,
+}
+
+/// `advanceSock`: één stap naar het veld; geeft terug of de zak nog beweegt.
+pub fn advance_sock(
+    motion: &mut SockMotion,
+    target: f64,
+    force: f64,
+    elapsed: f64,
+    snap: bool,
+) -> bool {
+    let momentum = &mode_constants().windsock.momentum;
+    let (Some(heading), Some(strength)) = (motion.heading.as_mut(), motion.strength.as_mut())
+    else {
+        motion.heading = Some(Spring {
+            value: target,
+            velocity: 0.0,
+        });
+        motion.strength = Some(Spring {
+            value: force,
+            velocity: 0.0,
+        });
+        return false;
+    };
+    if snap {
+        *heading = Spring {
+            value: target,
+            velocity: 0.0,
+        };
+        *strength = Spring {
+            value: force,
+            velocity: 0.0,
+        };
+        return false;
+    }
+    let shortest = heading.value + angle_difference(heading.value, target);
+    follow_spring(heading, shortest, elapsed, momentum.heading);
+    follow_spring(strength, force, elapsed, momentum.strength);
+    motion.wave = advance_wave(motion.wave, strength.value.max(0.0), elapsed);
+    heading.velocity.abs() > 0.05 || strength.velocity.abs() > 0.005
+}
+
+/// `swayBends`: hoek per asstuk (graden) door het wuiven; `seconds` is de filmklok voor de trage vlaag.
+pub fn sway_bends(strength: f64, wave: f64, seconds: f64, phase: f64) -> Vec<f64> {
+    let settings = &mode_constants().windsock;
+    let sway = &settings.sway;
+    let tau = 2.0 * std::f64::consts::PI;
+    let wavelength = sway
+        .wavelength
+        .min
+        .max(sway.wavelength.base - sway.wavelength.per_force * strength);
+    let wavenumber = tau / wavelength;
+    let calm = (strength / sway.amplitude.calm_force).min(1.0);
+    let swing = calm
+        * (sway.amplitude.max
+            - sway.amplitude.drop * (strength / sway.amplitude.taut_force).min(1.0));
+    (0..=settings.samples)
+        .map(|index| {
+            let t = index as f64 / settings.samples as f64;
+            let travel = wave - wavenumber * t + phase;
+            let ripple = (travel.sin() + 0.35 * (1.7 * travel + 2.3 * phase).sin()) / 1.35;
+            let gust = sway.gust.amplitude
+                * calm
+                * (tau * sway.gust.frequency * (seconds - sway.gust.lag * t) + 1.7 * phase).sin();
+            swing * (sway.root + (1.0 - sway.root) * t.powf(1.6)) * ripple + gust
+        })
+        .collect()
 }
