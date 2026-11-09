@@ -10,6 +10,7 @@ import { configDefaults } from 'vitest/config'
 import { basemapRangeCache } from './scripts/basemap-range-cache'
 import { manifestStartCache } from './scripts/manifest-start-cache'
 import { maplibreCss } from './scripts/maplibre-css-plugin'
+import { precompress } from './scripts/precompress-plugin'
 import { pageRoutes } from './scripts/page-routes'
 import { brandFromEnvironment } from './src/core/brand'
 import { startAssets } from './scripts/start-assets-plugin'
@@ -169,7 +170,7 @@ export default defineConfig({
         { urlPattern: /^https:\/\/[^/]*openfreemap\.org\//, handler: 'NetworkOnly' },
       ],
     },
-  })],
+  }), precompress()],
   build: {
     assetsInlineLimit: (filePath) => filePath.endsWith('.pbf.gz') ? false : undefined,
     sourcemap: true,
