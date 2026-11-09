@@ -7,7 +7,7 @@
   "view": {
     "lng": 5.289999999999992,
     "lat": 52.19243283521341,
-    "zoom": 6.82119866277952
+    "zoom": 6.236236162058365
   },
   "grid": {
     "crs": "EPSG:3857",
@@ -19,7 +19,7 @@
     "height": 1350
   },
   "inputs": {
-    "light": "basemap-light-bc5d560cff56352e0caae441.png",
-    "dark": "basemap-dark-4147f9f19a70c8f25bc3bdb0.png"
+    "light": "basemap-light-8ae55c67f44ff3cd63383fea.png",
+    "dark": "basemap-dark-c272a6b12ba08dbca6b3e8e5.png"
   }
 }

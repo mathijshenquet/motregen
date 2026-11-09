@@ -9,8 +9,8 @@ import { promisify } from 'node:util'
 import type { Grid } from '../web/src/core/contract.js'
 import { ISOLINE_FILL_OPACITY, ISOLINE_FILL_RESOLUTION, isolineColor } from '../web/src/core/isolines.js'
 import { TEMPERATURE_LINE_OPACITY, ISOBAR_LINE_OPACITY, isolineWidthCss, lineProfile } from '../web/src/core/map-presentation.js'
-import { NATIVE_VIEW } from './native-view.js'
-import { FRAME, FRAME_PIXELS } from './config.js'
+import { ELEMENT_ZOOM } from './native-view.js'
+import { BASE_FRAME_SCALE, FRAME, FRAME_PIXELS } from './config.js'
 import { nativeProjection } from './native-projection.js'
 import type { RasterSlice } from './native-temperature.js'
 
@@ -91,13 +91,13 @@ export class NativeFieldRaster {
     header.writeFloatLE(slice.opacity, 0); header.writeUInt32LE(night ? 1 : 0, 4)
     header.writeUInt32LE(slice.segments.length / 6, 8); header.writeUInt32LE(slice.kind === 'temperature' && slice.rings ? 1 : 0, 12)
     header.writeUInt32LE(slice.kind === 'pressure' ? 1 : 0, 16)
-    const profile = lineProfile(isolineWidthCss(NATIVE_VIEW.zoom) * FRAME.scale)
+    const profile = lineProfile(isolineWidthCss(ELEMENT_ZOOM) * FRAME.scale)
     header.writeFloatLE(slice.kind === 'pressure' ? 0 : ISOLINE_FILL_OPACITY, 20)
     header.writeFloatLE((slice.kind === 'pressure' ? ISOBAR_LINE_OPACITY : TEMPERATURE_LINE_OPACITY) * profile.alpha, 24)
     header.writeFloatLE(profile.halfWidth, 28)
     const color = Number.parseInt(isolineColor(night ? 'dark' : 'light', slice.kind).slice(1), 16)
     for (let channel = 0; channel < 3; channel++) header.writeFloatLE((color >> ((2 - channel) * 8)) & 255, 32 + channel * 4)
-    header.writeFloatLE(ISOLINE_FILL_RESOLUTION / FRAME.scale, 44)
+    header.writeFloatLE(ISOLINE_FILL_RESOLUTION / BASE_FRAME_SCALE, 44)
     await this.write(header); await this.write(base)
     const fields = slice.kind === 'temperature' ? [slice.field.values, slice.field.valid, slice.colors, slice.segments, ...(slice.rings ? [slice.rings] : [])] : [slice.segments]
     for (const field of fields) await this.write(Buffer.from(field.buffer, field.byteOffset, field.byteLength))

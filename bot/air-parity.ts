@@ -2,7 +2,8 @@ import { chromium } from 'playwright'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import sharp from 'sharp'
-import { FRAME, FRAME_PIXELS } from './config.js'
+import { FRAME, FRAME_PIXELS, FRAME_VIEWPORT } from './config.js'
+import { frameScreenshot } from './frame-capture.js'
 import { openRenderPage } from './render-open.js'
 import { validateManifest } from './stills.js'
 import { colorDifference } from './color-difference.js'
@@ -17,7 +18,8 @@ const manifest = validateManifest(JSON.parse(await readFile(manifestPath, 'utf8'
 const origin = process.env.MOTREGEN_PARITY_ORIGIN ?? 'http://127.0.0.1:4392'
 const now = Date.parse(manifest.now)
 // Kaartgebied zonder klokpaneel (linksboven) en voettekst (linksonder): die tekst tekent Rust zelf (MIP-29).
-const mapRows = { first: 270, last: 1140 }
+// Kaart zonder overlays: onder het klokpaneel (tot rij 338) en boven de voetregel (vanaf rij 1107), sinds U103.
+const mapRows = { first: 345, last: 1100 }
 // De Rust-stills zijn JPEG; het gemiddelde mag de eigen JPEG-vloer van het appbeeld met hooguit 0,5 overschrijden.
 const limits = { mapMeanAboveJpeg: 0.5, mapP99: 8 }
 const samples = [{ name: 'dag', minutes: 240 }, { name: 'nacht', minutes: 720 }]
@@ -48,7 +50,7 @@ async function differenceImage(first: Uint8Array, second: Uint8Array, path: stri
 const browser = await chromium.launch({ executablePath: process.env.MOTREGEN_CHROMIUM_PATH, args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] })
 try {
   await mkdir(outputDirectory, { recursive: true })
-  const context = await browser.newContext({ viewport: FRAME, deviceScaleFactor: FRAME.scale, locale: 'nl-NL', timezoneId: 'Europe/Amsterdam', reducedMotion: 'reduce', serviceWorkers: 'block' })
+  const context = await browser.newContext({ viewport: FRAME_VIEWPORT, deviceScaleFactor: FRAME.scale, locale: 'nl-NL', timezoneId: 'Europe/Amsterdam', reducedMotion: 'reduce', serviceWorkers: 'block' })
   const page = await context.newPage()
   await openRenderPage(page, origin, 'air', manifest, now)
   // De stillweergave van de app past nog het oude kader; zet hem op de projectie van de Rust-platen.
@@ -70,7 +72,7 @@ try {
         await new Promise((resolve) => setTimeout(resolve, 1_000))
       }
     }
-    const reference = await page.screenshot()
+    const reference = await frameScreenshot(await page.screenshot())
     const referenceRgb = await sharp(reference).removeAlpha().raw().toBuffer()
     const nativeJpeg = await readFile(join(nativeDirectory, `air-${epoch}.jpg`))
     const nativeRgb = await sharp(nativeJpeg).removeAlpha().raw().toBuffer()

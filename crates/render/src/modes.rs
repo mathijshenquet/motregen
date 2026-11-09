@@ -11,7 +11,7 @@ use render_core::{
     clock::ClockTransition,
     constants::constants,
     field_raster::{self, LineColor},
-    mode_constants::{color, mode_constants},
+    mode_constants::{color, element_text, mode_constants},
     overlay::{ClockOptions, clock_appearance, clock_panel_bounds, draw_overlay_title},
     projection::Projection,
     rotated_text::{RotatedText, TextStyle},
@@ -181,7 +181,7 @@ impl Painter<'_> {
                 point,
                 0.0,
                 TextStyle {
-                    size: 45,
+                    size: element_text(45),
                     color: mark_color,
                     halo,
                     opacity: mark.opacity * input.slice.opacity,
@@ -198,7 +198,7 @@ impl Painter<'_> {
                 label.screen,
                 label.angle,
                 TextStyle {
-                    size: 17,
+                    size: element_text(17),
                     color: line_color,
                     halo,
                     opacity: label.opacity,

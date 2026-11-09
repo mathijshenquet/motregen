@@ -11,7 +11,8 @@ export { NATIVE_VIEW } from './native-view.js'
 import { mapFrameFromGrid } from '../web/src/core/map-frame.js'
 import type { Grid } from '../web/src/core/contract.js'
 import { captureLabelAtlas, type LabelAtlas } from './native-labels.js'
-import { FRAME } from './config.js'
+import { ELEMENT_SCALE, FRAME } from './config.js'
+import { frameScreenshot } from './frame-capture.js'
 
 export type NativeTheme = 'light' | 'dark'
 const require = createRequire(import.meta.url)
@@ -84,14 +85,15 @@ export class NativeMaps {
         map.addLayer({ id: 'motregen-grid-frame', type: 'line', source: 'motregen-grid-frame', paint: { 'line-color': theme === 'dark' ? '#8da6af' : '#405b64', 'line-opacity': 0.85, 'line-width': 1.5 } })
         await new Promise<void>((resolve) => map.once('idle', () => resolve()))
       }, { styleJson: JSON.stringify(style), view: NATIVE_VIEW, mask, theme })
-      const waterData = await page.evaluate(() => {
+      // Eén watercel per 6 CSS-px bij de oude schaal: dezelfde maskerresolutie als vóór ELEMENT_SCALE.
+      const waterData = await page.evaluate((cellsPerCss) => {
         const map = (window as unknown as { nativeMap: MapLibreMap }).nativeMap
         const layer = map.getStyle().layers.find((candidate) => 'source-layer' in candidate && candidate['source-layer'] === 'water')
         if (!layer || !('source' in layer) || typeof layer.source !== 'string') throw new Error('Waterbron ontbreekt')
         const canvas = document.createElement('canvas')
         const viewport = map.getCanvas()
-        canvas.width = Math.ceil(viewport.clientWidth / 6)
-        canvas.height = Math.ceil(viewport.clientHeight / 6)
+        canvas.width = Math.ceil(viewport.clientWidth * cellsPerCss)
+        canvas.height = Math.ceil(viewport.clientHeight * cellsPerCss)
         const context = canvas.getContext('2d')!
         context.fillStyle = '#fff'
         for (const feature of map.querySourceFeatures(layer.source, { sourceLayer: 'water' })) {
@@ -110,14 +112,14 @@ export class NativeMaps {
           }
         }
         return canvas.toDataURL('image/png').split(',')[1]!
-      })
+      }, ELEMENT_SCALE / 6)
       const waterPng = Buffer.from(waterData, 'base64')
       await writeFile(`${temporary}.water.png`, waterPng)
       await rename(`${temporary}.water.png`, `${path}.water.png`)
       const water = await sharp(waterPng).ensureAlpha().extractChannel(3).raw().toBuffer({ resolveWithObject: true })
       let plate = cached
       if (!plate) {
-        const png = await page.screenshot()
+        const png = await frameScreenshot(await page.screenshot())
         const rgb = await sharp(png).removeAlpha().raw().toBuffer()
         const labels = await captureLabelAtlas(page, theme, rgb)
         await writeFile(`${temporary}.labels.json`, JSON.stringify(labels))

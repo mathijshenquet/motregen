@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import { FRAME } from './config.js'
-import { NATIVE_VIEW } from './native-view.js'
+import { BASE_FRAME_SCALE, ELEMENT_SCALE, FRAME } from './config.js'
+import { ELEMENT_ZOOM, isolineTolerancePx } from './native-view.js'
 import { fpsFraction, holdFrames, sequencePlan } from './sequences.js'
 import * as wind from '../web/src/core/wind-presentation.js'
 import * as isoline from '../web/src/core/isolines.js'
@@ -27,19 +27,19 @@ export function modeConstants() {
       fps: plan.fps, fps_fraction: fpsFraction(plan.fps), hold_frames: holdFrames(plan) }
   }
   return {
-    loops: { wind: loop('wind'), feels: loop('feels'), air: loop('air') }, scale: FRAME.scale,
+    loops: { wind: loop('wind'), feels: loop('feels'), air: loop('air') }, scale: FRAME.scale, element_scale: ELEMENT_SCALE,
     cloud: cloudConstants(),
     wind: { ...wind.WIND_PARAMETERS, count: wind.particleCountForViewport(FRAME.width, FRAME.height), focus: wind.WIND_FOCUS_INTENSITY,
       stagger: wind.WIND_INITIAL_STAGGER_SECONDS, simulation_fps: wind.WIND_SIMULATION_FPS, screen_speed: wind.windScreenSpeed(1),
       damping_reference: wind.DAMPING_REFERENCE_SPEED, weak_speed: wind.WEAK_WIND_SPEED, weak_boost: wind.WEAK_WIND_MAX_BOOST,
       stops: wind.BEAUFORT_STOPS, light: wind.LIGHT_RAMP, dark: wind.DARK_RAMP },
     isoline: { temperature_blur: isoline.ISOLINE_BLUR, pressure_blur: isoline.ISOBAR_BLUR, time_weights: isoline.ISOBAR_TIME_WEIGHTS,
-      ring_km: isoline.ISOLINE_RING_KM, tolerance_px: isoline.ISOLINE_TOLERANCE_PX, edge_fade_ms: isoline.ISOLINE_EDGE_FADE_MS,
+      ring_km: isoline.ISOLINE_RING_KM, tolerance_px: isolineTolerancePx(), edge_fade_ms: isoline.ISOLINE_EDGE_FADE_MS,
       pressure_radius_km: isoline.PRESSURE_EXTREMUM_KM, pressure_prominence: isoline.PRESSURE_EXTREMUM_HPA,
-      fill_opacity: isoline.ISOLINE_FILL_OPACITY, fill_resolution: isoline.ISOLINE_FILL_RESOLUTION / FRAME.scale,
+      fill_opacity: isoline.ISOLINE_FILL_OPACITY, fill_resolution: isoline.ISOLINE_FILL_RESOLUTION / BASE_FRAME_SCALE,
       temperature_line_fill_opacity: map.TEMPERATURE_LINE_FILL_OPACITY, temperature_line_fill_shade: map.TEMPERATURE_LINE_FILL_SHADE,
       pressure_opacity: map.ISOBAR_LINE_OPACITY,
-      line_profile: map.lineProfile(map.isolineWidthCss(NATIVE_VIEW.zoom) * FRAME.scale),
+      line_profile: map.lineProfile(map.isolineWidthCss(ELEMENT_ZOOM) * FRAME.scale),
       light_temperature: isoline.isolineColor('light', 'temperature'), dark_temperature: isoline.isolineColor('dark', 'temperature'),
       light_pressure: isoline.isolineColor('light', 'pressure'), dark_pressure: isoline.isolineColor('dark', 'pressure') },
     labels: { spacing: labels.LABEL_SPACING_PX, distance: labels.LABEL_MIN_DISTANCE_PX, maximum: labels.MAX_LABEL_ANCHORS },

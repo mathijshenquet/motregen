@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import { FRAME, FRAME_PIXELS } from './config.js'
+import { ELEMENT_SCALE, FRAME, FRAME_PIXELS } from './config.js'
 import { NATIVE_VIEW } from './native-view.js'
 import { fpsFraction, holdFrames, sequencePlan } from './sequences.js'
 import { STILL_MINUTES } from './stills.js'
@@ -57,7 +57,7 @@ export function renderConstants() {
     palettes: Object.fromEntries(['light', 'dark'].map((theme) => [theme, Array.from(rainColormap({ ...DEFAULT_RAIN_LOOK, theme: theme as 'light' | 'dark' }))])),
     presentation: Object.fromEntries([false, true].map((night) => [night ? 'dark' : 'light', rainPresentation({ temperatureFocus: 0, windFocus: 0, airFocus: 0, night })])),
     wind_presentation: Object.fromEntries([false, true].map((night) => [night ? 'dark' : 'light', rainPresentation({ temperatureFocus: 0, windFocus: 1, airFocus: 0, night })])),
-    rain_outlines: Object.fromEntries((['light', 'dark'] as const).map((theme) => [theme, rainOutlines({ ...DEFAULT_RAIN_LOOK, theme }).map((outline) => ({ index: outline.index, colour: outline.colour, strength: outline.strength, half_width: outline.halfWidth }))])),
+    rain_outlines: Object.fromEntries((['light', 'dark'] as const).map((theme) => [theme, rainOutlines({ ...DEFAULT_RAIN_LOOK, theme }).map((outline) => ({ index: outline.index, colour: outline.colour, strength: outline.strength, half_width: outline.halfWidth * ELEMENT_SCALE }))])),
     flow_curve: FLOW_BLEND_CURVE,
     sampling: { samples, kernel_radius: BLUR_RADIUS_SIGMA, radar_cell_width: rainSampling('rtcor', 0).sourceCellWidth, harmonie_cell_width: rainSampling('harmonie', 0).sourceCellWidth },
     warp: Array.from({ length: 61 }, (_, interval) => rainWarpLimit(interval)),

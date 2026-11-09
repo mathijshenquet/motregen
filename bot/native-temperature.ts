@@ -1,12 +1,13 @@
 import type { Grid } from '../web/src/core/contract.js'
 import { frameBlend, timelineCoverage } from '../web/src/core/time-model.js'
-import { blendFrames, blurField, fieldRangeInView, isolineBlurPasses, isolineFrameWeights, adaptiveIsobarStep, ISOBAR_STEP_HPA, ISOLINE_EDGE_FADE_MS, ISOLINE_RING_KM, ISOLINE_TOLERANCE_PX, ISOLINE_WINDOW, isolineFeatures, type IsolineFeatureCollection } from '../web/src/core/isolines.js'
+import { blendFrames, blurField, fieldRangeInView, isolineBlurPasses, isolineFrameWeights, adaptiveIsobarStep, ISOBAR_STEP_HPA, ISOLINE_EDGE_FADE_MS, ISOLINE_RING_KM, ISOLINE_WINDOW, isolineFeatures, type IsolineFeatureCollection } from '../web/src/core/isolines.js'
 import { prepareField, type PreparedField } from '../web/src/core/isoline-field.js'
 import { sliceWeights, type FieldSlice } from '../web/src/core/isoline-spline.js'
 import { blendSlice, buildSegments, traceContours, shortRings, ringFadeRaster, type Contour, type ShortRing } from '../web/src/core/isoline-contours.js'
 import { bandColor, FIXED_SCALE_STOPS } from '../web/src/core/temperature-palette.js'
 import { NativeRainData } from './native-rain.js'
 import { FRAME } from './config.js'
+import { isolineTolerancePx } from './native-view.js'
 import { nativeProjection } from './native-projection.js'
 import type { StillManifest } from './stills.js'
 
@@ -73,7 +74,7 @@ export class NativeTemperatureData {
       const range = fieldRangeInView(nearest.values, nearest.valid, grid, projection.bounds)
       if (range) this.step = adaptiveIsobarStep(range[0], range[1], this.step)
     }
-    const toleranceCells = 2 ** Math.round(Math.log2(ISOLINE_TOLERANCE_PX * projection.cellsPerPixel * FRAME.scale))
+    const toleranceCells = 2 ** Math.round(Math.log2(isolineTolerancePx() * projection.cellsPerPixel * FRAME.scale))
     const contours = traceContours(field, grid, { step: this.step, toleranceCells })
     const segments = buildSegments(contours, { ringKm: this.kind === 'pressure' ? 0 : ISOLINE_RING_KM }).data
     for (let offset = 0; offset < segments.length; offset += 6) {

@@ -428,7 +428,7 @@ fn cached_output(planned: &Planned, cache: &ModeCache, directory: &Path) -> Resu
     })
 }
 
-/// Vuldoel en grof stromingsraster zoals de kaartlaag ze kiest: `ISOLINE_FILL_RESOLUTION` CSS-pixels, de stroming
+/// Vuldoel en grof stromingsraster zoals de kaartlaag ze kiest: `ISOLINE_FILL_RESOLUTION` CSS-pixels bij schaal 1,5, de stroming
 /// `CLOUD_FLOW_DOWNSAMPLE` keer grover.
 pub fn targets(projection: &Projection) -> (CloudTarget, CloudTarget) {
     let size = &constants().size;

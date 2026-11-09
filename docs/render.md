@@ -33,7 +33,7 @@ niet-nul exitstatus. `media.json` verschijnt pas na succesvolle afronding van de
 ## Basiskaartinvoer
 
 De vijf gegenereerde bronbestanden in `crates/render/assets/basemaps/` worden met het renderpakket geïnstalleerd
-in `$out/share/motregen-render/basemaps` (samen 634.040 bytes). Nix kopieert ze; bouwen en renderen starten geen
+in `$out/share/motregen-render/basemaps` (samen 684.954 bytes). Nix kopieert ze; bouwen en renderen starten geen
 Chromium. Ververs ze vanuit een lokaal gemaakte native botcache die bij het huidige `NATIVE_VIEW`,
 `FRAME_PIXELS` en regenrooster hoort. De meest recent gemaakte plaat per thema wordt overgenomen:
 
@@ -48,9 +48,12 @@ De kaartplaten bevatten de plaatsnamen. Temperatuurwaarden, klok en voettekst zi
 Het native botkader past Nederland (inclusief Zeeland, Limburg en de Wadden), zonder Vlaanderen als
 fitdoel. De bovenstrook van 48 pixels is verwijderd met behoud van zoom en bodemlijn. Het klokpaneel
 sluit linksboven aan op de beeldrand; alleen rechtsonder is rond. Tijd, Amsterdamse datum (zoals `zo 11 okt`)
-en de eigen modustitel staan op drie regels, 16 pixels van links. Datum en titel zijn 30 pixels en hebben
-hetzelfde contrast als de klok. De regenhoek is 200×154 pixels; alleen een langere modustitel verbreedt
-het paneel zodat tekst erbinnen blijft. Isolijnlabels en drukletters worden alleen buiten het paneel
+en de eigen modustitel staan op drie regels, 24 pixels van links. Datum en titel zijn 45 pixels en hebben
+hetzelfde contrast als de klok. De regenhoek is 300×231 pixels; alleen een langere modustitel verbreedt
+het paneel zodat tekst erbinnen blijft. Sinds U103 (PO C8a) zijn labels, lijnen, klok en voetregel 1,5× zo groot
+als bij de oude schaal 1,5: `FRAME` is 426,67×544 CSS-pixels bij schaal 2,25 op hetzelfde bestand van 960×1224 en
+dezelfde uitsnede. Vaste pixelmaten in Rust zijn afgesteld bij schaal 1,5 en lopen via `element_px`/`element_text`
+(`ELEMENT_SCALE` in `bot/config.ts`); vlakresolutie, isolijntolerantie en kaartmarge blijven gelijk in uitvoerpixels. Isolijnlabels en drukletters worden alleen buiten het paneel
 getekend; de volledige gedraaide tekst inclusief halo moet vrij blijven. Na een wijziging van `NATIVE_VIEW` moeten beide basiskaarten
 opnieuw worden vastgelegd; een oude plaat bijsnijden geeft geen passende projectie of labelplaatsing.
 Het watermasker dempt de windstaarten op zee; de regencompositie gebruikt het niet. Deze export start geen browser.
