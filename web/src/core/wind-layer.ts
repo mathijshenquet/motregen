@@ -21,6 +21,10 @@ const FILL_FADE_SECONDS = 0.25
 // U20: aanvullers van één zoomstap verschijnen gespreid over dit venster en met volle jitter in
 // hun cel; tegelijk en op celmiddens verschenen ze als rooster van gelijke streepjes.
 const FILL_SPREAD_SECONDS = 0.15
+// U110: de eerste lading staat meteen in de stationaire verdeling (geboren zoals altijd, dan een willekeurig deel
+// van het leven langs de wind vooruit) en faded gespreid over dit venster in. Als pasgeborenen tegelijk begonnen
+// stierven ze ook samen: in 1,4 s naar 125 % van de stationaire inkt.
+const INITIAL_SPREAD_SECONDS = 1.5
 const RETIRE_SECONDS = 0.35
 // Elke dood met een zichtbare kop dooft minstens zo lang uit (U24: geen wegvallers).
 const DEATH_SECONDS = 0.35
@@ -234,6 +238,8 @@ export class WindLayer implements CustomLayerInterface {
   private ramps = new Float32Array(MAX_PARTICLES).fill(1)
   private rampRates = new Float32Array(MAX_PARTICLES)
   private retiring = 0
+  /** De eerste lading wacht op een windveld (U110). */
+  private seedPending = false
   /** Getoonde kop-alpha (0–1), die hooguit met 1/DEATH_SECONDS per seconde daalt. */
   private shown = new Float32Array(MAX_PARTICLES)
   /** 1 = is al in beeld geweest; 0 = teruggespoelde pasgeborene die nog aan loef in de marge drijft. */
@@ -450,6 +456,10 @@ export class WindLayer implements CustomLayerInterface {
     this.left = left
     this.right = right
     this.mix = mix
+    if (this.seedPending && this.map) {
+      this.seedPending = false
+      this.seed()
+    }
   }
 
   setTheme(theme: MapTheme): void {
@@ -1006,11 +1016,14 @@ export class WindLayer implements CustomLayerInterface {
     return ADVECTION_SCALE * this.tuning.speed * windZoomCompensation(this.map?.getZoom() ?? WIND_REFERENCE_ZOOM)
   }
 
-  /** Volgt de wind terug vanaf (x, y) tot `distancePx` of `seconds` op is, of tot de domeinrand; zet `rewound`. */
-  private rewind(x: number, y: number, distancePx: number, seconds: number): void {
+  /**
+   * Volgt de wind terug (`direction` −1) of vooruit (1) vanaf (x, y) tot `distancePx` of `seconds` op is, of tot de
+   * domeinrand; zet `rewound` en geeft de afgelegde CSS-px.
+   */
+  private rewind(x: number, y: number, distancePx: number, seconds: number, direction = -1): number {
     this.rewound[0] = x
     this.rewound[1] = y
-    if (!this.map || !this.left) return
+    if (!this.map || !this.left) return 0
     const gridWidth = this.grid.dx * this.grid.width
     const gridHeight = this.grid.dy * this.grid.height
     const worldPx = WORLD_TILE_SIZE * 2 ** this.map.getZoom()
@@ -1021,13 +1034,14 @@ export class WindLayer implements CustomLayerInterface {
       const scale = REWIND_STEP_SECONDS * advectionScale * weakWindTempo(Math.hypot(this.east, this.north))
       const previousX = x
       const previousY = y
-      x -= this.east * scale / Math.abs(gridWidth)
-      y += this.north * scale / Math.abs(gridHeight)
+      x += direction * this.east * scale / Math.abs(gridWidth)
+      y -= direction * this.north * scale / Math.abs(gridHeight)
       if (!this.inDomain(x, y)) break
       travelled += Math.hypot((x - previousX) * gridWidth, (y - previousY) * gridHeight) * MERCATOR_SCALE * worldPx
       this.rewound[0] = x
       this.rewound[1] = y
     }
+    return travelled
   }
 
   /**
@@ -1055,8 +1069,9 @@ export class WindLayer implements CustomLayerInterface {
     if (resetAll) {
       this.active = this.budget
       this.retiring = 0
-      this.countCells()
-      for (let index = 0; index < this.active; index++) this.respawn(index, this.random() * WIND_INITIAL_STAGGER_SECONDS)
+      // Zonder windveld kan de lading niet langs de wind; setFrames zaait dan (de laag tekent pas met velden).
+      this.seedPending = !this.left
+      if (!this.seedPending) this.seed()
       this.clearTrails()
       return
     }
@@ -1078,6 +1093,27 @@ export class WindLayer implements CustomLayerInterface {
     }
     this.retireSurplus(Math.round(survivors * (1 - retention)))
     this.balance()
+  }
+
+  /** De eerste lading: per particle een gewone geboorte, dan een willekeurige levensfase vooruit, gespreid ingefaded. */
+  private seed(): void {
+    this.cellCounts.fill(0, 0, this.columns * this.rows)
+    for (let index = 0; index < this.active; index++) {
+      this.respawn(index, 0)
+      const phase = this.random()
+      const lifeSeconds = this.tuning.maxAge * this.lifeScales[index]!
+      const travelled = this.rewind(this.x[index]!, this.y[index]!, phase * this.distances[index]!, phase * lifeSeconds, 1)
+      this.x[index] = this.rewound[0]
+      this.y[index] = this.rewound[1]
+      this.ages[index] = Math.max(1e-3, phase * lifeSeconds)
+      this.travelled[index] = travelled
+      this.ramps[index] = -this.random() * INITIAL_SPREAD_SECONDS / FILL_FADE_SECONDS
+      this.rampRates[index] = 1 / FILL_FADE_SECONDS
+      this.entered[index] = this.inView(this.x[index]!, this.y[index]!) ? 1 : 0
+      const offset = index * INSTANCE_BYTES / 4
+      this.instanceFloats[offset + 2] = 0.5 + (this.grid.x0 + this.grid.dx * this.grid.width * this.x[index]!) * MERCATOR_SCALE
+      this.instanceFloats[offset + 3] = 0.5 - (this.grid.y0 + this.grid.dy * this.grid.height * this.y[index]!) * MERCATOR_SCALE
+    }
   }
 
   /** Brengt het aantal levende particles naar `budget`: aanvullen in extra slots, overtal uitfaden. */
