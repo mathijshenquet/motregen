@@ -225,6 +225,16 @@ koud+warm, Weer, productiedata. Mediaan van 3. Telefoon = po-android-rig met 4G 
 loadpieken tot 158–204 en is voor tijden onbruikbaar. Bytes = overgedragen (gzip van de lokale preview; op prod
 levert Cloudflare zstd-3).
 
+| profiel | variant | n | loadavg | ttfp | eerste kaart | histogram | JS | CSS | font | basiskaart | data | totaal (requests) | LoAF laden: n / blokkerend / max | compile hoofddraad / workers / threadpool |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| desktop koud | A | 3 | 10.19–13.8 | 1.692 ms | 1.778 ms | 1.938 ms | 465,4 kB | 30 kB | 42,2 kB | 188,5 kB | 8.853,6 kB | 9.608,3 kB (160) | 23 / 640 ms / 564 ms | 99 ms / 42 ms / 1.427 ms |
+| desktop koud | B | 3 | 12.26–158.07 | 1.707 ms | 1.685 ms | 2.146 ms | 463,4 kB | 20,7 kB | 42,2 kB | 188,5 kB | 8.853,6 kB | 9.597 kB (161) | 28 / 572 ms / 389 ms | 104 ms / 41 ms / 1.584 ms |
+| desktop warm | A | 3 | 10.95–15.19 | 739 ms | 760 ms | 1.289 ms | 0 kB | 0 kB | 0 kB | 0 kB | 0 kB | 0 kB (165) | 26 / 124 ms / 156 ms | 113 ms / 43 ms / 1.654 ms |
+| desktop warm | B | 3 | 12.4–204.02 | 773 ms | 888 ms | 1.373 ms | 0 kB | 0 kB | 0 kB | 0 kB | 0 kB | 0 kB (170) | 29 / 99 ms / 179 ms | 133 ms / 48 ms / 1.754 ms |
+| telefoon 4G koud | A | 3 | 7.54–15.86 | 3.322 ms | 2.972 ms | 9.658 ms | 465,4 kB | 30 kB | 42,2 kB | 62,2 kB | 1.936,5 kB | 2.564,9 kB (93) | 61 / 3.215 ms / 620 ms | 849 ms / 588 ms / 12.505 ms |
+| telefoon 4G koud | B | 3 | 11.15–14.34 | 3.604 ms | 3.208 ms | 9.379 ms | 463,4 kB | 20,7 kB | 42,2 kB | 62,2 kB | 1.945,8 kB | 2.565,3 kB (94) | 67 / 2.973 ms / 561 ms | 950 ms / 844 ms / 10.974 ms |
+| telefoon 4G warm | A | 3 | 9.18–13.44 | 2.308 ms | 2.307 ms | 9.087 ms | 0 kB | 0 kB | 0 kB | 0 kB | 0 kB | 0 kB (23) | 67 / 3.221 ms / 605 ms | 951 ms / 622 ms / 10.933 ms |
+| telefoon 4G warm | B | 3 | 11.56–16.7 | 3.542 ms | 3.527 ms | 8.892 ms | 0 kB | 0 kB | 0 kB | 0 kB | 0 kB | 0 kB (25) | 80 / 2.808 ms / 560 ms | 958 ms / 770 ms / 10.060 ms |
 
 Lezing:
 1. **Bytes**: CSS −9,3 kB (render-blokkerend), JS −2 kB; verder gelijk. De grote bytewinst zit buiten deze meting:
