@@ -12,6 +12,8 @@ import { writeFileSync } from 'node:fs'
 //          [--scenario=koud,warm,wissel] [--repeat=N] [--seconds=S] [--json=UIT.json]
 //   --size=BxH: desktopbeeld (standaard 1440x900; swiftshader haalt daar maar ~7 fps).
 //   --browser=firefox: onder `xvfb-run -a pnpm exec tsx …`; headless Gecko krijgt hier geen WebGL.
+//   --vast-budget: zet adjustBudget in de pagina uit; dan meet de rig de opbouw zelf en niet de budgetknip van een
+//     trage softwarerenderer (elke knip laat overtal uitfaden: een bult in de inkt per deeltje).
 //   --phone: 402×844, dpr 3, touch, 4× CPU-rem (alleen Chromium; zoals windsock-perf/mobile-4g).
 //   wissel: koud op / laden, 1 s na de eerste regenbeelden op Wind tikken.
 
@@ -25,6 +27,7 @@ const scenarios = (option('scenario') ?? 'koud,warm,wissel').split(',')
 const repeat = Number(option('repeat') ?? 1)
 const seconds = Number(option('seconds') ?? 20)
 const jsonPath = option('json')
+const fixedBudget = args.includes('--vast-budget')
 const [sizeWidth, sizeHeight] = (option('size') ?? '1440x900').split('x').map(Number)
 
 interface Sample { t: number; ink: number; heads: number; stage: number; sim: number; budget: number }
@@ -33,7 +36,7 @@ interface Metrics { simSpreadMs: number | null; simHalfMs: number | null; layerM
 
 // In de pagina: per frame de koppen van de windlaag lezen (privévelden zijn runtime gewoon bereikbaar).
 // Als tekst: tsx voegt anders `__name(…)`-aanroepen in die in de pagina niet bestaan.
-const sampler = `(() => {
+const sampler = (fixedBudget: boolean) => `(() => {
   const samples = []
   window.__u110Samples = samples
   // Simulatieklok zoals de laag hem ziet: per frame hooguit 40 ms (WindLayer.renderStep).
@@ -43,6 +46,7 @@ const sampler = `(() => {
     const wind = globalThis.__motregenWind
     const now = performance.now()
     if (wind) {
+      if (${fixedBudget} && !wind.__u110Fixed) { wind.adjustBudget = () => {}; wind.__u110Fixed = true }
       const started = wind.revealStarted
       const reveal = started === undefined ? 0 : wind.revealDuration ? Math.min(1, (now - started) / wind.revealDuration) : 1
       const opacity = wind.tuning.intensity * Math.min(wind.tuning.visibility, 1) * reveal
@@ -93,7 +97,7 @@ async function newContext(browser: Browser): Promise<BrowserContext> {
   const context = await browser.newContext(phone
     ? { viewport: { width: 402, height: 844 }, deviceScaleFactor: 3, hasTouch: true, isMobile: browserName === 'chromium', timezoneId: 'Europe/Amsterdam' }
     : { viewport: { width: sizeWidth!, height: sizeHeight! }, timezoneId: 'Europe/Amsterdam' })
-  await context.addInitScript({ content: sampler })
+  await context.addInitScript({ content: sampler(fixedBudget) })
   return context
 }
 
