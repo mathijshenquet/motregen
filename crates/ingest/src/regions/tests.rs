@@ -322,6 +322,7 @@ fn frame_list_maps_frames_to_their_slot() {
                 frame_indexes: Some(vec![2, 5]),
                 offset: 0,
                 motion: None,
+                between: None,
             }],
         },
         payload: vec![10, 11, 20, 21],

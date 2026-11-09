@@ -19,8 +19,8 @@ use clap::Parser;
 use motregen_ingest::{
     publisher::{Manifest, ManifestChunk, ProducedChunk, produced_chunk},
     regions::{
-        self, BuiltGroup, Group, RegionGrid, RegionsGroup, RegionsSection, process_cpu_ms,
-        read_region_file,
+        self, BetweenPrecision, BuiltGroup, Group, Layout, RegionGrid, RegionsGroup,
+        RegionsSection, process_cpu_ms, read_region_file,
     },
 };
 use serde::Deserialize;
@@ -44,6 +44,10 @@ struct Args {
     /// Bouw elke chunk ook los, om te zien welke velden de bytes dragen.
     #[arg(long)]
     per_chunk: bool,
+    /// patch (fase 1: regenrand + beweging, de client rekent de tussenbalken), cel (alleen eigen cellen, tussenbalken
+    /// per cel van de server in 1/256 byte) of cel-u8 (idem, afgerond op hele bytes).
+    #[arg(long, default_value = "patch")]
+    layout: String,
 }
 
 #[derive(Deserialize)]
@@ -80,12 +84,31 @@ fn main() -> Result<()> {
         }
     }
     let grid = RegionGrid::land()?;
+    let layout = match args.layout.as_str() {
+        "patch" => Layout::PATCH,
+        "cel" => Layout::CELL,
+        "cel-u8" => Layout {
+            between: Some(BetweenPrecision::U8),
+            ..Layout::CELL
+        },
+        "cel-delta" => Layout {
+            between: Some(BetweenPrecision::Delta),
+            ..Layout::CELL
+        },
+        "hybride" => Layout {
+            radar_rain_margin: 0,
+            field_margin: 0,
+            ..Layout::PATCH
+        },
+        other => anyhow::bail!("onbekende layout {other}"),
+    };
     println!(
-        "{}: nu {}, {} chunks, {} regio's met een bestand, zstd {}, {} rayon-draden",
+        "{}: nu {}, {} chunks, {} regio's met een bestand, layout {}, zstd {}, {} rayon-draden",
         args.data_dir.display(),
         manifest.now,
         chunks.len(),
         grid.present.len(),
+        args.layout,
         args.level,
         rayon::current_num_threads()
     );
@@ -110,7 +133,7 @@ fn main() -> Result<()> {
         }
         let cpu_before = process_cpu_ms();
         let started = Instant::now();
-        let built = regions::build_group(group, &members, &grid, args.level)?;
+        let built = regions::build_group_with(group, &members, &grid, args.level, layout)?;
         let elapsed_ms = started.elapsed().as_secs_f64() * 1e3;
         let cpu_ms = cpu_before
             .zip(process_cpu_ms())
@@ -173,7 +196,8 @@ fn main() -> Result<()> {
         println!("| --- | --- | ---: | ---: |");
         for (built, members) in &built_groups {
             for chunk in members {
-                let alone = regions::build_group(built.group, &[chunk], &grid, args.level)?;
+                let alone =
+                    regions::build_group_with(built.group, &[chunk], &grid, args.level, layout)?;
                 println!(
                     "| {} | {} | {} | {} B |",
                     built.group.name(),

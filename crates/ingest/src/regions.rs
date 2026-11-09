@@ -26,6 +26,51 @@ pub const RAIN_MARGIN_CELLS: u32 = 17;
 pub const FIELD_MARGIN_CELLS: u32 = 1;
 const DISK_BLOCK_BYTES: u64 = 4096;
 
+/// Welke cellen en extra's een regiobestand meekrijgt. `PATCH` is het ontwerp van fase 1 (de client rekent de
+/// tussenbalken uit een regenpatch met beweging); `CELL` is de server-side variant (PO 2026-11-09): alleen de eigen
+/// cellen, met de tussenbalken van de HARMONIE-regen per cel al uitgerekend.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Layout {
+    /// Regenrand voor de radarbronnen; die hebben nooit tussenbalken (frames 5–10 min uit elkaar), behalve het
+    /// overgangspaar seamless→HARMONIE.
+    pub radar_rain_margin: u32,
+    pub rain_margin: u32,
+    pub field_margin: u32,
+    /// ECMWF leest de client bilineair (`pointValueBilinear`), de rest met de dichtstbijzijnde cel.
+    pub ecmwf_margin: u32,
+    pub motion: bool,
+    pub between: Option<BetweenPrecision>,
+}
+
+/// Opslag van een tussenwaarde: de gemengde byte afgerond (u8) of in 1/256 byte (u16 LE).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BetweenPrecision {
+    U8,
+    U16,
+    /// Afgeronde byte min de afgeronde lineaire interpolatie van de eigen cel (i8): nul zonder beweging.
+    Delta,
+}
+
+impl Layout {
+    pub const PATCH: Layout = Layout {
+        radar_rain_margin: RAIN_MARGIN_CELLS,
+        rain_margin: RAIN_MARGIN_CELLS,
+        field_margin: FIELD_MARGIN_CELLS,
+        ecmwf_margin: FIELD_MARGIN_CELLS,
+        motion: true,
+        between: None,
+    };
+    pub const CELL: Layout = Layout {
+        radar_rain_margin: 0,
+        rain_margin: 0,
+        field_margin: 0,
+        ecmwf_margin: FIELD_MARGIN_CELLS,
+        motion: false,
+        between: Some(BetweenPrecision::U16),
+    };
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Group {
@@ -238,6 +283,17 @@ pub struct ChunkEntry {
     pub offset: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub motion: Option<MotionEntry>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub between: Option<BetweenEntry>,
+}
+
+/// Tussenbalken per cel (layout `CELL`): voor elk paar opeenvolgende frames `counts[paar]` waarden, per cel van het
+/// venster (rij voor rij) achter elkaar in tijdvolgorde; de gemengde byte vóór de kwantisatietabel.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct BetweenEntry {
+    pub precision: BetweenPrecision,
+    pub counts: Vec<u32>,
+    pub offset: u64,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -397,6 +453,16 @@ pub fn build_group(
     grid: &RegionGrid,
     level: i32,
 ) -> Result<BuiltGroup> {
+    build_group_with(group, chunks, grid, level, Layout::PATCH)
+}
+
+pub fn build_group_with(
+    group: Group,
+    chunks: &[&ProducedChunk],
+    grid: &RegionGrid,
+    level: i32,
+    layout: Layout,
+) -> Result<BuiltGroup> {
     ensure!(!chunks.is_empty(), "group {} has no chunks", group.name());
     let mut chunks = chunks.to_vec();
     chunks.sort_by(|left, right| left.manifest.url.cmp(&right.manifest.url));
@@ -432,10 +498,21 @@ pub fn build_group(
             grid: header.grid.clone(),
             quant: header.quant.clone(),
         });
-        let margin = if header.field == "rain_rate" {
-            RAIN_MARGIN_CELLS
+        let rain = header.field == "rain_rate";
+        let margin = if rain && group == Group::Radar {
+            layout.radar_rain_margin
+        } else if rain {
+            layout.rain_margin
+        } else if group == Group::Ecmwf {
+            layout.ecmwf_margin
         } else {
-            FIELD_MARGIN_CELLS
+            layout.field_margin
+        };
+        let between = match layout.between {
+            Some(precision) if rain && group == Group::Harmonie => {
+                Some((precision, between_plan(chunk, &decoded)?))
+            }
+            _ => None,
         };
         let width = header.grid.width as usize;
         drafts.par_iter_mut().for_each(|draft| {
@@ -452,31 +529,43 @@ pub fn build_group(
                         .extend(decoded.frames.iter().map(|frame| frame[cell]));
                 }
             }
-            let motion = header.motion_grid.map(|motion_grid| {
-                let blocks = motion_window(&header.grid, motion_grid, window);
-                let frames = (0..decoded.motions.len() as u32)
-                    .filter(|&index| decoded.motions[index as usize].is_some())
-                    .collect::<Vec<_>>();
-                let motion_offset = draft.payload.len() as u64;
-                for &frame in &frames {
-                    let vectors = decoded.motions[frame as usize].as_ref().unwrap();
-                    for block_row in blocks.row..blocks.row + blocks.height {
-                        for block_column in blocks.column..blocks.column + blocks.width {
-                            let at = (block_row as usize * motion_grid.bw as usize
-                                + block_column as usize)
-                                * 2;
-                            draft.payload.push(vectors[at] as u8);
-                            draft.payload.push(vectors[at + 1] as u8);
-                        }
-                    }
-                }
-                MotionEntry {
-                    grid: motion_grid,
-                    window: blocks,
-                    frames,
-                    offset: motion_offset,
+            let between = between.as_ref().map(|(precision, plan)| {
+                let between_offset = draft.payload.len() as u64;
+                write_between(&mut draft.payload, *precision, plan, &decoded, window);
+                BetweenEntry {
+                    precision: *precision,
+                    counts: plan.iter().map(|pair| pair.count).collect(),
+                    offset: between_offset,
                 }
             });
+            let motion = header
+                .motion_grid
+                .filter(|_| layout.motion && margin > 0)
+                .map(|motion_grid| {
+                    let blocks = motion_window(&header.grid, motion_grid, window);
+                    let frames = (0..decoded.motions.len() as u32)
+                        .filter(|&index| decoded.motions[index as usize].is_some())
+                        .collect::<Vec<_>>();
+                    let motion_offset = draft.payload.len() as u64;
+                    for &frame in &frames {
+                        let vectors = decoded.motions[frame as usize].as_ref().unwrap();
+                        for block_row in blocks.row..blocks.row + blocks.height {
+                            for block_column in blocks.column..blocks.column + blocks.width {
+                                let at = (block_row as usize * motion_grid.bw as usize
+                                    + block_column as usize)
+                                    * 2;
+                                draft.payload.push(vectors[at] as u8);
+                                draft.payload.push(vectors[at + 1] as u8);
+                            }
+                        }
+                    }
+                    MotionEntry {
+                        grid: motion_grid,
+                        window: blocks,
+                        frames,
+                        offset: motion_offset,
+                    }
+                });
             draft.entries.push(ChunkEntry {
                 url: chunk.manifest.url.clone(),
                 source: header.source.clone(),
@@ -488,6 +577,7 @@ pub fn build_group(
                 frame_indexes: None,
                 offset,
                 motion,
+                between,
             });
         });
         stats.cut_ms += started.elapsed().as_secs_f64() * 1e3;
@@ -532,6 +622,106 @@ pub fn build_group(
             .collect(),
         stats,
     })
+}
+
+/// Per paar opeenvolgende frames: hoeveel tussenbalken, met welk interval en welk bewegingsveld (`selectPairMotion`).
+struct BetweenPair {
+    count: u32,
+    interval_minutes: f64,
+    motion: Option<usize>,
+}
+
+fn between_plan(chunk: &ProducedChunk, decoded: &mrf::DecodedChunk) -> Result<Vec<BetweenPair>> {
+    let times = decoded
+        .header
+        .frames
+        .iter()
+        .map(|frame| {
+            between::epoch_ms(&frame.time)
+                .with_context(|| format!("frame time {} in {}", frame.time, chunk.filename))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let has_motion = decoded
+        .motions
+        .iter()
+        .map(Option::is_some)
+        .collect::<Vec<_>>();
+    Ok((0..times.len().saturating_sub(1))
+        .map(|left| BetweenPair {
+            count: between::between_count(times[left], times[left + 1]),
+            interval_minutes: (times[left + 1] - times[left]) / 60_000.0,
+            motion: decoded
+                .header
+                .motion_grid
+                .and_then(|_| between::pair_motion(&times, &has_motion, left)),
+        })
+        .collect())
+}
+
+fn write_between(
+    payload: &mut Vec<u8>,
+    precision: BetweenPrecision,
+    plan: &[BetweenPair],
+    decoded: &mrf::DecodedChunk,
+    window: Window,
+) {
+    let grid = &decoded.header.grid;
+    let raster = |frame: usize| between::Raster {
+        bytes: &decoded.frames[frame],
+        width: grid.width,
+        height: grid.height,
+    };
+    let motion_grid = decoded.header.motion_grid;
+    for row in window.row..window.row + window.height {
+        for column in window.column..window.column + window.width {
+            for (left, pair) in plan.iter().enumerate() {
+                let motion = pair
+                    .motion
+                    .zip(motion_grid)
+                    .and_then(|(frame, motion_grid)| {
+                        decoded.motions[frame]
+                            .as_ref()
+                            .map(|vectors| between::Motion {
+                                vectors,
+                                width: motion_grid.bw,
+                                height: motion_grid.bh,
+                            })
+                    });
+                let steps = f64::from(pair.count + 1);
+                for step in 0..pair.count {
+                    let weight = f64::from(step + 1) / steps;
+                    let byte = between::blended_byte(
+                        &raster(left),
+                        &raster(left + 1),
+                        motion.as_ref(),
+                        pair.interval_minutes,
+                        weight,
+                        column,
+                        row,
+                    );
+                    match precision {
+                        BetweenPrecision::Delta => {
+                            let cell = row as usize * grid.width as usize + column as usize;
+                            let (from, to) = (
+                                f64::from(decoded.frames[left][cell]),
+                                f64::from(decoded.frames[left + 1][cell]),
+                            );
+                            let linear = if from == 255.0 || to == 255.0 {
+                                0.0
+                            } else {
+                                from + (to - from) * weight
+                            };
+                            payload.push((byte.round() as i32 - linear.round() as i32) as i8 as u8)
+                        }
+                        BetweenPrecision::U8 => payload.push(byte.round() as u8),
+                        BetweenPrecision::U16 => {
+                            payload.extend(((byte * 256.0).round() as u16).to_le_bytes())
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 /// Kop en payload in één zstd-frame achter het magische getal.
@@ -880,6 +1070,8 @@ pub fn process_cpu_ms() -> Option<u64> {
     let ticks = fields.get(11)?.parse::<u64>().ok()? + fields.get(12)?.parse::<u64>().ok()?;
     Some(ticks * 10)
 }
+
+pub mod between;
 
 #[cfg(test)]
 mod tests;
