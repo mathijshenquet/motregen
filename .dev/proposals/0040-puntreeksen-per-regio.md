@@ -1,6 +1,6 @@
 # MIP-40 — Puntreeksen per regio
 
-Status: draft · auteur: worker U102 (opus-5.5) voor de PM · meting 2026-11-09 · PO-vraag 2026-11-09
+Status: accepted (PO 2026-11-09) · auteur: worker U102 (opus-5.5) voor de PM · meting 2026-11-09 · PO-vraag 2026-11-09
 
 ## Het probleem
 
@@ -310,6 +310,19 @@ inclusief het uitknippen; natte snapshot):
 3. **Eerst meten, dan bouwen**: de bouw in twee tracks. Ingest (`crates/ingest`: regiobestanden en de
    manifestsectie, achter een vlag) en client (histogram, tabel en dagen eerst uit het regiobestand), elk met een
    meting via `pnpm perf:modes` naast deze nulmeting.
+
+## Decision
+
+PO 2026-11-09, via de orkestrator: "ja doe maar A als voorgesteld".
+
+- A1: alle gridpunten, 210 regio's (zijde ≈ 25 km).
+- A2: ECMWF gaat meteen mee, als vierde groep; de bytes worden in de bouw echt gemeten.
+- A3: zee en buitenland krijgen geen bestand en vallen terug op het huidige pad.
+- A4: de 30 s-fix op desktop is een aparte track (U104), los van deze MIP.
+- A5: retentie nieuwste + 1 run per groep; een client die een 404 krijgt, valt terug op het huidige pad.
+
+De bouw gaat in twee fasen: eerst de ingest achter een vlag (U102 fase 1), daarna, na review door de orkestrator, de
+client (fase 2).
 
 ## Open vragen
 
