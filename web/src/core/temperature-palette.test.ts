@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
-  bandColor, fillColor, fillSample, OVERFLOW_COLD, OVERFLOW_STEPS, OVERFLOW_WARM, PALETTE_STOPS, paletteColor, paletteRange, paletteStops, rampKnots,
-  referenceRange, TEMPERATURE_RAMP, type Rgb,
+  bandColor, cssGradient, fillColor, fillSample, FIXED_SCALE_STOPS, loadTemperatureScale, OVERFLOW_COLD, OVERFLOW_STEPS, OVERFLOW_WARM, PALETTE_STOPS, paletteColor, paletteRange, paletteStops, rampKnots,
+  referenceRange, storeTemperatureScale, TEMPERATURE_RAMP, TEMPERATURE_SCALE_STORAGE_KEY, type Rgb,
 } from './temperature-palette'
 
 const hex = (color: Rgb) => `#${color.map((channel) => Math.round(channel * 255).toString(16).padStart(2, '0')).join('')}`
@@ -199,5 +199,47 @@ describe('yesterday as reference (MIP-37)', () => {
       expect(stops.length).toBeLessThanOrEqual(PALETTE_STOPS)
       for (let index = 1; index < stops.length; index++) expect(stops[index]![0]).toBeGreaterThan(stops[index - 1]![0])
     }
+  })
+})
+
+describe('fixed scale (U100)', () => {
+  it('keeps the anchors: −10 blue, 0 °C light blue, 25 °C orange-red, 30 °C the last ramp colour, 38 °C deep red', () => {
+    expect(hex(paletteColor(-10, FIXED_SCALE_STOPS))).toBe(ramp(0))
+    expect(hex(paletteColor(0, FIXED_SCALE_STOPS))).toBe(ramp(1))
+    expect(reddish(paletteColor(25, FIXED_SCALE_STOPS))).toBe(true)
+    expect(hex(paletteColor(30, FIXED_SCALE_STOPS))).toBe(ramp(TEMPERATURE_RAMP.length - 1))
+    expect(hex(paletteColor(38, FIXED_SCALE_STOPS))).toBe(OVERFLOW_WARM)
+    expect(paletteColor(45, FIXED_SCALE_STOPS)).toEqual(paletteColor(38, FIXED_SCALE_STOPS))
+    for (const temperature of [-20, -17, -10, -5, -0.5]) expect(bluish(paletteColor(temperature, FIXED_SCALE_STOPS))).toBe(true)
+    // Paars onder −20: rood kanaal boven het groene.
+    const [red, green] = paletteColor(-25, FIXED_SCALE_STOPS)
+    expect(red).toBeGreaterThan(green)
+  })
+
+  it('gives a narrow day (7…14 °C) a distinct colour per band', () => {
+    const bands = Array.from({ length: 7 }, (_, index) => bandColor(7 + index, 1, FIXED_SCALE_STOPS))
+    for (let index = 1; index < bands.length; index++) expect(distance(bands[index]!, bands[index - 1]!)).toBeGreaterThan(0.04)
+    expect(distance(bands[0]!, bands.at(-1)!)).toBeGreaterThan(0.3)
+  })
+
+  it('fits the shader uniforms and stays strictly increasing', () => {
+    expect(FIXED_SCALE_STOPS.length).toBeLessThanOrEqual(PALETTE_STOPS)
+    for (let index = 1; index < FIXED_SCALE_STOPS.length; index++) expect(FIXED_SCALE_STOPS[index]![0]).toBeGreaterThan(FIXED_SCALE_STOPS[index - 1]![0])
+  })
+
+  it('builds a CSS gradient sampled per degree', () => {
+    expect(cssGradient(0, 2, FIXED_SCALE_STOPS).match(/rgb\(/g)).toHaveLength(3)
+  })
+
+  it('defaults to fixed and remembers relative, also without storage', () => {
+    const values = new Map<string, string>()
+    const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value) } }
+    expect(loadTemperatureScale(storage)).toBe('vast')
+    storeTemperatureScale('relatief', storage)
+    expect(values.get(TEMPERATURE_SCALE_STORAGE_KEY)).toBe('relatief')
+    expect(loadTemperatureScale(storage)).toBe('relatief')
+    const broken = { getItem: () => { throw new Error('geen opslag') }, setItem: () => { throw new Error('geen opslag') } }
+    expect(loadTemperatureScale(broken)).toBe('vast')
+    expect(() => storeTemperatureScale('vast', broken)).not.toThrow()
   })
 })

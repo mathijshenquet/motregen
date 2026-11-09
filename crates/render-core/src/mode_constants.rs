@@ -106,14 +106,8 @@ pub struct Bounds {
 
 #[derive(Debug, Deserialize)]
 pub struct Palette {
-    pub ramp: Vec<String>,
-    pub cold: f64,
-    pub warm: f64,
-    pub minimum_span: f64,
-    pub overflow_step: f64,
-    pub overflow_steps: usize,
-    pub overflow_cold: String,
-    pub overflow_warm: String,
+    /// Vaste temperatuurschaal (U100) als (°C, rgb 0–1)-stops uit `FIXED_SCALE_STOPS`.
+    pub stops: Vec<(f64, [f64; 3])>,
 }
 
 /// Wolkenkaart (U92), uit `cloud-map.ts`, `cloud-section.ts` en `isolines.ts`.

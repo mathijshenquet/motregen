@@ -89,9 +89,8 @@ function rampColor(position: number): Rgb {
   return [0, 1, 2].map((channel) => RAMP[index]![channel]! + (RAMP[index + 1]![channel]! - RAMP[index]![channel]!) * mix) as Rgb
 }
 
-/** De ramp als stops in °C over `range`: elke rampkleur en elke knoop, zodat lineair tussen stops exact is. */
-export function paletteStops(range: PaletteRange): PaletteStops {
-  const knots = rampKnots(range)
+/** De ramp als stops in °C langs `knots`: elke rampkleur en elke knoop, zodat lineair tussen stops exact is. */
+function knotStops(knots: ReadonlyArray<readonly [number, number]>): Array<readonly [number, Rgb]> {
   const stops: Array<readonly [number, Rgb]> = []
   for (let segment = 0; segment < knots.length - 1; segment++) {
     const [t0, p0] = knots[segment]!, [t1, p1] = knots[segment + 1]!
@@ -100,6 +99,12 @@ export function paletteStops(range: PaletteRange): PaletteStops {
   }
   const [last, position] = knots.at(-1)!
   stops.push([last, rampColor(position)])
+  return stops
+}
+
+/** De ramp als stops in °C over `range`. */
+export function paletteStops(range: PaletteRange): PaletteStops {
+  const stops = knotStops(rampKnots(range))
   if (!range.overflow) return stops
   const cold: Array<readonly [number, Rgb]> = [], warm: Array<readonly [number, Rgb]> = []
   const [lowest, highest] = [stops[0]![1], stops.at(-1)![1]]
@@ -170,6 +175,50 @@ export function paletteUniforms(stops: PaletteStops): { temperatures: Float32Arr
     temperatures: new Float32Array(padded.map(([temperature]) => temperature)),
     colors: new Float32Array(padded.flatMap(([, color]) => color)),
   }
+}
+
+/**
+ * Vaste kleurschaal (U100, PO 2026-11-09): de ankers van de Buienradar-legenda (−10, 0, 10, 20, 30, 38+) in onze ramp,
+ * met dezelfde betekenis als de relatieve schaal (0 °C lichtblauw, 25 °C oranjerood). Tussen de knopen loopt de ramp
+ * lineair, dus elke graad een eigen tint en ook een dag van 6–8 °C bereik meer dan één kleur (U25b). Voorbij 30 °C
+ * donkerrood, onder −10 °C diepblauw naar paars in minder stappen dan Buienradar; daarbuiten geklemd.
+ */
+export const FIXED_SCALE_KNOTS: ReadonlyArray<readonly [number, number]> = [[-10, 0], [COLD_ANCHOR_C, BLUE_END], [WARM_ANCHOR_C, RED_START], [30, 1]]
+export const FIXED_SCALE_COLD: ReadonlyArray<readonly [number, string]> = [[-25, '#5a2d91'], [-17, '#1f3f99']]
+export const FIXED_SCALE_WARM: ReadonlyArray<readonly [number, string]> = [[34, '#b3301f'], [38, OVERFLOW_WARM]]
+export const FIXED_SCALE_STOPS: PaletteStops = [
+  ...FIXED_SCALE_COLD.map(([temperature, color]) => [temperature, hexRgb(color)] as const),
+  ...knotStops(FIXED_SCALE_KNOTS),
+  ...FIXED_SCALE_WARM.map(([temperature, color]) => [temperature, hexRgb(color)] as const),
+]
+/** Legenda-ankers van de vaste schaal; de laatste geldt als "en hoger". */
+export const FIXED_SCALE_LEGEND = [-10, 0, 10, 20, 30, 38] as const
+
+export const TEMPERATURE_SCALES = ['vast', 'relatief'] as const
+export type TemperatureScale = typeof TEMPERATURE_SCALES[number]
+export const TEMPERATURE_SCALE_STORAGE_KEY = 'motregen-temperature-scale'
+
+export function loadTemperatureScale(storage: Pick<Storage, 'getItem'> = localStorage): TemperatureScale {
+  try {
+    return storage.getItem(TEMPERATURE_SCALE_STORAGE_KEY) === 'relatief' ? 'relatief' : 'vast'
+  } catch {
+    return 'vast'
+  }
+}
+
+export function storeTemperatureScale(scale: TemperatureScale, storage: Pick<Storage, 'setItem'> = localStorage): void {
+  try {
+    storage.setItem(TEMPERATURE_SCALE_STORAGE_KEY, scale)
+  } catch {
+    // Zonder opslag geldt de keuze alleen voor deze sessie.
+  }
+}
+
+/** CSS-gradiënt van `from` tot `to` °C langs `stops`, per graad bemonsterd. */
+export function cssGradient(from: number, to: number, stops: PaletteStops): string {
+  const samples = Math.max(1, Math.round(Math.abs(to - from)))
+  const colors = Array.from({ length: samples + 1 }, (_, index) => cssRgb(paletteColor(from + (to - from) * index / samples, stops)))
+  return `linear-gradient(90deg, ${colors.join(', ')})`
 }
 
 /**

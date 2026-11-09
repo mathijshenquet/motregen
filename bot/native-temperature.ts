@@ -4,8 +4,7 @@ import { blendFrames, blurField, fieldRangeInView, isolineBlurPasses, isolineFra
 import { prepareField, type PreparedField } from '../web/src/core/isoline-field.js'
 import { sliceWeights, type FieldSlice } from '../web/src/core/isoline-spline.js'
 import { blendSlice, buildSegments, traceContours, shortRings, ringFadeRaster, type Contour, type ShortRing } from '../web/src/core/isoline-contours.js'
-import { paletteRange, paletteStops, bandColor, referenceRange, type PaletteRange } from '../web/src/core/temperature-palette.js'
-import { NETHERLANDS_FLANDERS_BOUNDS } from '../web/src/core/map-frame.js'
+import { bandColor, FIXED_SCALE_STOPS } from '../web/src/core/temperature-palette.js'
 import { NativeRainData } from './native-rain.js'
 import { FRAME } from './config.js'
 import { nativeProjection } from './native-projection.js'
@@ -21,7 +20,7 @@ export class NativeTemperatureData {
   private colors?: Float32Array
   private step = 1
   private readonly labelLines = new Map<string, IsolineFeatureCollection>()
-  constructor(origin: string, private readonly manifest: StillManifest, private readonly kind: 'temperature' | 'pressure' = 'temperature') {
+  constructor(origin: string, manifest: StillManifest, private readonly kind: 'temperature' | 'pressure' = 'temperature') {
     this.data = new NativeRainData(origin, manifest, kind === 'pressure' ? 'pressure_hpa' : 'feels_like_c')
     this.step = kind === 'pressure' ? ISOBAR_STEP_HPA : 1
   }
@@ -43,28 +42,10 @@ export class NativeTemperatureData {
     return pending
   }
 
+  /** De vaste schaal (U100), gelijk aan de standaard van de app. */
   async prepare(): Promise<void> {
     if (this.kind === 'pressure') { this.colors = new Float32Array(256 * 3); return }
-    const reference = referenceRange(this.manifest.feels_reference)
-    if (reference) { this.setColors(reference); return }
-    let min = Infinity, max = -Infinity
-    const now = Date.parse(this.manifest.now)
-    const horizon = now + 18 * 3600_000
-    for (const entry of this.data.timeline.filter((entry) => entry.epoch >= Math.floor(now / 3600_000) * 3600_000 && entry.epoch <= horizon)) {
-      const frame = await this.data.frame(entry.epoch)
-      const values = Float32Array.from(frame.mix === 1 ? frame.right : frame.left, (code) => (frame.mix === 1 ? frame.rightHeader : frame.leftHeader).quant[code] ?? NaN)
-      const valid = Float32Array.from(values, (value) => Number.isNaN(value) ? 0 : 1)
-      const range = fieldRangeInView(values, valid, frame.grid, NETHERLANDS_FLANDERS_BOUNDS)
-      if (range) { min = Math.min(min, range[0]); max = Math.max(max, range[1]) }
-    }
-    const range = paletteRange(min, max)
-    if (!range) throw new Error('Temperatuurpalet heeft geen geldig bereik')
-    this.setColors(range)
-  }
-
-  private setColors(range: PaletteRange): void {
-    const stops = paletteStops(range)
-    this.colors = Float32Array.from({ length: 256 * 3 }, (_, index) => bandColor(Math.floor(index / 3) - 128, 1, stops)[index % 3]!)
+    this.colors = Float32Array.from({ length: 256 * 3 }, (_, index) => bandColor(Math.floor(index / 3) - 128, 1, FIXED_SCALE_STOPS)[index % 3]!)
   }
 
   clear(): void { this.prepared.clear(); this.labelLines.clear(); this.data.clear() }

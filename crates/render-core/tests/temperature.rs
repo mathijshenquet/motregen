@@ -9,45 +9,21 @@ use render_core::{
 use serde::Deserialize;
 
 #[derive(Deserialize)]
-struct Range {
-    low: f64,
-    high: f64,
-    overflow: bool,
-}
-#[derive(Deserialize)]
-struct Fixture {
-    min: f64,
-    max: f64,
-    range: Range,
-    colors: Vec<[f64; 3]>,
-}
-#[derive(Deserialize)]
 struct Fixtures {
-    palette_fixtures: Vec<Fixture>,
+    palette_fixture: Vec<[f64; 3]>,
 }
 
 #[test]
-fn temperature_bands_and_cold_warm_anchors_follow_the_typescript_palette() {
+fn temperature_bands_follow_the_fixed_typescript_scale() {
     let fixtures: Fixtures =
         serde_json::from_str(include_str!("../assets/mode-constants.json")).unwrap();
-    for fixture in fixtures.palette_fixtures {
-        let palette = Palette::new(fixture.min, fixture.max).unwrap();
-        let palette = if fixture.range.overflow {
-            palette.with_overflow()
-        } else {
-            palette
-        };
-        assert_eq!(palette.low, fixture.range.low);
-        assert_eq!(palette.high, fixture.range.high);
-        for (index, expected) in fixture.colors.iter().enumerate() {
-            let actual = palette.color(index as f64 - 30.0 + 0.5);
-            for channel in 0..3 {
-                assert!((actual[channel] - expected[channel]).abs() < 1e-12);
-            }
+    let palette = Palette::fixed();
+    for (index, expected) in fixtures.palette_fixture.iter().enumerate() {
+        let actual = palette.color(index as f64 - 30.0 + 0.5);
+        for channel in 0..3 {
+            assert!((actual[channel] - expected[channel]).abs() < 1e-12);
         }
     }
-    assert!(Palette::new(f64::NAN, 20.0).is_none());
-    assert!(Palette::new(20.0, 10.0).is_none());
 }
 
 #[test]
@@ -61,7 +37,7 @@ fn uniform_temperature_paints_the_expected_band_and_preserves_no_data() {
         height: 20,
     };
     let projection = Projection::new(&grid);
-    let palette = Palette::new(0.0, 16.0).unwrap();
+    let palette = Palette::fixed();
     let colors = palette.bands();
     let size = &constants().size;
     let background = 120;
@@ -110,7 +86,7 @@ fn isotherms_take_the_darkened_fill_color_and_fall_back_where_there_is_no_fill()
         height: 20,
     };
     let projection = Projection::new(&grid);
-    let palette = Palette::new(0.0, 16.0).unwrap();
+    let palette = Palette::fixed();
     let colors = palette.bands();
     let size = &constants().size;
     let settings = &mode_constants().isoline;

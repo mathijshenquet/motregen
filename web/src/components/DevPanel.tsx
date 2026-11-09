@@ -3,6 +3,7 @@ import { copyText } from '../core/clipboard'
 import { appendSkyDiaryEntry, SKY_DIARY_CLASSES, skyDiaryJson, TABLE_CONTRASTS, type SkyDiaryClass, type TableContrast } from '../core/dev-settings'
 import { RAIN_ISOLINE_RATES, RAIN_ISOLINE_SETS, type RainIsolineSetName, type RainLookChoice } from '../core/rain-palette'
 import { CLOUD_MAP_SAMPLES, type CloudMapSample } from '../core/cloud-map'
+import { LABEL_TUNING_RANGES, type LabelTuning } from '../core/isoline-label-anchors'
 
 // Alleen via ?dev; hooguit 3–4 knoppen per groep (PO 2026-09-25). Elke knop staat in
 // docs/dev-opties.md met eigenaar en vervaldatum (MIP-12).
@@ -31,7 +32,15 @@ interface Props {
   usageBody: string
   usageLabel: string | null
   onUsageLabel: (text: string) => void
+  labelTuning: LabelTuning
+  onLabelTuning: (key: keyof LabelTuning, value: number) => void
 }
+
+const LABEL_TUNING_CONTROLS: Array<{ key: keyof LabelTuning; label: string; hint: string; format: (value: number) => string }> = [
+  { key: 'size', label: 'Labelgrootte', format: (value) => `${value} px`, hint: 'Tekstgrootte van de isolijnlabels in Gevoel. Nu 11 px. Ook als link: ?dev&labelgrootte=13. U100, vervalt 2026-11-23.' },
+  { key: 'spacing', label: 'Labelafstand', format: (value) => `${value} px`, hint: 'Afstand langs een isolijn tussen twee labels. Nu 260 px. Link: ?dev&labelafstand=200. U100, vervalt 2026-11-23.' },
+  { key: 'fill', label: 'Puntlabels', format: (value) => value === 0 ? 'uit' : `${value} px`, hint: 'Waar binnen deze straal geen isolijnlabel staat, een label met de waarde ter plekke. 0 is uit; anders 120–300 px. Link: ?dev&labelvulling=200. U100, vervalt 2026-11-23.' },
+]
 
 const RAIN_ISOLINE_HINT = 'Lijnen binnen de regen op vaste intensiteiten, alleen bij menging rand. Kleurgrenzen (standaard): 1, 2 en 13 mm/u. Klassen: 2,5, 10 en 50 mm/u (licht/matig/zwaar/zeer zwaar). Dicht: zes lijnen. Proef U86, vervalt 2026-10-23.'
 export default function DevPanel(props: Props) {
@@ -74,6 +83,12 @@ export default function DevPanel(props: Props) {
       <Control label="Dagen: lijst onder tabel" output={props.dayList ? 'Aan' : 'Uit'} toggle hint="Uit (standaard): de urentabel wordt naar achteren grover, tot dag en nacht. Aan: de uurtabel tot het eind van HARMONIE met de lijst Komende dagen eronder. U91b, vervalt 2026-11-01.">
         <input type="checkbox" checked={props.dayList} onChange={(event) => props.onDayList(event.currentTarget.checked)} />
       </Control>
+    </Group>
+    <Group title="Isolijnlabels">
+      <For each={LABEL_TUNING_CONTROLS}>{(control) => <Control label={control.label} output={control.format(props.labelTuning[control.key])} hint={control.hint}>
+        <input type="range" aria-label={control.label} min={LABEL_TUNING_RANGES[control.key].min} max={LABEL_TUNING_RANGES[control.key].max} step={LABEL_TUNING_RANGES[control.key].step}
+          value={props.labelTuning[control.key]} onChange={(event) => props.onLabelTuning(control.key, Number(event.currentTarget.value))} />
+      </Control>}</For>
     </Group>
     <Group title="Wolkenkaart">
       <Control label="Wolkenbeeld" output={props.cloudMapForms ? 'vormen' : 'oude sluier'} hint="Vormen uit bewolking en licht. De fijne structuur is getekend; de regionale velden komen uit het model.">

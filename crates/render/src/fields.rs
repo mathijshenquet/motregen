@@ -382,33 +382,8 @@ impl<'a> Fields<'a> {
         })
     }
 
-    /// The yesterday reference when the manifest has one (MIP-37), otherwise the range over now-hour … +18 h.
-    pub fn palette(&mut self, manifest: &Manifest, now: i64) -> Result<Vec<f32>> {
-        if let Some(reference) = &manifest.feels_reference
-            && let Some(palette) =
-                render_core::field_palette::Palette::new(reference.min, reference.max)
-        {
-            return Ok(palette.with_overflow().bands());
-        }
-        let mut minimum = f64::INFINITY;
-        let mut maximum = f64::NEG_INFINITY;
-        let region = render_core::field_palette::palette_region(&self.grid);
-        let frames = self.data.frames.clone();
-        for frame in frames.iter().filter(|frame| {
-            frame.epoch >= now.div_euclid(3_600_000) * 3_600_000
-                && frame.epoch <= now + 18 * 3_600_000
-        }) {
-            let raster = self.data.load(frame)?;
-            let extent = render_core::field_palette::extent(&raster.grid, region, |index| {
-                raster.quant[raster.values[index] as usize].map(f64::from)
-            });
-            if let Some((low, high)) = extent {
-                minimum = minimum.min(low);
-                maximum = maximum.max(high);
-            }
-        }
-        Ok(render_core::field_palette::Palette::new(minimum, maximum)
-            .context("Temperature palette has no valid range")?
-            .bands())
+    /// The fixed temperature scale (U100), the same as the app's default.
+    pub fn palette(&self) -> Vec<f32> {
+        render_core::field_palette::Palette::fixed().bands()
     }
 }

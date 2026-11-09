@@ -568,7 +568,7 @@ pub fn render(
     let colors = if wind {
         Vec::new()
     } else {
-        sources.fields.palette(manifest, now)?
+        sources.fields.palette()
     };
     if cache.is_some() {
         for data in sources.datasets() {
