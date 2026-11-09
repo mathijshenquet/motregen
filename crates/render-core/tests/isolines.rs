@@ -103,6 +103,7 @@ fn real_fields_contours_and_label_anchors_follow_typescript() {
             key: 0,
             pressure,
             opacity: 1.0,
+            names: None,
         });
         assert_eq!(labels.len(), fixture.labels.len(), "label count");
         for (actual, expected) in labels.iter().zip(&fixture.labels) {

@@ -8,6 +8,7 @@ use render_core::{
     field::{Field, slice_weights},
     isoline_labels::{Label, Labels, Placement, Screen},
     mode_constants::mode_constants,
+    name_mask::NameMask,
     pressure::{self, Mark},
     projection::{Grid, Projection},
     time::{Manifest, frame_blend},
@@ -84,6 +85,8 @@ pub struct Fields<'a> {
     line_cache: Vec<((usize, i32), Vec<Contour>)>,
     mark_cache: Vec<(usize, Vec<Mark>)>,
     labels: Labels,
+    /// Labels are placed once for both themes; the names sit at the same place on the light and dark plate.
+    names: NameMask,
     pressure: bool,
     step: f64,
     pub fields_us: u128,
@@ -92,7 +95,12 @@ pub struct Fields<'a> {
 }
 
 impl<'a> Fields<'a> {
-    pub fn new(directory: &Path, manifest: &'a Manifest, pressure: bool) -> Result<Self> {
+    pub fn new(
+        directory: &Path,
+        manifest: &'a Manifest,
+        pressure: bool,
+        names: NameMask,
+    ) -> Result<Self> {
         let mut data = Dataset::new(
             directory,
             manifest,
@@ -110,6 +118,7 @@ impl<'a> Fields<'a> {
             line_cache: Vec::new(),
             mark_cache: Vec::new(),
             labels: Labels::default(),
+            names,
             pressure,
             step: if pressure { 4.0 } else { 1.0 },
             fields_us: 0,
@@ -357,6 +366,7 @@ impl<'a> Fields<'a> {
             key: self.data.frames[label_index].epoch,
             pressure: self.pressure,
             opacity,
+            names: Some(&self.names),
         });
         let marks = if self.pressure {
             pressure::blend_marks(

@@ -9,6 +9,7 @@ use render_core::{
     clock::ClockTransition,
     constants::{constants, warp_limit},
     motion::Motion,
+    name_mask::NameMask,
     overlay::{ClockOptions, clock_appearance, draw_overlay},
     projection::Grid,
     rain::{RainCompositor, RainPair},
@@ -270,6 +271,7 @@ struct Painter {
     compositor: Arc<RainCompositor>,
     text: [Mutex<Text>; 2],
     plates: crate::shared::Plates,
+    names: [NameMask; 2],
     now: i64,
     clock_variant: Option<ClockTransition>,
 }
@@ -354,6 +356,7 @@ impl Painter {
                 &mut text,
                 &mut rgb,
                 &self.compositor.projection,
+                &self.names[usize::from(input.night)],
                 TemperaturePair {
                     left_grid: &left.grid,
                     right_grid: &right.grid,
@@ -468,6 +471,28 @@ fn write_video(
     })
 }
 
+/// Name mask next to a plate (`names-{theme}.png`), for keeping labels off basemap names.
+pub(crate) fn name_mask(directory: &Path, theme: &str) -> Result<NameMask> {
+    let size = &constants().size;
+    let path = directory.join(format!("names-{theme}.png"));
+    let image = image::open(&path)
+        .with_context(|| format!("Name mask {}", path.display()))?
+        .into_luma8();
+    ensure!(
+        image.width() as usize == size.width && image.height() as usize == size.height,
+        "Incorrect {theme} name mask dimensions"
+    );
+    Ok(NameMask::new(size.width, size.height, image.as_raw()))
+}
+
+/// Light and dark name masks, indexed like the plates.
+pub(crate) fn name_masks(directory: &Path) -> Result<[NameMask; 2]> {
+    Ok([
+        name_mask(directory, "light")?,
+        name_mask(directory, "dark")?,
+    ])
+}
+
 pub(crate) fn plates(directory: &Path, grid: &Grid) -> Result<crate::shared::Plates> {
     let constants = constants();
     let metadata: serde_json::Value =
@@ -552,6 +577,7 @@ pub fn render(
             Mutex::new(Text::new().map_err(anyhow::Error::msg)?),
         ],
         plates: plates(basemap_directory, &grid)?,
+        names: name_masks(basemap_directory)?,
         now,
         clock_variant,
     };

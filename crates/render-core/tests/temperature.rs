@@ -4,7 +4,10 @@ use render_core::{
     field_palette::Palette,
     field_raster::{self, LineColor},
     mode_constants::mode_constants,
+    name_mask::NameMask,
     projection::{Grid, Projection},
+    temperature::{TemperaturePair, draw_temperature},
+    text::Text,
 };
 use serde::Deserialize;
 
@@ -144,4 +147,92 @@ fn isotherms_take_the_darkened_fill_color_and_fall_back_where_there_is_no_fill()
             );
         }
     }
+}
+
+/// Draws a uniform 6° over the whole map with the given name mask and returns the frame (U103).
+fn place_labels(names: &NameMask) -> Vec<u8> {
+    let grid = Grid {
+        x0: 0.0,
+        y0: 8_000_000.0,
+        dx: 100_000.0,
+        dy: -100_000.0,
+        width: 20,
+        height: 20,
+    };
+    let projection = Projection::new(&grid);
+    let size = &constants().size;
+    let values = vec![0; grid.width * grid.height];
+    let quant = [Some(6.0)];
+    let mut rgb = vec![120; size.width * size.height * 3];
+    draw_temperature(
+        &mut Text::new().unwrap(),
+        &mut rgb,
+        &projection,
+        names,
+        TemperaturePair {
+            left_grid: &grid,
+            right_grid: &grid,
+            left: &values,
+            right: &values,
+            left_quant: &quant,
+            right_quant: &quant,
+            mix: 0.0,
+        },
+        false,
+    );
+    rgb
+}
+
+fn has_ink(rgb: &[u8], columns: std::ops::Range<usize>, rows: std::ops::Range<usize>) -> bool {
+    let width = constants().size.width;
+    rows.flat_map(|row| {
+        columns
+            .clone()
+            .map(move |column| (row * width + column) * 3)
+    })
+    .any(|offset| rgb[offset..offset + 3] != [120, 120, 120])
+}
+
+#[test]
+fn temperature_labels_move_below_a_basemap_name_or_drop_when_nothing_is_free() {
+    let size = &constants().size;
+    let place = &constants().places[0];
+    let grid = Grid {
+        x0: 0.0,
+        y0: 8_000_000.0,
+        dx: 100_000.0,
+        dy: -100_000.0,
+        width: 20,
+        height: 20,
+    };
+    let (x, y) = Projection::new(&grid).point(place.lng, place.lat);
+    let (x, y) = (x.round() as usize, y.round() as usize);
+    let above = (x - 15..x + 15, y - 45..y - 35);
+    let below = (x - 15..x + 15, y + 40..y + 50);
+
+    let free = place_labels(&NameMask::empty());
+    assert!(
+        has_ink(&free, above.0.clone(), above.1.clone()),
+        "default above the place"
+    );
+    assert!(!has_ink(&free, below.0.clone(), below.1.clone()));
+
+    // A name right above the place, as "Drenthe" sat above Emmen.
+    let mut luma = vec![0; size.width * size.height];
+    for row in y - 70..y - 30 {
+        luma[row * size.width + x - 80..row * size.width + x + 80].fill(255);
+    }
+    let named = place_labels(&NameMask::new(size.width, size.height, &luma));
+    assert!(
+        !has_ink(&named, above.0.clone(), above.1.clone()),
+        "kept off the name"
+    );
+    assert!(has_ink(&named, below.0, below.1), "moved below the place");
+
+    let everywhere = vec![255; size.width * size.height];
+    let crowded = place_labels(&NameMask::new(size.width, size.height, &everywhere));
+    assert!(
+        crowded.iter().all(|&channel| channel == 120),
+        "dropped, names stay readable"
+    );
 }
