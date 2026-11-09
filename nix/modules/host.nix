@@ -60,6 +60,8 @@
   nix = {
     settings = {
       auto-optimise-store = true;
+      # 3,8 GB naast bot en ingest: twee webbuilds tegelijk liepen op 2026-11-09 in de OOM-killer (PO: één tegelijk).
+      max-jobs = 1;
       experimental-features = [
         "nix-command"
         "flakes"
