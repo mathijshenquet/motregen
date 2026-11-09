@@ -53,7 +53,7 @@ export function sunshinePossibleShare(end: number, sinElevation: (epoch: number)
 }
 
 /** Erbs: diffuse share of the global irradiance at clearness `k`. */
-function erbsDiffuseFraction(k: number): number {
+export function erbsDiffuseFraction(k: number): number {
   if (k <= 0.22) return 1 - 0.09 * k
   if (k <= 0.8) return 0.9511 - 0.1604 * k + 4.388 * k ** 2 - 16.638 * k ** 3 + 12.336 * k ** 4
   return 0.165

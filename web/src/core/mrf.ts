@@ -112,6 +112,12 @@ class PayloadSpan {
   }
 }
 
+/** Rekent een gedecodeerd frame om vóór het de cache in gaat (?dev-varianten, U105). */
+export interface FrameTransform {
+  applies(chunk: ManifestChunk): boolean
+  apply(chunk: ManifestChunk, header: MrfHeader, frameIndex: number, frame: Uint8Array): Promise<Uint8Array>
+}
+
 export class MrfClient {
   private readonly headers = new Map<string, Promise<MrfHeader>>()
   private readonly resolvedHeaders = new Map<string, MrfHeader>()
@@ -133,6 +139,7 @@ export class MrfClient {
   private readonly idleWorkers: number[]
   private requestId = 0
   onFrameDecoded?: (url: string, frameIndex: number, frame: Uint8Array) => void
+  frameTransform?: FrameTransform
 
   constructor(
     private readonly manifestUrl: URL,
@@ -173,7 +180,8 @@ export class MrfClient {
       promise = collectRange(0, chunk.header_len - 1, (receive) => fetchTracedRange(url, 0, chunk.header_len - 1, 'high', this.rangeTrace('header', []), receive)).then((bytes) => {
         const header = parseMrfHeader(bytes)
         this.resolvedHeaders.set(url, header)
-        this.frameKeysByUrl.set(url, frameKeys(url, header))
+        // Een omgerekend frame hangt ook van zijn tijd af: geen gedeelde inhoudssleutel.
+        this.frameKeysByUrl.set(url, this.frameTransform?.applies(chunk) ? header.frames.map((_, index) => frameKey(url, index)) : frameKeys(url, header))
         return header
       })
       this.headers.set(url, promise)
@@ -462,7 +470,8 @@ export class MrfClient {
   private async decodeMember(url: string, chunk: ManifestChunk, header: MrfHeader, index: number, key: string, compressed: Uint8Array, layer: LoadLayer): Promise<Uint8Array> {
     this.trace?.frameBytesReady(url, index)
     const timing = this.frameTiming(url, chunk, index, chunkField(chunk))
-    const decoded = await this.decodeInWorker(key, timing, compressed, header.grid.width * header.grid.height, { field: chunkField(chunk), layer }, predSpec(header))
+    const raw = await this.decodeInWorker(key, timing, compressed, header.grid.width * header.grid.height, { field: chunkField(chunk), layer }, predSpec(header))
+    const decoded = this.frameTransform?.applies(chunk) ? await this.frameTransform.apply(chunk, header, index, raw) : raw
     this.trace?.frameDecoded(url, index)
     this.frames.set(key, decoded, timing)
     this.onFrameDecoded?.(url, index, decoded)

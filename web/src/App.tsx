@@ -87,6 +87,8 @@ import { READY_WINDOW_MS, windowReady } from './core/window-ready'
 import { visibleSlotStates } from './core/screen-truth'
 import type { Intent } from './core/intent'
 import { coldProfileRequested, decode, fetchManifest, initialClient, initialManifest, manifestUrl, perf, profileMode } from './startup'
+import { FEELS_Q_FACTOR } from './core/feels-sun'
+import { feelsVariantTransform, linkedFeelsVariant } from './core/feels-variant'
 const defaultLocation = DEFAULT_LOCATION
 // Intent (MIP-20): velden die de kaart of de scrubber in een van de modi tekent; de straling hoort
 // erbij omdat ze de hemel achter de scrubber kleurt (U62). Na deze rust geldt de scrubber als stilstaand.
@@ -377,6 +379,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const inViewOnly = decode.pointSeries === 'in-view'
   const client = initialClient ?? new MrfClient(manifestUrl, perf.loads, decode)
   const [manifest, setManifest] = createSignal<Manifest>()
+  const feelsVariant = linkedFeelsVariant(window.location.search)
+  if (feelsVariant !== 'nu') client.frameTransform = feelsVariantTransform(client, () => untrack(manifest), FEELS_Q_FACTOR[feelsVariant])
   const [manifestRefresh, setManifestRefresh] = createSignal<RefreshState>()
   const timeline = createMemo(() => manifest() ? buildTimeline(manifest()!) : [])
   const radiationTimeline = createMemo(() => manifest() ? buildTimeline(manifest()!, 'radiation') : [])

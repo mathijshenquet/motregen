@@ -111,6 +111,69 @@ implementatie JAG/TI-methode](https://cdn.knmi.nl/knmi/pdf/bibliotheek/knmipubTR
 [KNMI — Hittekracht](https://www.knmi.nl/kennis-en-datacentrum/uitleg/hittekracht);
 [Bureau of Meteorology — Thermal comfort observations](https://www.bom.gov.au/info/thermal_stress/).
 
+
+### Met zon (MIP-41, nu als `?dev&gevoel=zon` in de client)
+
+Tak 2 krijgt de BoM-vorm **mét straling** (Steadman 1994):
+
+`AT = T + 0,348e − 0,70v + 0,70·Q/(v + 10) − 4,25`
+
+met `Q` de netto door het lichaam geabsorbeerde straling in W/m² lichaamsoppervlak. In Steadmans
+afleiding is `Q = h_r·(T_mrt − T)`: de extra straling ten opzichte van een omgeving op luchttemperatuur
+(de schaduwvorm). Tak 1 (windchill tot en met 10 °C) en de overgangsband van tak 3 blijven gelijk; in
+de band mengt de stralingsvorm mee, dus bij 10 °C is gevoel nog steeds exact JAG/TI.
+
+**Q is de directe zon op een staande persoon.** De schaduwvorm beschrijft al een persoon buiten in de
+schaduw; wat zon toevoegt is vooral de directe bundel. Daarom:
+
+`Q = α · f_p(β) · I_n`
+
+1. `α = 0,7`: kortgolvige absorptie van huid en kleding (ISO 7726, ook in RayMan en SOLWEIG).
+2. `f_p(β) = 0,308 · cos(β · (1 − β²/48402))`, `β` de zonshoogte in graden: projectiefactor van een
+   staande persoon (Underwood & Ward 1966, zoals in ISO 7726/RayMan). 0,31 bij lage zon, 0,21 bij 48°,
+   0,08 bij 90°: lage zon valt vol op het lichaam.
+3. `I_n` de directe normaalstraling. HARMONIE levert alleen globale straling als uurgemiddelde; per uur
+   geeft de helderheidsindex `k = G / (S₀·μ̄)` (`μ̄` de gemiddelde sin(zonshoogte) over het uur) met de
+   Erbs-splitsing het directe deel: `I_n = G·(1 − k_d(k)) / μ̄`, begrensd op 1000 W/m². Onder 3°
+   gemiddelde zonshoogte telt de bundel niet (de splitsing is daar ruis). Op tijdstip `t` geldt het
+   gemiddelde van de uren die op `t` en op `t + 1 u` eindigen, zodat het midden op `t` ligt; `f_p` volgt
+   de zonshoogte op `t`.
+
+Nacht (zon onder) of bewolkt (`k` laag, `k_d ≈ 1`) geeft `Q ≈ 0`: dan is het de BoM-vorm zonder straling.
+Die wijkt van de vereenvoudigde schaduwvorm (`0,33e − 4,00`) alleen in de constanten af, `0,018e − 0,25`:
+in Nederland hooguit ±0,3 °C (getest).
+
+**Bron: HARMONIE, niet ICON-D2.** ICON-D2 heeft een directe-stralingsveld (MIP-39), maar dat is een
+ander model met andere wolken: in dezelfde cel kan ICON zon geven waar HARMONIE's temperatuur en wind
+bij bewolking horen. Het reikt ook maar 48 u tegen HARMONIE's 60 u, dus gevoel zou op +48 u een knik
+krijgen. MIP-39 mat dat ICON-D2-direct de zonneschijnduur een dag vooruit nauwelijks beter maakt
+(10,5 tegen 10,7 min/u). Erbs op HARMONIE-globaal is één bron, consistent met de rest van de cel.
+
+**Sanity** (20 april 11:40 UTC, De Bilt, zon 48°; `TEMPERATURES=15 pnpm exec tsx scripts/gevoel-zon.ts tabel`):
+
+| situatie | Q | nu (MIP-10) | zon (MIP-41) | zon-sterk (2·Q) |
+| --- | ---: | ---: | ---: | ---: |
+| zon, 15 °C, 2 Bft (2,5 m/s), RH 60 %, 700 W/m² | 101 W/m² | 12,6 °C | 18,2 °C | 23,9 °C |
+| bewolkt, 15 °C, 3 Bft (4,4 m/s), RH 85 %, 150 W/m² | 0 W/m² | 12,7 °C | 12,7 °C | 12,7 °C |
+
+**Bovengrens `zon-sterk` = 2·Q.** Telt men ook de diffuse hemel en het teruggekaatste licht van de grond
+(albedo 0,2) als extra en trekt men het langgolvige tekort van een heldere hemel af (SOLWEIG-hoekfactoren),
+dan komt Q in dezelfde lentesituatie rond 180 W/m², T_mrt ≈ T + 30 K (handschatting U105). Dat is een
+persoon midden op een open veld en het maximum van wat de formule kan zeggen; Steadman (1971) noemde
+7–14 °C extra in volle zon, afhankelijk van de wind (geciteerd in Theor. Appl. Climatol. 2011,
+[doi:10.1007/s00704-010-0388-2](https://doi.org/10.1007/s00704-010-0388-2)). BoM publiceert zelf alleen de vorm zonder straling, omdat Q in de praktijk lastig te bepalen is.
+
+**Winter blijft winter.** Bij `T ≤ 10 °C` telt zon niet mee, ook niet op een heldere novemberdag met lage
+zon (Q 120–150 W/m² op 9 november 2026): JAG/TI kent geen stralingsterm.
+
+Bronnen: Steadman, R. G. (1994), *Norms of apparent temperature in Australia*, Aust. Met. Mag. 43, 1–16;
+[Bureau of Meteorology — Thermal comfort observations](https://www.bom.gov.au/info/thermal_stress/);
+ISO 7726 (1998), *Ergonomics of the thermal environment — Instruments for measuring physical quantities*;
+Underwood, C. R. & Ward, E. J. (1966), *The solar radiation area of man*, Ergonomics 9, 155–168;
+Erbs, D. G., Klein, S. A. & Duffie, J. A. (1982), *Estimation of the diffuse radiation fraction for hourly,
+daily and monthly-average global radiation*, Solar Energy 28, 293–302; Lindberg, F., Holmer, B. &
+Thorsson, S. (2008), *SOLWEIG 1.0*, Int. J. Biometeorol. 52, 697–713.
+
 ## UV
 
 De officiële bron is KNMI Open Data-dataset
