@@ -327,7 +327,8 @@ describe('histogram scrubber', () => {
     expect(container.querySelectorAll('.sun-bars path[d^="M"]').length).toBe(2)
     expect(container.querySelector('.sun-readout')?.textContent).toBe('60 min zon per uur')
     expect(screen.getByRole('slider', { name: 'Tijd' }).getAttribute('aria-valuetext')).toContain('60 min zon')
-    expect([...container.querySelectorAll('.sun-marker')].map((marker) => marker.classList.contains('set'))).toEqual([true])
+    // Geen merkteken voor zon op/onder meer (PO 2026-11-09, C9).
+    expect(container.querySelectorAll('.sun-marker')).toHaveLength(0)
   })
 
   it('breaks the sunshine curve over hours whose radiation is not loaded yet instead of drawing a flat line', () => {

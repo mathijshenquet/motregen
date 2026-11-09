@@ -88,15 +88,10 @@ const SUN_STYLE: SunStyle = (() => {
   const chosen = query.has('dev') ? query.get('zon') : null
   return chosen === 'uur' || chosen === 'kwartier' || chosen === 'vlak' ? chosen : 'vlak-lijn'
 })()
-// Keuze PO (U103, C9): het merkteken voor zon op en onder onderin het plot, met ?dev&zonmerk=tijd|weg|huidig
-// (vervalt 2026-11-23). Tijd: alleen de tijd, gecentreerd onder het moment; weg: geen merkteken.
+// Merkteken voor zon op en onder onderin het plot. PO 2026-11-09 (C9): weg; 'huidig' (zonnetje + tijd) en 'tijd'
+// (alleen de tijd, gecentreerd) blijven als optie in de code.
 type SunMarkerStyle = 'huidig' | 'tijd' | 'weg'
-const SUN_MARKER_STYLE: SunMarkerStyle = (() => {
-  if (typeof location === 'undefined') return 'huidig'
-  const query = new URLSearchParams(location.search)
-  const chosen = query.has('dev') ? query.get('zonmerk') : null
-  return chosen === 'tijd' || chosen === 'weg' ? chosen : 'huidig'
-})()
+const SUN_MARKER_STYLE = 'weg' as SunMarkerStyle
 const QUARTER = 15 * 60_000
 const CLOUD_LAYER_LABELS = { high: 'hoge wolken', mid: 'midden wolken', low: 'lage wolken' } as const
 // Middens van de wolkenlagen als deel van de plothoogte: hoog op 1/6, dan steeds 1/4 lager, zodat de lage wolken
