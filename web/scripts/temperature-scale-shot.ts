@@ -5,10 +5,10 @@ import { join } from 'node:path'
 // Beelden voor U100 (vaste temperatuurschaal, Gevoel-legenda, isolijnlabels): telefoon en desktop op dezelfde
 // kaarttijd, zodat varianten naast elkaar te leggen zijn. De worker bekijkt ze zelf.
 // Gebruik: pnpm exec tsx scripts/temperature-scale-shot.ts ORIGIN OUT_DIR TIJD [SET]
-//   TIJD: ISO-tijd of relatieve kaarttijd zoals +0u; SET: basis (standaard), labels, templabels (ronde 3)
-//   of vulling (met LABEL: voor/na). Bij templabels is LABEL een voorvoegsel voor de bestandsnamen (bijv. een datum).
+//   TIJD: ISO-tijd of relatieve kaarttijd zoals +0u; SET: basis (standaard), getallen (temperatuurgetallen, ronde 3)
+//   of vulling (met LABEL: voor/na). Bij getallen is LABEL een voorvoegsel voor de bestandsnamen (bijv. een datum).
 const [origin, outDir, time = '+0u', set = 'basis', tag = set === 'vulling' ? 'voor' : ''] = process.argv.slice(2)
-if (!origin || !outDir) throw new Error('usage: pnpm exec tsx scripts/temperature-scale-shot.ts ORIGIN OUT_DIR [TIJD] [basis|labels]')
+if (!origin || !outDir) throw new Error('usage: pnpm exec tsx scripts/temperature-scale-shot.ts ORIGIN OUT_DIR [TIJD] [basis|getallen|vulling] [LABEL]')
 mkdirSync(outDir, { recursive: true })
 
 const PHONE = { width: 402, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true }
@@ -39,33 +39,13 @@ const openAbout = async (page: Page) => {
   await page.waitForTimeout(400)
 }
 
-// Spreiding over de range (C4): nu, middengroot, dicht, grootst; puntlabels op de kleinste straal, waar ze nog iets toevoegen.
-const LABEL_VARIANTS: Array<{ size: number; spacing: number; fill: number }> = [
-  { size: 11, spacing: 260, fill: 0 },
-  { size: 13, spacing: 200, fill: 0 },
-  { size: 13, spacing: 160, fill: 120 },
-  { size: 14, spacing: 140, fill: 0 },
-  { size: 14, spacing: 200, fill: 120 },
-  { size: 16, spacing: 260, fill: 0 },
-]
-
-const closeDevPanel = async (page: Page) => {
-  // Dicht is het paneel op de telefoon nog een flink wit vak: voor de vergelijking helemaal weg.
-  await page.locator('.dev-panel').evaluate((panel) => { (panel as HTMLDetailsElement).open = false; (panel as HTMLElement).style.display = 'none' })
-}
-const TEMPERATURE_LABEL_LOOKS = ['lijn', 'plekken', 'vlakken', 'plekken-half'] as const
-const shots: Shot[] = set === 'templabels'
-  ? TEMPERATURE_LABEL_LOOKS.flatMap((look) => [
-    { name: `${tag}templabels-desktop-${look}`, device: DESKTOP, action: async (page: Page) => { await closeDevPanel(page); await wholeCountry(page) } },
-    { name: `${tag}templabels-telefoon-${look}`, device: PHONE, action: closeDevPanel },
-  ].map((shot) => ({ ...shot, path: `/gevoel?dev&${at}&templabels=${look}` })))
+const shots: Shot[] = set === 'getallen'
+  ? [
+    { name: `${tag}getallen-desktop`, device: DESKTOP, path: `/gevoel?${at}`, action: wholeCountry },
+    { name: `${tag}getallen-telefoon`, device: PHONE, path: `/gevoel?${at}` },
+  ]
   : set === 'vulling'
   ? [{ name: `vulling-${tag}-desktop`, device: DESKTOP, path: `/gevoel?${at}`, action: wholeCountry }]
-  : set === 'labels'
-  ? LABEL_VARIANTS.flatMap(({ size, spacing, fill }) => [
-    { name: `labels-desktop-grootte${size}-afstand${spacing}-vulling${fill}`, device: DESKTOP, action: async (page: Page) => { await closeDevPanel(page); await wholeCountry(page) } },
-    { name: `labels-telefoon-grootte${size}-afstand${spacing}-vulling${fill}`, device: PHONE, action: closeDevPanel },
-  ].map((shot) => ({ ...shot, path: `/gevoel?dev&${at}&labelgrootte=${size}&labelafstand=${spacing}&labelvulling=${fill}` })))
   : [
     { name: 'gevoel-vast-desktop', device: DESKTOP, path: `/gevoel?${at}` },
     { name: 'gevoel-vast-telefoon', device: PHONE, path: `/gevoel?${at}` },

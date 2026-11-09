@@ -3,6 +3,7 @@
 Status: accepted (PO, 2026-09-23: "doe maar wat KNMI doet" en "haal de
 switch helemaal weg")
 Auteur: orchestrator, 2026-09-23
+Deels vervangen door MIP-41 (2026-11-09): boven de windchill-zone de BoM-vorm mét straling.
 
 ## 1. Probleem
 

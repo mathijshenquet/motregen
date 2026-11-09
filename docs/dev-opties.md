@@ -14,16 +14,11 @@ Hooguit 3–4 knoppen per groep (PO 2026-09-25); de eerste groep start open.
 | groep | knop | doel | eigenaar | vervalt bij |
 | --- | --- | --- | --- | --- |
 | Tabel | Dag/nacht-contrast | breed is standaard (PO 2026-10-18); rail: neutrale rijen met links een strook in de luchtkleur van het moment, schemering op de echte tijden (`web/src/core/sky-rail.ts`); symbool: maantje bij nachtrijen en een heel lichte koele tint; sterren: spaarzame puntjes in nachtrijen; breed: de hele tabel zachter getint; smal: alleen dagdelen en dag/nacht; sterk: het oude contrast. Sleutel `dagnacht-contrast`; directe link `?dev&contrast=<waarde>` | orkestrator (U91b) | 2026-11-01 |
-| Kaart | Basiskaartvariant (alleen URL) | `?dev&kaart=nu` (standaard), `licht` (rustiger palet, zelfde archief), `licht-rivieren` (licht + doorlopende rivier-middellijnen, archief met laag `waterway`) `atlas` (papiertoon, rivieren in inktblauw, lint langs de landsgrens; 's nachts donkere zee) `strak` (oorspronkelijk palet, rivieren rang 1–2, landbedekking z5–9 opnieuw gegeneraliseerd: −74 % bytes en −81 % vertices op z7), `diagram` (eigen weerkaart: water, bos binair, kernen, rivieren, grenzen, plaatsen; rastergegeneraliseerd per zoom) of `diagram-wegen` (idem met snelwegen). Stijlen in `web/public/dev-kaart/` (buiten de precache), gemaakt door `tools/basemap/variants.mts`; MIP-42 | Claude (U108) | 2026-11-23 |
-| Kaart | Windzak: kromming (alleen URL) | `?dev&kromming=beide` (standaard: stroomlijn door de mast plus traagheid in de tijd), `stroom` (de zak volgt 120 km stroomlijn, afgebeeld op zijn lengte) of `traag` (de staart volgt de richting van tot 90 min eerder). U101 ronde 3, `web/src/core/windsock-flow.ts` | Claude (U101) | 2026-11-23 |
-| Kaart | Windzak: trilling (alleen URL) | `?dev&fladder=normaal` (standaard), `zacht`, `sterk` of `uit`; vanaf 6 Bft, uitslag en frequentie groeien met de windkracht, niet bij `prefers-reduced-motion`. `WINDSOCK_FLUTTERS` in `web/src/core/wind-socks.ts` | Claude (U101) | 2026-11-23 |
-| Kaart | Windzak: badge (alleen URL) | `?dev&badge=mond` (standaard: witte badge met oranje getal over de mond bij de mast, de zak blijft heel) of `midden` (badge midden op de zak, de zak wordt eromheen weggeknipt). PO-punt 7, U101 ronde 3, `windsockBadge` in `web/src/core/wind-glyph.ts` | Claude (U101) | 2026-11-23 |
+| Kaart | Basiskaartvariant (alleen URL) | Standaard is `diagram` (MIP-42: eigen weerkaart, rastergeneraliseerd uit OSM, zonder snelwegen). `?dev&kaart=nu` toont de vorige kaart (archief `nl-91e2043db5c73799`), `strak` (oorspronkelijk palet, rivieren rang 1–2, landbedekking z5–9 opnieuw gegeneraliseerd) en `diagram-wegen` (diagram plus snelwegen). Stijlen in `web/public/dev-kaart/` (buiten de precache), gemaakt door `tools/basemap/style.mts`/`variants.mts` | Claude (U108) | 2026-11-23 |
 | Kaart | Windzak: windfactor (alleen URL) | `?dev&windfactor=2.2` vermenigvuldigt de wind van de zakken (alleen de zakken, niet de vlakken), om harde wind en de trilling te bekijken als de data die niet heeft. U101 ronde 3 | Claude (U101) | 2026-11-23 |
+| Kaart | Legendaknop telefoon (alleen URL) | `?dev&legendaknop=schaal-eenheid` (standaard: het chipje als miniatuur van de legenda, vier kleurblokjes van de actieve modus plus de eenheid), `schaal` (alleen de blokjes) of `woord` (het woord "Legenda"); alleen op de telefoon, desktop heeft geen knop. Zie `docs/kaartstijl.md` | Claude (U107) | 2026-11-23 |
 | Kaart | Zonneschijn in Lucht: weergave | ?dev&zon=uur, kwartier, vlak of vlak-lijn (standaard); proef MIP-38 | orkestrator (PO 2026-10-18) | 2026-10-25 |
 | Tabel | Dagen: lijst onder tabel | uit (standaard): de urentabel glijdt over in 3 u, dagdelen en dag/nacht tot dag 10 (U91b, `TABLE_LADDER` in `web/src/core/ladder.ts`); aan: de uurtabel tot het eind van HARMONIE met de lijst "Komende dagen" eronder (U91). Sleutel `dagenlijst` | orkestrator (U91b) | 2026-11-01 |
-| Regen | Regenisolijnen | lijnen binnen de regen op vaste intensiteiten, alleen bij menging rand: kleurgrenzen 1 · 2 · 13 mm/u (standaard in de proef) / klassen 2,5 · 10 · 50 mm/u / dicht 0,5 · 1 · 2 · 5 · 10 · 20 mm/u / geen (alleen de buitenrand) | U86 | 2026-10-23 |
-| Isolijnlabels | Labelgrootte · Labelafstand · Puntlabels | proef U100: tekstgrootte 11–16 px (nu 11), afstand langs een lijn 140–300 px (nu 260), puntlabels met de waarde waar binnen R px geen lijnlabel staat (0 = uit, 120–300 px). Sleutels `dev-labelgrootte`, `dev-labelafstand`, `dev-labelvulling`; directe link `?dev&labelgrootte=13&labelafstand=200&labelvulling=200` | Claude (U100) | 2026-11-23 |
-| Temperatuurgetallen (URL) | `templabels=lijn\|plekken\|vlakken\|plekken-half` | proef U100 ronde 3: waar de getallen in Gevoel staan. `lijn` = getal op de isolijn (13 px desktop / 12 px telefoon, 160 px); `plekken` = getal met eilandje op de windzakkenplekken; `vlakken` = isolijnen op x,5 °C en één getal per vlak; `plekken-half` = plekken met de x,5-lijnen. Geen paneelknop; directe link `?dev&templabels=vlakken` | Claude (U100) | 2026-11-23 |
 | Wolkenkaart | Wolkenbeeld | vormen / oude sluier op dezelfde live modeldata | PM / MIP-34 | na PO-keuze, uiterlijk 2026-10-19 |
 | Wolkenkaart | Voorbeeldlucht | live / gaten / sluier / dicht / overgang; laatste vier gefingeerde conceptgevallen, niet bewaard tussen bezoeken | PM / MIP-34 | idem |
 | Lucht nu | strakblauw · mooie wolkenlucht · melkachtig · grijs · Mordor | tijd, klasse en gekozen locatie op 0,1° als menselijk anker voor de wolkenanalyse | U46 | na de analyse |
@@ -49,7 +44,9 @@ Wind houdt dichtheid 620/MP, intensiteit 0,5, lijnbreedte 2,5 px en tempo 1; de 
 Eerste regen blijft vroeg. De herkomst staat bij de constanten in `rain-palette.ts`, `rain-presentation.ts`,
 `rain-smoothing.ts`, `isolines.ts`, `wind-presentation.ts` en de vroege regenaanvraag in `App.tsx`.
 De bot gebruikt nog `PRE_U77_RAIN_LOOK` (palet en menging `huidig`) voor zijn oude compositor;
-de overige paletten en mengingen zijn weg. Regenisolijnen blijven instelbaar.
+de overige paletten en mengingen zijn weg. Sinds U107 (orkestrator/PO 2026-11-09) is ook Regenisolijnen (U86, vervallen
+2026-10-23) weg: de lijnen staan vast op 1 · 5 · 10 · 20 mm/u (`DEFAULT_RAIN_LOOK`, PO 2026-10-17); de groep Regen in het
+paneel bestaat niet meer.
 
 De overige elf windparameters (Afstand per leven, Fade-in/-out, Max. leeftijd, Spawn-jitter,
 Snelheidsdemping, Buffer-rest, Buffer-DPR max, Kopintensiteit, Contrast, Max. fps) zijn sinds
@@ -64,7 +61,7 @@ De U64-kaartstartproef (`VITE_MAP_START=tegel`, `?dev&kaartstart=tegel`) is verv
 
 ## Opslag (`localStorage`, prefix `motregen-`)
 
-Gebruikersstaat (blijft bij reset): `theme`, `saved-places`, `last-saved-place`, `map-view`,
+Gebruikersstaat (blijft bij reset): `legend` (`open`/`dicht`: de eigen keuze van de legendachip op de telefoon; zonder keuze dicht, desktop altijd zichtbaar, U107), `theme`, `saved-places`, `last-saved-place`, `map-view`,
 `expressive` (standaard aan; hemel en streken in de grafiek plus dag/nacht-kleuring in de tabel, U58 — de
 oude `table-day-night` wordt bij het laden gemigreerd: uit → expressief uit) en `sky-diary` (tijd, vijfklassenlabel en gekozen locatie
 afgerond op 0,1°; U46).
@@ -72,7 +69,7 @@ Rig-schakelaar zonder knop: `dev-speelregel` = `venster` zet onder `?dev` de oud
 (spelen pas na laadfase "window"), zodat de mobiele laadrig oud en nieuw uit één build meet
 (`koud-spelend-vensterregel`). Eigenaar U54; vervalt zodra de PO de speelregel heeft bevestigd.
 De knop "Scherm en scroll" schrijft `dev-viewport` (`aan`/`uit`, U62).
-Regenisolijnen schrijft `dev-regenisolijnen` (U86); alleen onder `?dev` gelezen.
+De oude sleutel `dev-regenisolijnen` (U86) wordt bij elk laden gewist (`RETIRED_STORAGE_KEYS` in `web/src/core/dev-settings.ts`).
 Tuning/debug: `perf` en de eenmalige `perf-cold`. Oude sleutels, ook die van de in U89 verwijderde
 knoppen (`dev-regenpalet`, `dev-regenmenging`, `dev-regencontrast`, `dev-regen-wind-lucht`,
 `dev-regenveld-radar`, `dev-regenveld-harmonie`, `dev-regenveld-meet`, `dev-eerste-regen` en

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { appendSkyDiaryEntry, clearTuningStorage, loadSkyDiary, SKY_DIARY_STORAGE_KEY, skyDiaryJson } from './dev-settings'
+import { appendSkyDiaryEntry, clearTuningStorage, forgetRetiredStorage, loadSkyDiary, RETIRED_STORAGE_KEYS, SKY_DIARY_STORAGE_KEY, skyDiaryJson } from './dev-settings'
 import { loadLastSavedPlaceId, loadMapView, storeLastSavedPlaceId, storeMapView } from './location-memory'
 import { loadSavedPlaces, storeSavedPlaces } from './saved-places'
 
@@ -44,6 +44,17 @@ describe('reset alle instellingen', () => {
     expect(storage.getItem('motregen-expressive')).toBe('off')
     expect(loadSkyDiary(storage)).toEqual([{ tijd: '2026-10-07T08:00:00.000Z', klasse: 'mooie wolkenlucht', locatie: { lat: 52.1, lng: 5.2 } }])
     expect(storage.getItem('ander-domein')).toBe('blijft')
+  })
+})
+
+describe('afgevallen proeven', () => {
+  it('forgets the retired rain isoline choice on load and survives a storage that throws', () => {
+    const values = new Map([['motregen-dev-regenisolijnen', 'kleurgrenzen'], ['motregen-theme', 'dark']])
+    forgetRetiredStorage({ removeItem: (key: string) => { values.delete(key) } })
+    expect([...values.keys()]).toEqual(['motregen-theme'])
+    expect(RETIRED_STORAGE_KEYS).toContain('motregen-dev-regenisolijnen')
+    expect(() => forgetRetiredStorage({ removeItem: () => { throw new Error('geen toegang') } })).not.toThrow()
+    expect(() => forgetRetiredStorage(undefined)).not.toThrow()
   })
 })
 

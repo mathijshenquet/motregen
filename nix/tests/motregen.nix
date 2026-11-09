@@ -225,6 +225,13 @@
     assert "200 ok" in frontend_headers, frontend_headers
     assert "x-robots-tag" not in frontend_headers, frontend_headers
     machine.succeed("grep -F '<div id=\"root\"></div>' /tmp/index")
+    # U109: voorgecomprimeerde broertjes (brotli-11) uit de build; zonder Accept-Encoding het origineel.
+    compressed_headers = machine.succeed(
+      "curl --silent --show-error --header 'Accept-Encoding: br, gzip' --dump-header - --output /tmp/index.br http://localhost/"
+    ).lower()
+    assert "content-encoding: br" in compressed_headers, compressed_headers
+    assert "vary: accept-encoding" in compressed_headers, compressed_headers
+    machine.succeed("test \"$(stat -c %s /tmp/index.br)\" -lt \"$(stat -c %s /tmp/index)\"")
 
     for path, title, place in [
       ("/wind/utrecht", "Wind Utrecht", "Utrecht"),

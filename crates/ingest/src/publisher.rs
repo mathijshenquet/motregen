@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use render_core::time::FeelsReference;
 
-use crate::{cams::CamsSection, ecmwf::EcmwfSection};
+use crate::{cams::CamsSection, ecmwf::EcmwfSection, regions::RegionsSection};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub struct Manifest {
@@ -26,6 +26,9 @@ pub struct Manifest {
     pub ecmwf: Option<EcmwfSection>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub feels_reference: Option<FeelsReference>,
+    /// MIP-40: regiobestanden; alleen met `--regions`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub regions: Option<RegionsSection>,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
@@ -90,9 +93,10 @@ pub fn publish_with_cams(
     prune_age: Duration,
     cams: Option<CamsSection>,
 ) -> Result<Manifest> {
-    publish_with_feeds(data_dir, now, chunks, prune_age, cams, None, None)
+    publish_with_feeds(data_dir, now, chunks, prune_age, cams, None, None, None)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn publish_with_feeds(
     data_dir: &Path,
     now: String,
@@ -101,6 +105,7 @@ pub fn publish_with_feeds(
     cams: Option<CamsSection>,
     ecmwf: Option<EcmwfSection>,
     feels_reference: Option<FeelsReference>,
+    regions: Option<RegionsSection>,
 ) -> Result<Manifest> {
     ensure!(!chunks.is_empty(), "cannot publish an empty manifest");
     let chunks_dir = write_chunks(data_dir, chunks)?;
@@ -112,6 +117,7 @@ pub fn publish_with_feeds(
         cams,
         ecmwf,
         feels_reference,
+        regions,
     };
     let json = serde_json::to_vec_pretty(&manifest)?;
     atomic_write(&data_dir.join("manifest.json"), &json)?;
@@ -152,7 +158,7 @@ pub(crate) fn atomic_write(path: &Path, bytes: &[u8]) -> Result<()> {
 }
 
 #[cfg(unix)]
-fn set_public_permissions(path: &Path) -> Result<()> {
+pub(crate) fn set_public_permissions(path: &Path) -> Result<()> {
     use std::os::unix::fs::PermissionsExt;
 
     fs::set_permissions(path, fs::Permissions::from_mode(0o644))?;
@@ -160,7 +166,7 @@ fn set_public_permissions(path: &Path) -> Result<()> {
 }
 
 #[cfg(not(unix))]
-fn set_public_permissions(_path: &Path) -> Result<()> {
+pub(crate) fn set_public_permissions(_path: &Path) -> Result<()> {
     Ok(())
 }
 

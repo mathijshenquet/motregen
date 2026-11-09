@@ -1,3 +1,4 @@
+import { attribLocation, uniformLocation } from './gl-locations'
 import type { RainSampling, RainWarpLimit } from './rain-sampling.js'
 import { blurTaps } from './rain-sampling.js'
 export type { RainSampling, RainWarpLimit } from './rain-sampling.js'
@@ -5,7 +6,7 @@ import type { CustomLayerInterface, CustomRenderMethodInput, Map as MapLibreMap 
 import { MercatorCoordinate } from 'maplibre-gl'
 import type { Grid } from './contract'
 import type { MotionField } from './mrf'
-import { measurePerfPhase } from './perf'
+import { markLayerDrawn, measurePerfPhase } from './perf'
 import { rainColormap } from './rain-chart'
 import type { RainOutline } from './rain-palette.js'
 
@@ -229,6 +230,8 @@ export class RainLayer implements CustomLayerInterface {
   private colormap = rainColormap()
   private straightAlpha = false
   private outlines: readonly RainOutline[] = []
+  // Uniformwaarden van de contouren, één keer per setOutlines in plaats van per frame (U109).
+  private outlineUniforms = { values: new Float32Array(0), styles: new Float32Array(0), halfWidths: new Float32Array(0) }
   private filterProgram?: WebGLProgram
   private filterTarget?: WebGLFramebuffer
   private filterVertexArray?: WebGLVertexArrayObject
@@ -291,6 +294,11 @@ export class RainLayer implements CustomLayerInterface {
   /** Dunne contour op de isolijn van één byte; `undefined` = geen. */
   setOutlines(outlines: readonly RainOutline[]): void {
     this.outlines = outlines.slice(0, MAX_OUTLINES)
+    this.outlineUniforms = {
+      values: Float32Array.from(this.outlines, (outline) => outline.index / 255),
+      styles: Float32Array.from(this.outlines.flatMap((outline) => [...outline.colour.map((channel) => channel / 255), outline.strength])),
+      halfWidths: Float32Array.from(this.outlines, (outline) => outline.halfWidth),
+    }
   }
 
   setFrames(left: Uint8Array, right: Uint8Array, mix: number, motion?: MotionField, intervalMinutes = 0): void {
@@ -344,37 +352,38 @@ export class RainLayer implements CustomLayerInterface {
     const rightTexture = this.sampledTexture(gl, this.right!, this.rightData, this.rightSampling, this.leftData)
     gl.useProgram(this.program)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.buffer)
-    const position = gl.getAttribLocation(this.program, 'a_pos')
+    const position = attribLocation(gl, this.program, 'a_pos')
     gl.enableVertexAttribArray(position)
     gl.vertexAttribPointer(position, 2, gl.FLOAT, false, 16, 0)
-    const uv = gl.getAttribLocation(this.program, 'a_uv')
+    const uv = attribLocation(gl, this.program, 'a_uv')
     gl.enableVertexAttribArray(uv)
     gl.vertexAttribPointer(uv, 2, gl.FLOAT, false, 16, 8)
-    gl.uniformMatrix4fv(gl.getUniformLocation(this.program, 'u_matrix'), false, options.defaultProjectionData.mainMatrix)
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_mix'), this.mix)
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_opacity'), this.opacity)
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_saturation'), this.saturation)
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_brightness'), this.brightness)
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_has_motion'), this.hasMotion ? 1 : 0)
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_interval_minutes'), this.intervalMinutes)
-    gl.uniform2f(gl.getUniformLocation(this.program, 'u_grid_size'), this.grid.width, this.grid.height)
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_warp_cap_cells'), this.warpLimit.capCells)
-    gl.uniform1f(gl.getUniformLocation(this.program, 'u_warp_fade_end_cells'), this.warpLimit.fadeEndCells)
-    gl.uniform1i(gl.getUniformLocation(this.program, 'u_outline_count'), this.outlines.length)
+    gl.uniformMatrix4fv(uniformLocation(gl, this.program, 'u_matrix'), false, options.defaultProjectionData.mainMatrix)
+    gl.uniform1f(uniformLocation(gl, this.program, 'u_mix'), this.mix)
+    gl.uniform1f(uniformLocation(gl, this.program, 'u_opacity'), this.opacity)
+    gl.uniform1f(uniformLocation(gl, this.program, 'u_saturation'), this.saturation)
+    gl.uniform1f(uniformLocation(gl, this.program, 'u_brightness'), this.brightness)
+    gl.uniform1f(uniformLocation(gl, this.program, 'u_has_motion'), this.hasMotion ? 1 : 0)
+    gl.uniform1f(uniformLocation(gl, this.program, 'u_interval_minutes'), this.intervalMinutes)
+    gl.uniform2f(uniformLocation(gl, this.program, 'u_grid_size'), this.grid.width, this.grid.height)
+    gl.uniform1f(uniformLocation(gl, this.program, 'u_warp_cap_cells'), this.warpLimit.capCells)
+    gl.uniform1f(uniformLocation(gl, this.program, 'u_warp_fade_end_cells'), this.warpLimit.fadeEndCells)
+    gl.uniform1i(uniformLocation(gl, this.program, 'u_outline_count'), this.outlines.length)
     if (this.outlines.length) {
-      gl.uniform1fv(gl.getUniformLocation(this.program, 'u_outline_values'), this.outlines.map((outline) => outline.index / 255))
-      gl.uniform4fv(gl.getUniformLocation(this.program, 'u_outline_styles'), this.outlines.flatMap((outline) => [...outline.colour.map((channel) => channel / 255), outline.strength]))
-      gl.uniform1fv(gl.getUniformLocation(this.program, 'u_outline_half_widths'), this.outlines.map((outline) => outline.halfWidth))
+      gl.uniform1fv(uniformLocation(gl, this.program, 'u_outline_values'), this.outlineUniforms.values)
+      gl.uniform4fv(uniformLocation(gl, this.program, 'u_outline_styles'), this.outlineUniforms.styles)
+      gl.uniform1fv(uniformLocation(gl, this.program, 'u_outline_half_widths'), this.outlineUniforms.halfWidths)
     }
-    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, leftTexture); gl.uniform1i(gl.getUniformLocation(this.program, 'u_left'), 0)
-    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, rightTexture); gl.uniform1i(gl.getUniformLocation(this.program, 'u_right'), 1)
-    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, this.lut!); gl.uniform1i(gl.getUniformLocation(this.program, 'u_lut'), 2)
-    gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, this.motion!); gl.uniform1i(gl.getUniformLocation(this.program, 'u_motion'), 3)
-    gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, this.motionMask!); gl.uniform1i(gl.getUniformLocation(this.program, 'u_motion_mask'), 4)
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, leftTexture); gl.uniform1i(uniformLocation(gl, this.program, 'u_left'), 0)
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, rightTexture); gl.uniform1i(uniformLocation(gl, this.program, 'u_right'), 1)
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, this.lut!); gl.uniform1i(uniformLocation(gl, this.program, 'u_lut'), 2)
+    gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, this.motion!); gl.uniform1i(uniformLocation(gl, this.program, 'u_motion'), 3)
+    gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, this.motionMask!); gl.uniform1i(uniformLocation(gl, this.program, 'u_motion_mask'), 4)
     gl.enable(gl.BLEND)
     if (this.straightAlpha) gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
     else gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+    if (this.leftData) markLayerDrawn('regen')
   }
 
   /** De textuur die de hoofdshader voor dit frame leest: het ruwe frame, of de voorgefilterde versie ervan. */
@@ -402,7 +411,7 @@ export class RainLayer implements CustomLayerInterface {
   private filterPass(gl: WebGL2RenderingContext, input: WebGLTexture, output: WebGLTexture, axis: 'x' | 'y'): void {
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, output, 0)
     gl.bindTexture(gl.TEXTURE_2D, input)
-    gl.uniform1f(gl.getUniformLocation(this.filterProgram!, 'u_along_x'), axis === 'x' ? 1 : 0)
+    gl.uniform1f(uniformLocation(gl, this.filterProgram!, 'u_along_x'), axis === 'x' ? 1 : 0)
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
   }
 
@@ -421,7 +430,8 @@ export class RainLayer implements CustomLayerInterface {
     const previousFramebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null
     const previousVertexArray = gl.getParameter(gl.VERTEX_ARRAY_BINDING) as WebGLVertexArrayObject | null
     const previousViewport = gl.getParameter(gl.VIEWPORT) as Int32Array
-    const previousColorMask = gl.getParameter(gl.COLOR_WRITEMASK) as boolean[]
+    // Geen getParameter(COLOR_WRITEMASK): die wacht synchroon op de GPU-rij (U109: 3,5 s per 10 s scrubben). Het
+    // masker staat hier altijd volledig aan: in de overlay vanzelf, in MapLibre zet drawCustom het vóór render.
     const blending = gl.isEnabled(gl.BLEND)
     const scissoring = gl.isEnabled(gl.SCISSOR_TEST)
 
@@ -433,18 +443,17 @@ export class RainLayer implements CustomLayerInterface {
     gl.useProgram(this.filterProgram)
     gl.bindVertexArray(this.filterVertexArray)
     gl.activeTexture(gl.TEXTURE0)
-    gl.uniform1i(gl.getUniformLocation(this.filterProgram, 'u_frame'), 0)
-    gl.uniform2f(gl.getUniformLocation(this.filterProgram, 'u_grid_size'), this.grid.width, this.grid.height)
-    gl.uniform1i(gl.getUniformLocation(this.filterProgram, 'u_taps'), target.taps)
-    gl.uniform1f(gl.getUniformLocation(this.filterProgram, 'u_sigma'), target.sigma)
-    gl.uniform1f(gl.getUniformLocation(this.filterProgram, 'u_source_cell'), target.sourceCellWidth)
+    gl.uniform1i(uniformLocation(gl, this.filterProgram, 'u_frame'), 0)
+    gl.uniform2f(uniformLocation(gl, this.filterProgram, 'u_grid_size'), this.grid.width, this.grid.height)
+    gl.uniform1i(uniformLocation(gl, this.filterProgram, 'u_taps'), target.taps)
+    gl.uniform1f(uniformLocation(gl, this.filterProgram, 'u_sigma'), target.sigma)
+    gl.uniform1f(uniformLocation(gl, this.filterProgram, 'u_source_cell'), target.sourceCellWidth)
     this.filterPass(gl, raw, this.filterScratch, 'x')
     this.filterPass(gl, this.filterScratch, target.texture, 'y')
 
     gl.bindVertexArray(previousVertexArray)
     gl.bindFramebuffer(gl.FRAMEBUFFER, previousFramebuffer)
     gl.viewport(previousViewport[0]!, previousViewport[1]!, previousViewport[2]!, previousViewport[3]!)
-    gl.colorMask(previousColorMask[0]!, previousColorMask[1]!, previousColorMask[2]!, previousColorMask[3]!)
     if (blending) gl.enable(gl.BLEND)
     if (scissoring) gl.enable(gl.SCISSOR_TEST)
     this.filters++

@@ -293,3 +293,63 @@ describe('wind across map movement (U12)', () => {
   })
 })
 
+
+describe('first appearance of the particles (U110)', () => {
+  const ink = (wind: Internals) => {
+    let sum = 0
+    for (let index = 0; index < wind.active; index++) if (wind.ages[index]! > 0) sum += wind.instanceBytes[index * 20 + 19]! / 255
+    return sum
+  }
+
+  it('fades the first load in over about a second and a half, without overshooting or pulsing in slow wind', () => {
+    // 1 m/s: maxAge beslist over de dood. Als pasgeborenen tegelijk begonnen piekte de inkt op ~130 % en
+    // golfde hij daarna met hun gelijktijdige dood mee (bij 0,5 m/s tot 170 % en terug naar 55 %).
+    const { wind, run, visible } = harness(1_280, 720, 1)
+    const curve: number[] = []
+    for (let step = 0; step < 24; step++) {
+      curve.push(ink(wind))
+      run(0.25)
+    }
+    run(10)
+    let steady = 0
+    for (let step = 0; step < 40; step++) {
+      run(0.1)
+      steady += ink(wind) / 40
+    }
+    const share = curve.map((value) => value / steady)
+    expect(share[0]).toBe(0)
+    expect(share[1]).toBeLessThan(0.35)
+    expect(share[8]).toBeGreaterThan(0.85)
+    expect(Math.max(...share)).toBeLessThan(1.1)
+    expect(Math.min(...share.slice(8))).toBeGreaterThan(0.85)
+    // Gespreid: in geen enkele frame verschijnt meer dan een klein deel van de lading.
+    const { wind: fresh, run: step } = harness()
+    const shown = new Set<number>()
+    let most = 0
+    for (let frameIndex = 0; frameIndex < 120; frameIndex++) {
+      step(frame)
+      let appeared = 0
+      for (let index = 0; index < fresh.active; index++) if (!shown.has(index) && fresh.instanceBytes[index * 20 + 19]! > 0) { shown.add(index); appeared++ }
+      most = Math.max(most, appeared)
+    }
+    expect(most).toBeLessThan(fresh.budget * 0.05)
+    expect(visible()).toBeGreaterThan(0)
+  })
+
+  it('waits for the wind field before placing the first load, then places it along the wind', () => {
+    const layer = new WindLayer(grid, 'dark')
+    const wind = layer as unknown as Internals & { seedPending: boolean; travelled: Float32Array }
+    const { wind: reference } = harness()
+    wind.map = (reference as unknown as { map: unknown }).map
+    wind.resetViewport(true)
+    expect(wind.seedPending).toBe(true)
+    const field = new Float32Array(grid.width * grid.height * 2)
+    for (let index = 0; index < field.length; index += 2) field[index] = 5
+    layer.setFrames(field, field, 0)
+    expect(wind.seedPending).toBe(false)
+    // Levensfasen over het hele leven: een deel is al ver op weg, een deel net geboren.
+    const travelled = Array.from(wind.travelled.subarray(0, wind.active))
+    expect(travelled.filter((distance) => distance > 45).length).toBeGreaterThan(wind.active * 0.2)
+    expect(travelled.filter((distance) => distance < 20).length).toBeGreaterThan(wind.active * 0.1)
+  })
+})

@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url'
 import type { Grid, MrfHeader } from '../web/src/core/contract.js'
 import { beaufortFrame, beaufortScale } from '../web/src/core/wind-beaufort.js'
 import { WINDSOCK_SAMPLES, windsockBadge, windsockBand, windsockInflated, windsockShape } from '../web/src/core/wind-glyph.js'
-import { flutterBends, sampleWind, WINDSOCK_FLUTTERS, windsockHeadings, type WindsockField } from '../web/src/core/windsock-flow.js'
+import { advanceSock, sampleWind, sockReach, socksClear, SOCK_SNAP_SECONDS, swayBends, windsockHeadings, type SockMotion, type WindsockField } from '../web/src/core/windsock-flow.js'
 import { fillPolygon } from './native-windsocks.js'
 
 // Gelijkheidstest Rust ↔ Node voor de windzakken (U101): de Node-uitkomsten voor vaste invoer, die
@@ -50,7 +50,25 @@ export function windsockFixtures() {
     x, y, wind: sampleWind(field, 0, x, y) ?? null, lagged: sampleWind(field, 2, x, y) ?? null,
     beide: windsockHeadings(field, x, y, 'beide') ?? null, stroom: windsockHeadings(field, x, y, 'stroom') ?? null, traag: windsockHeadings(field, x, y, 'traag') ?? null,
   }))
-  const flutter = [[5.8, 1.2, 0.4], [6.2, 3.7, 2.5], [9.4, 12.05, 5.1]].map(([strength, seconds, phase]) => ({ strength, seconds, phase, bends: flutterBends(WINDSOCK_FLUTTERS.normaal, strength!, seconds!, phase!) ?? null }))
+  // Momentum en wuiven (U107): een zak door een reeks filmframes, met een richtingsprong over 0°/360°, een
+  // krachtsprong en een sprong in de tijd (snap).
+  const motion: SockMotion = { wave: 0 }
+  let seconds = 1234.5
+  const motions = [
+    [350, 2.4, 0, true], [10, 2.4, 0.133, false], [15, 5.6, 0.133, false], [20, 5.6, 0.133, false],
+    [200, 7.9, 0.133, false], [205, 1.2, 0.4, false], [205, 1.2, 2.5, false], [30, 0.2, 0.133, false],
+  ].map(([target, force, elapsed, snap]) => {
+    seconds += elapsed as number
+    const jump = snap as boolean || !(elapsed as number > 0) || (elapsed as number) > SOCK_SNAP_SECONDS
+    const moving = advanceSock(motion, target as number, force as number, elapsed as number, jump)
+    const strength = Math.max(0, motion.strength!.value)
+    return { target, force, elapsed, snap: jump, seconds, moving, heading: { ...motion.heading! }, strength: { ...motion.strength! }, wave: motion.wave, bends: swayBends(strength, motion.wave, seconds, 1.7) }
+  })
+  // Geen zakken over elkaar (U107): reikwijdte en toets, ook bij kruisende zakken en harde wind.
+  const reaches = ([[[100, 100], 90, 7.5, [150, 110], 270, 8.2], [[100, 100], 90, 2, [160, 100], 90, 2], [[0, 0], 45, 9, [70, 0], 315, 6], [[0, 0], 180, 0.5, [40, 0], 180, 0.5]] as const).map(([mastA, headingA, strengthA, mastB, headingB, strengthB]) => {
+    const a = sockReach([mastA[0], mastA[1]], headingA, strengthA), b = sockReach([mastB[0], mastB[1]], headingB, strengthB)
+    return { a: { mast: a.mast, heading: headingA, strength: strengthA, tails: a.tails }, b: { mast: b.mast, heading: headingB, strength: strengthB, tails: b.tails }, clear: socksClear(a, b), clear_appear: socksClear(a, b, 1.15) }
+  })
   const size = { width: 24, height: 20 }
   const fills = [
     { points: [[2.3, 1.6], [19.7, 4.2], [14.1, 17.8], [-3, 12]] as [number, number][], cut: undefined },
@@ -67,7 +85,7 @@ export function windsockFixtures() {
     speeds: [0, 0.2, 1.6, 4, 10.8, 25, 40].map((speed) => ({ speed, scale: beaufortScale(speed) })),
     east: [...east], north: [...north], quant: header.quant, frame: [...beaufortFrame(east, north, header, header).data],
   }
-  return { size, shapes, field: { grid: field.grid, slices: field.slices.map((slice) => ({ left: [...slice.left], right: [...slice.right], mix: slice.mix })) }, flow, flutter, fills, beaufort }
+  return { size, shapes, field: { grid: field.grid, slices: field.slices.map((slice) => ({ left: [...slice.left], right: [...slice.right], mix: slice.mix })) }, flow, motions, reaches, fills, beaufort }
 }
 
 export async function generateWindsockFixtures(check = false): Promise<void> {

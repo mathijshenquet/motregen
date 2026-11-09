@@ -27,7 +27,7 @@ describe('temperature labels', () => {
     expect(layer.minzoom).toBeUndefined()
     expect(layer.maxzoom).toBeUndefined()
     expect(layer.layout).toMatchObject({
-      'text-size': ['interpolate', ['linear'], ['zoom'], 5, 11, 8, 14],
+      'text-size': 13,
       'text-variable-anchor': [...TEMPERATURE_VARIABLE_ANCHORS],
       'text-radial-offset': 1.15,
       'text-allow-overlap': false,

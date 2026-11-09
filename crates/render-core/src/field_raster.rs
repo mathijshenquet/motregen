@@ -40,11 +40,22 @@ pub fn fill(
         colors,
         rings,
         opacity,
-        mode_constants().isoline.fill_opacity,
+        FillStyle {
+            opacity: mode_constants().isoline.fill_opacity,
+            by_value: None,
+        },
     )
 }
 
-/// Banden op een eigen dekking: de Beaufortvlakken van de windfilm zijn dekkender (U101).
+/// Dekking van de banden; `by_value` (van, tot) bouwt hem op met de veldwaarde: bijna doorzichtig onder `van`, vol
+/// vanaf `tot`, zoals `fillByValue` in de app (Beaufortvlakken van de windfilm, U101).
+#[derive(Clone, Copy)]
+pub struct FillStyle {
+    pub opacity: f64,
+    pub by_value: Option<(f32, f32)>,
+}
+
+/// Banden op een eigen dekking (`FillStyle`).
 pub fn fill_with(
     rgb: &mut [u8],
     field: &Field,
@@ -52,8 +63,12 @@ pub fn fill_with(
     colors: &[f32],
     rings: &[f32],
     opacity: f64,
-    fill_opacity: f64,
+    style: FillStyle,
 ) -> FillRaster {
+    let FillStyle {
+        opacity: fill_opacity,
+        by_value,
+    } = style;
     let size = &constants().size;
     let width = size.width;
     let height = size.height;
@@ -139,7 +154,8 @@ pub fn fill_with(
             };
             let lower = ((level as isize - 1 + 128).clamp(0, 255)) as usize * 3;
             let upper = ((level as isize + 128).clamp(0, 255)) as usize * 3;
-            let alpha = fill_opacity * smooth((validity - 0.3) / 0.4) * opacity;
+            let ramp = by_value.map_or(1.0, |(from, to)| smooth((value - from) / (to - from)));
+            let alpha = fill_opacity * smooth((validity - 0.3) / 0.4) * opacity * ramp;
             let destination = (row * fill_width + column) * 4;
             for channel in 0..3 {
                 let color = colors[lower + channel] * (1.0 - upper_weight)
@@ -234,6 +250,8 @@ pub enum LineColor<'a> {
     Isotherm {
         fallback: [u8; 3],
         fill: &'a FillRaster,
+        /// Factor op de vulkleur: onder 1 verdonkert (overdag), boven 1 verlicht (wind 's nachts, U101).
+        shade: f64,
     },
 }
 
@@ -248,7 +266,6 @@ pub fn lines(rgb: &mut [u8], segments: &[f32], color: LineColor, opacity: f64) {
         LineColor::Isobar(_) => settings.pressure_opacity,
         LineColor::Isotherm { .. } => settings.temperature_line_fill_opacity,
     } * settings.line_profile.alpha) as f32;
-    let shade = settings.temperature_line_fill_shade as f32;
     let mut ink = vec![0.0f32; width * height];
 
     for segment in segments.chunks_exact(6) {
@@ -282,11 +299,15 @@ pub fn lines(rgb: &mut [u8], segments: &[f32], color: LineColor, opacity: f64) {
         }
         let pixel_color = match color {
             LineColor::Isobar(fixed) => fixed.map(f32::from),
-            LineColor::Isotherm { fallback, fill } => {
+            LineColor::Isotherm {
+                fallback,
+                fill,
+                shade,
+            } => {
                 let under = fill.sample(pixel % width, pixel / width);
                 if under[3] > 0.0 {
                     std::array::from_fn(|channel| {
-                        (under[channel] / under[3] * shade).min(1.0) * 255.0
+                        (under[channel] / under[3] * shade as f32).min(1.0) * 255.0
                     })
                 } else {
                     fallback.map(f32::from)

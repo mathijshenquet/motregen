@@ -1,0 +1,16 @@
+== rem 4×, 34.34, 33.99, 33.31
+-- :4377
+data (max ~5 Bft): zakken|max-Bft 24|5.6; 0 tekeningen in 10 s, p50 1.30 ms, p95 4.80 ms; pagina-fps 29.5; hoofdthread bezet 88 %
+stil > 30 s: zakken|max-Bft 24|5.6; 0 tekeningen in 10 s, p50 0.70 ms, p95 3.00 ms; pagina-fps 37.4; hoofdthread bezet 93 %
+tabel in beeld: zakken|max-Bft 0|0; 0 tekeningen in 10 s, p50 0.70 ms, p95 1.00 ms; pagina-fps 60; hoofdthread bezet 2 %
+-- :4378
+data (max ~5 Bft): zakken|max-Bft 26|5.6; 153 tekeningen in 10 s, p50 1.20 ms, p95 3.80 ms; indelen p50 5.10 ms (1×); pagina-fps 30; hoofdthread bezet 87 %
+stil > 30 s: zakken|max-Bft 26|5.5; 147 tekeningen in 10 s, p50 0.80 ms, p95 3.30 ms; indelen p50 1.90 ms (1×); pagina-fps 26.7; hoofdthread bezet 90 %
+tabel in beeld: zakken|max-Bft 0|0; 0 tekeningen in 10 s, p50 1.00 ms, p95 2.30 ms; indelen p50 10.70 ms (1×); pagina-fps 60; hoofdthread bezet 7 %
+== zonder rem
+-- :4377
+data (max ~5 Bft): zakken|max-Bft 24|5.5; 0 tekeningen in 10 s, p50 0.80 ms, p95 1.80 ms; pagina-fps 60; hoofdthread bezet 53 %
+stil > 30 s: zakken|max-Bft 24|5.5; 0 tekeningen in 10 s, p50 0.70 ms, p95 1.00 ms; pagina-fps 60; hoofdthread bezet 49 %
+-- :4378
+data (max ~5 Bft): zakken|max-Bft 26|5.5; 300 tekeningen in 10 s, p50 0.80 ms, p95 1.20 ms; indelen p50 7.30 ms (1×); pagina-fps 60; hoofdthread bezet 50 %
+stil > 30 s: zakken|max-Bft 26|5.5; 149 tekeningen in 10 s, p50 0.70 ms, p95 0.90 ms; pagina-fps 60; hoofdthread bezet 26 %

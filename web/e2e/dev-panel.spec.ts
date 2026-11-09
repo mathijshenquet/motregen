@@ -17,9 +17,9 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   const panel = page.getByTestId('dev-panel')
   await expect(panel).toBeVisible()
   const groups = panel.locator('.dev-group')
-  await expect(groups.locator('> summary')).toHaveText(['Tabel', 'Isolijnlabels', 'Wolkenkaart', 'Regen', 'Lucht nu', 'Meting', 'Diagnose'])
+  await expect(groups.locator('> summary')).toHaveText(['Tabel', 'Wolkenkaart', 'Lucht nu', 'Meting', 'Diagnose'])
   // Alleen de eerste groep start open.
-  await expect.poll(() => groups.evaluateAll((elements) => elements.map((element) => (element as HTMLDetailsElement).open))).toEqual([true, false, false, false, false, false, false])
+  await expect.poll(() => groups.evaluateAll((elements) => elements.map((element) => (element as HTMLDetailsElement).open))).toEqual([true, false, false, false, false])
   await expect(panel).not.toContainText('Wolkrand')
 
   const controls = panel.locator('.dev-control')
@@ -38,16 +38,11 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   await expect(page.locator('.map')).toHaveAttribute('data-map-night', /^[01]\.\d\d$/)
   await expect(page.locator('.map-shell')).toHaveAttribute('data-wind-intensity', '0.50')
 
-  await groups.locator('> summary', { hasText: /^Regen$/ }).click()
-  const rainGroup = groups.filter({ has: page.locator('summary', { hasText: /^Regen$/ }) })
-  await expect(rainGroup.locator('.dev-control label > span')).toHaveText(['Regenisolijnen'])
-  const isolines = rainGroup.getByRole('combobox')
-  await expect(isolines).toHaveValue('stappen')
-  await isolines.selectOption('dicht')
-  await expect.poll(() => page.evaluate(() => localStorage.getItem('motregen-dev-regenisolijnen'))).toBe('dicht')
+  // Regenisolijnen (U86) is afgevallen: geen groep Regen meer, en een oude sleutel wordt bij het laden gewist.
+  await expect(groups.locator('> summary', { hasText: /^Regen$/ })).toHaveCount(0)
+  await page.evaluate(() => localStorage.setItem('motregen-dev-regenisolijnen', 'kleurgrenzen'))
   await page.reload()
-  await groups.locator('> summary', { hasText: /^Regen$/ }).click()
-  await expect(rainGroup.getByRole('combobox')).toHaveValue('dicht')
+  await expect.poll(() => page.evaluate(() => localStorage.getItem('motregen-dev-regenisolijnen'))).toBeNull()
 
   await groups.locator('> summary', { hasText: 'Diagnose' }).click()
   const perfToggle = panel.getByRole('checkbox', { name: /Perf-HUD/ })
@@ -57,8 +52,6 @@ test('dev panel only behind ?dev, grouped, every control explained', async ({ pa
   await expect(page.getByTestId('perf-hud')).toBeHidden()
   await panel.getByRole('button', { name: 'Reset alle instellingen' }).click()
   await expect.poll(() => page.evaluate((keys) => keys.map((key) => localStorage.getItem(`motregen-${key}`)), removedKeys)).toEqual(removedKeys.map(() => null))
-  await expect(rainGroup.getByRole('combobox')).toHaveValue('stappen')
-  await expect.poll(() => page.evaluate(() => localStorage.getItem('motregen-dev-regenisolijnen'))).toBeNull()
 
   for (const summary of await groups.locator('> summary').all()) {
     if (!await summary.evaluate((element) => (element.parentElement as HTMLDetailsElement).open)) await summary.click()

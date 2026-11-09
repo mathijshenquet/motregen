@@ -1,3 +1,5 @@
+import { mapDiscFontPx, mapDiscRadius } from './map-labels.js'
+
 /**
  * De windzak van de windmodus (U101, PO koos hem in ronde 2): één vorm voor de kaart, de tabelrij en de bot.
  * Vijf banden oranje-wit vanaf de mast naar waar de wind heen waait. Bij weinig wind is hij kort en smal aan de
@@ -17,12 +19,12 @@ export const WINDSOCK_SHAPE = {
   /** Bij deze windkracht staat de zak vol. */
   fullForce: 5,
   /** Lengte als deel van maxLength: slap en vol. */
-  slackLength: 0.5,
+  slackLength: 0.42,
   /** Staartbreedte als deel van de mond: slap, en wat er bij vol bij komt. */
-  slackTail: 0.32,
+  slackTail: 0.26,
   fullTailGain: 0.24,
-  /** Doorbuiging van de slappe zak aan de staart, in radialen (~30°). */
-  slackBend: 0.5,
+  /** Doorbuiging van de slappe zak aan de staart, in radialen (~9°): een hint, geen haak (PO 2026-11-09). */
+  slackBend: 0.15,
 } as const
 
 /**
@@ -37,6 +39,7 @@ export const WINDSOCK_STYLE = {
   mast: { halo: 3.1, ink: 2.4 },
   orange: '#f2661c', white: '#fbfbf8', inkColor: '#17242b',
 } as const
+
 
 export interface WindsockShape {
   /** Rand links en rechts van de as gezien vanaf de mast, van mond tot staart; de mast ligt in (0, 0). */
@@ -124,15 +127,20 @@ export interface WindsockBadge {
 
 /**
  * Witte badge met het getal, rechtop (PO 2026-11-09, U101 punt 7: het meedraaiende getal op de banden was niet
- * leesbaar). De plek volgt de zak; drie cijfers (km/u) krijgen een kleinere letter in dezelfde cirkel.
+ * leesbaar). De plek volgt de zak; vorm en maat uit het kaartregime (U107, mapDiscRadius): drie cijfers (km/u)
+ * krijgen een kleinere letter, twee cijfers een iets grotere schijf. `size`: de kaartmaat (13 desktop/bot).
  */
-export function windsockBadge(shape: WindsockShape, position: WindsockBadgePosition, label: string): WindsockBadge {
+export function windsockBadge(shape: WindsockShape, position: WindsockBadgePosition, label: string, size: number = WINDSOCK_BADGE.fontPx): WindsockBadge {
   const [x, y] = shape.axis[position === 'mond' ? 0 : WINDSOCK_SAMPLES / 2]!
-  const { radius, gap, fontPx, longFontPx } = WINDSOCK_BADGE
-  return { x, y, radius, cutRadius: radius + gap, fontPx: label.length > 2 ? longFontPx : fontPx }
+  const fontPx = mapDiscFontPx(label, size)
+  const radius = Math.max(mapDiscRadius('0', size), mapDiscRadius(label, fontPx))
+  return { x, y, radius, cutRadius: radius + WINDSOCK_BADGE.gap, fontPx }
 }
 
-/** Maten van de badge in CSS-px; drie cijfers (km/u) krijgen de kleinere letter. */
+/**
+ * Maten van de badge in CSS-px bij 13 px: `radius` is de kleinste schijf (één cijfer), drie cijfers (km/u) krijgen
+ * de kleinere letter. Rust rekent met dezelfde getallen (render-core windsock::badge).
+ */
 export const WINDSOCK_BADGE = { radius: 9.5, gap: 2, fontPx: 13, longFontPx: 10 } as const
 
 const round = (value: number) => Math.round(value * 100) / 100

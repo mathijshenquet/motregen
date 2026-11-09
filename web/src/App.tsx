@@ -29,9 +29,9 @@ import { buildHourlyForecast, hourDarkness, isPassiveRow, PASSIVE_FORECAST_HOURS
 import { contextOpacity, DEFAULT_FOCUS_MODE, FOCUS_DIM, FocusMode, mapSaturation, rainPresentation, type FocusKind, windFocusIntensity } from './core/focus-mode'
 import { FrameBatcher } from './core/frame-batcher'
 import { latestRadarEpoch, type RefreshState } from './core/freshness'
-import { blendFrames, blurField, TEMPERATURE_ISOLINE_STEP, fieldRangeInView, isolineBlurPasses, isolineFrameWeights, type WeightedFrame, ISOLINE_EDGE_FADE_MS, FIXED_SCALE_FILL_OPACITY, ISOLINE_FILL_OPACITY, ISOLINE_RING_KM, ISOLINE_WINDOW, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineKind } from './core/isolines'
+import { blendFrames, blurField, TEMPERATURE_ISOLINE_OFFSET, TEMPERATURE_ISOLINE_STEP, fieldRangeInView, isolineBlurPasses, isolineFrameWeights, type WeightedFrame, ISOLINE_EDGE_FADE_MS, FIXED_SCALE_FILL_OPACITY, ISOLINE_FILL_OPACITY, ISOLINE_RING_KM, ISOLINE_WINDOW, isolineColor, IsolineWorker, type IsolineFeatureCollection, type IsolineKind } from './core/isolines'
 import { IsolineLabels } from './core/isoline-labels'
-import { lookLabelTuning, TEMPERATURE_LABEL_PLANS, temperatureLabelLook, TemperatureNumbers, type IsolineLabelling } from './core/temperature-numbers'
+import { TemperatureNumbers, type IsolineLabelling } from './core/temperature-numbers'
 import { sliceWeights } from './core/isoline-spline'
 import { TraceCore } from './core/isoline-tracer'
 import { prepareField, type PreparedField } from './core/isoline-field'
@@ -46,25 +46,25 @@ import { pointValue, pointValueBilinear, projectPoint as project } from './core/
 import { buildDayList, ecmwfDayChunks, localDate, type HourlyDayInputs, type Sample } from './core/days'
 import { buildLadder, buildSlotRows, ecmwfStepChunks, hourlyEnd } from './core/ladder'
 import { rainBetween, rainPatch, type RainPatch } from './core/rain-point-detail'
+import { RegionPoints, regionsSection, type RegionChunk } from './core/region-points'
 import { selectPairMotion } from './core/motion-selection'
 import { findCataloguePlace, isInPlaceZone, loadPlaces, namedCataloguePlace, nearestPlace, places, rememberPlace, rememberSearchedPlace } from './core/places'
 import type { PlaceIdentity, PlaceMemory } from './core/place-memory'
 import { startFrameLoop } from './core/playback'
 import { clampPlaybackCursor, playbackReach } from './core/playback-gate'
-import { measurePerfPhase, PERF_COLD_STORAGE_KEY, PERF_STORAGE_KEY, perfPhasesEnabled, recordPerfPhase, type LoadLayer } from './core/perf'
+import { markLayerDrawn, measurePerfPhase, PERF_COLD_STORAGE_KEY, PERF_STORAGE_KEY, perfPhasesEnabled, recordPerfPhase, type LoadLayer, type PerfLayer } from './core/perf'
 import type { ProfileRecording } from './core/profile-recorder'
 import { RainLayer } from './core/rain-layer'
 import { rainSampling, rainWarpLimit } from './core/rain-smoothing'
 import { LayerOverlay } from './core/overlay-canvas'
 import { rainColormap } from './core/rain-chart'
-import { DEFAULT_RAIN_LOOK, loadRainLookChoice, RAIN_LOOK_STORAGE_KEYS, rainIsolineClasses, rainOutlines, rainUsesStraightAlpha, type RainLook, type RainLookChoice } from './core/rain-palette'
+import { DEFAULT_RAIN_LOOK, rainIsolineClasses, rainOutlines, rainUsesStraightAlpha, type RainLook } from './core/rain-palette'
 import { grantedStartFix, loadLastLocation, loadLastSavedPlaceId, loadMapView, resolveStartLocation, storeLastLocation, storeLastSavedPlaceId, storeMapView, type StartLocation } from './core/location-memory'
 import { attachPinNavigation, PAN_ZOOM_ONLY, PIN_EDGE_MARGIN, restrictMapGestures } from './core/pin-navigation'
 import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedPlace } from './core/saved-places'
 import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureCollection } from './core/sun'
 import { DEFAULT_LOCATION, stillMapTheme } from './core/still-theme.js'
 import { isSunUp, solarElevationSin } from './core/solar'
-import { clampLabelTuning, DEFAULT_LABEL_TUNING, LABEL_TUNING_PARAMETERS, loadLabelTuning, type LabelTuning } from './core/isoline-label-anchors'
 import { cssGradient, FIXED_SCALE_LEGEND, FIXED_SCALE_STOPS, loadTemperatureScale, paletteRange, paletteStops, referenceRange, storeTemperatureScale, type PaletteRange, type TemperatureScale } from './core/temperature-palette'
 import { selectTemperaturePlaces, temperatureLabelSpacingPx, temperatureLabels, temperatureLayer, type TemperatureFeatureCollection } from './core/temperature'
 import { buildTimeline, epochInWindow, frameBlend, scrubberViewWindow, seriesValueAt, timelineCoverage, timelineCursorAtEpoch, timelineEpochAtCursor, timelineHorizonEnd, timelineIndexesInWindow, timelinePlaybackRate, type EpochWindow } from './core/time-model'
@@ -72,10 +72,15 @@ import { formatUv, uvChipLabel, uvLevel, uvReading } from './core/uv'
 import { WIND_UNITS, type WindUnit } from './core/weather'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
 import { DEFAULT_WIND_TUNING, MOBILE_WIND, WIND_MAX_FPS, WIND_PARAMETERS, WIND_SIMULATION_FPS, WindLayer } from './core/wind-layer'
-import { BEAUFORT_LEGEND, beaufortFrame, beaufortPalette, WIND_FILL_OPACITY, WIND_THIN_PARTICLE_WIDTH, windVanePlaces, windVaneSpacingPx } from './core/wind-beaufort'
+import { BEAUFORT_FEEL_ZONES, BEAUFORT_LEGEND, beaufortFrame, beaufortPalette, windClassOpacity, WIND_FILL, WIND_NIGHT_LINE_LIGHTEN, WIND_THIN_PARTICLE_WIDTH } from './core/wind-beaufort'
 import { WindsockLayer, windsockDevOptions } from './core/wind-socks'
+import { nestedPlaces } from './core/map-places'
+import { WINDSOCK_SPACING_PX } from './core/windsock-flow'
+import { mapLabelSize } from './core/map-labels'
+import { legendButtonVariant, legendIsOpen, PHONE_LAYOUT_QUERY, readLegendChoice, storeLegendChoice } from './core/legend-choice'
+import { MapLabelCollision } from './core/map-collision'
 import { WINDSOCK_LAG_MINUTES, type WindSlice } from './core/windsock-flow'
-import { clearTuningStorage, nightCue, TABLE_CONTRASTS, type TableContrast } from './core/dev-settings'
+import { clearTuningStorage, forgetRetiredStorage, nightCue, TABLE_CONTRASTS, type TableContrast } from './core/dev-settings'
 import { watchIdle } from './core/activity'
 import { CLOUD_LAYERS, type CloudLayer } from './core/cloud-section'
 import { browserUsageEnvironment, createUsageTracker, installUsageBeacon, sanitizeUsageLabel, storedUsageLabel, USAGE_LABEL_STORAGE_KEY } from './core/usage'
@@ -185,6 +190,7 @@ const CITY_TEMPERATURE_STEP_MS = 10 * 60_000
 // Terugglijden naar het begin bij opnieuw afspelen (PO 2026-09-25 live, U34).
 // Binnen deze marge van het eind staat de opnieuw-knop in de grafiek.
 const PLAYBACK_END_MARGIN_MS = 60_000
+const REGION_MOVE_WAIT_MS = 1_500
 const PLAYBACK_TEMPO_HOURS = 8
 const TABLE_JUMP_RESUME_MS = 4_000
 // Zoveel px van de tabelrijen moet in beeld zijn voordat hun reeksen laden (U49): in het mobiele
@@ -203,6 +209,7 @@ const PLAY_RULE_STORAGE_KEY = 'motregen-dev-speelregel'
 // Rig-schakelaar (?dev): 'laat' vraagt het eerste regenframe weer pas na de kaart-opzet.
 const VIEWPORT_DIAGNOSE_STORAGE_KEY = 'motregen-dev-viewport'
 // Productiedomeinen (nix `services.motregen.domains`, met www) plus loopback voor e2e/PWA-checks.
+const ISOLINE_PERF_LAYERS: Partial<Record<string, PerfLayer>> = { temperature: 'temperatuurvlakken', cloud: 'wolken', wind: 'bft-vlakken' }
 const SERVICE_WORKER_HOSTNAMES = ['motregen.nl', 'www.motregen.nl', 'weerok.nl', 'www.weerok.nl', 'localhost', '127.0.0.1']
 const TABLE_NAVIGATION_MS = 1_500
 // De rand buiten het rooster is geen laag van de basisstijl maar kleurt wel mee met het thema.
@@ -221,6 +228,8 @@ function basemapTileKey(event: { sourceId?: string; tile?: { tileID?: { key?: st
 
 export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const devMode = new URLSearchParams(window.location.search).has('dev')
+  // Afgevallen proeven (o.a. Regenisolijnen, U86) laten geen sleutel meer achter.
+  forgetRetiredStorage(window.localStorage)
   const windsockOptions = windsockDevOptions(new URLSearchParams(devMode ? window.location.search : ''))
   const stillMode = new URLSearchParams(window.location.search).get('still') === '1'
   let rigFreeCamera = false
@@ -260,11 +269,13 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let windInitializationIdle: number | undefined
   let windInitializationTimer: number | undefined
   let windParallelCompilation = false
-  onCleanup(() => {
+  function cancelWindInitialization(): void {
     if (windInitializationFrame !== undefined) cancelAnimationFrame(windInitializationFrame)
     if (windInitializationIdle !== undefined) cancelIdle(windInitializationIdle)
     window.clearTimeout(windInitializationTimer)
-  })
+    windInitializationFrame = windInitializationIdle = windInitializationTimer = undefined
+  }
+  onCleanup(cancelWindInitialization)
   let shownWindRequest = 0
   let shownTemperatureRequest = 0
   let shownSunRequest = 0
@@ -363,6 +374,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let temperaturePending = ''
   let temperatureTick: { frames: TimelineFrame[]; stepEpoch: number; zoom: number; width: number; height: number } | undefined
   let windsockLayer: WindsockLayer | undefined
+  let labelCollision: MapLabelCollision | undefined
   let shownWindsockRequest = 0
   let sunFeatureKey = ''
   let sunEpochBucket = Number.NaN
@@ -377,6 +389,23 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   // Krap apparaat (U49): puntreeksen alleen voor wat scrubber en tabel nu tonen, niet vooruit.
   const inViewOnly = decode.pointSeries === 'in-view'
   const client = initialClient ?? new MrfClient(manifestUrl, perf.loads, decode)
+  // MIP-40: met een sectie `regions` in het manifest lezen histogram, tabel en dagenlijst eerst uit regiobestanden.
+  const regionPoints = new RegionPoints(manifestUrl.href, async (url) => {
+    const response = await fetch(url, { priority: 'high' } as RequestInit & { priority: FetchPriority })
+    return response.ok ? new Uint8Array(await response.arrayBuffer()) : undefined
+  })
+  let markFirstMove!: () => void
+  const firstMove = new Promise<void>((resolve) => { markFirstMove = resolve })
+  /**
+   * Regiobestanden pas na de eerste afspeelstap ophalen (of meteen bij stilstaand afspelen, hooguit
+   * REGION_MOVE_WAIT_MS): tegelijk met de eerste kaartframes kostten de extra verzoeken die stap ~0,6 s
+   * (U102-meting, telefoon over HTTP/1.1).
+   */
+  async function regionChunk(current: Manifest | undefined, chunkUrl: string, x: number, y: number): Promise<RegionChunk | undefined> {
+    if (!regionsSection(current)) return undefined
+    if (untrack(playing)) await Promise.race([firstMove, new Promise((resolve) => window.setTimeout(resolve, REGION_MOVE_WAIT_MS))])
+    return regionPoints.chunk(current, chunkUrl, x, y)
+  }
   const [manifest, setManifest] = createSignal<Manifest>()
   const [manifestRefresh, setManifestRefresh] = createSignal<RefreshState>()
   const timeline = createMemo(() => manifest() ? buildTimeline(manifest()!) : [])
@@ -525,7 +554,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let tableNavigationUntil = Number.NEGATIVE_INFINITY
   // Dag of nacht van de koppenrij: de tabelachtergrond voert dezelfde kleur.
   const [tableHeadSky, setTableHeadSky] = createSignal<HourSky>()
-  const [rainLookChoice, setRainLookChoice] = createSignal<RainLookChoice>(devMode ? loadRainLookChoice() : DEFAULT_RAIN_LOOK)
   const [cloudMapForms, setCloudMapForms] = createSignal(!devMode || localStorage.getItem('motregen-cloud-map') !== 'sluier')
   const [cloudMapSample, setCloudMapSample] = createSignal<CloudMapSample>('live')
   const [viewportDiagnose, setViewportDiagnose] = createSignal(devMode && localStorage.getItem(VIEWPORT_DIAGNOSE_STORAGE_KEY) === 'aan')
@@ -612,13 +640,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const mobileWindDevice = matchMedia('(pointer: coarse), (max-width: 499px)').matches
   const [temperatureRange, setTemperatureRange] = createSignal<PaletteRange | undefined>()
   let temperatureRangeKey = ''
-  // ?dev-proef U100: isolijnlabels (grootte, afstand langs de lijn, puntlabels); zonder ?dev het huidige beeld.
-  // Ronde 3 (`templabels=`): waar de getallen staan; die vergelijking start van 13 px zonder opgeslagen schuiven.
-  const temperatureLabelVariant = devMode ? temperatureLabelLook(window.location.search) : undefined
-  const temperatureLabelPlan = TEMPERATURE_LABEL_PLANS[temperatureLabelVariant ?? 'lijn']
-  const [labelTuning, setLabelTuning] = createSignal<LabelTuning>(!devMode ? DEFAULT_LABEL_TUNING
-    : temperatureLabelVariant ? loadLabelTuning(window.location.search, undefined, lookLabelTuning(window.innerWidth, window.innerHeight))
-      : loadLabelTuning(window.location.search, localStorage))
   // U100: vast is standaard; relatief (MIP-37) is een instelling. Stills (bot-vergelijking) altijd vast.
   const [temperatureScale, setTemperatureScale] = createSignal<TemperatureScale>(stillMode ? 'vast' : loadTemperatureScale())
   const temperatureStops = createMemo(() => {
@@ -698,6 +719,13 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const playbackReady = createMemo(() => mapRendering() && mapReady())
   const playbackActive = createMemo(() => playing() && playbackReady())
   createEffect(() => { if (!stillMode && mapReady() && !playing()) scheduleWindInitialization() })
+  // U110: in de windmodus zijn de deeltjes de inhoud; daar geen uitstel achter de regen (in Firefox, zonder
+  // KHR_parallel_shader_compile, was dat 5 s plus een idle-wachttijd), maar opzetten zodra kaart en windtijdlijn er zijn.
+  createEffect(() => {
+    if (stillMode || focusPinned() !== 'wind' || !mapReady() || !windTimeline().length || windLayer) return
+    cancelWindInitialization()
+    void attachWindLayer()
+  })
   const [resetNotice, setResetNotice] = createSignal(false)
   let resetNoticeTimer: number | undefined
   const [updateReady, setUpdateReady] = createSignal(false)
@@ -874,6 +902,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     let initialData: Manifest | undefined
     let eagerHeadersAllowed = false
     let eagerHeadersStarted = false
+    let firstRainFrames: Array<Promise<unknown>> = []
     const startEagerHeaders = () => {
       if (!eagerHeadersAllowed || !initialData || eagerHeadersStarted) return
       eagerHeadersStarted = true
@@ -902,7 +931,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       // (koude PO-opname 2026-10-07: eerste regen-decode pas op 1,9 s, 0,85 s na de kaart).
       // U89, PO 2026-10-17: Eerste regen blijft vast vroeg.
       const firstIndex = Math.floor(presetCursor ?? nowIndex)
-      for (const frame of frames.slice(firstIndex, firstIndex + 2)) void load(frame).catch(() => undefined)
+      firstRainFrames = frames.slice(firstIndex, firstIndex + 2).map((frame) => load(frame).catch(() => undefined))
       setManifest(data)
       initialData = data
       startEagerHeaders()
@@ -990,9 +1019,14 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         if (event.sourceId === 'basemap' && event.tile) {
           if (!basemapTileSeen) {
             perf.markFirstBasemapTile()
+            markLayerDrawn('basiskaart')
             // De kaartheader en eerste tegels gaan vóór de ongebruikte HARMONIE-headers.
             eagerHeadersAllowed = true
             startEagerHeaders()
+            // U109: in Lucht de wolkenbytes direct erachteraan, niet pas na mapReady; kaart en eerste regenframes houden
+            // voorrang (de decoders ordenen alleen op tijd, dus anders schoven de wolken warm voor de regen).
+            // Alleen met het ruime decodebudget: op de telefoon (in-view) won het niets en kwam de warme kaart later.
+            if (!stillMode && !inViewOnly && focusPinned() === 'air') void Promise.all(firstRainFrames).then(() => { if (focusPinned() === 'air') prefetchCloudAtCursor() })
           }
           basemapTileSeen = true
           replaceMapStartWhenComplete()
@@ -1008,8 +1042,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       map.on('dragstart', () => setMapSourceFaded(true))
       map.on('zoomend', () => { void showTemperature(); void showWindsocks() })
       map.on('moveend', () => {
+        labelCollision?.update()
         for (const set of isolineSets) { set.labels?.requestSpawn(); updateIsolineLabels(set) }
       })
+      map.on('resize', () => labelCollision?.update())
       map.on('click', (event) => {
         usage.mark('pin')
         pick(event.lngLat.lng, event.lngLat.lat, nearestPlace(event.lngLat.lng, event.lngLat.lat).name)
@@ -1090,6 +1126,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const state = previousState ? newPointLoadState(previousState.point, rain.values, rain.loaded) : undefined
     if (state && previousState) state.rainPatches = previousState.rainPatches
     pointLoad = state
+    if (state) void keepRegionRainPatches(state, nextManifest, nextRain)
     batch(() => {
       setManifest(nextManifest)
       setCursor(nextCursor)
@@ -1119,6 +1156,13 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   })
 
   createEffect(() => perf.loads.mark({ kind: 'stage', stage: pointLoadStage() }))
+  // U109: vanaf een moduskeuze telt per laag de tijd tot de eerste tekenbeurt (perf.layers.modeSwitch).
+  let modeIntentArmed = false
+  createEffect(() => {
+    const mode = focusPinned()
+    if (modeIntentArmed) perf.markModeIntent(mode)
+    modeIntentArmed = true
+  })
   createEffect(() => {
     const frames = timeline()
     if (!frames.length) return
@@ -1243,6 +1287,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         firstPlaybackTick = false
         batch(() => {
           perf.markFirstCursorMove()
+          markFirstMove()
           setCursor(nextCursor)
         })
         committed?.()
@@ -1562,10 +1607,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     layer.setWarpLimit(rainWarpLimit((pair.rightFrame.epoch - pair.leftFrame.epoch) / 60_000))
   }
 
-  function changeRainLookChoice(patch: Partial<RainLookChoice>): void {
-    for (const [name, value] of Object.entries(patch)) localStorage.setItem(RAIN_LOOK_STORAGE_KEYS[name as keyof RainLookChoice], String(value))
-    setRainLookChoice({ ...rainLookChoice(), ...patch })
-  }
+
 
   function applyRainColours(): void {
     const look = untrack(rainColourLook)
@@ -1603,9 +1645,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const started = performance.now()
     const wind = mountWind(windGrid)
     const submitMs = performance.now() - started
+    // De u/v-velden laden tijdens het compileren; showWind wacht zelf op ready.
+    const shown = showWind()
     await wind?.ready.catch(() => {})
     if (perfPhasesEnabled()) perf.recordPhase({ phase: 'wind-initialize', startTime: started, duration: performance.now() - started, detail: { submitMs, parallel: windParallelCompilation } })
-    await showWind()
+    await shown
   }
 
   function scheduleWindInitialization(): void {
@@ -1811,7 +1855,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       set.labels?.clear()
       set.labels = undefined
     }
-    map.addLayer(temperatureLayer(mapSurfaceTheme()), beforeId)
+    const { clientWidth, clientHeight } = map.getContainer()
+    map.addLayer(temperatureLayer(mapSurfaceTheme(), mapLabelSize(clientWidth, clientHeight)), beforeId)
+    labelCollision ??= new MapLabelCollision(map, () => marker?.getLngLat())
+    labelCollision.attach(beforeId)
   }
 
   function applyRainPresentation(): void {
@@ -1861,7 +1908,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
 
   function isolineStyle(): IsolineStyle {
-    return { step: TEMPERATURE_ISOLINE_STEP, fill: temperatureScale() === 'vast' ? FIXED_SCALE_FILL_OPACITY : ISOLINE_FILL_OPACITY, fillSmooth: false, offset: temperatureLabelPlan.offset, palette: temperatureStops(), color: hexColor(isolineColor(mapSurfaceTheme())), lineOpacity: TEMPERATURE_LINE_FILL_OPACITY, lineFromFill: TEMPERATURE_LINE_FILL_SHADE }
+    return { step: TEMPERATURE_ISOLINE_STEP, fill: temperatureScale() === 'vast' ? FIXED_SCALE_FILL_OPACITY : ISOLINE_FILL_OPACITY, fillSmooth: false, offset: TEMPERATURE_ISOLINE_OFFSET, palette: temperatureStops(), color: hexColor(isolineColor(mapSurfaceTheme())), lineOpacity: TEMPERATURE_LINE_FILL_OPACITY, lineFromFill: TEMPERATURE_LINE_FILL_SHADE }
   }
 
   function cloudVeilStyle(): IsolineStyle {
@@ -1874,7 +1921,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
 
   /** Beaufortvlakken met grenslijnen in een donkerder tint van de vlakken. */
   function windBeaufortStyle(): IsolineStyle {
-    return { step: 1, fill: WIND_FILL_OPACITY, fillSmooth: false, palette: beaufortPalette(), color: hexColor(isolineColor(mapSurfaceTheme())), lineOpacity: TEMPERATURE_LINE_FILL_OPACITY, lineFromFill: TEMPERATURE_LINE_FILL_SHADE }
+    // 's Nachts verdwijnt een verdonkerde lijn in de donkere vlakken (PO 2026-11-09); daar lichter dan de vulling.
+    const lineFromFill = mapSurfaceTheme() === 'dark' ? WIND_NIGHT_LINE_LIGHTEN : TEMPERATURE_LINE_FILL_SHADE
+    return { step: 1, fill: WIND_FILL.opacity, fillByValue: [WIND_FILL.clearBelow, WIND_FILL.fullAt], fillSmooth: false, palette: beaufortPalette(), color: hexColor(isolineColor(mapSurfaceTheme())), lineOpacity: TEMPERATURE_LINE_FILL_OPACITY, lineFromFill }
   }
 
   /** De gewogen uurframes achter het veld van `frame` (druk: met zijn buren, zie isolineFrameWeights). */
@@ -1908,6 +1957,25 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     for (const index of isolineLayerIndices(blend.left + blend.mix, frames.length, ISOLINE_WINDOW)) {
       void preparedIsolineField(temperatureIsolines, frames[index]!).catch(() => undefined)
     }
+  }
+
+  /**
+   * U109: start in Lucht. De wolkenvelden wachtten op mapReady; de bytes van de uurlagen rond de cursor gaan al bij
+   * de eerste basiskaarttegel de lijn op (vanaf het manifest maakte de warme telefoonkaart trager). Alleen laden en
+   * decoderen in de worker, het voorbereiden van het veld blijft bij de eerste tekenbeurt.
+   */
+  function prefetchCloudAtCursor(): void {
+    const epoch = selectedEpoch()
+    const frames = cloudTimeline()
+    if (!frames.length) return
+    const blend = frameBlend(frames, epoch)
+    const wanted = isolineLayerIndices(blend.left + blend.mix, frames.length, ISOLINE_WINDOW).map((index) => frames[index]!)
+    for (const layerFrames of [...CLOUD_LAYERS.map((layer) => cloudTimelines()[layer]), radiationTimeline()]) {
+      if (!layerFrames.length) continue
+      const at = frameBlend(layerFrames, epoch)
+      wanted.push(layerFrames[at.left]!, layerFrames[at.right]!)
+    }
+    for (const frame of wanted) void load(frame).catch(() => undefined)
   }
 
   async function cloudMotionAt(epoch: number, frames = timeline()): Promise<{ grid: Grid; field: MotionField } | undefined> {
@@ -2013,16 +2081,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     return true
   }
 
-  function changeLabelTuning(key: keyof LabelTuning, value: number): void {
-    const next = { ...labelTuning(), [key]: clampLabelTuning(key, value) }
-    setLabelTuning(next)
-    try { localStorage.setItem(`motregen-dev-${LABEL_TUNING_PARAMETERS[key]}`, String(next[key])) } catch { /* alleen deze sessie */ }
-    const set = temperatureIsolines
-    set.key = ''
-    set.labels?.clear()
-    void showIsolines(set)
-  }
-
   function changeTemperatureScale(scale: TemperatureScale): void {
     setTemperatureScale(scale)
     storeTemperatureScale(scale)
@@ -2091,15 +2149,16 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         const { grid } = await preparedIsolineField(set, frames[required[0]!]!)
         if (!mapRendering() || map !== renderedMap || set.layer || !renderedMap.getLayer('motregen-temperature')) return
         const created = new IsolineLayer(grid, frames.length, set.style(), set.layerId)
+        created.perfLayer = ISOLINE_PERF_LAYERS[set.kind]
         set.layer = created
         set.layerKey = key
         set.fields = []
         set.labels?.clear()
         if (set.kind !== 'cloud' && set.kind !== 'wind') {
-          const numbers = set.kind === 'temperature' ? temperatureLabelPlan.numbers : undefined
-          set.labels = numbers
-            ? new TemperatureNumbers(renderedMap, grid, mapSurfaceTheme(), () => reducedMotion.matches, { numbers }, labelTuning, () => marker?.getLngLat())
-            : new IsolineLabels(renderedMap, grid, mapSurfaceTheme(), () => reducedMotion.matches, set.kind, labelTuning)
+          // Temperatuur: getallen op vaste plekken met een schijf in hun bandkleur (U100 ronde 3); isobaren: lijnlabels.
+          set.labels = set.kind === 'temperature'
+            ? new TemperatureNumbers(renderedMap, grid, mapSurfaceTheme(), () => reducedMotion.matches, () => marker?.getLngLat(), (bubbles) => created.setBubbles(bubbles))
+            : new IsolineLabels(renderedMap, grid, mapSurfaceTheme(), () => reducedMotion.matches, set.kind)
         }
         set.key = ''
         // Labels schuiven mee op exact de snede die de lijnen net kregen (zelfde cadans).
@@ -2246,11 +2305,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         client.getHeader(frames[blends[0]!.left]!.u.chunk),
       ])
       if (request !== shownWindsockRequest || !map) return
-      windsockLayer ??= new WindsockLayer(map, { ...windsockOptions, reducedMotion: () => reducedMotion.matches })
-      const { clientWidth, clientHeight } = map.getContainer()
+      windsockLayer ??= new WindsockLayer(map, { ...windsockOptions, reducedMotion: () => reducedMotion.matches, pin: () => marker?.getLngLat() })
       windsockLayer.setUnit(untrack(windUnit))
       windsockLayer.setTheme(untrack(mapSurfaceTheme) === 'dark')
-      windsockLayer.setPlaces(selectTemperaturePlaces(map.getZoom(), windVaneSpacingPx(clientWidth, clientHeight), windVanePlaces))
+      windsockLayer.setPlaces(nestedPlaces(map.getZoom(), WINDSOCK_SPACING_PX))
       windsockLayer.setOpacity(untrack(windFocus))
       windsockLayer.setField({ grid: header.grid, slices: [slices[0]!, slices[1]!, slices[2]!] })
     } catch {
@@ -2319,6 +2377,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         sunFeatureKey = key
         const source = map.getSource('motregen-sun') as GeoJSONSource | undefined
         source?.setData(data)
+        if (data.features.length) markLayerDrawn('zon')
       }
     } catch {
       if (request !== shownSunRequest) return
@@ -2401,7 +2460,18 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       })
     }
     marker?.setLngLat([lng, lat])
+    pinMoved()
     void updatePointSeries(point, label)
+  }
+
+  /** Getallen en zakken wijken direct voor een verplaatste pin (U107), niet pas na de volgende pan of tijdstap. */
+  function pinMoved(): void {
+    labelCollision?.update()
+    windsockLayer?.pinMoved()
+    for (const set of isolineSets) {
+      set.labels?.requestSpawn()
+      updateIsolineLabels(set)
+    }
   }
 
   /** Centreer alleen als het punt anders buiten (of in de rand van) het vrije kaartvlak valt. */
@@ -2434,6 +2504,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
     const request = state.request
     pointLoad = state
+    void keepRegionRainPatches(state, manifest(), timeline())
     if (cachedRain.complete && cachedForecast.every((series) => series.complete)) {
       state.full = Promise.resolve()
       setRainSeries([...state.rainValues])
@@ -2506,6 +2577,25 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     return `${new URL(frame.chunk.url, manifestUrl).href}#${frame.frameIndex}`
   }
 
+  /** Regenpatches voor de tussenbalken uit de regiobestanden, zodra die er zijn; wat ontbreekt komt van de kaartframes. */
+  async function keepRegionRainPatches(state: PointLoadState, current: Manifest | undefined, frames: TimelineFrame[]): Promise<void> {
+    const [x, y] = project(state.point.lng, state.point.lat)
+    let kept = false
+    await Promise.all([...new Set(frames.map((frame) => frame.chunk))].map(async (chunk) => {
+      const region = await regionChunk(current, chunk.url, x, y)
+      if (!region || state.request !== pointRequest) return
+      for (const frame of frames) {
+        const key = rainFrameKey(frame)
+        if (frame.chunk !== chunk || state.rainPatches.has(key)) continue
+        const patch = region.patch(frame.frameIndex, x, y)
+        if (!patch) continue
+        state.rainPatches.set(key, patch)
+        kept = true
+      }
+    }))
+    if (kept && state.request === pointRequest) setRainDetailMotionVersion((version) => version + 1)
+  }
+
   function keepRainPatch(state: PointLoadState, key: string, header: MrfHeader, decoded: Uint8Array): void {
     if (state.rainPatches.has(key)) return
     const [x, y] = project(state.point.lng, state.point.lat)
@@ -2534,7 +2624,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       const pairKey = `${leftKey}|${rightKey}`
       if (left && right && !rainDetailMotions.has(pairKey)) {
         rainDetailMotions.set(pairKey, 'laden')
-        void loadPairMotion(frame, next)
+        void loadPointPairMotion(state!, frame, next)
           .then((motion) => rainDetailMotions.set(pairKey, motion ?? null), () => rainDetailMotions.set(pairKey, null))
           .then(() => setRainDetailMotionVersion((version) => version + 1))
       }
@@ -2548,6 +2638,19 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       })
     })
   })
+
+  /** Als `loadPairMotion`, maar eerst uit de regiobestanden van de plek; alleen voor de tussenbalken. */
+  async function loadPointPairMotion(state: PointLoadState, left: TimelineFrame, right: TimelineFrame): Promise<MotionField | undefined> {
+    if (left.epoch >= right.epoch) return undefined
+    const [x, y] = project(state.point.lng, state.point.lat)
+    const current = manifest()
+    const [leftRegion, rightRegion] = await Promise.all([regionChunk(current, left.chunk.url, x, y), regionChunk(current, right.chunk.url, x, y)])
+    const regionOf = (frame: TimelineFrame) => frame.chunk.url === left.chunk.url ? leftRegion : rightRegion
+    if (leftRegion?.hasMotion(left.frameIndex) === undefined || rightRegion?.hasMotion(right.frameIndex) === undefined) return loadPairMotion(left, right)
+    const selected = selectPairMotion(left, right, (frame) => regionOf(frame)?.hasMotion(frame.frameIndex) === true)
+    if (!selected) return undefined
+    return regionOf(selected.frame)?.motion(selected.frame.frameIndex, x, y) ?? client.getMotion(selected.frame.chunk, selected.frame.frameIndex)
+  }
 
   function newPointLoadState(
     point: { lng: number; lat: number },
@@ -2638,6 +2741,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       state.loading.set(key, { frames, values })
       state.seriesPublisher?.schedule()
     })
+    if (rows === 'near-now' && regionsSection(manifest())) warmFrames(frames, indexes, 'high', layer)
     return readPointSeries(frames, point, indexes, 'high', values, showLoaded, layer).catch(() => [])
   }
 
@@ -2711,6 +2815,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     signal?: AbortSignal,
   ): Promise<Array<number | null>> {
     const [x, y] = project(point.lng, point.lat)
+    const current = manifest()
     const chunks = new Map<ManifestChunk, Array<{ position: number; frameIndex: number }>>()
     for (const position of [...new Set(indexes)]) {
       const frame = frames[position]!
@@ -2719,7 +2824,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       entries.push({ position, frameIndex: frame.frameIndex })
       chunks.set(frame.chunk, entries)
     }
-    await Promise.all([...chunks].map(async ([chunk, entries]) => {
+    await Promise.all([...chunks].map(async ([chunk, wanted]) => {
+      const region = await regionChunk(current, chunk.url, x, y)
+      const entries = region ? readRegionValues(region, chunk, wanted, x, y, values, progress) : wanted
+      if (!entries.length) return
       const header = await client.getHeader(chunk)
       const positions = new Map<number, number[]>()
       for (const entry of entries) positions.set(entry.frameIndex, [...(positions.get(entry.frameIndex) ?? []), entry.position])
@@ -2732,12 +2840,55 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     return values
   }
 
+  /**
+   * Met regiobestanden decoderen histogram en tabel geen frames meer, maar kaart en afspelen gebruiken dezelfde frames
+   * wel en rekenden op deze bulk (de kaart-prefetch staat uit zolang de locatiereeks laadt): regen voor het afspelen,
+   * de velden rond nu voor de eerste kaart in Gevoel en Wind. Dus dezelfde frames, tegelijk met het regiobestand en
+   * zonder dat histogram of tabel erop wacht.
+   */
+  function warmFrames(frames: TimelineFrame[], indexes: number[], priority: FetchPriority, layer: LoadLayer): void {
+    const chunks = new Map<ManifestChunk, number[]>()
+    for (const index of indexes) {
+      const frame = frames[index]
+      if (frame) chunks.set(frame.chunk, [...(chunks.get(frame.chunk) ?? []), frame.frameIndex])
+    }
+    for (const [chunk, frameIndexes] of chunks) void client.getFrames(chunk, frameIndexes, priority, undefined, layer).catch(() => undefined)
+  }
+
+  /** Vult wat het regiobestand heeft en geeft de rest terug voor het raster. */
+  function readRegionValues(
+    region: RegionChunk,
+    chunk: ManifestChunk,
+    wanted: Array<{ position: number; frameIndex: number }>,
+    x: number,
+    y: number,
+    values: Array<number | null>,
+    progress?: (values: Array<number | null>, loaded: number[]) => void,
+  ): Array<{ position: number; frameIndex: number }> {
+    const url = new URL(chunk.url, manifestUrl).href
+    const rest: Array<{ position: number; frameIndex: number }> = []
+    const loaded: number[] = []
+    for (const entry of wanted) {
+      const value = region.value(entry.frameIndex, x, y)
+      if (value === undefined) {
+        rest.push(entry)
+        continue
+      }
+      values[entry.position] = value
+      loaded.push(entry.position)
+      perf.loads.pointRead(url, entry.frameIndex)
+    }
+    if (loaded.length) progress?.(values, loaded)
+    return rest
+  }
+
   function enqueueRain(state: PointLoadState, indexes: number[], priority: FetchPriority, layer: LoadLayer, reason: string): Promise<void> {
     perf.loads.mark({ kind: 'schedule', layer, field: 'rain_rate', indexes, reason })
     const task = state.rainQueue.then(async () => {
       const missing = indexes.filter((index) => !state.rainLoaded.has(index))
       if (!missing.length || state.request !== pointRequest) return
       perf.loads.mark({ kind: 'start', layer, field: 'rain_rate', indexes: missing })
+      if (regionsSection(manifest())) warmFrames(timeline(), missing, priority, layer)
       await readPointSeries(timeline(), state.point, missing, priority, state.rainValues, (_, loaded) => {
         for (const index of loaded) state.rainLoaded.add(index)
         if (state.request === pointRequest) state.rainPublisher?.schedule()
@@ -3006,7 +3157,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     clearTuningStorage()
     batch(() => {
       setViewportDiagnose(false)
-      setRainLookChoice(DEFAULT_RAIN_LOOK)
       setCloudMapForms(true)
       setCloudMapSample('live')
       setDayListMode(false)
@@ -3147,6 +3297,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [dayListMode, setDayListMode] = createSignal(devMode && localStorage.getItem(DAY_LIST_STORAGE_KEY) === 'lijst')
   const [tableContrast, setTableContrast] = createSignal<TableContrast>(storedTableContrast(devMode))
   const [longRangeNear, setLongRangeNear] = createSignal(false)
+  // Grove tabelrijen in beeld (onNeedRows). Een blijvende vraag, geen eenmalige aanroep: de observer vuurt één keer,
+  // en kwam die vóór de puntreeks (of vóór een nieuwe locatie of een manifestwissel), dan bleef de volledige reeks liggen
+  // tot de manifestverversing, of laadde hij als 'lange termijn' op lage prioriteit (U109: tabel telefoon koud 69–75 s).
+  const [tableRowsNeeded, setTableRowsNeeded] = createSignal(false)
   const ecmwfDayValues = ecmwfPointValues(createMemo(() => manifest() ? ecmwfDayChunks(manifest()!) : new Map<EcmwfDayField, ManifestChunk>()))
   const stepChunks = createMemo(() => manifest() ? ecmwfStepChunks(manifest()!) : new Map<EcmwfStepField, ManifestChunk>())
   const ecmwfStepValues = ecmwfPointValues(stepChunks)
@@ -3160,8 +3314,14 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       const wanted = key()
       if (!longRangeNear() || !wanted || untrack(loaded)?.key === wanted) return
       const [x, y] = project(location().lng, location().lat)
+      const current = manifest()
       void Promise.all([...chunks()].map(async ([field, chunk]) => {
         try {
+          const region = await regionChunk(current, chunk.url, x, y)
+          if (region) {
+            const values = chunk.times.map((_, index) => field === 'day_wind_dir' ? region.value(index, x, y) : region.bilinear(index, x, y))
+            if (values.every((value) => value !== undefined)) return [field, values as Array<number | null>] as const
+          }
           const header = await client.getHeader(chunk)
           const frames = await client.getFrames(chunk, chunk.times.map((_, index) => index), 'low', undefined, 'L2')
           // Richting in graden mengt niet: 359° en 1° zouden 180° worden.
@@ -3180,7 +3340,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
   }
   createEffect(() => {
-    if (longRangeNear() && pointLoadStage() !== 'complete') untrack(() => { void completePointSeries(pointLoad, 'low', 'L2', 'lange termijn') })
+    const rows = tableRowsNeeded()
+    if ((!rows && !longRangeNear()) || pointLoadStage() === 'complete') return
+    untrack(() => { void completePointSeries(pointLoad, rows ? 'high' : 'low', 'L2', rows ? 'intentie' : 'lange termijn') })
   })
   const hourlyInputs = createMemo((): HourlyDayInputs | undefined => {
     if (pointLoadStage() !== 'complete') return undefined
@@ -3374,8 +3536,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   // Lucht-focus en dag/nacht lopen niet via applyFocus.
   createEffect(() => { rainLook(); if (map) { applyRainPresentation(); map.triggerRepaint() } })
   const rainColourLook = createMemo((): RainLook => {
-    const choice = rainLookChoice()
-    return { ...DEFAULT_RAIN_LOOK, ...choice, theme: mapSurfaceTheme() }
+    return { ...DEFAULT_RAIN_LOOK, theme: mapSurfaceTheme() }
   }, undefined, { equals: sameFields })
   createEffect(() => { rainColourLook(); applyRainColours() })
   let basemapBlend: BlendTarget[] | undefined
@@ -3438,6 +3599,35 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   })
   // Legenda van de isolijnen binnen de regen (U86): alleen als die lijnen echt op de kaart staan.
   const windLegendVisible = () => windFocus() >= 0.5
+  /**
+   * Eén legenda-knop voor alle modi (PO 2026-11-09, U107): opent en sluit de legenda van de actieve modus. Zonder
+   * eigen keuze volgt hij de layout live (desktop open, telefoon dicht), ook als het venster pas na het laden breed
+   * wordt; een klik is een keuze voor dit apparaat (legend-choice.ts).
+   */
+  const phoneLayout = window.matchMedia(PHONE_LAYOUT_QUERY)
+  const [isPhoneLayout, setIsPhoneLayout] = createSignal(phoneLayout.matches)
+  phoneLayout.addEventListener('change', (event) => setIsPhoneLayout(event.matches))
+  const [legendChoice, setLegendChoice] = createSignal(readLegendChoice(window.localStorage))
+  const legendOpen = () => legendIsOpen(legendChoice(), isPhoneLayout())
+  const legendButton = legendButtonVariant(new URLSearchParams(devMode ? window.location.search : ''))
+  function toggleLegend(): void {
+    const choice = legendOpen() ? 'dicht' : 'open'
+    setLegendChoice(choice)
+    storeLegendChoice(window.localStorage, choice)
+  }
+  // Telefoon (PO 2026-11-09): de open strook vervangt het chipje; een tik erop of ernaast (blur) sluit hem weer.
+  // Een veeg over de strook (scrollen) is geen tik en laat hem open; een moduswissel houdt de stand.
+  createEffect(() => {
+    if (!isPhoneLayout() || !legendOpen() || !activeLegend()) return
+    const outside = (event: PointerEvent) => {
+      // Op de strook zelf sluit de tik (onClick); een modusknop wisselt de modus en houdt de stand.
+      if (event.target instanceof Element && event.target.closest('#map-legend, .map-legend-button, .column-mode')) return
+      toggleLegend()
+    }
+    document.addEventListener('pointerdown', outside, true)
+    onCleanup(() => document.removeEventListener('pointerdown', outside, true))
+  })
+  const legendTap = () => { if (isPhoneLayout() && legendOpen()) toggleLegend() }
   const rainIsolineLegend = createMemo(() => rainIsolineClasses(rainColourLook()).map((band) => ({
     label: band.from === undefined ? `<${band.to!.toLocaleString('nl-NL')}`
       : band.to === undefined ? `${band.from.toLocaleString('nl-NL')}+`
@@ -3453,6 +3643,23 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       const from = FIXED_SCALE_LEGEND[index]!
       return { from, to: value, background: cssGradient(from, value, stops) }
     })
+  })
+  const activeLegend = createMemo((): FocusKind | undefined => {
+    if (windLegendVisible()) return 'wind'
+    const mode = focusPinned()
+    if (mode === 'weather') return 'weather'
+    // Lucht codeert niets dat uitleg nodig heeft (wolken zijn wolken, ☀ is zon): geen legenda (PO 2026-11-09).
+    return mode === 'temperature' && feelsLegend().length ? 'temperature' : undefined
+  })
+  const legendUnit = () => ({ weather: 'mm/u', temperature: '°C', wind: 'Bft' } as Partial<Record<FocusKind, string>>)[activeLegend() ?? 'air'] ?? ''
+  /** De chip `schaal`: een mini-kleurschaal in de kleuren van de actieve modus. */
+  const legendChipColors = createMemo((): string[] => {
+    switch (activeLegend()) {
+      case 'weather': return rainIsolineLegend().slice(0, 4).map((band) => band.fill)
+      case 'temperature': return feelsLegend().filter((_, index) => index % 2 === 0 || index === feelsLegend().length - 1).slice(0, 4).map((segment) => segment.background)
+      case 'wind': return [4, 6, 8, 10].map((force) => BEAUFORT_LEGEND[force]!.color)
+      default: return []
+    }
   })
   const cloudTimelines = createMemo(() => Object.fromEntries(CLOUD_LAYERS.map((layer) =>
     [layer, manifest() ? buildTimeline(manifest()!, `cloud_${layer}`) : []])) as Record<CloudLayer, TimelineFrame[]>)
@@ -3689,7 +3896,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     <section
       class="map-shell"
       classList={{ 'sky-day': chromeSky()?.daylight === true, 'sky-night': chromeSky()?.daylight === false, 'map-source-faded': mapSourceFaded() }}
-      style={{ ...(chromeSky() && { '--day-overcast': chromeSky()!.overcast.toFixed(2) }), '--isoline-label-size': `${labelTuning().size}px` }}
+      style={chromeSky() ? { '--day-overcast': chromeSky()!.overcast.toFixed(2) } : undefined}
       aria-label="Regenkaart van Nederland" data-rendering={mapRendering()} data-rain-opacity={rainLook().opacity.toFixed(2)} data-rain-blend={rainLook().multiply ? 'multiply' : 'normal'} data-focus={focus().toFixed(2)} data-wind-focus={windFocus().toFixed(2)} data-wind-intensity={focusedWindTuning().intensity.toFixed(2)} data-isolines={isolineCount()}>
       <div ref={mapElement} class="map" />
       <div ref={splashElement} class="map-splash" classList={{ ready: mapReady() && firstMapImageShown() }} aria-hidden={mapReady() && firstMapImageShown()}>
@@ -3711,20 +3918,36 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         </div>
         <footer class="still-attribution">KNMI · © OpenStreetMap</footer>
       </Show>
-      <Show when={!stillMode && windLegendVisible()}>
-        <aside class="rain-isoline-legend wind-legend" aria-label="Windkracht in Beaufort">
-          <For each={BEAUFORT_LEGEND}>{(entry) => <span><i style={{ background: `color-mix(in srgb, ${entry.color} ${Math.round(WIND_FILL_OPACITY * 100)}%, transparent)` }} />{entry.label}</span>}</For>
+      <Show when={!stillMode && activeLegend() && isPhoneLayout() && !legendOpen()}>
+        <button type="button" class={`map-legend-button legend-${legendButton}`} aria-controls="map-legend" aria-expanded={legendOpen()}
+          aria-label={legendOpen() ? 'Legenda verbergen' : 'Legenda tonen'} title="Legenda" onClick={toggleLegend}>
+          <span class="legend-chip" aria-hidden="true">
+            <Show when={legendButton === 'woord'} fallback={<>
+              <For each={legendChipColors()}>{(color) => <i style={{ background: color }} />}</For>
+              <Show when={legendButton === 'schaal-eenheid'}><small class="legend-chip-unit">{legendUnit()}</small></Show>
+            </>}>Legenda</Show>
+          </span>
+        </button>
+      </Show>
+      <Show when={!stillMode && legendOpen() && activeLegend() === 'wind'}>
+        <aside id="map-legend" class="map-legend wind-legend" onClick={legendTap} aria-label="Windkracht in Beaufort">
+          <For each={BEAUFORT_FEEL_ZONES}>{(zone) => <span class="wind-zone">
+            <span class="wind-zone-classes"><For each={BEAUFORT_LEGEND.slice(zone.from, zone.to + 1)}>{(entry, index) =>
+              // Een minimum, anders zijn de bijna doorzichtige "lekker"-klassen in de legenda onzichtbaar.
+              <span><i style={{ background: `color-mix(in srgb, ${entry.color} ${Math.round(Math.max(0.18, windClassOpacity(zone.from + index())) * 100)}%, transparent)` }} />{entry.label}</span>}</For></span>
+            <em>{zone.word}</em>
+          </span>}</For>
           <small>Bft</small>
         </aside>
       </Show>
-      <Show when={!stillMode && focusPinned() === 'weather' && rainIsolineLegend().length > 0}>
-        <aside class="rain-isoline-legend" aria-label="Isolijnen in de regen">
+      <Show when={!stillMode && legendOpen() && activeLegend() === 'weather'}>
+        <aside id="map-legend" class="map-legend rain-isoline-legend" onClick={legendTap} aria-label="Isolijnen in de regen">
           <For each={rainIsolineLegend()}>{(band) => <span><i style={{ background: band.fill, 'border-left-color': band.line }} />{band.label}</span>}</For>
           <small>mm/u</small>
         </aside>
       </Show>
-      <Show when={!stillMode && focusPinned() === 'temperature' && feelsLegend().length > 0}>
-        <aside class="feels-legend" aria-label="Kleurschaal gevoelstemperatuur">
+      <Show when={!stillMode && legendOpen() && activeLegend() === 'temperature'}>
+        <aside id="map-legend" class="map-legend feels-legend" onClick={legendTap} aria-label="Kleurschaal gevoelstemperatuur">
           <span>{FIXED_SCALE_LEGEND[0]}</span>
           <For each={feelsLegend()}>{(segment, index) => <>
             <i style={{ background: segment.background }} />
@@ -3759,8 +3982,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
             onCloudMapForms={(enabled) => { setCloudMapForms(enabled); localStorage.setItem('motregen-cloud-map', enabled ? 'vormen' : 'sluier') }}
             cloudMapSample={cloudMapSample()}
             onCloudMapSample={setCloudMapSample}
-            rainLook={rainLookChoice()}
-            onRainLook={changeRainLookChoice}
             viewportDiagnose={viewportDiagnose()}
             onViewportDiagnose={(enabled) => { setViewportDiagnose(enabled); localStorage.setItem(VIEWPORT_DIAGNOSE_STORAGE_KEY, enabled ? 'aan' : 'uit') }}
             perfVisible={perfVisible()}
@@ -3774,8 +3995,6 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
             usageBody={usageBody()}
             usageLabel={usageLabel()}
             onUsageLabel={changeUsageLabel}
-            labelTuning={labelTuning()}
-            onLabelTuning={changeLabelTuning}
           />
         </Show>
         <Freshness open={freshnessOpen()} mapEpoch={cursorMinute()} mapFrame={timeline()[cursorFrame()]} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} onOpen={pauseForFreshness} onClose={resumeAfterFreshness} onShare={shareCurrentState} shareNotice={shareNotice()}
@@ -3847,10 +4066,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
               mobileTableOpen={tableModeSelected()}
               onOpenMobileTable={tableViewAvailable() ? scrollToTable : undefined}
               onSelectMobileMode={tableViewAvailable() ? scrollToMap : undefined}
-              onNeedRows={() => {
-                void completePointSeries(pointLoad, 'high')
+              onNeedRows={() => batch(() => {
+                setTableRowsNeeded(true)
                 if (!dayListMode()) setLongRangeNear(true)
-              }}
+              })}
               onNeedHistory={() => { void loadHistoryRows() }}
               onSelectTime={selectTableTime}
               onOpenHistory={() => {

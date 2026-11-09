@@ -59,6 +59,7 @@ function caddyRoutes(): string {
   return `route {
 header /plaatsen-*.json Cache-Control "public, max-age=31536000, immutable"
 header /assets/* Cache-Control "public, max-age=31536000, immutable"
+header /basemap/fonts/* Cache-Control "public, max-age=86400"
 @changelog path /changelog /changelog/
 route @changelog {
   rewrite * /changelog/index.html
@@ -114,7 +115,7 @@ route @weatherPage {
 }
 try_files {path} /index.html
 file_server {
-  precompressed gzip
+  precompressed br gzip
 }
 }
 `

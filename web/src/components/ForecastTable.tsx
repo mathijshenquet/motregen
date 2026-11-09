@@ -3,6 +3,7 @@ import type { FocusKind } from '../core/focus-mode'
 import { hourDarkness, type HourSky, type HourlyForecastRow } from '../core/forecast'
 import { moonHorizonAngle, moonLitPath, moonPhase } from '../core/moon'
 import { isSunUp, solarElevationSin, sunEvents, type SunEvent } from '../core/solar'
+import { tableSunEvents } from '../core/table-sun'
 import { dailyClearSkyUvMax, uvReading } from '../core/uv'
 import { deriveSpanIcon, deriveWeatherIcon, summarizeWind, summarizeWindFrom, UNLIKELY_RAIN_PERCENT, type WindUnit } from '../core/weather'
 import type { SlotRow } from '../core/ladder'
@@ -39,7 +40,6 @@ interface Props {
   longRange?: SlotRow[]
   /** Rijen die later beginnen liggen voorbij de tijdlijn: klikken laat de cursor dan niet springen. */
   timelineEnd?: number
-  /** Zonband bij elke zonsop- en ondergang (de oude uurtabel); anders alleen de eerstvolgende van elk (U91b). */
   /** Nacht zonder donkere rijen (U91b): lucht-rail links, maantje bij het label, of sterretjes in de nachtrijen. */
   nightCue?: NightCue
   series: ForecastSeries
@@ -81,6 +81,8 @@ const HOVER_LEAVE_MS = 80
 // zichtbaar en worden dus niet gedecodeerd.
 const SHOWN_ROWS_REST_MS = 200
 // sunEvents verfijnt tot op een seconde; twee aanroepen met een ander begin vinden hetzelfde moment.
+
+const sunLabel = (event: SunEvent) => `${event.kind === 'rise' ? 'Zon op' : 'Zon onder'} ${formatTime(event.epoch)}`
 
 export default function ForecastTable(props: Props) {
   const tableMemo = <T,>(name: string, compute: () => T) => createMemo(() => measurePerfPhase('table-render', compute, { memo: name }))
@@ -131,13 +133,6 @@ export default function ForecastTable(props: Props) {
     onFocus={(event) => { if (event.currentTarget.matches(':focus-visible')) props.focus.onFocus(heading.mode, 'keyboard', true) }}
     onBlur={() => props.focus.onFocus(heading.mode, 'keyboard', false)}
   ><ColumnLabel icon={heading.icon} text={heading.label} /></button>
-  const sun = tableMemo('zonmomenten', () => {
-    const first = props.rows[0]
-    const last = props.rows.at(-1)
-    if (!first || !last) return new Map<number, SunEvent>()
-    const events = sunEvents(first.epoch, last.epoch + hour, props.location.lng, props.location.lat)
-    return new Map(events.map((event) => [Math.floor(event.epoch / hour) * hour, event]))
-  })
   const elevation = (epoch: number) => solarElevationSin(epoch, props.location.lng, props.location.lat)
 
   const rowElements = new Map<number, HTMLTableRowElement>()
@@ -300,6 +295,12 @@ export default function ForecastTable(props: Props) {
   })
   const columnCount = () => 1 + Number(props.columns.weather) + Number(props.columns.air) + Number(props.columns.temperature) + Number(props.columns.wind)
 
+  // Altijd precies één zonsopgang- en één zonsondergangrij (table-sun.ts): in de uurrijen, bovenaan of tussen de dagdelen.
+  const sun = tableMemo('zonmomenten', () => tableSunEvents(
+    visibleRows().map((row) => row.epoch),
+    spans().map((span) => ({ start: span.row.slot.start, end: span.row.slot.end })),
+    (start, end) => sunEvents(start, end, props.location.lng, props.location.lat),
+  ))
   const rail = (start: number, end: number) => props.nightCue === 'rail' ? skyRailGradient(start, end, props.location.lng, props.location.lat) : undefined
   const NightMark = (mark: { night: boolean }) => <Show when={props.nightCue === 'symbool' && mark.night}><Moon class="night-mark" size={10} strokeWidth={2.4} aria-label="nacht" /></Show>
   return <table ref={tableElement} class="forecast-table" classList={{ 'day-night-table': props.dayNight !== false }} data-mode={props.focus.pinned} data-hover={hovered()} data-night-cue={props.nightCue}>
@@ -349,7 +350,7 @@ export default function ForecastTable(props: Props) {
       const degrees = (reading: number | null) => reading == null ? placeholder() : `${Math.round(reading)}°`
       const wind = createMemo(() => summarizeWind(value(props.series.windU, row.windUIndex), value(props.series.windV, row.windVIndex),
         value(props.series.gust, row.gustIndex), props.windUnit), undefined, { equals: sameFields })
-      const sunEvent = () => sun().get(row.epoch)
+      const sunEvent = () => sun().hourly.get(row.epoch)
       const daylight = createMemo(() => sunEvent()?.kind === 'set' || (sunEvent() === undefined && isSunUp(row.epoch, props.location.lng, props.location.lat)))
       const radiationBefore = createMemo(() => value(props.series.radiation, row.radiationIndex))
       const radiationAfter = createMemo(() => value(props.series.radiation, row.radiationNextIndex))
@@ -368,7 +369,6 @@ export default function ForecastTable(props: Props) {
       const uv = createMemo(() => uvReading(row.epoch, value(props.series.uv, row.uvIndex), value(props.series.uvClear, row.uvClearIndex),
         radiationBefore(), radiationAfter(), elevation, row.kind !== 'past'), undefined, { equals: sameFields })
       const time = formatTime
-      const sunLabel = (event: SunEvent) => `${event.kind === 'rise' ? 'Zon op' : 'Zon onder'} ${time(event.epoch)}`
       const placeholder = () => pending() ? '…' : '—'
       const rainAmount = createMemo(() => {
         const reading = rain()
@@ -376,6 +376,13 @@ export default function ForecastTable(props: Props) {
         return text === undefined || text === '0' ? undefined : text
       })
       return <>
+        <Show when={rowIndex() === 0}>
+          <For each={sun().top}>{(event) =>
+            <tr class="sun-row sun-row-before" classList={{ 'past-hour': row.kind === 'past', 'sunrise-row': event.kind === 'rise', 'sunset-row': event.kind === 'set' }} style={{ '--rail': rail(event.epoch, event.epoch) }}>
+              <td colSpan={columnCount()}><SunGlyph />{sunLabel(event)}</td>
+            </tr>
+          }</For>
+        </Show>
         <tr
           data-epoch={row.epoch}
           data-day-overcast={daylight() ? dayDarkness().toFixed(3) : undefined}
@@ -523,6 +530,11 @@ export default function ForecastTable(props: Props) {
         <Show when={span.heading}>
           <tr class="sun-row day-heading-row night-hour"><td colSpan={columnCount()}>{formatWeekdayTitle(noon)} {formatDayMonth(noon)}</td></tr>
         </Show>
+        <Show when={sun().spans.get(row.slot.start)}>{(event) =>
+          <tr class="sun-row sun-row-span" classList={{ 'sunrise-row': event().kind === 'rise', 'sunset-row': event().kind === 'set' }} style={{ '--rail': rail(event().epoch, event().epoch) }}>
+            <td colSpan={columnCount()}><SunGlyph />{sunLabel(event())}</td>
+          </tr>
+        }</Show>
         <tr
           data-epoch={row.slot.start}
           data-end={row.slot.end}

@@ -9,6 +9,8 @@ import solid from 'vite-plugin-solid'
 import { configDefaults } from 'vitest/config'
 import { basemapRangeCache } from './scripts/basemap-range-cache'
 import { manifestStartCache } from './scripts/manifest-start-cache'
+import { maplibreCss } from './scripts/maplibre-css-plugin'
+import { precompress } from './scripts/precompress-plugin'
 import { pageRoutes } from './scripts/page-routes'
 import { brandFromEnvironment } from './src/core/brand'
 import { startAssets } from './scripts/start-assets-plugin'
@@ -110,7 +112,7 @@ function usageBeaconEndpoint(): Plugin {
 
 export default defineConfig({
   appType: 'spa',
-  plugins: [earlyManifestEntry(), solid(), tailwindcss(), usageBeaconEndpoint(), localBasemapArchive(), pageRoutes(brand), startAssets(process.env.VITE_START_ASSETS ?? 'inline'), startWebgl(process.env.VITE_WEBGL_PREWARM), VitePWA({
+  plugins: [earlyManifestEntry(), maplibreCss(), solid(), tailwindcss(), usageBeaconEndpoint(), localBasemapArchive(), pageRoutes(brand), startAssets(process.env.VITE_START_ASSETS ?? 'inline'), startWebgl(process.env.VITE_WEBGL_PREWARM), VitePWA({
     injectRegister: false,
     registerType: 'prompt',
     includeAssets: ['droplet.svg'],
@@ -127,8 +129,11 @@ export default defineConfig({
       background_color: '#eaf1f3',
     },
     workbox: {
-      globPatterns: ['**/*.{js,css,html,ico,png,svg}', 'basemap/**/*.{json,pbf}', 'assets/*.pbf-*.gz'],
-      globIgnores: ['**/data/**', '**/perf-mobile/**', 'route.html'],
+      // U109: og-image is alleen voor deelkaarten en hoort niet in de installatie. Glyphs gaan naar een
+      // runtimecache: precache haalde ze bij de installatie opnieuw op (cache: reload, 204 kB ongecomprimeerd),
+      // terwijl 256-511 zelden nodig is.
+      globPatterns: ['**/*.{js,css,html,ico,png,svg}', 'basemap/*.json', 'assets/*.pbf-*.gz'],
+      globIgnores: ['**/data/**', '**/perf-mobile/**', 'route.html', 'og-image.png'],
       navigateFallback: '/index.html',
       navigateFallbackDenylist: [/^\/(?:data|telegram|changelog)(?:\/|$)/, /^\/(?:hit|sw\.js|sitemap\.xml|robots\.txt)$/],
       runtimeCaching: [
@@ -155,15 +160,26 @@ export default defineConfig({
             expiration: { maxEntries: 384, maxAgeSeconds: 31_536_000, purgeOnQuotaError: true },
           },
         },
+        {
+          // Ongehashte bestandsnamen: bij een nieuwe glyphset de cachenaam ophogen.
+          urlPattern: ({ url }) => url.pathname.startsWith('/basemap/fonts/'),
+          handler: 'CacheFirst',
+          options: { cacheName: 'motregen-glyphs-v1', expiration: { maxEntries: 16, maxAgeSeconds: 31_536_000 } },
+        },
         { urlPattern: /\/data\/|\/hit(?:\?|$)/, handler: 'NetworkOnly' },
         { urlPattern: /^https:\/\/[^/]*openfreemap\.org\//, handler: 'NetworkOnly' },
       ],
     },
-  })],
+  }), precompress()],
   build: {
     assetsInlineLimit: (filePath) => filePath.endsWith('.pbf.gz') ? false : undefined,
     sourcemap: true,
-    rollupOptions: { input: { index: resolve(__dirname, 'index.html'), startup: resolve(__dirname, 'src/startup.ts') } },
+    rollupOptions: {
+      input: { index: resolve(__dirname, 'index.html'), startup: resolve(__dirname, 'src/startup.ts') },
+      // U109: MapLibre (1 MB) verandert zelden; als eigen chunk blijft hij na een uitrol in de HTTP- en SW-cache
+      // en houdt V8 zijn codecache, in plaats van mee te verversen met elke appwijziging.
+      output: { manualChunks: (id) => /\/node_modules\/.*\/maplibre-gl\/dist\/maplibre-gl\.js$/.test(id) ? 'maplibre' : undefined },
+    },
   },
   server: { allowedHosts, proxy, headers: profilingHeaders },
   preview: { allowedHosts, proxy: previewProxy, headers: profilingHeaders },

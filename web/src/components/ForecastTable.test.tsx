@@ -362,8 +362,8 @@ describe('sun bands (U91b)', () => {
   }))
   const bands = () => [...document.querySelectorAll('.sun-row')].map((row) => row.textContent?.replace(/\d\d:\d\d/, 'hh:mm'))
 
-  it('shows every sunrise and sunset among the hourly rows', () => {
+  it('shows exactly one sunrise and one sunset, also when the hourly rows span two days (PO-afspraak, U107)', () => {
     renderTable({ rows: twoDays })
-    expect(bands()).toEqual(['Zon op hh:mm', 'Zon onder hh:mm', 'Zon op hh:mm', 'Zon onder hh:mm'])
+    expect(bands()).toEqual(['Zon op hh:mm', 'Zon onder hh:mm'])
   })
 })

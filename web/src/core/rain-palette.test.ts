@@ -2,8 +2,8 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import type { MapTheme } from './map-theme'
 import {
-  buildRainColormap, colourOverGround, DEFAULT_RAIN_LOOK, GROUND_COLOURS, groundContrast, lightness, loadRainLookChoice,
-  ONSET_INDEX, PRE_U77_RAIN_LOOK, RAIN_BLENDS, RAIN_ISOLINE_RATES, RAIN_LOOK_STORAGE_KEYS, RAIN_PALETTES, rainOutlines, rainOnsetAlpha, rainOutline,
+  buildRainColormap, colourOverGround, DEFAULT_RAIN_LOOK, GROUND_COLOURS, groundContrast, lightness, 
+  ONSET_INDEX, PRE_U77_RAIN_LOOK, RAIN_BLENDS, RAIN_ISOLINE_RATES, RAIN_PALETTES, rainOutlines, rainOnsetAlpha, rainOutline,
   rainRateIndex, rainUsesStraightAlpha, type Ground, type RainBlendName, type RainLook, type Rgb,
 } from './rain-palette'
 
@@ -211,17 +211,4 @@ describe('reading the intensity order', () => {
     }
   })
 
-})
-
-describe('stored choice', () => {
-  const storage = (values: Record<string, string>) => ({ getItem: (key: string) => values[key] ?? null })
-
-  it('falls back to the product on a missing or unknown isoline set', () => {
-    expect(loadRainLookChoice(storage({}))).toEqual({ isolines: 'stappen' })
-    expect(loadRainLookChoice(storage({ [RAIN_LOOK_STORAGE_KEYS.isolines]: 'onbekend' }))).toEqual({ isolines: 'stappen' })
-  })
-
-  it('reads the chosen isoline set', () => {
-    expect(loadRainLookChoice(storage({ [RAIN_LOOK_STORAGE_KEYS.isolines]: 'dicht' }))).toEqual({ isolines: 'dicht' })
-  })
 })
