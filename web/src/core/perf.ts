@@ -110,6 +110,7 @@ export interface PerfSnapshot {
   longFrames: LongFrameSummary[]
   /** Per veld: ms sinds timeOrigin tot het venster nu ± 1 u voor het eerst compleet was. */
   windowReadyMs: Record<string, number>
+  layers: LayerDrawSummary
 }
 
 export const PERF_STORAGE_KEY = 'motregen-perf'
@@ -128,6 +129,17 @@ export const PERF_PHASES = [
 ] as const
 
 export type PerfPhase = typeof PERF_PHASES[number]
+
+/** Kaartlagen waarvan de eerste tekening telt (U109, PO 2026-11-09): per modus en na een moduswissel. */
+export const PERF_LAYERS = ['basiskaart', 'regen', 'wolken', 'zon', 'temperatuurvlakken', 'temperatuurgetallen', 'bft-vlakken', 'windzakken', 'deeltjes'] as const
+export type PerfLayer = typeof PERF_LAYERS[number]
+
+export interface LayerDrawSummary {
+  /** ms sinds timeOrigin tot de eerste tekenbeurt met inhoud. */
+  firstMs: Partial<Record<PerfLayer, number>>
+  /** De laatste moduskeuze en per laag de ms vanaf die keuze tot de eerste tekenbeurt daarna. */
+  modeSwitch: { mode: string; atMs: number; layers: Partial<Record<PerfLayer, number>> } | null
+}
 
 export interface PerfPhaseSummary {
   count: number
@@ -206,6 +218,11 @@ export function measurePerfPhase<T>(phase: PerfPhase, operation: () => T, detail
     performance.clearMeasures(name)
     activeMonitor?.recordPhase({ phase, startTime, duration, detail })
   }
+}
+
+/** Een kaartlaag tekende inhoud (aanroep per tekenbeurt; alleen de eerste keer en de eerste na een moduskeuze tellen). */
+export function markLayerDrawn(layer: PerfLayer): void {
+  activeMonitor?.markLayerDrawn(layer)
 }
 
 /** Legt werkduur uit een worker of eventpaar vast op de tijdlijn van de hoofdpagina. */
@@ -371,6 +388,8 @@ export class PerfMonitor {
   private readonly measures: PerfMeasure[] = []
   private readonly longFrames: LongFrameSummary[] = []
   private readonly windowReady = new Map<string, number>()
+  private readonly layerFirstMs = new Map<PerfLayer, number>()
+  private modeSwitch: { mode: string; atMs: number; layers: Map<PerfLayer, number> } | null = null
   private longFrameObserver?: PerformanceObserver
   readonly loads: LoadTrace
 
@@ -554,6 +573,19 @@ export class PerfMonitor {
     return firstPlayback
   }
 
+  markModeIntent(mode: string): void {
+    this.modeSwitch = { mode, atMs: this.environment.now(), layers: new Map() }
+  }
+
+  markLayerDrawn(layer: PerfLayer): void {
+    const first = !this.layerFirstMs.has(layer)
+    const afterSwitch = this.modeSwitch !== null && !this.modeSwitch.layers.has(layer)
+    if (!first && !afterSwitch) return
+    const now = this.environment.now()
+    if (first) this.layerFirstMs.set(layer, now)
+    if (afterSwitch) this.modeSwitch!.layers.set(layer, now - this.modeSwitch!.atMs)
+  }
+
   snapshot(): PerfSnapshot {
     const samples = Array.from(this.scrubSamples.subarray(0, this.scrubSampleCount)).sort((left, right) => left - right)
     const network = resourceTotals(this.environment.resources())
@@ -588,6 +620,10 @@ export class PerfMonitor {
       manifestAgeMs: this.manifestGeneratedAt === null ? null : Math.max(0, this.environment.wallNow() - this.manifestGeneratedAt),
       phases,
       windowReadyMs: Object.fromEntries([...this.windowReady].map(([field, readyMs]) => [field, Math.round(readyMs)])),
+      layers: {
+        firstMs: Object.fromEntries([...this.layerFirstMs].map(([layer, ms]) => [layer, Math.round(ms)])),
+        modeSwitch: this.modeSwitch && { mode: this.modeSwitch.mode, atMs: Math.round(this.modeSwitch.atMs), layers: Object.fromEntries([...this.modeSwitch.layers].map(([layer, ms]) => [layer, Math.round(ms)])) },
+      },
       longFrames: this.longFrames.filter((entry) => entry.startTime + entry.duration >= cutoff)
         .sort((left, right) => right.duration - left.duration).slice(0, 5)
         .map((entry) => ({ ...entry, scripts: entry.scripts.map((script) => ({ ...script })) })),

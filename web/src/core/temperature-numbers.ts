@@ -5,6 +5,7 @@ import type { ShortRing } from './isoline-contours'
 import type { LabelTuning } from './isoline-label-anchors'
 import type { IsolineFeatureCollection } from './isolines'
 import { sampleSlice, type FieldSlice } from './isoline-spline'
+import { markLayerDrawn } from './perf'
 import { selectTemperaturePlaces, temperaturePlaces, type TemperaturePlace } from './temperature'
 
 /**
@@ -297,6 +298,7 @@ export class TemperatureNumbers implements IsolineLabelling {
     if (opacity === this.opacity) return
     this.opacity = opacity
     for (const label of this.shown) label.marker.setOpacity(opacity)
+    if (opacity > 0 && this.shown.length) markLayerDrawn('temperatuurgetallen')
   }
 
   setTheme(theme: MapTheme): void {
@@ -449,6 +451,7 @@ export class TemperatureNumbers implements IsolineLabelling {
       }
     }
     for (const [key, next] of wanted) this.add(key, next)
+    if (this.opacity > 0 && this.shown.length) markLayerDrawn('temperatuurgetallen')
   }
 
   private add(key: string, next: { lng: number; lat: number; column: number; row: number; value: number }): void {

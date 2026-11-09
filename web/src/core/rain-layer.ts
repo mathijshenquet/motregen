@@ -5,7 +5,7 @@ import type { CustomLayerInterface, CustomRenderMethodInput, Map as MapLibreMap 
 import { MercatorCoordinate } from 'maplibre-gl'
 import type { Grid } from './contract'
 import type { MotionField } from './mrf'
-import { measurePerfPhase } from './perf'
+import { markLayerDrawn, measurePerfPhase } from './perf'
 import { rainColormap } from './rain-chart'
 import type { RainOutline } from './rain-palette.js'
 
@@ -375,6 +375,7 @@ export class RainLayer implements CustomLayerInterface {
     if (this.straightAlpha) gl.blendFuncSeparate(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA, gl.ONE, gl.ONE_MINUS_SRC_ALPHA)
     else gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+    if (this.leftData) markLayerDrawn('regen')
   }
 
   /** De textuur die de hoofdshader voor dit frame leest: het ruwe frame, of de voorgefilterde versie ervan. */

@@ -4,7 +4,7 @@ import { DEFAULT_WINDSOCK_BADGE, WINDSOCK_BADGE_POSITIONS, WINDSOCK_BANDS, winds
 import { DEFAULT_WINDSOCK_CURVATURE, DEFAULT_WINDSOCK_FLUTTER, flutterBends, sampleWind, windsockPhase, WINDSOCK_CURVATURES, WINDSOCK_FLUTTERS, windsockHeadings, type WindsockCurvature, type WindsockField, type WindsockFlutter, type WindsockFlutterName } from './windsock-flow.js'
 import type { TemperaturePlace } from './temperature.js'
 import { windValue, type WindUnit } from './weather.js'
-import { recordPerfPhase } from './perf.js'
+import { markLayerDrawn, recordPerfPhase } from './perf.js'
 import { WINDSOCK_ANCHOR_OFFSETS } from './windsock-anchors.js'
 
 interface Sock {
@@ -164,6 +164,7 @@ export class WindsockLayer {
       this.drawnMaxStrength = Math.max(this.drawnMaxStrength, strength)
     }
     recordPerfPhase('windsock-draw', performance.now() - started, { socks: this.drawnCount, fluttering })
+    if (this.drawnCount) markLayerDrawn('windzakken')
     const summary = `${this.drawnCount}|${Math.round(this.drawnMaxStrength * 10) / 10}`
     if (this.canvas.dataset.socks !== summary) this.canvas.dataset.socks = summary
     if (fluttering) this.scheduleFlutter(started)

@@ -6,7 +6,7 @@ import type { Grid } from './contract'
 import type { PreparedField } from './isoline-field'
 import { SEGMENT_FLOATS, type ShortRing } from './isoline-contours'
 import { ContourTracer, type TraceRequest, type TraceResult } from './isoline-tracer'
-import { measurePerfPhase, recordPerfPhase } from './perf'
+import { markLayerDrawn, measurePerfPhase, recordPerfPhase, type PerfLayer } from './perf'
 import { sliceWeights } from './isoline-spline'
 import { ISOLINE_FILL_RESOLUTION, ISOLINE_LINE_OPACITY, ISOLINE_RING_KM, ISOLINE_TOLERANCE_PX, ISOLINE_WINDOW } from './isolines'
 import { PALETTE_STOPS, paletteUniforms, type PaletteStops } from './temperature-palette'
@@ -263,6 +263,8 @@ export class IsolineLayer implements CustomLayerInterface {
   private timer?: GpuTimer
   /** Na elke contour-pass: de snede is veranderd (tijd, kaartbeeld, stijl of lagen). */
   onPass?: () => void
+  /** Welke kaartlaag dit is voor de tekenmeting (U109). */
+  perfLayer?: PerfLayer
   /** Gezet door een `LayerOverlay`: de isolijnen tekenen dan zonder MapLibre-render. */
   requestRepaint?: () => void
   private map?: MapLibreMap
@@ -701,6 +703,7 @@ export class IsolineLayer implements CustomLayerInterface {
     this.measure('compositeMs', () => measurePerfPhase('isoline-blit', () => gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4), { layer: this.id }))
     this.stats.composites++
     this.stats.compositePixels += gl.drawingBufferWidth * gl.drawingBufferHeight
+    if (this.perfLayer) markLayerDrawn(this.perfLayer)
   }
 
   /** GPU-tijd via EXT_disjoint_timer_query_webgl2 (asynchroon, frames later binnen), anders CPU-tijd. */

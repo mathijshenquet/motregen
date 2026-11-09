@@ -3,7 +3,7 @@ export { WIND_PARTICLES_PER_MEGAPIXEL, WIND_REFERENCE_ZOOM, WIND_PARAMETERS, MOB
 import type { CustomLayerInterface, CustomRenderMethodInput, Map as MapLibreMap, MapSourceDataEvent, GeoJSONFeature } from 'maplibre-gl'
 import type { MapTheme } from './basemap'
 import type { Grid } from './contract'
-import { measurePerfPhase } from './perf'
+import { markLayerDrawn, measurePerfPhase } from './perf'
 import { prepareShaderPrograms } from './shader-programs'
 import { loadedWaterTiles, WaterTileCache, waterMaskNeedsRebuild, waterTileKey, type WaterMaskView, type WaterTile, type WaterMaskRequest, type WaterMaskReply } from './wind-water-mask'
 import { WIND_INITIAL_STAGGER_SECONDS, windLifeScale, trailFloor, halfFloatTrailFloor } from './wind-presentation.js'
@@ -598,6 +598,7 @@ export class WindLayer implements CustomLayerInterface {
     const contrast = this.theme === 'dark' ? 1 : 0
     gl.uniform3f(segmentUniforms.contrast, contrast, contrast, contrast)
     gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, this.active)
+    if (this.active > 0) markLayerDrawn('deeltjes')
   }
 
   /**

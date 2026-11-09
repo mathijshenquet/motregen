@@ -144,7 +144,9 @@ async function measureVisit(browser: Browser, context: BrowserContext, profileId
   const firstMapMs = revealed === null || map.completeMs === null ? null : Math.max(revealed, map.completeMs)
   const entries = network.entries(state.timeOrigin)
   const phases: PhaseWindow[] = [{ name: 'laden', startMs: 0, endMs: settledMs }]
-  if (options.interactions) phases.push(...await interact(page, mode))
+  const layers = await readLayers(page)
+  const modeSwitches: ModeSwitch[] = []
+  if (options.interactions) phases.push(...await interact(page, mode, modeSwitches))
   const longFrames = await page.evaluate(() => (window as typeof window & { __u102LongFrames?: LongFrame[] }).__u102LongFrames ?? [])
   await page.close()
   return {
@@ -156,6 +158,8 @@ async function measureVisit(browser: Browser, context: BrowserContext, profileId
     untilSettled: totalsBySource(entries, settledMs),
     longFrames: Object.fromEntries(phases.map((phase) => [phase.name, longFramesIn(longFrames, phase)])),
     network: entries.filter((entry) => entry.startMs <= settledMs),
+    layers,
+    modeSwitches,
     ...(traced ? { traced } : {}),
   }
 }
@@ -163,7 +167,7 @@ async function measureVisit(browser: Browser, context: BrowserContext, profileId
 export interface TracedVisit { manifest: Manifest; loadTrace: LoadTraceSnapshot | null; syncMs: number; decodes: PerfTraceSlice['measures'] }
 
 // U109: v8 + v8.compile voor parse/compile-tijd per draad (scripts/u109-trace-v8.ts).
-const TRACE_CATEGORIES = ['toplevel', 'devtools.timeline', 'disabled-by-default-devtools.timeline', 'v8.execute', 'v8', 'disabled-by-default-v8.compile', 'blink.user_timing', 'loading', '__metadata']
+const TRACE_CATEGORIES = ['toplevel', 'devtools.timeline', 'disabled-by-default-devtools.timeline', 'v8.execute', 'v8', 'disabled-by-default-v8.compile', 'blink.user_timing', 'loading', '__metadata', ...process.env.MOTREGEN_PERF_MODES_CPU_PROFILE === '1' ? ['disabled-by-default-v8.cpu_profiler'] : []]
 
 interface PageState { now: number; timeOrigin: number; snapshot: PerfSnapshot | null; trace: LoadTraceSnapshot | null; tableCompleteMs: number | null; tableRows: number }
 
@@ -185,7 +189,46 @@ async function readState(page: Page): Promise<PageState> {
 }
 
 /** Scrubben (slepen), afspelen en de drie andere modi aanklikken; elk een eigen tijdvak voor de lange frames. */
-async function interact(page: Page, mode: MapMode): Promise<PhaseWindow[]> {
+// U109: welke lagen een modus moet tonen voordat de kaart "staat" (PO 2026-11-09).
+const MODE_LAYERS: Record<MapMode, string[]> = {
+  weer: ['regen'],
+  lucht: ['wolken'],
+  gevoel: ['temperatuurvlakken', 'temperatuurgetallen'],
+  wind: ['bft-vlakken', 'windzakken', 'deeltjes'],
+}
+const MODE_LEGENDS: Partial<Record<MapMode, string>> = { weer: '.rain-isoline-legend', gevoel: '.feels-legend', wind: '.wind-legend' }
+
+export interface LayerTimes { firstMs: Record<string, number>; legends: Array<{ selector: string; ms: number }> }
+export interface ModeSwitch { to: MapMode; layers: Record<string, number>; legendMs: number | null; complete: boolean }
+
+async function readLayers(page: Page): Promise<LayerTimes> {
+  return page.evaluate(() => {
+    const win = window as typeof window & { __motregenPerf?: { snapshot: () => PerfSnapshot }; __u109Legends?: Array<{ selector: string; ms: number }> }
+    return { firstMs: (win.__motregenPerf?.snapshot().layers?.firstMs ?? {}) as Record<string, number>, legends: win.__u109Legends ?? [] }
+  })
+}
+
+/** Klik een modusknop en wacht (minstens 2 s, hooguit 12 s) tot de lagen van die modus getekend zijn. */
+async function switchMode(page: Page, to: MapMode): Promise<ModeSwitch> {
+  await page.getByRole('button', { name: MODE_BUTTONS[to], exact: true }).first().click()
+  const clickedAt = Date.now()
+  let state: { layers: Record<string, number>; atMs: number | null; legends: Array<{ selector: string; ms: number }> } = { layers: {}, atMs: null, legends: [] }
+  const complete = () => MODE_LAYERS[to].every((layer) => state.layers[layer] !== undefined)
+  while (Date.now() - clickedAt < 12_000) {
+    await page.waitForTimeout(250)
+    state = await page.evaluate(() => {
+      const win = window as typeof window & { __motregenPerf?: { snapshot: () => PerfSnapshot }; __u109Legends?: Array<{ selector: string; ms: number }> }
+      const modeSwitch = win.__motregenPerf?.snapshot().layers?.modeSwitch
+      return { layers: (modeSwitch?.layers ?? {}) as Record<string, number>, atMs: modeSwitch?.atMs ?? null, legends: win.__u109Legends ?? [] }
+    })
+    if (complete() && Date.now() - clickedAt >= 2_000) break
+  }
+  const selector = MODE_LEGENDS[to]
+  const legend = selector && state.atMs !== null ? state.legends.find((entry) => entry.selector === selector && entry.ms >= state.atMs!) : undefined
+  return { to, layers: state.layers, legendMs: legend && state.atMs !== null ? Math.round(legend.ms - state.atMs) : null, complete: complete() }
+}
+
+async function interact(page: Page, mode: MapMode, modeSwitches: ModeSwitch[]): Promise<PhaseWindow[]> {
   const pageNow = () => page.evaluate(() => performance.now())
   const phases: PhaseWindow[] = []
   const slider = page.getByRole('slider', { name: 'Tijd' })
@@ -220,10 +263,7 @@ async function interact(page: Page, mode: MapMode): Promise<PhaseWindow[]> {
   {
     const startMs = await pageNow()
     const order = (['weer', 'lucht', 'gevoel', 'wind'] as const).filter((other) => other !== mode)
-    for (const other of [...order, mode]) {
-      await page.getByRole('button', { name: MODE_BUTTONS[other], exact: true }).first().click()
-      await page.waitForTimeout(2_000)
-    }
+    for (const other of [...order, mode]) modeSwitches.push(await switchMode(page, other))
     phases.push({ name: 'modus wisselen', startMs, endMs: await pageNow() })
   }
   return phases
@@ -245,6 +285,19 @@ function installPageProbes(): void {
       }
     }).observe({ type: 'long-animation-frame', buffered: true })
   }
+  // U109: elk moment waarop een legenda zichtbaar wordt (van verborgen naar zichtbaar).
+  const legends: Array<{ selector: string; ms: number }> = []
+  ;(win as typeof win & { __u109Legends?: typeof legends }).__u109Legends = legends
+  const legendShown = new Map<string, boolean>()
+  const checkLegends = () => {
+    for (const selector of ['.feels-legend', '.wind-legend', '.rain-isoline-legend:not(.wind-legend)']) {
+      const element = document.querySelector<HTMLElement>(selector)
+      const rect = element?.getBoundingClientRect()
+      const shown = !!element && !!rect && rect.width > 0 && rect.height > 0 && getComputedStyle(element).visibility !== 'hidden' && Number(getComputedStyle(element).opacity) > 0
+      if (shown && !legendShown.get(selector)) legends.push({ selector: selector.split(':')[0]!, ms: performance.now() })
+      legendShown.set(selector, shown)
+    }
+  }
   const filled = (text: string | null | undefined) => !!text && !text.includes('…') && !text.includes('—') && /\d/.test(text)
   const check = () => {
     if (win.__u102Table!.completeMs !== null) return
@@ -260,7 +313,7 @@ function installPageProbes(): void {
   const observer = new MutationObserver(() => {
     if (scheduled) return
     scheduled = true
-    setTimeout(() => { scheduled = false; check() }, 50)
+    setTimeout(() => { scheduled = false; check(); checkLegends() }, 50)
   })
   const start = () => observer.observe(document.documentElement, { subtree: true, childList: true, characterData: true })
   if (document.documentElement) start(); else document.addEventListener('DOMContentLoaded', start)

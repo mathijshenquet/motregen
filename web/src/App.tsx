@@ -51,7 +51,7 @@ import { findCataloguePlace, isInPlaceZone, loadPlaces, namedCataloguePlace, nea
 import type { PlaceIdentity, PlaceMemory } from './core/place-memory'
 import { startFrameLoop } from './core/playback'
 import { clampPlaybackCursor, playbackReach } from './core/playback-gate'
-import { measurePerfPhase, PERF_COLD_STORAGE_KEY, PERF_STORAGE_KEY, perfPhasesEnabled, recordPerfPhase, type LoadLayer } from './core/perf'
+import { markLayerDrawn, measurePerfPhase, PERF_COLD_STORAGE_KEY, PERF_STORAGE_KEY, perfPhasesEnabled, recordPerfPhase, type LoadLayer, type PerfLayer } from './core/perf'
 import type { ProfileRecording } from './core/profile-recorder'
 import { RainLayer } from './core/rain-layer'
 import { rainSampling, rainWarpLimit } from './core/rain-smoothing'
@@ -203,6 +203,7 @@ const PLAY_RULE_STORAGE_KEY = 'motregen-dev-speelregel'
 // Rig-schakelaar (?dev): 'laat' vraagt het eerste regenframe weer pas na de kaart-opzet.
 const VIEWPORT_DIAGNOSE_STORAGE_KEY = 'motregen-dev-viewport'
 // Productiedomeinen (nix `services.motregen.domains`, met www) plus loopback voor e2e/PWA-checks.
+const ISOLINE_PERF_LAYERS: Partial<Record<string, PerfLayer>> = { temperature: 'temperatuurvlakken', cloud: 'wolken', wind: 'bft-vlakken' }
 const SERVICE_WORKER_HOSTNAMES = ['motregen.nl', 'www.motregen.nl', 'weerok.nl', 'www.weerok.nl', 'localhost', '127.0.0.1']
 const TABLE_NAVIGATION_MS = 1_500
 // De rand buiten het rooster is geen laag van de basisstijl maar kleurt wel mee met het thema.
@@ -990,6 +991,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         if (event.sourceId === 'basemap' && event.tile) {
           if (!basemapTileSeen) {
             perf.markFirstBasemapTile()
+            markLayerDrawn('basiskaart')
             // De kaartheader en eerste tegels gaan vóór de ongebruikte HARMONIE-headers.
             eagerHeadersAllowed = true
             startEagerHeaders()
@@ -1119,6 +1121,13 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   })
 
   createEffect(() => perf.loads.mark({ kind: 'stage', stage: pointLoadStage() }))
+  // U109: vanaf een moduskeuze telt per laag de tijd tot de eerste tekenbeurt (perf.layers.modeSwitch).
+  let modeIntentArmed = false
+  createEffect(() => {
+    const mode = focusPinned()
+    if (modeIntentArmed) perf.markModeIntent(mode)
+    modeIntentArmed = true
+  })
   createEffect(() => {
     const frames = timeline()
     if (!frames.length) return
@@ -2091,6 +2100,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         const { grid } = await preparedIsolineField(set, frames[required[0]!]!)
         if (!mapRendering() || map !== renderedMap || set.layer || !renderedMap.getLayer('motregen-temperature')) return
         const created = new IsolineLayer(grid, frames.length, set.style(), set.layerId)
+        created.perfLayer = ISOLINE_PERF_LAYERS[set.kind]
         set.layer = created
         set.layerKey = key
         set.fields = []
@@ -2319,6 +2329,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         sunFeatureKey = key
         const source = map.getSource('motregen-sun') as GeoJSONSource | undefined
         source?.setData(data)
+        if (data.features.length) markLayerDrawn('zon')
       }
     } catch {
       if (request !== shownSunRequest) return
