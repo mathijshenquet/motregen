@@ -165,19 +165,41 @@ button { color: inherit; cursor: pointer; }
 .map-legend {
   position: absolute;
   z-index: 10;
-  left: 0;
-  bottom: 0;
+  right: calc(12px + 44px + 8px + env(safe-area-inset-right));
+  bottom: var(--legend-bottom);
+  max-width: calc(100% - 12px - 44px - 8px - 12px);
+  min-height: 44px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  padding: 2px 7px;
-  border-radius: 0 4px 0 0;
-  background: color-mix(in srgb, var(--surface-raised) 82%, transparent);
+  padding: 6px 10px;
+  border: 1px solid color-mix(in srgb, var(--line-strong) 75%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
+  box-shadow: var(--shadow);
   color: var(--text);
   font-size: 11px;
   line-height: 1.4;
   pointer-events: none;
 }
+/* Legenda-knop (U107, PO 2026-11-09): één ronde kaartknop rechtsonder boven de bronregel, in elke modus, telefoon
+   en desktop; de legenda opent links ernaast. */
+.map-shell { --legend-bottom: 28px; }
+.map-legend-button {
+  position: absolute;
+  right: calc(12px + env(safe-area-inset-right));
+  bottom: var(--legend-bottom);
+  z-index: 5;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  justify-content: center;
+  color: var(--text);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow);
+}
+.map-legend-button[aria-expanded="true"] { color: var(--accent); }
 /* Eén legendavorm (U107): linksonder, 11 px, vakjes 9 px hoog, eenheid klein aan het eind; klassen hebben een
    vakje met hun naam erachter, een doorlopende schaal tikken tussen de vakjes. Op de telefoon verborgen. */
 .map-legend { font-variant-numeric: tabular-nums; }
@@ -189,6 +211,10 @@ button { color: inherit; cursor: pointer; }
 .feels-legend i { width: 18px; }
 .wind-legend { align-items: flex-start; gap: 10px; }
 .wind-legend > small { align-self: flex-start; }
+.air-legend-sun { color: #e7a900; font-size: 13px; font-weight: 400; line-height: 1; }
+.map-shell.sky-night .air-legend-sun { color: #ffd978; }
+.air-legend-cloud { background: #f4f6f7; box-shadow: inset 0 0 0 1px rgba(16, 38, 48, .25); }
+.air-legend-rain { background: #4a86e8; }
 .wind-zone { display: inline-flex; flex-direction: column; align-items: stretch; gap: 1px; }
 .wind-zone-classes { display: inline-flex; gap: 6px; }
 .wind-zone em { border-top: 1px solid color-mix(in srgb, var(--muted) 45%, transparent); padding-top: 1px; color: var(--muted); font-size: 11px; font-style: normal; text-align: center; }
@@ -1277,13 +1303,13 @@ td small { color: var(--muted); font-size: 9px; }
 .map-clock:hover, .map-clock:focus-within { background: var(--surface-raised); }
 /* Klokpil, zoekbalk en merkdruppel nemen de hemel van het cursoruur aan, zoals de koppenrij (U62, PO
    2026-10-08). De klassen staan op de kaartschil; dialogen staan erbuiten en houden het app-thema. */
-.map-shell:is(.sky-day, .sky-night) :is(.map-clock, .search-box, .map-brand) { transition: background-color .3s ease, border-color .3s ease, color .3s ease; }
-.map-shell.sky-night :is(.map-clock, .search, .map-brand) {
+.map-shell:is(.sky-day, .sky-night) :is(.map-clock, .search-box, .map-brand, .map-legend-button, .map-legend) { transition: background-color .3s ease, border-color .3s ease, color .3s ease; }
+.map-shell.sky-night :is(.map-clock, .search, .map-brand, .map-legend-button, .map-legend) {
   --surface: #0a1820; --surface-soft: #112832; --surface-raised: rgba(10, 24, 32, .96);
   --text: #edf8fc; --muted: #91aab5; --accent: #48c4e9; --accent-soft: #123b49; --line: var(--line-on-dark); --line-strong: var(--line-strong-on-dark);
   color: var(--text);
 }
-.map-shell.sky-day :is(.map-clock, .search, .map-brand) {
+.map-shell.sky-day :is(.map-clock, .search, .map-brand, .map-legend-button, .map-legend) {
   --day-sky: color-mix(in oklab, color-mix(in oklab, var(--table-day-dull) calc(var(--day-overcast) * 74%), var(--table-day-bright)) var(--table-day-mix, 44%), #fff);
   --surface: var(--day-sky); --surface-soft: color-mix(in oklab, var(--day-sky) 82%, #fff); --surface-raised: var(--day-sky);
   --text: #102630; --muted: #3a525c; --accent: #0b607e; --accent-soft: #d9f1f8; --line: var(--line-on-light); --line-strong: var(--line-strong-on-light);
@@ -1477,7 +1503,6 @@ td small { color: var(--muted); font-size: 9px; }
   /* De UV-chip staat linksonder op de kaart (U21: het merk staat rechtsboven). */
   .sidebar-nav { top: calc(var(--map-mobile) - 64px); }
   /* De regenlegenda kost op de telefoon kaart en botst met de bronvermelding; die laatste vervaagt na het begin. */
-  .map-legend { display: none; }
   .map-shell .source { transition: opacity .6s ease; }
   .map-shell.map-source-faded .source { opacity: 0; pointer-events: none; }
 }

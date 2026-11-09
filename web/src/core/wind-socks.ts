@@ -6,7 +6,7 @@ import type { TemperaturePlace } from './temperature.js'
 import { windValue, type WindUnit } from './weather.js'
 import { recordPerfPhase } from './perf.js'
 import { WINDSOCK_ANCHOR_OFFSETS } from './windsock-anchors.js'
-import { drawStyledSock, windsockStyleName, type WindsockStyleName } from './wind-sock-styles.js'
+import { drawSock } from './wind-sock-draw.js'
 import { MapLabelPlacer, type Offset, type Placement } from './map-label-placement.js'
 import { MAP_LABEL_FONT_FAMILY, mapLabelRegime, mapLabelSize, type MapLabelRegime } from './map-labels.js'
 
@@ -33,11 +33,18 @@ interface Sock {
  */
 export const WINDSOCK_FLUTTER_FPS = 30
 
+/**
+ * Wuifbudget (U107): wuiven zonder interactie kost op de telefoon continu een volle canvas per frame. Na
+ * `slowAfterMs` zonder aanraken, scrollen, toetsen, tijdstap of afspelen gaat het naar `slowFps`; na `restAfterMs`
+ * dempt het wuiven in `restFadeMs` uit tot rust (richting en kracht blijven kloppen) en stopt de tekenlus. Buiten
+ * beeld (weggescrold, verborgen tab) tekent de laag niet. Elke interactie zet het weer aan.
+ */
+export const WINDSOCK_IDLE = { slowAfterMs: 30_000, slowFps: 15, restAfterMs: 180_000, restFadeMs: 2_000 } as const
+const ACTIVITY_EVENTS = ['pointerdown', 'pointermove', 'wheel', 'keydown', 'touchstart', 'scroll'] as const
+
 const MERCATOR_RADIUS = 6378137
 
 export interface WindsockLayerOptions {
-  /** Alleen `?dev&zakstijl=`: de tekenstijl (U101 ronde 4, nog niet gekozen). */
-  style: WindsockStyleName
   reducedMotion: () => boolean
   /** Alleen `?dev&windfactor=`: vermenigvuldigt de wind van de zakken, om harde wind te bekijken. */
   speedFactor: number
@@ -81,6 +88,23 @@ export class WindsockLayer {
   private readonly resized = () => { this.layoutDirty = true; this.draw() }
   /** Plaatsnamen staan pas vast als de kaart stilvalt: dan nog één keer opnieuw indelen. */
   private readonly idle = () => { this.layoutDirty = true; this.draw() }
+  /** Laatste interactie (performance.now()), voor het wuifbudget. */
+  private lastActivity = performance.now()
+  private inView = true
+  private readonly visibility = new IntersectionObserver(([entry]) => {
+    const inView = entry?.isIntersecting ?? true
+    if (inView === this.inView) return
+    this.inView = inView
+    if (inView) this.draw()
+    else this.stopAnimation()
+  })
+  private readonly activity = () => {
+    const resting = this.wuifCalm(performance.now()) < 1
+    this.lastActivity = performance.now()
+    // Een rustende of vertraagde lus komt meteen weer op gang.
+    if (resting && this.frame === undefined) this.draw()
+  }
+  private readonly pageVisibility = () => { if (document.visibilityState === 'visible') this.draw(); else this.stopAnimation() }
 
   constructor(private readonly map: MapLibreMap, private readonly options: WindsockLayerOptions) {
     this.canvas = document.createElement('canvas')
@@ -94,6 +118,9 @@ export class WindsockLayer {
     map.on('render', this.mapRendered)
     map.on('resize', this.resized)
     map.on('idle', this.idle)
+    this.visibility.observe(map.getContainer())
+    for (const type of ACTIVITY_EVENTS) window.addEventListener(type, this.activity, { passive: true, capture: true })
+    document.addEventListener('visibilitychange', this.pageVisibility)
     // Canvas tekent niet opnieuw als de webfont binnenkomt: daarna één keer opnieuw.
     void document.fonts?.load(`800 13px ${MAP_LABEL_FONT_FAMILY}`).then(() => this.draw())
   }
@@ -117,6 +144,8 @@ export class WindsockLayer {
   }
 
   setField(field: WindsockField | undefined): void {
+    // Een nieuwe kaarttijd (scrubben, afspelen) is kijken: het wuifbudget begint opnieuw.
+    if (field !== this.field) this.lastActivity = performance.now()
     this.field = field
     this.draw()
   }
@@ -147,6 +176,9 @@ export class WindsockLayer {
     this.map.off('render', this.mapRendered)
     this.map.off('resize', this.resized)
     this.map.off('idle', this.idle)
+    this.visibility.disconnect()
+    for (const type of ACTIVITY_EVENTS) window.removeEventListener(type, this.activity, { capture: true })
+    document.removeEventListener('visibilitychange', this.pageVisibility)
     this.canvas.remove()
   }
 
@@ -182,7 +214,8 @@ export class WindsockLayer {
     context.setTransform(ratio, 0, 0, ratio, 0, 0)
     const bearing = this.map.getBearing()
     const seconds = performance.now() / 1000
-    const animate = !this.options.reducedMotion()
+    const calm = this.wuifCalm(started)
+    const animate = !this.options.reducedMotion() && calm > 0
     // Na een pauze (verborgen tab, Wind net open) of zonder beweging springt de zak direct naar het veld.
     const elapsed = seconds - this.drawnAt
     const snap = !animate || !(elapsed > 0) || elapsed > 1
@@ -210,19 +243,19 @@ export class WindsockLayer {
       }
       const strength = Math.max(0, sock.strength.value)
       if (!snap) sock.wave = advanceWave(sock.wave, strength, elapsed)
-      const flutterBend = animate ? swayBends(strength, sock.wave, seconds, sock.phase) : undefined
+      const flutterBend = animate ? swayBends(strength, sock.wave, seconds, sock.phase).map((bend) => bend * calm) : undefined
       if (flutterBend) fluttering = true
       const base = sock.heading.value
       const headings = compass.map((heading, index) => base + angleDifference(target, heading) - bearing + (flutterBend?.[index] ?? 0))
       const shape = windsockShape(strength, headings, 'kaart')
-      this.drawSock(context, screen.x + sock.placed.dx, screen.y + sock.placed.dy, shape, String(windValue(speed, this.unit)), strength, sock.phase, seconds, size)
+      this.drawSock(context, screen.x + sock.placed.dx, screen.y + sock.placed.dy, shape, String(windValue(speed, this.unit)), size)
       this.drawnCount++
       this.drawnMaxStrength = Math.max(this.drawnMaxStrength, strength)
     }
     recordPerfPhase('windsock-draw', performance.now() - started, { socks: this.drawnCount, fluttering })
     const summary = `${this.drawnCount}|${Math.round(this.drawnMaxStrength * 10) / 10}`
     if (this.canvas.dataset.socks !== summary) this.canvas.dataset.socks = summary
-    if (fluttering || settling) this.scheduleFlutter(started)
+    if ((fluttering || settling) && this.inView && document.visibilityState !== 'hidden') this.scheduleFlutter(started, this.flutterFps(started))
   }
 
   /**
@@ -241,19 +274,16 @@ export class WindsockLayer {
     }
   }
 
-  private drawSock(context: CanvasRenderingContext2D, x: number, y: number, shape: WindsockShape, label: string, strength: number, phase: number, seconds: number, size: number): void {
+  private drawSock(context: CanvasRenderingContext2D, x: number, y: number, shape: WindsockShape, label: string, size: number): void {
     context.save()
     context.translate(x, y)
-    drawStyledSock(this.options.style, {
-      context, shape, badge: windsockBadge(shape, DEFAULT_WINDSOCK_BADGE, label, size), label, strength, phase, seconds,
-      dark: this.dark, fontFamily: MAP_LABEL_FONT_FAMILY,
-    })
+    drawSock({ context, shape, badge: windsockBadge(shape, DEFAULT_WINDSOCK_BADGE, label, size), label, dark: this.dark, fontFamily: MAP_LABEL_FONT_FAMILY })
     context.restore()
   }
 
   /** Volgende trillingsframe, niet vaker dan WINDSOCK_FLUTTER_FPS: elke frame zet de hele canvas opnieuw neer. */
-  private scheduleFlutter(drawnAt: number): void {
-    const wait = drawnAt + 1_000 / WINDSOCK_FLUTTER_FPS - 4 - performance.now()
+  private scheduleFlutter(drawnAt: number, fps: number): void {
+    const wait = drawnAt + 1_000 / fps - 4 - performance.now()
     if (wait > 0) {
       this.delay = window.setTimeout(() => {
         this.delay = undefined
@@ -262,6 +292,16 @@ export class WindsockLayer {
       return
     }
     this.frame = requestAnimationFrame(() => { this.frame = undefined; this.draw() })
+  }
+
+  /** Wuifsterkte 1 → 0 na lang niets doen (WINDSOCK_IDLE). */
+  private wuifCalm(now: number): number {
+    const idle = now - this.lastActivity
+    return Math.max(0, Math.min(1, 1 - (idle - WINDSOCK_IDLE.restAfterMs) / WINDSOCK_IDLE.restFadeMs))
+  }
+
+  private flutterFps(now: number): number {
+    return now - this.lastActivity < WINDSOCK_IDLE.slowAfterMs ? WINDSOCK_FLUTTER_FPS : WINDSOCK_IDLE.slowFps
   }
 
   private stopAnimation(): void {
@@ -276,10 +316,10 @@ export class WindsockLayer {
   }
 }
 
-/** Dev-knoppen (`?dev&zakstijl=`, `&windfactor=`); zonder knop de gekozen windmodus. */
+/** Dev-knoppen (`?dev&windfactor=`, `&regime=`); zonder knop de gekozen windmodus. */
 export function windsockDevOptions(params: URLSearchParams): Omit<WindsockLayerOptions, 'reducedMotion' | 'pin'> {
   const factor = Number(params.get('windfactor'))
-  return { style: windsockStyleName(params.get('zakstijl')), speedFactor: Number.isFinite(factor) && factor > 0 ? factor : 1, regime: mapLabelRegime(params) }
+  return { speedFactor: Number.isFinite(factor) && factor > 0 ? factor : 1, regime: mapLabelRegime(params) }
 }
 
 /** Een rechte zak, alleen om de badgemaat te bepalen (die hangt niet van de vorm af). */

@@ -6,7 +6,7 @@ import { registerSW } from 'virtual:pwa-register'
 import { applyUpdateWhenSafe, browserUpdatePage } from './core/pwa-update'
 import About, { type ThemeChoice } from './components/About'
 import HistogramScrubber from './components/HistogramScrubber'
-import { INLINE_ICON, Star, Sun } from './components/icons'
+import { INLINE_ICON, Palette, Star, Sun } from './components/icons'
 import LocationSearch from './components/LocationSearch'
 import Freshness from './components/Freshness'
 import ClockFace from './components/ClockFace'
@@ -3442,6 +3442,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   })
   // Legenda van de isolijnen binnen de regen (U86): alleen als die lijnen echt op de kaart staan.
   const windLegendVisible = () => windFocus() >= 0.5
+  /**
+   * Eén legenda-knop voor alle modi (PO 2026-11-09, U107): opent en sluit de legenda van de actieve modus. Op de
+   * telefoon begint hij dicht (PO: legenda's daar voorlopig verborgen), op desktop open; niet bewaard.
+   */
+  const [legendOpen, setLegendOpen] = createSignal(!window.matchMedia('(max-width: 959px)').matches)
   const rainIsolineLegend = createMemo(() => rainIsolineClasses(rainColourLook()).map((band) => ({
     label: band.from === undefined ? `<${band.to!.toLocaleString('nl-NL')}`
       : band.to === undefined ? `${band.from.toLocaleString('nl-NL')}+`
@@ -3457,6 +3462,13 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       const from = FIXED_SCALE_LEGEND[index]!
       return { from, to: value, background: cssGradient(from, value, stops) }
     })
+  })
+  const activeLegend = createMemo((): FocusKind | undefined => {
+    if (windLegendVisible()) return 'wind'
+    const mode = focusPinned()
+    if (mode === 'weather') return rainIsolineLegend().length ? 'weather' : undefined
+    if (mode === 'temperature') return feelsLegend().length ? 'temperature' : undefined
+    return mode === 'air' ? 'air' : undefined
   })
   const cloudTimelines = createMemo(() => Object.fromEntries(CLOUD_LAYERS.map((layer) =>
     [layer, manifest() ? buildTimeline(manifest()!, `cloud_${layer}`) : []])) as Record<CloudLayer, TimelineFrame[]>)
@@ -3715,8 +3727,14 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         </div>
         <footer class="still-attribution">KNMI · © OpenStreetMap</footer>
       </Show>
-      <Show when={!stillMode && windLegendVisible()}>
-        <aside class="map-legend wind-legend" aria-label="Windkracht in Beaufort">
+      <Show when={!stillMode && activeLegend()}>
+        <button type="button" class="map-legend-button round-action" aria-controls="map-legend" aria-expanded={legendOpen()}
+          aria-label={legendOpen() ? 'Legenda verbergen' : 'Legenda tonen'} title="Legenda" onClick={() => setLegendOpen((open) => !open)}>
+          <Palette size={20} strokeWidth={1.75} />
+        </button>
+      </Show>
+      <Show when={!stillMode && legendOpen() && activeLegend() === 'wind'}>
+        <aside id="map-legend" class="map-legend wind-legend" aria-label="Windkracht in Beaufort">
           <For each={BEAUFORT_FEEL_ZONES}>{(zone) => <span class="wind-zone">
             <span class="wind-zone-classes"><For each={BEAUFORT_LEGEND.slice(zone.from, zone.to + 1)}>{(entry, index) =>
               // Een minimum, anders zijn de bijna doorzichtige "lekker"-klassen in de legenda onzichtbaar.
@@ -3726,14 +3744,21 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           <small>Bft</small>
         </aside>
       </Show>
-      <Show when={!stillMode && focusPinned() === 'weather' && rainIsolineLegend().length > 0}>
-        <aside class="map-legend rain-isoline-legend" aria-label="Isolijnen in de regen">
+      <Show when={!stillMode && legendOpen() && activeLegend() === 'weather'}>
+        <aside id="map-legend" class="map-legend rain-isoline-legend" aria-label="Isolijnen in de regen">
           <For each={rainIsolineLegend()}>{(band) => <span><i style={{ background: band.fill, 'border-left-color': band.line }} />{band.label}</span>}</For>
           <small>mm/u</small>
         </aside>
       </Show>
-      <Show when={!stillMode && focusPinned() === 'temperature' && feelsLegend().length > 0}>
-        <aside class="map-legend feels-legend" aria-label="Kleurschaal gevoelstemperatuur">
+      <Show when={!stillMode && legendOpen() && activeLegend() === 'air'}>
+        <aside id="map-legend" class="map-legend air-legend" aria-label="Zon en wolken">
+          <span><b class="air-legend-sun" aria-hidden="true">☀</b>zon</span>
+          <span><i class="air-legend-cloud" />wolken</span>
+          <span><i class="air-legend-rain" />regen</span>
+        </aside>
+      </Show>
+      <Show when={!stillMode && legendOpen() && activeLegend() === 'temperature'}>
+        <aside id="map-legend" class="map-legend feels-legend" aria-label="Kleurschaal gevoelstemperatuur">
           <span>{FIXED_SCALE_LEGEND[0]}</span>
           <For each={feelsLegend()}>{(segment, index) => <>
             <i style={{ background: segment.background }} />

@@ -6,6 +6,7 @@ import { join } from 'node:path'
 // inventaris- en voor/na-blad. Eén vaste kaarttijd (manifest-nu + 1 u, of --t).
 // usage: pnpm exec tsx scripts/kaartstijl-shot.ts ORIGIN OUT_DIR [EXTRA-QUERY] [TIJD-ISO]
 //   SHOT_MODES=wind,gevoel en SHOT_PROFILES=telefoon beperken de matrix; SHOT_THEMES=licht idem.
+//   SHOT_LEGEND=open klikt de legenda-knop open waar hij dicht is (telefoon).
 const [origin, outDir, extra = '', fixedTime] = process.argv.slice(2)
 if (!origin || !outDir) throw new Error('usage: pnpm exec tsx scripts/kaartstijl-shot.ts ORIGIN OUT_DIR [EXTRA-QUERY] [TIJD-ISO]')
 mkdirSync(outDir, { recursive: true })
@@ -50,5 +51,10 @@ async function settle(page: Page, mode: string): Promise<void> {
   await page.mouse.move(5, 5)
   if (mode === 'wind') await page.waitForFunction(() => Number(document.querySelector<HTMLElement>('.map-overlay-windsocks')?.dataset.socks?.split('|')[0]) > 0)
   if (mode === 'gevoel') await page.waitForFunction(() => document.querySelectorAll('.temperature-number').length > 0)
+  const legend = page.locator('.map-legend-button[aria-expanded="false"]')
+  if (process.env.SHOT_LEGEND === 'open' && await legend.isVisible().catch(() => false)) {
+    await legend.click()
+    await page.mouse.move(5, 5)
+  }
   await page.waitForTimeout(4_000)
 }
