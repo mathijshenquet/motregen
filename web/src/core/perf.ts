@@ -124,6 +124,7 @@ export const PERF_PHASES = [
   'scrubber-paint',
   'table-render',
   'basemap-tile',
+  'windsock-draw',
 ] as const
 
 export type PerfPhase = typeof PERF_PHASES[number]

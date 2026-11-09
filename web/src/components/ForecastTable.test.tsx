@@ -293,13 +293,13 @@ describe('forecast table cells', () => {
     expect(amounts).toEqual([null, null, '0,35 mm/u', '1,3 mm/u'])
   })
 
-  it('point the wind arrow where the wind blows to, with the direction in the label', () => {
+  it('point the windsock where the wind blows to, with the direction in the label', () => {
     renderTable()
     const reading = document.querySelector('.wind-reading')!
-    // u = 3, v = 1: wind uit het westzuidwesten, dus de pijl wijst naar het oostnoordoosten.
+    // u = 3, v = 1: wind uit het westzuidwesten, dus de zak wijst naar het oostnoordoosten.
     expect(reading.getAttribute('aria-label')).toBe('Wind uit W, 2 Bft, windstoten tot 5 Bft')
-    const angle = Number(/rotate\(([\d.]+)deg\)/.exec(reading.querySelector<SVGElement>('.wind-arrow')!.style.transform)![1])
-    expect(angle).toBeCloseTo(71.6, 1)
+    const angle = Number(/rotate\(([\d.]+)deg\)/.exec(reading.querySelector<SVGElement>('.wind-glyph')!.style.transform)![1])
+    expect(angle).toBe(72)
   })
 
   it('show the gust small behind the mean wind, in the chosen unit', () => {

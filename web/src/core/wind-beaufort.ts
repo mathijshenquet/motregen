@@ -1,4 +1,4 @@
-import type { Grid, MrfHeader } from './contract.js'
+import type { MrfHeader } from './contract.js'
 import type { PaletteStops, Rgb } from './temperature-palette.js'
 import { temperaturePlaces, type TemperaturePlace } from './temperature.js'
 
@@ -96,70 +96,7 @@ export function windVaneSpacingPx(width: number, height: number): number {
   return Math.round(Math.max(minimumPx, Math.min(maximumPx, Math.min(width, height) * viewportFraction)))
 }
 
-export interface WindVane {
-  name: string
-  lng: number
-  lat: number
-  force: number
-  /** Kompasrichting waar de wind heen waait, in graden met de klok mee vanaf noord (zoals de deeltjes). */
-  towardDegrees: number
-  speed: number
-}
-
-/** Gemiddelde wind per plaats, lineair gemengd tussen twee uurframes (u,v om en om, m/s). */
-export function windVanes(left: Float32Array, right: Float32Array, grid: Grid, mix: number, places: readonly TemperaturePlace[]): WindVane[] {
-  const vanes: WindVane[] = []
-  for (const place of places) {
-    const index = gridIndex(grid, place.lng, place.lat)
-    if (index == null) continue
-    const east = left[index * 2]! * (1 - mix) + right[index * 2]! * mix
-    const north = left[index * 2 + 1]! * (1 - mix) + right[index * 2 + 1]! * mix
-    if (!Number.isFinite(east) || !Number.isFinite(north)) continue
-    const speed = Math.hypot(east, north)
-    const towardDegrees = (Math.atan2(east, north) * 180 / Math.PI + 360) % 360
-    vanes.push({ name: place.name, lng: place.lng, lat: place.lat, force: beaufortNumber(speed), towardDegrees, speed })
-  }
-  return vanes
-}
-
-function gridIndex(grid: Grid, lng: number, lat: number): number | undefined {
-  const radius = 6378137
-  const x = lng * Math.PI / 180 * radius
-  const y = Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)) * radius
-  const column = Math.floor((x - grid.x0) / grid.dx)
-  const row = Math.floor((y - grid.y0) / grid.dy)
-  if (column < 0 || row < 0 || column >= grid.width || row >= grid.height) return undefined
-  return row * grid.width + column
-}
-
-/** Proefvarianten van de windmodus achter `?dev&wind=<naam>` (U101); zonder parameter de huidige windmodus. */
-export interface WindLook {
-  /** Beaufortvlakken; zonder vlakken dragen de grenslijnen een label. */
-  fill: boolean
-  particles: 'normaal' | 'dun' | 'uit'
-  vanes: 'vast' | 'groot' | 'windkracht'
-}
-
-export const WIND_LOOKS = {
-  vlakken: { fill: true, particles: 'dun', vanes: 'vast' },
-  'vlakken-zonder-deeltjes': { fill: true, particles: 'uit', vanes: 'vast' },
-  lijnen: { fill: false, particles: 'normaal', vanes: 'groot' },
-  pijlen: { fill: true, particles: 'uit', vanes: 'windkracht' },
-} as const satisfies Record<string, WindLook>
-
-export type WindLookName = keyof typeof WIND_LOOKS
-
-export function windLookName(value: string | null): WindLookName | undefined {
-  return value && value in WIND_LOOKS ? value as WindLookName : undefined
-}
-
-/** `?dev&vaan=<glyph>` zonder `wind=` staat bovenop de vlakken (ronde 2 van U101). */
-export function windLookFromSearch(search: string): WindLookName | undefined {
-  const params = new URLSearchParams(search)
-  return windLookName(params.get('wind')) ?? (params.has('vaan') ? 'vlakken' : undefined)
-}
-
-/** Deeltjes in een proefvariant: lijnbreedte- en zichtbaarheidsfactor bij volle windfocus. */
+/** Lijnbreedtefactor van de deeltjes bij volle windfocus: ze geven beweging, de vlakken en zakken de waarde. */
 export const WIND_THIN_PARTICLE_WIDTH = 0.55
 /** Dekking van de Beaufortvlakken; veel hoger dan Gevoel (0,35), want de klasse moet zonder legenda leesbaar zijn. */
 export const WIND_FILL_OPACITY = 0.65

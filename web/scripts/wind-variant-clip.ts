@@ -3,35 +3,51 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, readdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 
-// Korte clip (≤ 8 s) van een windmodus-variant tijdens afspelen, telefoonformaat (track U101).
-// usage: pnpm exec tsx scripts/wind-variant-clip.ts ORIGIN OUT_DIR TIJD VARIANT
-const [origin, outDir, time, variant] = process.argv.slice(2)
-if (!origin || !outDir || !time || !variant) throw new Error('usage: pnpm exec tsx scripts/wind-variant-clip.ts ORIGIN OUT_DIR TIJD VARIANT')
-const rawDir = join(outDir, `.clip-${variant}`)
+// Korte clip (≤ 8 s) van de windmodus, telefoonformaat (track U101): drie seconden afspelen, dan heen en terug
+// scrubben.
+// usage: pnpm exec tsx scripts/wind-variant-clip.ts ORIGIN OUT_DIR TIJD NAAM [DEV-QUERY]
+//   bv. `storm windfactor=2.2` voor harde wind als de data hem niet heeft.
+const [origin, outDir, time, name, query] = process.argv.slice(2)
+if (!origin || !outDir || !time || !name) throw new Error('usage: pnpm exec tsx scripts/wind-variant-clip.ts ORIGIN OUT_DIR TIJD NAAM [DEV-QUERY]')
+const rawDir = join(outDir, `.clip-${name}`)
 rmSync(rawDir, { recursive: true, force: true })
 mkdirSync(rawDir, { recursive: true })
 const browser = await chromium.launch({ headless: true, args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] })
 const viewport = { width: 402, height: 844 }
-const context = await browser.newContext({ viewport, deviceScaleFactor: 2, hasTouch: true, isMobile: true, timezoneId: 'Europe/Amsterdam', recordVideo: { dir: rawDir, size: viewport } })
+const context = await browser.newContext({ viewport, deviceScaleFactor: 2, timezoneId: 'Europe/Amsterdam', recordVideo: { dir: rawDir, size: viewport } })
 const page = await context.newPage()
 page.setDefaultTimeout(120_000)
-await page.goto(new URL(`/wind?dev&wind=${variant}&t=${time}`, origin).href)
+await page.goto(new URL(`/wind?dev${query ? `&${query}` : ''}&t=${time}`, origin).href)
 await page.locator('.scrubber-placeholder').waitFor({ state: 'detached' })
 await page.locator('.freshness-close').click()
 await page.locator('details:has(> summary:text-is("Dev-opties"))').evaluate((element) => { (element as HTMLDetailsElement).open = false })
-await page.locator('.wind-vane').first().waitFor({ state: 'attached' })
+await page.locator('.map-overlay-windsocks[data-socks]').waitFor({ state: 'attached' })
 await page.waitForTimeout(5_000)
-const playStartedMs = Date.now()
 await page.getByRole('button', { name: 'Afspelen' }).first().click()
-await page.waitForTimeout(8_000)
-const recordedMs = await page.evaluate(() => performance.now())
+await page.waitForTimeout(3_000)
+const surface = await page.locator('.scrub-surface').boundingBox()
+if (!surface) throw new Error('Geen scrubber')
+const y = surface.y + surface.height / 2, middle = surface.x + surface.width / 2
+await page.mouse.move(middle, y)
+await page.mouse.down()
+// Een paar uur terug en weer vooruit, in ~5 s.
+let pointerX = middle
+for (const target of [middle + 160, middle - 120, middle + 40]) {
+  const steps = 30
+  for (let step = 1; step <= steps; step++) {
+    await page.mouse.move(pointerX + (target - pointerX) * step / steps, y)
+    await page.waitForTimeout(25)
+  }
+  pointerX = target
+}
+await page.mouse.up()
+await page.waitForTimeout(1_000)
 await context.close()
 await browser.close()
-const raw = readdirSync(rawDir).find((name) => name.endsWith('.webm'))
+const raw = readdirSync(rawDir).find((file) => file.endsWith('.webm'))
 if (!raw) throw new Error('Geen video opgenomen')
-// Alleen de 8 s na de klik op afspelen.
-const skipSeconds = Math.max(0, recordedMs / 1000 - (Date.now() - playStartedMs) / 1000)
-const output = join(outDir, `${variant}-afspelen.mp4`)
-execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-ss', skipSeconds.toFixed(2), '-i', join(rawDir, raw), '-t', '8', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '28', '-movflags', '+faststart', output])
+const output = join(outDir, `${name}-afspelen-scrubben.mp4`)
+// De laatste 8 s: afspelen en scrubben samen duren zo lang, en de webm-tijd loopt niet gelijk met de paginaklok.
+execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-sseof', '-8', '-i', join(rawDir, raw), '-t', '8', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '28', '-movflags', '+faststart', output])
 rmSync(rawDir, { recursive: true, force: true })
 console.log(output)

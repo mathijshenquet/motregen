@@ -1,36 +1,44 @@
 import { describe, expect, it } from 'vitest'
-import { windGlyph, windGlyphName, windGlyphSvg } from './wind-glyph'
+import { uprightTextAngle, WINDSOCK_SAMPLES, windsockShape, windsockSvg } from './wind-glyph'
 
-const inkSegments = (body: string) => (/class="glyph-ink-line" d="([^"]*)"/.exec(body)?.[1] ?? '').split('M').length - 1
+const straight = (degrees: number) => Array<number>(WINDSOCK_SAMPLES + 1).fill(degrees)
+const tipOf = (strength: number, degrees = 0) => windsockShape(strength, straight(degrees), 'kaart').axis.at(-1)!
 
-describe('windveer', () => {
-  it('telt halve veren als 1 Bft, hele als 2 Bft en een vaantje als 10 Bft', () => {
-    expect(inkSegments(windGlyph('veer', 1, 'kaart').body)).toBe(2) // staf + halve
-    expect(inkSegments(windGlyph('veer', 5, 'kaart').body)).toBe(4) // staf + 2 hele + halve
-    expect(windGlyph('veer', 5, 'kaart').body).not.toContain('class="glyph-ink" d=')
-    expect(windGlyph('veer', 11, 'kaart').body).toContain('class="glyph-ink" d=')
+describe('windzak', () => {
+  it('wordt langer en rechter met de windkracht, tot hij bij 5 Bft vol staat', () => {
+    const [calmX, calmY] = tipOf(1), [fullX, fullY] = tipOf(5)
+    expect(Math.hypot(fullX, fullY)).toBeGreaterThan(Math.hypot(calmX, calmY) * 1.5)
+    // Slap buigt hij af; vol staat hij recht naar boven ("heen").
+    expect(calmX).toBeGreaterThan(2)
+    expect(fullX).toBeCloseTo(0, 6)
+    expect(tipOf(5)).toEqual(tipOf(9))
   })
 
-  it('tekent bij windstilte alleen het kringetje', () => {
-    expect(windGlyph('veer', 0, 'kaart').body).toContain('<circle class="glyph-ink-line"')
+  it('volgt de schermhoek per asstuk', () => {
+    const [eastX, eastY] = tipOf(5, 90)
+    expect(eastX).toBeGreaterThan(40)
+    expect(eastY).toBeCloseTo(0, 6)
+    const bent = windsockShape(5, straight(0).map((_, index) => index * 3), 'kaart')
+    expect(bent.headings.at(-1)).toBeCloseTo(60, 6)
+  })
+
+  it('houdt de tabelzak in vijf banden binnen het vak', () => {
+    const svg = windsockSvg(3, 71.6)
+    expect(svg.match(/sock-orange/g)).toHaveLength(3)
+    expect(svg.match(/sock-white/g)).toHaveLength(2)
+    expect(svg).toContain('rotate(72deg)')
+    const coordinates = [...svg.matchAll(/[ML]([\d.-]+) ([\d.-]+)/g)].flatMap((match) => [Number(match[1]), Number(match[2])])
+    expect(Math.min(...coordinates)).toBeGreaterThanOrEqual(0)
+    expect(Math.max(...coordinates)).toBeLessThanOrEqual(24)
   })
 })
 
-describe('glyphs', () => {
-  it('houdt de windzak bij vijf banden, oranje-wit', () => {
-    const body = windGlyph('windzak', 3, 'kaart').body
-    expect(body.match(/sock-orange/g)).toHaveLength(3)
-    expect(body.match(/sock-white/g)).toHaveLength(2)
-  })
-
-  it('past in de tabelcel van 24 px en draait naar de windrichting', () => {
-    for (const name of ['veer', 'windzak', 'komeet'] as const) expect(windGlyph(name, 6, 'tabel').box).toBeLessThanOrEqual(24)
-    expect(windGlyphSvg('komeet', 3, 'tabel', 271.6)).toContain('rotate(272deg)')
-  })
-
-  it('kent alleen de drie varianten', () => {
-    expect(windGlyphName('windzak')).toBe('windzak')
-    expect(windGlyphName('pijl')).toBeUndefined()
-    expect(windGlyphName(null)).toBeUndefined()
+describe('getal op de zak', () => {
+  it('staat langs de as en nooit ondersteboven', () => {
+    expect(uprightTextAngle(90)).toBe(0) // zak naar het oosten: tekst gewoon horizontaal
+    expect(uprightTextAngle(270)).toBe(0) // naar het westen: geflipt, niet op zijn kop
+    expect(uprightTextAngle(0)).toBe(-90)
+    expect(uprightTextAngle(180)).toBe(90)
+    for (let heading = -360; heading <= 720; heading += 7) expect(Math.abs(uprightTextAngle(heading))).toBeLessThanOrEqual(90)
   })
 })
