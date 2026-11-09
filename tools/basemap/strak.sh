@@ -11,10 +11,13 @@ base="tools/basemap/tiles/$(jq -r .filename tools/basemap/tiles/manifest.json)"
 
 (cd web && node --import tsx ../tools/basemap/extract-layer.mts "../$base" 10 landcover "../$scratch/landcover-z10.geojsonl")
 rm -f "$scratch/source.gpkg"
-ogr2ogr -f GPKG "$scratch/source.gpkg" "$scratch/landcover-z10.geojsonl" -nln cover -a_srs EPSG:3857 -nlt MULTIPOLYGON
+# Uitgesplitst per deel en daarna samengevoegd (een echte OF over overlappende tegelstukken). Geldig maken met
+# GEOSMakeValid: SpatiaLite's ST_MakeValid (rttopo) gaf voor zelfrakende zeepolygonen een collectie zonder vlak, en
+# verloor zo 60 % van het ongeldige wateroppervlak (hele zeestukken weg) en 14 % van de ongeldige landbedekking.
+ogr2ogr -f GPKG "$scratch/source.gpkg" "$scratch/landcover-z10.geojsonl" -nln cover -a_srs EPSG:3857 -nlt POLYGON -explodecollections
 for zoom in 5 6 7 8; do
   (cd web && node --import tsx ../tools/basemap/extract-layer.mts "../$base" "$zoom" water "../$scratch/water-z$zoom.geojsonl")
-  ogr2ogr -f GPKG -update "$scratch/source.gpkg" "$scratch/water-z$zoom.geojsonl" -nln "water$zoom" -a_srs EPSG:3857 -nlt MULTIPOLYGON
+  ogr2ogr -f GPKG -update "$scratch/source.gpkg" "$scratch/water-z$zoom.geojsonl" -nln "water$zoom" -a_srs EPSG:3857 -nlt POLYGON -explodecollections
 done
 
 rm -f "$scratch/strak.gpkg"
@@ -32,12 +35,12 @@ for zoom in 5 6 7 8 9; do
   for class in urban wood park; do
     if [ "$class" = wood ] && [ "$zoom" -lt 7 ]; then continue; fi
     smooth="$(awk -v p="$px" 'BEGIN { print p * 0.3 }')"
-    add "landcover$zoom$class" "SELECT ST_SimplifyPreserveTopology(ST_Buffer(ST_Buffer(ST_UnaryUnion(ST_Collect(ST_Buffer(ST_CollectionExtract(ST_MakeValid(geom), 3), $smooth, 2))), -2 * $smooth, 2), $smooth, 2), $px * 0.5) AS geom, '$class' AS class, $zoom AS detail_minzoom FROM cover WHERE class = '$class' AND detail_minzoom <= $zoom GROUP BY CAST(ST_X(ST_Centroid(geom)) / ($px * 64) AS INTEGER), CAST(ST_Y(ST_Centroid(geom)) / ($px * 64) AS INTEGER)"
+    add "landcover$zoom$class" "SELECT ST_SimplifyPreserveTopology(ST_Buffer(ST_Buffer(ST_UnaryUnion(ST_Collect(ST_Buffer(ST_CollectionExtract(GEOSMakeValid(geom), 3), $smooth, 2))), -2 * $smooth, 2), $smooth, 2), $px * 0.5) AS geom, '$class' AS class, $zoom AS detail_minzoom FROM cover WHERE class = '$class' AND detail_minzoom <= $zoom GROUP BY CAST(ST_X(ST_Centroid(geom)) / ($px * 64) AS INTEGER), CAST(ST_Y(ST_Centroid(geom)) / ($px * 64) AS INTEGER)"
   done
   if [ "$zoom" = 9 ]; then
-    add "landcover9rest" "SELECT ST_SimplifyPreserveTopology(ST_UnaryUnion(ST_Collect(ST_CollectionExtract(ST_MakeValid(geom), 3))), $px * 0.5) AS geom, class, 9 AS detail_minzoom FROM cover WHERE class IN ('grass', 'sand', 'wetland') AND detail_minzoom <= 9 GROUP BY class, CAST(ST_X(ST_Centroid(geom)) / ($px * 64) AS INTEGER), CAST(ST_Y(ST_Centroid(geom)) / ($px * 64) AS INTEGER)"
+    add "landcover9rest" "SELECT ST_SimplifyPreserveTopology(ST_UnaryUnion(ST_Collect(ST_CollectionExtract(GEOSMakeValid(geom), 3))), $px * 0.5) AS geom, class, 9 AS detail_minzoom FROM cover WHERE class IN ('grass', 'sand', 'wetland') AND detail_minzoom <= 9 GROUP BY class, CAST(ST_X(ST_Centroid(geom)) / ($px * 64) AS INTEGER), CAST(ST_Y(ST_Centroid(geom)) / ($px * 64) AS INTEGER)"
   else
-    add "water$zoom" "SELECT geom FROM water$zoom"
+    add "water$zoom" "SELECT ST_UnaryUnion(ST_Collect(ST_CollectionExtract(GEOSMakeValid(geom), 3))) AS geom FROM water$zoom GROUP BY CAST(ST_X(ST_Centroid(geom)) / ($px * 64) AS INTEGER), CAST(ST_Y(ST_Centroid(geom)) / ($px * 64) AS INTEGER)"
   fi
 done
 # Kleine stukken weg (na het uitsplitsen per deel): landbedekking < 3 px², plassen < 2 px².

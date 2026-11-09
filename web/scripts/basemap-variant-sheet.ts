@@ -46,6 +46,11 @@ for (const variant of VARIANTS) {
     height: HEIGHTS.desktop,
     paths: ['telefoon-light', 'telefoon-dark', 'desktop-light', 'desktop-dark'].map((key) => join(shots, `${variant}-${key}-z${zoom}.png`)),
   }))
+  for (const zoom of [7, 8]) rows.push({
+    title: `${variant} · zoom ${zoom} · Wadden`,
+    height: HEIGHTS.desktop,
+    paths: ['telefoon-light', 'telefoon-dark', 'desktop-light', 'desktop-dark'].map((key) => join(shots, `${variant}-${key}-z${zoom}-wadden.png`)),
+  })
   rows.push({
     title: `${variant} · zoom 7 · Gevoel en Wind (desktop)`,
     height: HEIGHTS.desktop,
@@ -58,6 +63,6 @@ for (const variant of VARIANTS) {
   })
   await grid(rows, COLUMNS, `blad-${variant}.png`)
 }
-for (const key of ['telefoon-light-z6', 'telefoon-light-z7', 'telefoon-dark-z7', 'desktop-light-z7', 'desktop-light-z8', 'desktop-dark-z8', 'desktop-light-z10', 'desktop-light-z7-gevoel', 'desktop-dark-z7-wind']) {
+for (const key of ['telefoon-light-z6', 'telefoon-light-z7', 'telefoon-dark-z7', 'desktop-light-z7', 'desktop-light-z8', 'desktop-dark-z8', 'desktop-light-z10', 'telefoon-light-z7-wadden', 'desktop-light-z8-wadden', 'desktop-dark-z8-wadden', 'desktop-light-z7-gevoel', 'desktop-dark-z7-wind']) {
   await grid([{ title: key, height: 640, paths: VARIANTS.map((variant) => join(shots, `${variant}-${key}.png`)) }], VARIANTS, `strook-${key}.png`)
 }

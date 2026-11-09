@@ -41,15 +41,20 @@ for (const id of ids) {
       +(-WORLD / 2 + (x + point.x / feature.extent) * size).toFixed(1),
       +(WORLD / 2 - (y + point.y / feature.extent) * size).toFixed(1),
     ]))
-    // MVT-ringen: na de omzetting naar y-omhoog is een buitenring tegen de klok in (negatief in deze som), een gat positief. Per buitenring een
-    // polygoon met de gaten die erop volgen.
+    // Indelen zoals MapLibre (classifyRings): een ring met hetzelfde teken als de eerste ring begint een polygoon, een
+    // ring met het andere teken is een gat. Een vast teken klopte niet: na de y-omkering keerde het, en eilanden (gaten
+    // in de zee) werden zo zelf watervlakken.
     const polygons: number[][][][] = []
+    let exteriorSign = 0
     for (const ring of rings) {
       let area = 0
       for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) area += (ring[j]![0]! - ring[i]![0]!) * (ring[j]![1]! + ring[i]![1]!)
-      if (area < 0 || polygons.length === 0) polygons.push([ring])
+      if (area === 0) continue
+      if (exteriorSign === 0) exteriorSign = Math.sign(area)
+      if (Math.sign(area) === exteriorSign) polygons.push([ring])
       else polygons.at(-1)!.push(ring)
     }
+    if (polygons.length === 0) continue
     out.write(`${JSON.stringify({ type: 'Feature', properties: feature.properties, geometry: { type: 'MultiPolygon', coordinates: polygons } })}\n`)
     features++
   }

@@ -14,14 +14,24 @@ gelijk.
 
 | NL-kader, alle lagen | `nu` | `strak` | verschil |
 | --- | ---: | ---: | ---: |
-| z6 | 171 KB · 98.065 vertices | 63 KB · 26.012 vertices | −63 % · −73 % |
-| z7 | 640 KB · 401.687 vertices | 164 KB · 75.788 vertices | −74 % · −81 % |
-| z8 | 1,49 MB · 879.326 vertices | 434 KB · 202.676 vertices | −71 % · −77 % |
-| z9 | 3,07 MB · 1.661.566 vertices | 1,62 MB · 714.509 vertices | −47 % · −57 % |
+| z6 | 171 KB · 98.065 vertices | 64 KB · 25.463 vertices | −63 % · −74 % |
+| z7 | 640 KB · 401.687 vertices | 159 KB · 71.534 vertices | −75 % · −82 % |
+| z8 | 1,49 MB · 879.326 vertices | 425 KB · 196.742 vertices | −71 % · −78 % |
+| z9 | 3,07 MB · 1.661.566 vertices | 1,65 MB · 732.766 vertices | −46 % · −56 % |
 
-Koud laden op de telefoon (alleen kaarttegels): startbeeld 61.556 → 35.024 B (−43 %), z7 416.404 → 135.905 B
-(−67 %), z8 461.841 → 170.630 B (−63 %). Gemeten met `tools/basemap/layer-cost.mts` (gzip per laag) en
-`web/scripts/basemap-variant-shots.ts`. Het archief krimpt van 24,3 naar 19,5 MB (`nl-bd431852530a7df7.pmtiles`).
+Koud laden op de telefoon (alleen kaarttegels): startbeeld 61.556 → 35.318 B (−43 %), z7 416.404 → 132.306 B
+(−68 %), z8 461.841 → 165.023 B (−64 %). Gemeten met `tools/basemap/layer-cost.mts` (gzip per laag) en
+`web/scripts/basemap-variant-shots.ts`. Het archief krimpt van 24,3 naar 19,6 MB (`nl-e44c7d3ce88034d7.pmtiles`).
+
+**Correctie 2026-11-09 (PO-bug: Waddeneilanden weg op z5–8).** Twee fouten in het uitlezen en geldig maken:
+(1) `extract-layer.mts` deelde ringen in op een vast teken, en dat teken keert om na de y-omkering. Gaten in de
+zeepolygoon (eilanden) werden zo zelf watervlakken. Nu wordt relatief aan de eerste ring ingedeeld, zoals MapLibre doet.
+(2) SpatiaLite's `ST_MakeValid` (rttopo) gaf voor zelfrakende zeepolygonen een collectie zonder vlak, waardoor hele
+zeestukken wegvielen. Het verloor 60 % van het ongeldige wateroppervlak en 14 % van de ongeldige landbedekking; nu
+`GEOSMakeValid`. Nieuwe automatische controle `tools/basemap/coast-check.mts`: landoppervlak per eiland of kustgebied
+(22 gebieden × z5–10) tegen het origineel. Hij faalt bij meer dan 10 % verlies of 25 % winst; nu 132/132 groen, blad
+`bladen/strak/blad-kust.jpg`. Schiermonnikoog ontbreekt op z7 al in het **huidige** prod-archief (tilemaker);
+`strak` erft dat.
 
 **Hoe `strak` ontstaat** (`tools/basemap/strak.sh`, ±5 min, geen OSM-herbouw nodig):
 1. `extract-layer.mts` leest landbedekking uit de z10-tegels en water uit de tegels van z5–8 van het huidige archief.
