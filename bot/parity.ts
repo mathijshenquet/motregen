@@ -2,7 +2,8 @@ import { chromium } from 'playwright'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import sharp from 'sharp'
-import { FRAME, FRAME_PIXELS } from './config.js'
+import { FRAME, FRAME_PIXELS, FRAME_VIEWPORT } from './config.js'
+import { frameScreenshot } from './frame-capture.js'
 import { openRenderPage } from './render-open.js'
 import { NativeOverlay } from './native-overlay.js'
 import { drawTemperatureLabels } from './native-labels.js'
@@ -32,6 +33,9 @@ const origin = process.env.MOTREGEN_ORIGIN ?? 'https://motregen.nl'
 const referenceOrigin = process.env.MOTREGEN_PARITY_ORIGIN ?? origin
 const now = Date.parse(manifest.now)
 const limits = { mean: 0.5, maximum: 20, mapMean: 0.35, mapMaximum: 8 }
+// Kaart zonder overlays: onder het klokpaneel van de bot (tot rij 261) en boven de voetregel van de app-referentie
+// (vanaf rij 1111, op FRAME 1,5× groot), sinds U103.
+const mapRows = { first: 270, last: 1100 }
 const windLimits = { components: 0.1, meanLength: 0.1, meanWidth: 0.1, ink: 0.2 }
 const windPhases = [1000, 3000, 5000, 7000, 9000]
 function averageWind(samples: WindMetrics[]): WindMetrics {
@@ -46,7 +50,7 @@ function averageWind(samples: WindMetrics[]): WindMetrics {
 const browser = await chromium.launch({ executablePath: process.env.MOTREGEN_CHROMIUM_PATH, args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] })
 try {
   await mkdir(outputDirectory, { recursive: true })
-  const context = await browser.newContext({ viewport: FRAME, deviceScaleFactor: FRAME.scale, locale: 'nl-NL', timezoneId: 'Europe/Amsterdam', reducedMotion: 'reduce', serviceWorkers: 'block' })
+  const context = await browser.newContext({ viewport: FRAME_VIEWPORT, deviceScaleFactor: FRAME.scale, locale: 'nl-NL', timezoneId: 'Europe/Amsterdam', reducedMotion: 'reduce', serviceWorkers: 'block' })
   let page = await context.newPage()
   const cache = process.env.MOTREGEN_RENDER_CACHE ?? '../tmp/u71a-parity'
   const data = new NativeRainData(origin, manifest)
@@ -91,7 +95,7 @@ try {
     const columnShift = (nativeCenter.x - FRAME.width / 2) * FRAME.scale
     if (Math.abs(columnShift) > 0.5) throw new Error(`App-kader wijkt horizontaal ${columnShift.toFixed(1)} px af`)
     const rowShift = Math.round((nativeCenter.y - FRAME.height / 2) * FRAME.scale)
-    const reference = await page.screenshot()
+    const reference = await frameScreenshot(await page.screenshot())
     const referenceRgb = await sharp(reference).removeAlpha().raw().toBuffer()
     let rgb: Buffer
     const theme = rainTheme(epoch)
@@ -114,7 +118,7 @@ try {
     const rows = (image: Uint8Array, first: number, last: number) => image.subarray(first * rowBytes, last * rowBytes)
     const firstRow = Math.max(0, -rowShift), lastRow = Math.min(FRAME_PIXELS.height, FRAME_PIXELS.height - rowShift)
     const total = colorDifference(rows(referenceRgb, firstRow + rowShift, lastRow + rowShift), rows(rgb, firstRow, lastRow))
-    const map = colorDifference(rows(referenceRgb, 130 + rowShift, 1197 + rowShift), rows(rgb, 130, 1197))
+    const map = colorDifference(rows(referenceRgb, mapRows.first + rowShift, mapRows.last + rowShift), rows(rgb, mapRows.first, mapRows.last))
     let comparedTotal = total, comparedMap = map
     let wind
     if (mode === 'wind') {
@@ -139,8 +143,8 @@ try {
       const difference = (metric: keyof WindMetrics) => Math.abs(nativeMetrics[metric] - browserMetrics[metric]) / Math.max(1e-9, browserMetrics[metric])
       const relative: WindMetrics = { components: difference('components'), meanLength: difference('meanLength'), meanWidth: difference('meanWidth'), ink: difference('ink') }
       comparedTotal = colorDifference(unmaskedRgb(referenceRgb, mask!), unmaskedRgb(rgb, mask!))
-      const mapMask = mask!.subarray(130 * FRAME_PIXELS.width, 1197 * FRAME_PIXELS.width)
-      comparedMap = colorDifference(unmaskedRgb(referenceRgb.subarray(130 * FRAME_PIXELS.width * 3, 1197 * FRAME_PIXELS.width * 3), mapMask), unmaskedRgb(rgb.subarray(130 * FRAME_PIXELS.width * 3, 1197 * FRAME_PIXELS.width * 3), mapMask))
+      const mapMask = mask!.subarray(mapRows.first * FRAME_PIXELS.width, mapRows.last * FRAME_PIXELS.width)
+      comparedMap = colorDifference(unmaskedRgb(referenceRgb.subarray(mapRows.first * FRAME_PIXELS.width * 3, mapRows.last * FRAME_PIXELS.width * 3), mapMask), unmaskedRgb(rgb.subarray(mapRows.first * FRAME_PIXELS.width * 3, mapRows.last * FRAME_PIXELS.width * 3), mapMask))
       const excludedFraction = 1 - comparedTotal.pixels / total.pixels
       await sharp(Buffer.from(mask!), { raw: { ...FRAME_PIXELS, channels: 1 } }).linear(255).png().toFile(join(outputDirectory, `${sample.name}-wind-phase-mask.png`))
       const passed = excludedFraction <= 0.1 && Object.entries(windLimits).every(([key, limit]) => relative[key as keyof WindMetrics] <= limit)

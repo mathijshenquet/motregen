@@ -5,6 +5,9 @@ use std::sync::OnceLock;
 pub struct ModeConstants {
     pub loops: LoopPlans,
     pub scale: f64,
+    /// Factor on the fixed pixel sizes of map labels and marks, tuned at scale 1.5 (U103). The clock panel and footer
+    /// stay at their scale-1.5 size (PO 2026-11-09).
+    pub element_scale: f64,
     pub wind: Wind,
     pub isoline: Isoline,
     pub labels: Labels,
@@ -106,14 +109,8 @@ pub struct Bounds {
 
 #[derive(Debug, Deserialize)]
 pub struct Palette {
-    pub ramp: Vec<String>,
-    pub cold: f64,
-    pub warm: f64,
-    pub minimum_span: f64,
-    pub overflow_step: f64,
-    pub overflow_steps: usize,
-    pub overflow_cold: String,
-    pub overflow_warm: String,
+    /// Vaste temperatuurschaal (U100) als (°C, rgb 0–1)-stops uit `FIXED_SCALE_STOPS`.
+    pub stops: Vec<(f64, [f64; 3])>,
 }
 
 /// Wolkenkaart (U92), uit `cloud-map.ts`, `cloud-section.ts` en `isolines.ts`.
@@ -204,6 +201,16 @@ pub fn mode_constants() -> &'static ModeConstants {
         serde_json::from_str(include_str!("../assets/mode-constants.json"))
             .expect("generated mode constants")
     })
+}
+
+/// A pixel size tuned at scale 1.5, at the current element scale.
+pub fn element_px(pixels: f64) -> f64 {
+    pixels * mode_constants().element_scale
+}
+
+/// A text size in pixels tuned at scale 1.5, at the current element scale and rounded for the glyph cache.
+pub fn element_text(size: u32) -> u32 {
+    element_px(f64::from(size)).round() as u32
 }
 
 pub fn color(hex: &str) -> [u8; 3] {

@@ -1,5 +1,6 @@
 use crate::{
     constants::constants,
+    mode_constants::{element_px, element_text},
     projection::{Grid, Projection, point_value},
     text::Text,
 };
@@ -48,12 +49,16 @@ pub fn draw_temperature(
         // JavaScript Math.round rounds negative halves toward positive infinity.
         let label = format!("{}°", (value + 0.5).floor() as i32);
         let (screen_x, screen_y) = projection.point(place.lng, place.lat);
-        let width = text.width(&label, 20);
+        let size = element_text(20);
+        let width = text.width(&label, size);
         text.draw(
             rgb,
             &label,
-            (screen_x as f32 - width / 2.0, screen_y.round() as i32 - 21),
-            20,
+            (
+                screen_x as f32 - width / 2.0,
+                screen_y.round() as i32 - element_px(21.0).round() as i32,
+            ),
+            size,
             color,
             Some(halo),
         );

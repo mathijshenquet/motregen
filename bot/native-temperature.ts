@@ -1,14 +1,14 @@
 import type { Grid } from '../web/src/core/contract.js'
 import { frameBlend, timelineCoverage } from '../web/src/core/time-model.js'
-import { blendFrames, blurField, fieldRangeInView, isolineBlurPasses, isolineFrameWeights, ISOLINE_EDGE_FADE_MS, ISOLINE_RING_KM, ISOLINE_TOLERANCE_PX, ISOLINE_WINDOW, isolineFeatures, type IsolineFeatureCollection } from '../web/src/core/isolines.js'
+import { blendFrames, blurField, isolineBlurPasses, isolineFrameWeights, ISOLINE_EDGE_FADE_MS, ISOLINE_RING_KM, ISOLINE_WINDOW, isolineFeatures, type IsolineFeatureCollection } from '../web/src/core/isolines.js'
 import { prepareField, type PreparedField } from '../web/src/core/isoline-field.js'
 import { sliceWeights, type FieldSlice } from '../web/src/core/isoline-spline.js'
 import { blendSlice, buildSegments, traceContours, shortRings, ringFadeRaster, type Contour, type ShortRing } from '../web/src/core/isoline-contours.js'
-import { paletteRange, paletteStops, bandColor, referenceRange, type PaletteRange } from '../web/src/core/temperature-palette.js'
-import { NETHERLANDS_FLANDERS_BOUNDS } from '../web/src/core/map-frame.js'
+import { bandColor, FIXED_SCALE_STOPS } from '../web/src/core/temperature-palette.js'
 import { NativeRainData, type RainFrame } from './native-rain.js'
 import { beaufortFrame, BEAUFORT_COLORS } from '../web/src/core/wind-beaufort.js'
 import { FRAME } from './config.js'
+import { isolineTolerancePx } from './native-view.js'
 import { nativeProjection } from './native-projection.js'
 import type { StillManifest } from './stills.js'
 
@@ -26,7 +26,7 @@ export class NativeTemperatureData {
   private readonly labelLines = new Map<string, IsolineFeatureCollection>()
   /** Alleen bij `wind`: de noordcomponent; `data` is dan de oostcomponent en geeft de tijdlijn. */
   private readonly northward?: NativeRainData
-  constructor(origin: string, private readonly manifest: StillManifest, private readonly kind: NativeFieldKind = 'temperature') {
+  constructor(origin: string, manifest: StillManifest, private readonly kind: NativeFieldKind = 'temperature') {
     this.data = new NativeRainData(origin, manifest, kind === 'wind' ? 'wind_u_ms' : 'feels_like_c')
     if (kind === 'wind') this.northward = new NativeRainData(origin, manifest, 'wind_v_ms')
   }
@@ -60,6 +60,7 @@ export class NativeTemperatureData {
     return pending
   }
 
+  /** De vaste schaal (U100), gelijk aan de standaard van de app; bij wind de Beaufortkleuren. */
   async prepare(): Promise<void> {
     if (this.kind === 'wind') {
       // Band k (tussen de lijnen k en k+1) is Beaufortklasse k, zoals beaufortPalette in de app.
@@ -69,26 +70,7 @@ export class NativeTemperatureData {
       })
       return
     }
-    const reference = referenceRange(this.manifest.feels_reference)
-    if (reference) { this.setColors(reference); return }
-    let min = Infinity, max = -Infinity
-    const now = Date.parse(this.manifest.now)
-    const horizon = now + 18 * 3600_000
-    for (const entry of this.data.timeline.filter((entry) => entry.epoch >= Math.floor(now / 3600_000) * 3600_000 && entry.epoch <= horizon)) {
-      const frame = await this.data.frame(entry.epoch)
-      const values = Float32Array.from(frame.mix === 1 ? frame.right : frame.left, (code) => (frame.mix === 1 ? frame.rightHeader : frame.leftHeader).quant[code] ?? NaN)
-      const valid = Float32Array.from(values, (value) => Number.isNaN(value) ? 0 : 1)
-      const range = fieldRangeInView(values, valid, frame.grid, NETHERLANDS_FLANDERS_BOUNDS)
-      if (range) { min = Math.min(min, range[0]); max = Math.max(max, range[1]) }
-    }
-    const range = paletteRange(min, max)
-    if (!range) throw new Error('Temperatuurpalet heeft geen geldig bereik')
-    this.setColors(range)
-  }
-
-  private setColors(range: PaletteRange): void {
-    const stops = paletteStops(range)
-    this.colors = Float32Array.from({ length: 256 * 3 }, (_, index) => bandColor(Math.floor(index / 3) - 128, 1, stops)[index % 3]!)
+    this.colors = Float32Array.from({ length: 256 * 3 }, (_, index) => bandColor(Math.floor(index / 3) - 128, 1, FIXED_SCALE_STOPS)[index % 3]!)
   }
 
   clear(): void { this.prepared.clear(); this.labelLines.clear(); this.data.clear(); this.northward?.clear() }
@@ -111,7 +93,7 @@ export class NativeTemperatureData {
   async slice(epoch: number, options: { rasterizeRings?: boolean } = {}): Promise<TemperatureSlice> {
     const { blend, weights, fields, field, grid } = await this.blendedField(epoch)
     const projection = nativeProjection(grid)
-    const toleranceCells = 2 ** Math.round(Math.log2(ISOLINE_TOLERANCE_PX * projection.cellsPerPixel * FRAME.scale))
+    const toleranceCells = 2 ** Math.round(Math.log2(isolineTolerancePx() * projection.cellsPerPixel * FRAME.scale))
     const contours = traceContours(field, grid, { step: this.step, toleranceCells })
     const segments = buildSegments(contours, { ringKm: this.kind === 'wind' ? 0 : ISOLINE_RING_KM }).data
     for (let offset = 0; offset < segments.length; offset += 6) {

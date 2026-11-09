@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from '@solidjs/testing-library'
+import { cleanup, fireEvent, render, screen, within } from '@solidjs/testing-library'
 import { createSignal } from 'solid-js'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import type { TemperatureScale } from '../core/temperature-palette'
 import type { WindUnit } from '../core/weather'
 import About, { REPOSITORY_URL, type ThemeChoice } from './About'
 
@@ -22,7 +23,7 @@ beforeAll(() => {
 
 describe('about dialog', () => {
   it('opens from the brand via keyboard activation, names the KNMI sources and returns focus on close', async () => {
-    render(() => <About windUnit="bft" onWindUnit={() => undefined} theme="light" onTheme={() => undefined} onTripleTap={() => undefined} />)
+    render(() => <About windUnit="bft" onWindUnit={() => undefined} temperatureScale="vast" onTemperatureScale={() => undefined} theme="light" onTheme={() => undefined} onTripleTap={() => undefined} />)
     const trigger = screen.getByRole('button', { name: 'Over motregen en instellingen' })
     expect(document.querySelector('dialog')).toBeNull()
 
@@ -48,7 +49,7 @@ describe('about dialog', () => {
 
   it('states the anonymous usage count and reports each opening', async () => {
     const onOpen = vi.fn()
-    render(() => <About windUnit="bft" onWindUnit={() => undefined} theme="light" onTheme={() => undefined} onOpen={onOpen} onTripleTap={() => undefined} />)
+    render(() => <About windUnit="bft" onWindUnit={() => undefined} temperatureScale="vast" onTemperatureScale={() => undefined} theme="light" onTheme={() => undefined} onOpen={onOpen} onTripleTap={() => undefined} />)
     fireEvent.click(screen.getByRole('button', { name: 'Over motregen en instellingen' }), { detail: 0 })
     await screen.findByRole('dialog', { name: 'motregen.nl' })
     expect(onOpen).toHaveBeenCalledTimes(1)
@@ -56,7 +57,7 @@ describe('about dialog', () => {
   })
 
   it('closes on a backdrop click but not on a click inside', async () => {
-    render(() => <About windUnit="bft" onWindUnit={() => undefined} theme="light" onTheme={() => undefined} onTripleTap={() => undefined} />)
+    render(() => <About windUnit="bft" onWindUnit={() => undefined} temperatureScale="vast" onTemperatureScale={() => undefined} theme="light" onTheme={() => undefined} onTripleTap={() => undefined} />)
     fireEvent.click(screen.getByRole('button', { name: 'Over motregen en instellingen' }))
     const dialog = await screen.findByRole('dialog', { name: 'motregen.nl' }) as HTMLDialogElement
     fireEvent.click(screen.getByText(/Anoniem geteld/))
@@ -68,7 +69,7 @@ describe('about dialog', () => {
   it('opens on a single brand tap after a short delay, and a triple tap toggles perf instead', async () => {
     vi.useFakeTimers()
     const onTripleTap = vi.fn()
-    render(() => <About windUnit="bft" onWindUnit={() => undefined} theme="light" onTheme={() => undefined} onTripleTap={onTripleTap} />)
+    render(() => <About windUnit="bft" onWindUnit={() => undefined} temperatureScale="vast" onTemperatureScale={() => undefined} theme="light" onTheme={() => undefined} onTripleTap={onTripleTap} />)
     const brand = screen.getByRole('button', { name: 'Over motregen en instellingen' })
     // Alleen de druppel; het woordmerk staat in de modal.
     expect(brand.textContent).toBe('')
@@ -99,14 +100,17 @@ describe('about dialog', () => {
     const onWindUnit = vi.fn(setWindUnit)
     const [expressive, setExpressive] = createSignal(true)
     const onExpressive = vi.fn(setExpressive)
-    render(() => <About theme={theme()} onTheme={onTheme} expressive={expressive()} onExpressive={onExpressive} windUnit={windUnit()} onWindUnit={onWindUnit} onTripleTap={() => undefined} />)
+    const [scale, setScale] = createSignal<TemperatureScale>('vast')
+    const onTemperatureScale = vi.fn(setScale)
+    render(() => <About theme={theme()} onTheme={onTheme} expressive={expressive()} onExpressive={onExpressive} windUnit={windUnit()} onWindUnit={onWindUnit}
+      temperatureScale={scale()} onTemperatureScale={onTemperatureScale} onTripleTap={() => undefined} />)
     fireEvent.click(screen.getByRole('button', { name: 'Over motregen en instellingen' }))
     const dialog = await screen.findByRole('dialog', { name: 'motregen.nl' })
     const group = screen.getByRole('group', { name: 'Weergave' })
     expect(dialog.contains(group)).toBe(true)
     for (const later of [screen.getByRole('heading', { name: 'motregen.nl' }), screen.getByText('Regenradar en weersverwachting')]) expect(group.compareDocumentPosition(later) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     const pressed = () => [...dialog.querySelectorAll('.segmented button[aria-pressed="true"]')].map((button) => button.textContent)
-    expect(pressed()).toEqual(['Licht', 'Bft'])
+    expect(pressed()).toEqual(['Licht', 'Bft', 'Vast'])
     const expressiveSwitch = screen.getByRole('button', { name: /Expressief/ })
     expect(expressiveSwitch.getAttribute('aria-pressed')).toBe('true')
     fireEvent.click(expressiveSwitch)
@@ -114,18 +118,23 @@ describe('about dialog', () => {
     expect(expressiveSwitch.getAttribute('aria-pressed')).toBe('false')
     fireEvent.click(screen.getByRole('button', { name: 'Donker' }))
     expect(onTheme).toHaveBeenCalledWith('dark')
-    expect(pressed()).toEqual(['Donker', 'Bft'])
+    expect(pressed()).toEqual(['Donker', 'Bft', 'Vast'])
     const units = screen.getByRole('group', { name: 'Eenheid van de wind' })
     expect([...units.querySelectorAll('button')].map((button) => button.textContent)).toEqual(['Bft', 'knopen', 'km/u', 'm/s'])
     fireEvent.click(screen.getByRole('button', { name: 'km/u' }))
     expect(onWindUnit).toHaveBeenCalledWith('kmh')
-    expect(pressed()).toEqual(['Donker', 'km/u'])
+    expect(pressed()).toEqual(['Donker', 'km/u', 'Vast'])
+    const scales = screen.getByRole('group', { name: 'Kleurschaal gevoelstemperatuur' })
+    expect(screen.getByRole('heading', { name: 'Instellingen' })).toBeTruthy()
+    fireEvent.click(within(scales).getByRole('button', { name: 'Relatief' }))
+    expect(onTemperatureScale).toHaveBeenCalledWith('relatief')
+    expect(pressed()).toEqual(['Donker', 'km/u', 'Relatief'])
     expect(dialog.hasAttribute('open')).toBe(true)
   })
 
   it('shares the current state from About', async () => {
     const onShare = vi.fn()
-    render(() => <About windUnit="bft" onWindUnit={() => undefined} theme="light" onTheme={() => undefined} onShare={onShare} onTripleTap={() => undefined} />)
+    render(() => <About windUnit="bft" onWindUnit={() => undefined} temperatureScale="vast" onTemperatureScale={() => undefined} theme="light" onTheme={() => undefined} onShare={onShare} onTripleTap={() => undefined} />)
     fireEvent.click(screen.getByRole('button', { name: 'Over motregen en instellingen' }), { detail: 0 })
     await screen.findByRole('dialog', { name: 'motregen.nl' })
     fireEvent.click(screen.getByRole('button', { name: 'Deel deze stand' }))

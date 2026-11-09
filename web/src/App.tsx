@@ -63,7 +63,8 @@ import { loadSavedPlaces, savedPlaceId, samePlace, storeSavedPlaces, type SavedP
 import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureCollection } from './core/sun'
 import { DEFAULT_LOCATION, stillMapTheme } from './core/still-theme.js'
 import { isSunUp, solarElevationSin } from './core/solar'
-import { paletteRange, paletteStops, referenceRange, type PaletteRange } from './core/temperature-palette'
+import { clampLabelTuning, DEFAULT_LABEL_TUNING, LABEL_TUNING_PARAMETERS, loadLabelTuning, type LabelTuning } from './core/isoline-label-anchors'
+import { cssGradient, FIXED_SCALE_LEGEND, FIXED_SCALE_STOPS, loadTemperatureScale, paletteRange, paletteStops, referenceRange, storeTemperatureScale, type PaletteRange, type TemperatureScale } from './core/temperature-palette'
 import { selectTemperaturePlaces, temperatureLabelSpacingPx, temperatureLabels, temperatureLayer, type TemperatureFeatureCollection } from './core/temperature'
 import { buildTimeline, epochInWindow, frameBlend, scrubberViewWindow, seriesValueAt, timelineCoverage, timelineCursorAtEpoch, timelineEpochAtCursor, timelineHorizonEnd, timelineIndexesInWindow, timelinePlaybackRate, type EpochWindow } from './core/time-model'
 import { formatUv, uvChipLabel, uvLevel, uvReading } from './core/uv'
@@ -609,6 +610,15 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const mobileWindDevice = matchMedia('(pointer: coarse), (max-width: 499px)').matches
   const [temperatureRange, setTemperatureRange] = createSignal<PaletteRange | undefined>()
   let temperatureRangeKey = ''
+  // U100: vast is standaard; relatief (MIP-37) is een instelling. Stills (bot-vergelijking) altijd vast.
+  // ?dev-proef U100: isolijnlabels (grootte, afstand langs de lijn, puntlabels); zonder ?dev het huidige beeld.
+  const [labelTuning, setLabelTuning] = createSignal<LabelTuning>(devMode ? loadLabelTuning(window.location.search, localStorage) : DEFAULT_LABEL_TUNING)
+  const [temperatureScale, setTemperatureScale] = createSignal<TemperatureScale>(stillMode ? 'vast' : loadTemperatureScale())
+  const temperatureStops = createMemo(() => {
+    if (temperatureScale() === 'vast') return FIXED_SCALE_STOPS
+    const range = temperatureRange()
+    return range && paletteStops(range)
+  })
   const [focus, setFocus] = createSignal(0)
   const [windFocus, setWindFocus] = createSignal(0)
   const [airFocus, setAirFocus] = createSignal(0)
@@ -1844,8 +1854,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
 
   function isolineStyle(): IsolineStyle {
-    const range = temperatureRange()
-    return { step: TEMPERATURE_ISOLINE_STEP, fill: ISOLINE_FILL_OPACITY, fillSmooth: false, palette: range && paletteStops(range), color: hexColor(isolineColor(mapSurfaceTheme())), lineOpacity: TEMPERATURE_LINE_FILL_OPACITY, lineFromFill: TEMPERATURE_LINE_FILL_SHADE }
+    return { step: TEMPERATURE_ISOLINE_STEP, fill: ISOLINE_FILL_OPACITY, fillSmooth: false, palette: temperatureStops(), color: hexColor(isolineColor(mapSurfaceTheme())), lineOpacity: TEMPERATURE_LINE_FILL_OPACITY, lineFromFill: TEMPERATURE_LINE_FILL_SHADE }
   }
 
   function cloudVeilStyle(): IsolineStyle {
@@ -1997,6 +2006,22 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     return true
   }
 
+  function changeLabelTuning(key: keyof LabelTuning, value: number): void {
+    const next = { ...labelTuning(), [key]: clampLabelTuning(key, value) }
+    setLabelTuning(next)
+    try { localStorage.setItem(`motregen-dev-${LABEL_TUNING_PARAMETERS[key]}`, String(next[key])) } catch { /* alleen deze sessie */ }
+    const set = temperatureIsolines
+    set.key = ''
+    set.labels?.clear()
+    void showIsolines(set)
+  }
+
+  function changeTemperatureScale(scale: TemperatureScale): void {
+    setTemperatureScale(scale)
+    storeTemperatureScale(scale)
+    if (scale === 'relatief') void updateTemperatureRange()
+  }
+
   async function updateTemperatureRange(): Promise<void> {
     if (applyReferenceRange()) return
     const frames = feelsLikeTimeline()
@@ -2040,7 +2065,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
 
   async function showIsolineField(set: IsolineSet): Promise<void> {
     if (!mapRendering()) return
-    if (set.kind === 'temperature' && !stillMode) void updateTemperatureRange()
+    if (set.kind === 'temperature' && !stillMode && temperatureScale() === 'relatief') void updateTemperatureRange()
     const frames = set.timeline()
     const renderedMap = map
     if (!frames.length || !renderedMap?.getLayer('motregen-temperature')) return
@@ -2064,7 +2089,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         set.fields = []
         set.labels?.clear()
         if (set.kind !== 'cloud' && set.kind !== 'wind') {
-          set.labels = new IsolineLabels(renderedMap, grid, mapSurfaceTheme(), () => reducedMotion.matches, set.kind)
+          set.labels = new IsolineLabels(renderedMap, grid, mapSurfaceTheme(), () => reducedMotion.matches, set.kind, labelTuning)
         }
         set.key = ''
         // Labels schuiven mee op exact de snede die de lijnen net kregen (zelfde cadans).
@@ -3410,6 +3435,15 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     fill: `rgb(${band.fill.join(' ')})`,
     line: `rgb(${band.line.join(' ')})`,
   })))
+  // Gevoel-legenda (U100): de ankers van de vaste schaal met de kleuren van de actieve schaal ertussen.
+  const feelsLegend = createMemo(() => {
+    const stops = temperatureStops()
+    if (!stops) return []
+    return FIXED_SCALE_LEGEND.slice(1).map((value, index) => {
+      const from = FIXED_SCALE_LEGEND[index]!
+      return { from, to: value, background: cssGradient(from, value, stops) }
+    })
+  })
   const cloudTimelines = createMemo(() => Object.fromEntries(CLOUD_LAYERS.map((layer) =>
     [layer, manifest() ? buildTimeline(manifest()!, `cloud_${layer}`) : []])) as Record<CloudLayer, TimelineFrame[]>)
   const [cloudValues, setCloudValues] = createSignal<Record<CloudLayer, Array<number | null>>>({ high: [], mid: [], low: [] })
@@ -3645,7 +3679,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     <section
       class="map-shell"
       classList={{ 'sky-day': chromeSky()?.daylight === true, 'sky-night': chromeSky()?.daylight === false, 'map-source-faded': mapSourceFaded() }}
-      style={chromeSky() ? { '--day-overcast': chromeSky()!.overcast.toFixed(2) } : undefined}
+      style={{ ...(chromeSky() && { '--day-overcast': chromeSky()!.overcast.toFixed(2) }), '--isoline-label-size': `${labelTuning().size}px` }}
       aria-label="Regenkaart van Nederland" data-rendering={mapRendering()} data-rain-opacity={rainLook().opacity.toFixed(2)} data-rain-blend={rainLook().multiply ? 'multiply' : 'normal'} data-focus={focus().toFixed(2)} data-wind-focus={windFocus().toFixed(2)} data-wind-intensity={focusedWindTuning().intensity.toFixed(2)} data-isolines={isolineCount()}>
       <div ref={mapElement} class="map" />
       <div ref={splashElement} class="map-splash" classList={{ ready: mapReady() && firstMapImageShown() }} aria-hidden={mapReady() && firstMapImageShown()}>
@@ -3673,14 +3707,25 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           <small>Bft</small>
         </aside>
       </Show>
-      <Show when={!stillMode && !windLegendVisible() && rainIsolineLegend().length > 0}>
+      <Show when={!stillMode && focusPinned() === 'weather' && rainIsolineLegend().length > 0}>
         <aside class="rain-isoline-legend" aria-label="Isolijnen in de regen">
           <For each={rainIsolineLegend()}>{(band) => <span><i style={{ background: band.fill, 'border-left-color': band.line }} />{band.label}</span>}</For>
           <small>mm/u</small>
         </aside>
       </Show>
+      <Show when={!stillMode && focusPinned() === 'temperature' && feelsLegend().length > 0}>
+        <aside class="feels-legend" aria-label="Kleurschaal gevoelstemperatuur">
+          <span>{FIXED_SCALE_LEGEND[0]}</span>
+          <For each={feelsLegend()}>{(segment, index) => <>
+            <i style={{ background: segment.background }} />
+            <span>{index() === feelsLegend().length - 1 ? `${segment.to}+` : segment.to}</span>
+          </>}</For>
+          <small>°C</small>
+        </aside>
+      </Show>
       <Show when={!stillMode}>
         <About theme={theme()} onTheme={(choice) => { usage.setTheme(choice); setTheme(choice) }} expressive={expressive()} onExpressive={(enabled) => { setExpressive(enabled); storeExpressive(enabled) }}
+          temperatureScale={temperatureScale()} onTemperatureScale={changeTemperatureScale}
           windUnit={windUnit()} onWindUnit={(unit) => { usage.setUnit(unit); setWindUnit(unit); localStorage.setItem('motregen-wind-unit', unit) }} onOpen={() => usage.mark('about')} onShare={shareCurrentState} shareNotice={shareNotice()} onTripleTap={() => setPerfVisible((visible) => !visible)} />
         <Show when={updateReady()}><aside class="update-toast" role="status">Nieuwe versie — <button type="button" onClick={() => void updateServiceWorker?.()}>herlaad</button></aside></Show>
         <LocationSearch
@@ -3719,6 +3764,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
             usageBody={usageBody()}
             usageLabel={usageLabel()}
             onUsageLabel={changeUsageLabel}
+            labelTuning={labelTuning()}
+            onLabelTuning={changeLabelTuning}
           />
         </Show>
         <Freshness open={freshnessOpen()} mapEpoch={cursorMinute()} mapFrame={timeline()[cursorFrame()]} manifest={manifest()} refresh={manifestRefresh()} onRefresh={refreshManifest} onOpen={pauseForFreshness} onClose={resumeAfterFreshness} onShare={shareCurrentState} shareNotice={shareNotice()}
@@ -3756,7 +3803,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
           expressive={expressive()}
           rainLook={rainColourLook()}
           mix={{ wind: windFocus(), air: airFocus(), temperature: focus() }}
-          temperature={{ timeline: feelsLikeTimeline(), values: feelsLikeSeries(), airTimeline: tempTimeline(), air: temperatureSeries(), stops: temperatureRange() && paletteStops(temperatureRange()!) }}
+          temperature={{ timeline: feelsLikeTimeline(), values: feelsLikeSeries(), airTimeline: tempTimeline(), air: temperatureSeries(), stops: temperatureStops() }}
         />
         <section
           ref={forecastPanelElement}

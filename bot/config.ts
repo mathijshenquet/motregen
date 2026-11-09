@@ -6,8 +6,20 @@ import type { TelegramApi } from './api.js'
  * Staand blijft (PO 2026-10-08 op echte berichten): een liggende proef met de klok in een paneel naast de
  * kaart viel af.
  */
-export const FRAME = { width: 640, height: 816, scale: 1.5 } as const
-export const FRAME_PIXELS = { width: FRAME.width * FRAME.scale, height: FRAME.height * FRAME.scale } as const
+export const FRAME_PIXELS = { width: 960, height: 1224 } as const
+/**
+ * De kaart met alles erop (plaatsnamen, labels, lijnen, wind, merktekens) 1,5× groter dan bij de oude schaal 1,5,
+ * op hetzelfde bestand en dezelfde kaartuitsnede (U103, C8a): Telegram toont de films vaak klein. Vaste pixelmaten
+ * zijn afgesteld bij BASE_FRAME_SCALE en schalen met ELEMENT_SCALE mee; klokpaneel en voetregel van de
+ * Rust-renderer blijven op hun oude maat (PO 2026-11-09).
+ */
+export const BASE_FRAME_SCALE = 1.5
+export const ELEMENT_SCALE = 1.5
+const scale = BASE_FRAME_SCALE * ELEMENT_SCALE
+// De CSS-breedte (426,67) is geen geheel getal; een browserviewport rondt naar boven af en knipt terug (FRAME_VIEWPORT, frameScreenshot).
+export const FRAME = { width: FRAME_PIXELS.width / scale, height: FRAME_PIXELS.height / scale, scale } as const
+/** Browserviewport voor FRAME: gehele CSS-px; frameScreenshot knipt de schermafdruk terug naar FRAME_PIXELS. */
+export const FRAME_VIEWPORT = { width: Math.ceil(FRAME.width), height: Math.ceil(FRAME.height) } as const
 
 export type BotRole = 'combined' | 'renderer' | 'poller'
 

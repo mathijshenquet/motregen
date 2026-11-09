@@ -36,9 +36,7 @@ impl Projection {
         let view = &constants.view;
         let center = project(view.lng, view.lat);
         let meters_per_pixel = 2.0 * std::f64::consts::PI * 6_378_137.0
-            / (512.0
-                * 2.0_f64.powf(view.zoom)
-                * (size.width as f64 / constants.frame.width as f64));
+            / (512.0 * 2.0_f64.powf(view.zoom) * (size.width as f64 / constants.frame.width));
         Self {
             columns: (0..size.width)
                 .map(|column| {

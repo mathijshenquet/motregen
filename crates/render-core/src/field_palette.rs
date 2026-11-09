@@ -1,5 +1,5 @@
 use crate::{
-    mode_constants::{color, mode_constants},
+    mode_constants::mode_constants,
     projection::{Grid, project},
 };
 
@@ -41,105 +41,34 @@ pub fn extent(
     (minimum <= maximum).then_some((minimum, maximum))
 }
 
+/// The fixed temperature scale (U100), linear between the stops from the app and clamped outside them.
 pub struct Palette {
-    pub low: f64,
-    pub high: f64,
-    knots: Vec<[f64; 2]>,
-    ramp: Vec<[f64; 3]>,
-    /// MIP-37: a fixed reference range continues outside itself in steps towards deep blue/red.
-    overflow: bool,
+    stops: &'static [(f64, [f64; 3])],
 }
 
 impl Palette {
-    pub fn new(minimum: f64, maximum: f64) -> Option<Self> {
-        if !minimum.is_finite() || !maximum.is_finite() || minimum > maximum {
-            return None;
+    pub fn fixed() -> Self {
+        Self {
+            stops: &mode_constants().palette.stops,
         }
-        let settings = &mode_constants().palette;
-        let mut low = minimum.floor();
-        let mut high = maximum.ceil();
-        let missing = settings.minimum_span - (high - low);
-        if missing > 0.0 {
-            low -= (missing / 2.0).floor();
-            high += (missing / 2.0).ceil();
-        }
-        let blue_end = 1.0 / (settings.ramp.len() - 1) as f64;
-        let red_start = 1.0 - 0.5 / (settings.ramp.len() - 1) as f64;
-        let knots = if high <= settings.cold {
-            vec![[low, 0.0], [high, blue_end]]
-        } else if low >= settings.warm {
-            vec![[low, red_start], [high, 1.0]]
-        } else {
-            let mut knots = vec![[low, 0.0]];
-            if low < settings.cold && (settings.cold - low) / (high - low) > blue_end {
-                knots.push([settings.cold, blue_end]);
-            }
-            if high > settings.warm && (settings.warm - low) / (high - low) < red_start {
-                knots.push([settings.warm, red_start]);
-            }
-            knots.push([high, 1.0]);
-            knots
-        };
-        Some(Self {
-            low,
-            high,
-            knots,
-            ramp: settings
-                .ramp
-                .iter()
-                .map(|hex| color(hex).map(|channel| f64::from(channel) / 255.0))
-                .collect(),
-            overflow: false,
-        })
-    }
-
-    pub fn with_overflow(mut self) -> Self {
-        self.overflow = true;
-        self
     }
 
     pub fn color(&self, temperature: f64) -> [f64; 3] {
-        let settings = &mode_constants().palette;
-        if self.overflow && (temperature < self.low || temperature > self.high) {
-            let (edge, deep, distance) = if temperature < self.low {
-                (self.low, &settings.overflow_cold, self.low - temperature)
-            } else {
-                (self.high, &settings.overflow_warm, temperature - self.high)
-            };
-            let step = (distance / settings.overflow_step)
-                .ceil()
-                .clamp(1.0, settings.overflow_steps as f64);
-            let from = self.ramp_color(edge);
-            let deep = color(deep).map(|channel| f64::from(channel) / 255.0);
-            let mix = step / settings.overflow_steps as f64;
+        let (first, last) = (self.stops[0], self.stops[self.stops.len() - 1]);
+        if temperature <= first.0 {
+            return first.1;
+        }
+        for pair in self.stops.windows(2) {
+            let ((low, from), (high, to)) = (pair[0], pair[1]);
+            if temperature > high {
+                continue;
+            }
+            let mix = (temperature - low) / (high - low);
             return std::array::from_fn(|channel| {
-                from[channel] + (deep[channel] - from[channel]) * mix
+                from[channel] + (to[channel] - from[channel]) * mix
             });
         }
-        self.ramp_color(temperature)
-    }
-
-    fn ramp_color(&self, temperature: f64) -> [f64; 3] {
-        let mut position = self.knots.last().unwrap()[1];
-        if temperature <= self.knots[0][0] {
-            position = self.knots[0][1];
-        } else {
-            for pair in self.knots.windows(2) {
-                if temperature > pair[1][0] {
-                    continue;
-                }
-                let fraction = (temperature - pair[0][0]) / (pair[1][0] - pair[0][0]);
-                position = pair[0][1] + (pair[1][1] - pair[0][1]) * fraction;
-                break;
-            }
-        }
-        let scaled = position.clamp(0.0, 1.0) * (self.ramp.len() - 1) as f64;
-        let lower = (scaled.floor() as usize).min(self.ramp.len() - 2);
-        let fraction = scaled - lower as f64;
-        std::array::from_fn(|channel| {
-            self.ramp[lower][channel]
-                + (self.ramp[lower + 1][channel] - self.ramp[lower][channel]) * fraction
-        })
+        last.1
     }
 
     pub fn bands(&self) -> Vec<f32> {

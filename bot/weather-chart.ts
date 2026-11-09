@@ -3,11 +3,11 @@ import type { SearchPlace } from '../web/src/core/place-search.js'
 import { rainChartMaximum, rainChartPosition, rainColor } from '../web/src/core/rain-chart.js'
 import { PRE_U77_RAIN_LOOK } from '../web/src/core/rain-palette.js'
 import { seriesValueAt } from '../web/src/core/time-model.js'
-import { FRAME } from './config.js'
 import { WEATHER_HOUR, weatherTime, type WeatherSeries } from './weather-series.js'
 import { rulerInk, weatherSky, weatherSkySvg } from './weather-sky.js'
 
-export const WEATHER_IMAGE = { width: FRAME.width, height: 400, scale: 2 } as const
+// De plaatsgrafiek houdt zijn eigen maat (1280×800); de vergroting van U103 geldt alleen kaartfilms en stills.
+export const WEATHER_IMAGE = { width: 640, height: 400, scale: 2 } as const
 
 export function escapeHtml(value: string): string {
   return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;')

@@ -107,8 +107,7 @@ pub fn draw(
     let fade_log = settings.buffer_fade.ln();
     let size = &constants().size;
     let projection = Projection::new(east.grid);
-    let columns = (settings.count as f64 * constants().frame.width as f64
-        / constants().frame.height as f64)
+    let columns = (settings.count as f64 * constants().frame.width / constants().frame.height)
         .sqrt()
         .ceil() as usize;
     let rows = settings.count.div_ceil(columns);
