@@ -150,7 +150,53 @@ export function renderRows(rows: readonly Row[]): string {
   return lines.join('\n')
 }
 
+const LAYER_ORDER = ['basiskaart', 'regen', 'wolken', 'zon', 'temperatuurvlakken', 'temperatuurgetallen', 'bft-vlakken', 'windzakken', 'deeltjes'] as const
+const MODE_OWN_LAYERS: Record<string, readonly string[]> = {
+  weer: ['basiskaart', 'regen', 'deeltjes'],
+  lucht: ['basiskaart', 'regen', 'wolken', 'zon'],
+  gevoel: ['basiskaart', 'regen', 'temperatuurvlakken', 'temperatuurgetallen'],
+  wind: ['basiskaart', 'bft-vlakken', 'windzakken', 'deeltjes'],
+}
+const LEGEND_OF: Record<string, string> = { weer: '.rain-isoline-legend', gevoel: '.feels-legend', wind: '.wind-legend' }
+
+interface LayerReport {
+  mode: string; profile: string; visit: string; loadAverage: number
+  milestones: { firstMapMs: number | null; histogramCompleteMs: number | null; tableCompleteMs: number | null; ttfpMs?: number | null }
+  layers?: { firstMs: Record<string, number>; legends: Array<{ selector: string; ms: number }> }
+  modeSwitches?: Array<{ to: string; layers: Record<string, number>; legendMs: number | null; complete: boolean }>
+}
+
+/** Per modus/profiel/bezoek: eerste tekening per laag (ms sinds navigatie) plus legenda, histogram en tabel. */
+export function renderLayerTables(directory: string): string {
+  const reports = readdirSync(directory).filter((name) => name.endsWith('.json')).sort()
+    .map((name) => JSON.parse(readFileSync(join(directory, name), 'utf8')) as LayerReport)
+  const cell = (value: number | null | undefined) => typeof value === 'number' ? `${(value / 1000).toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} s` : '—'
+  const lines = ['| profiel | modus | load | ' + LAYER_ORDER.join(' | ') + ' | legenda | histogram | tabel |', '| --- | --- | ---: |' + ' ---: |'.repeat(LAYER_ORDER.length + 3)]
+  for (const report of reports) {
+    if (!report.layers) continue
+    const own = MODE_OWN_LAYERS[report.mode] ?? []
+    const legend = report.layers.legends.find((entry) => entry.selector === LEGEND_OF[report.mode])
+    lines.push(`| ${report.profile} ${report.visit} | ${report.mode} | ${report.loadAverage} | ${LAYER_ORDER.map((layer) => own.includes(layer) ? cell(report.layers!.firstMs[layer]) : '·').join(' | ')} | ${cell(legend?.ms)} | ${cell(report.milestones.histogramCompleteMs)} | ${cell(report.milestones.tableCompleteMs)} |`)
+  }
+  lines.push('', '**Na een moduswissel** (ms vanaf de klik tot de eerste tekening van elke laag van de doelmodus; vanuit de vorige modus in de rij erboven)', '')
+  lines.push('| profiel | start | wissel naar | lagen van de doelmodus | legenda | alles getekend |', '| --- | --- | --- | --- | ---: | --- |')
+  for (const report of reports) {
+    let from = report.mode
+    for (const step of report.modeSwitches ?? []) {
+      const own = (MODE_OWN_LAYERS[step.to] ?? []).filter((layer) => layer !== 'basiskaart' && layer !== 'regen')
+      const shown = own.map((layer) => `${layer} ${step.layers[layer] === undefined ? '—' : `${Math.round(step.layers[layer]!)} ms`}`).join(', ')
+      lines.push(`| ${report.profile} ${report.visit} | ${from} | ${step.to} | ${shown || '(regen staat al)'} | ${step.legendMs === null ? '—' : `${step.legendMs} ms`} | ${step.complete ? 'ja' : 'nee (12 s)'} |`)
+      from = step.to
+    }
+  }
+  return lines.join('\n')
+}
+
 if (import.meta.url === `file://${process.argv[1]}`) {
+  if (process.argv[2] === '--layers') {
+    console.log(renderLayerTables(process.argv[3]!))
+    process.exit(0)
+  }
   const directory = process.argv[2]
   if (!directory) throw new Error('Gebruik: u109-report.ts <uitvoermap> [--json]')
   const rows = readRows(directory)
