@@ -30,3 +30,25 @@ for (const { path, legend } of modes) {
     await expect(page.locator(`#map-legend${legend}`)).toBeVisible()
   })
 }
+
+test.describe('telefoonbreedte', () => {
+  test.use({ viewport: { width: 402, height: 844 } })
+  for (const { path, legend } of modes) {
+    test(`legenda in ${path} begint dicht en opent als één band zo hoog als de knop`, async ({ page }, testInfo) => {
+      test.skip(testInfo.project.name !== 'desktop', 'één profiel volstaat; de breedte zet de telefoonlayout')
+      await page.goto(path)
+      await expect(page.locator('.map-splash.ready')).toBeAttached()
+      const button = page.locator('.map-legend-button')
+      await expect(button).toHaveAttribute('aria-expanded', 'false')
+      await expect(page.locator('#map-legend')).toHaveCount(0)
+      await button.click()
+      const panel = page.locator(`#map-legend${legend}`)
+      await expect(panel).toBeVisible()
+      const [panelBox, buttonBox] = [await panel.boundingBox(), await button.boundingBox()]
+      expect(Math.round(panelBox!.height)).toBe(Math.round(buttonBox!.height))
+      expect(Math.abs(panelBox!.y - buttonBox!.y)).toBeLessThanOrEqual(1)
+      // Eén rij: niets loopt onder de band uit.
+      expect(await panel.evaluate((element) => element.scrollHeight <= element.clientHeight + 1)).toBe(true)
+    })
+  }
+})

@@ -200,6 +200,8 @@ button { color: inherit; cursor: pointer; }
   box-shadow: var(--shadow);
 }
 .map-legend-button[aria-expanded="true"] { color: var(--accent); }
+/* Altijd 44 × 44, ook onder de smalle-schermregel voor .round-action (38 px): de band ernaast is even hoog. */
+.map-shell .map-legend-button { width: 44px; min-width: 44px; height: 44px; }
 /* Eén legendavorm (U107): linksonder, 11 px, vakjes 9 px hoog, eenheid klein aan het eind; klassen hebben een
    vakje met hun naam erachter, een doorlopende schaal tikken tussen de vakjes. Op de telefoon verborgen. */
 .map-legend { font-variant-numeric: tabular-nums; }
@@ -218,6 +220,33 @@ button { color: inherit; cursor: pointer; }
 .wind-zone { display: inline-flex; flex-direction: column; align-items: stretch; gap: 1px; }
 .wind-zone-classes { display: inline-flex; gap: 6px; }
 .wind-zone em { border-top: 1px solid color-mix(in srgb, var(--muted) 45%, transparent); padding-top: 1px; color: var(--muted); font-size: 11px; font-style: normal; text-align: center; }
+/* Telefoon (U107 vervolg): de open legenda is in elke modus één band zo hoog als de knop: vakjes aaneen met hun
+   label eronder (Wind: de zonewoorden daar weer onder), en horizontaal scrollbaar als hij toch niet past. */
+@media (max-width: 959px) {
+  .map-legend {
+    flex-wrap: nowrap; gap: 6px; height: 44px; min-height: 0; padding: 1px 8px;
+    overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: none;
+    font-size: 10px; line-height: 1.2; white-space: nowrap; pointer-events: auto;
+  }
+  .map-legend::-webkit-scrollbar { display: none; }
+  .map-legend .wind-zone-classes > span, .map-legend:is(.rain-isoline-legend, .air-legend) > span {
+    flex-direction: column; align-items: stretch; gap: 2px; min-width: 20px; padding: 0 2px; text-align: center;
+  }
+  /* Niet krimpen: past de band niet, dan scrollt hij. */
+  .map-legend > *, .map-legend .wind-zone-classes > span { flex-shrink: 0; }
+  .map-legend .wind-zone-classes > span { padding: 0; }
+  /* Regen: lucht tussen de labels, de vakjes lopen onder die lucht door (één band). */
+  .map-legend.rain-isoline-legend > span { padding: 0 4px; }
+  .map-legend.rain-isoline-legend > span > i { margin: 0 -4px; }
+  :is(.rain-isoline-legend, .air-legend, .wind-zone-classes) > span > i { width: auto; height: 8px; border-radius: 0; }
+  .map-legend:is(.rain-isoline-legend), .map-legend .wind-zone-classes { gap: 0; }
+  .air-legend .air-legend-sun { height: 8px; font-size: 10px; line-height: 8px; }
+  .air-legend > span + span { margin-left: 4px; }
+  .wind-zone em { font-size: 10px; }
+  .feels-legend { gap: 2px; }
+  .feels-legend i { width: 14px; }
+  .map-legend small { font-size: 10px; }
+}
 
 /* Vaantje: donkere schijf met het Bft-getal, pijl naar waar de wind heen waait; witte rand voor elke ondergrond. */
 .wind-glyph { --glyph-ink: #17242b; overflow: visible; }

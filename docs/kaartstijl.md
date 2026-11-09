@@ -83,6 +83,9 @@ de knop staat. Desktop begint open, telefoon dicht (legenda's daar voorlopig ver
   aan het eind (`mm/u`, `°C`, `Bft`).
 - Klassen (regen, wind, lucht): vakje met de naam erachter; een doorlopende schaal (gevoel): tikken tussen de vakjes.
 - Lucht: zon, wolken, regen.
+- Telefoon (< 960 px): de open legenda is in elke modus één band zo hoog als de knop (44 px), naast de knop:
+  vakjes aaneen met hun label eronder (Wind: de zonewoorden daar weer onder), 10 px; past hij niet, dan scrollt hij
+  horizontaal in plaats van te krimpen of te breken.
 
 ## Beweging
 
