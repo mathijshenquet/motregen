@@ -18,8 +18,9 @@ const manifest = validateManifest(JSON.parse(await readFile(manifestPath, 'utf8'
 const origin = process.env.MOTREGEN_PARITY_ORIGIN ?? 'http://127.0.0.1:4392'
 const now = Date.parse(manifest.now)
 // Kaartgebied zonder klokpaneel (linksboven) en voettekst (linksonder): die tekst tekent Rust zelf (MIP-29).
-// Kaart zonder overlays: onder het klokpaneel (tot rij 338) en boven de voetregel (vanaf rij 1107), sinds U103.
-const mapRows = { first: 345, last: 1100 }
+// Kaart zonder overlays: onder het klokpaneel van de bot (tot rij 261) en boven de voetregel van de app-referentie
+// (vanaf rij 1111, op FRAME 1,5× groot), sinds U103.
+const mapRows = { first: 270, last: 1100 }
 // De Rust-stills zijn JPEG; het gemiddelde mag de eigen JPEG-vloer van het appbeeld met hooguit 0,5 overschrijden.
 const limits = { mapMeanAboveJpeg: 0.5, mapP99: 8 }
 const samples = [{ name: 'dag', minutes: 240 }, { name: 'nacht', minutes: 720 }]

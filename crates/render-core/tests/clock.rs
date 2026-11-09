@@ -1,7 +1,6 @@
 use render_core::{
     clock::{ClockTransition, clock_state, clock_width, draw_clock},
     constants::constants,
-    mode_constants::{element_px, element_text},
     text::Text,
     time::epoch,
 };
@@ -111,11 +110,8 @@ fn digit_animation_keeps_unchanged_columns_and_clips_vertically() {
     let start = epoch("2026-10-11T04:55:00Z").unwrap();
     let original = render(start, ClockTransition::Schuif, false);
     let mut text = Text::new().unwrap();
-    let digit_width =
-        ((clock_width(&mut text) - text.width(":", element_text(58))) / 4.0).round() as usize;
-    let colon_width = text.width(":", element_text(58));
-    let digit_top = element_px(15.0).round() as usize;
-    let digit_rows = digit_top..digit_top + element_px(56.0).round() as usize;
+    let digit_width = ((clock_width(&mut text) - text.width(":", 58)) / 4.0).round() as usize;
+    let colon_width = text.width(":", 58);
     let changed_ranges = [
         (100 + digit_width, 100 + digit_width * 2),
         (
@@ -139,7 +135,7 @@ fn digit_animation_keeps_unchanged_columns_and_clips_vertically() {
             {
                 let x = index % constants().size.width;
                 let y = index / constants().size.width;
-                if !digit_rows.contains(&y)
+                if !(15..71).contains(&y)
                     || !changed_ranges
                         .iter()
                         .any(|&(left, right)| (left..right).contains(&x))

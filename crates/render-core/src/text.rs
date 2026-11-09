@@ -1,7 +1,4 @@
-use crate::{
-    constants::constants,
-    mode_constants::{element_px, element_text},
-};
+use crate::constants::constants;
 use fontdue::{Font, Metrics};
 use std::{collections::HashMap, sync::Arc};
 
@@ -30,11 +27,10 @@ impl Text {
     }
 
     pub(crate) fn digit_mask(&mut self, character: char, width: usize, height: usize) -> Vec<u8> {
-        let glyph = self.glyph(character, element_text(58));
+        let glyph = self.glyph(character, 58);
         let left = ((width as f32 - glyph.metrics.advance_width) / 2.0).round() as i32
             + glyph.metrics.xmin;
-        let top =
-            element_px(52.0).round() as i32 - glyph.metrics.ymin - glyph.metrics.height as i32;
+        let top = 52 - glyph.metrics.ymin - glyph.metrics.height as i32;
         let mut mask = vec![0; width * height];
         for row in 0..glyph.metrics.height {
             for column in 0..glyph.metrics.width {

@@ -33,8 +33,9 @@ const origin = process.env.MOTREGEN_ORIGIN ?? 'https://motregen.nl'
 const referenceOrigin = process.env.MOTREGEN_PARITY_ORIGIN ?? origin
 const now = Date.parse(manifest.now)
 const limits = { mean: 0.5, maximum: 20, mapMean: 0.35, mapMaximum: 8 }
-// Kaart zonder overlays: onder het klokpaneel (tot rij 338) en boven de voetregel (vanaf rij 1107), sinds U103.
-const mapRows = { first: 345, last: 1100 }
+// Kaart zonder overlays: onder het klokpaneel van de bot (tot rij 261) en boven de voetregel van de app-referentie
+// (vanaf rij 1111, op FRAME 1,5× groot), sinds U103.
+const mapRows = { first: 270, last: 1100 }
 const windLimits = { components: 0.1, meanLength: 0.1, meanWidth: 0.1, ink: 0.2 }
 const windPhases = [1000, 3000, 5000, 7000, 9000]
 function averageWind(samples: WindMetrics[]): WindMetrics {
