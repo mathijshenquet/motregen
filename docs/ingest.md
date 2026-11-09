@@ -21,7 +21,7 @@ Belangrijkste instellingen:
 | `--radar-cadence` | `MOTREGEN_RADAR_CADENCE` | `60s` |
 | `--arome-cadence` | `MOTREGEN_AROME_CADENCE` | `3h` |
 | `--uv-cadence` | `MOTREGEN_UV_CADENCE` | `15m` |
-| `--history-hours` | `MOTREGEN_HISTORY_HOURS` | `3` |
+| `--history-hours` | `MOTREGEN_HISTORY_HOURS` | `6` |
 | `--nowcast-minutes` | `MOTREGEN_NOWCAST_MINUTES` | `120` |
 | `--arome-hours` | `MOTREGEN_AROME_HOURS` | `48` |
 | `--arome-history-hours` | `MOTREGEN_AROME_HISTORY_HOURS` | `6` |

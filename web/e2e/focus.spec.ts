@@ -236,7 +236,8 @@ test('temperature focus desaturates only the basemap canvas and fills the bands,
   await expect(shell(page)).toHaveAttribute('data-focus', '0.00')
   // data-focus rondt af; de tween loopt nog een paar frames door.
   await expect.poll(() => saturation(page)).toBe(1)
-  expect(await page.locator('.maplibregl-canvas').evaluate((canvas) => getComputedStyle(canvas).filter)).toBe('none')
+  // --map-saturation is op drie decimalen afgerond: de klasse kan nog een frame langer staan dan "1.000".
+  await expect.poll(() => page.locator('.maplibregl-canvas').evaluate((canvas) => getComputedStyle(canvas).filter)).toBe('none')
   await expect.poll(() => fillCoverage(page)).toBe(0)
 })
 

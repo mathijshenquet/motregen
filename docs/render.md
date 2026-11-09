@@ -32,8 +32,8 @@ niet-nul exitstatus. `media.json` verschijnt pas na succesvolle afronding van de
 
 ## Basiskaartinvoer
 
-De vijf gegenereerde bronbestanden in `crates/render/assets/basemaps/` worden met het renderpakket geïnstalleerd
-in `$out/share/motregen-render/basemaps` (samen 684.954 bytes). Nix kopieert ze; bouwen en renderen starten geen
+De zeven gegenereerde bronbestanden in `crates/render/assets/basemaps/` worden met het renderpakket geïnstalleerd
+in `$out/share/motregen-render/basemaps` (samen 701.083 bytes). Nix kopieert ze; bouwen en renderen starten geen
 Chromium. Ververs ze vanuit een lokaal gemaakte native botcache die bij het huidige `NATIVE_VIEW`,
 `FRAME_PIXELS` en regenrooster hoort. De meest recent gemaakte plaat per thema wordt overgenomen:
 
@@ -42,9 +42,14 @@ pnpm -C bot exec tsx prepare-rust-basemaps.ts /pad/botcache /pad/data ../crates/
 ```
 
 Het resultaat is `light.png` en `dark.png` (RGB/RGBA, 960×1224 pixels), `water-light.png` en `water-dark.png`
-(het bestaande lage-resolutiemasker, dekking in het alfakanaal) en `basemap.json` versie 1 met `size`, `view`
+(het bestaande lage-resolutiemasker, dekking in het alfakanaal), `names-light.png` en `names-dark.png` (grijswaarden
+op 960×1224: waar de plaat namen tekent, verschil met en zonder symboollagen) en `basemap.json` versie 1 met `size`, `view`
 (Web Mercator centrum en zoom), `grid` (rooster voor het kadermasker) en `inputs` (oorspronkelijke bestandsnamen).
 De kaartplaten bevatten de plaatsnamen. Temperatuurwaarden, klok en voettekst zitten niet in de platen.
+Temperatuurlabels blijven van de namen af (U103): standaard boven de plaats, anders onder, rechts, links of schuin
+(de volgorde van de MapLibre-ankers), en vallen weg als niets vrij is; de keuze hangt aan de breedte van `00°`, zodat
+een label binnen een film niet verspringt. Isolijn- en isobaarlabels houden hun ankers zoals in de app en worden
+alleen niet getekend zolang ze op een naam liggen.
 Het native botkader past Nederland (inclusief Zeeland, Limburg en de Wadden), zonder Vlaanderen als
 fitdoel. De bovenstrook van 48 pixels is verwijderd met behoud van zoom en bodemlijn. Het klokpaneel
 sluit linksboven aan op de beeldrand; alleen rechtsonder is rond. Tijd, Amsterdamse datum (zoals `zo 11 okt`)
@@ -59,7 +64,7 @@ getekend; de volledige gedraaide tekst inclusief halo moet vrij blijven. Na een 
 opnieuw worden vastgelegd; een oude plaat bijsnijden geeft geen passende projectie of labelplaatsing.
 Het watermasker dempt de windstaarten op zee; de regencompositie gebruikt het niet. Deze export start geen browser.
 `prepare-rust-basemaps.test.ts` laat de gate falen als maat of view in de metadata afwijkt van de TypeScript-bron;
-de PNG-maten en het alfakanaal van beide watermaskers worden ook gecontroleerd.
+de PNG-maten en het alfakanaal van beide watermaskers en de maat van beide naammaskers worden ook gecontroleerd.
 
 ## Uitvoercontract
 

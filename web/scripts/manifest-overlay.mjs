@@ -2,6 +2,8 @@
 // (ecmwf.json/cams.json + chunks), zodat een preview een nieuwe bron toont voordat de daemon hem publiceert.
 // Gebruik: node scripts/manifest-overlay.mjs <publicatiemap> [poort] [origin]
 // Daarna de preview starten met MOTREGEN_DATA_ORIGIN=http://127.0.0.1:<poort>.
+// MOTREGEN_OVERLAY_RADAR_HOURS=6 zet de oudere rtcor-chunks die de bron nog bewaart (prune 6 h) erbij, zodat een preview
+// een langere radarhistorie toont dan het manifest noemt (U104: `--history-hours 6` vóór de uitrol).
 import { createServer } from 'node:http'
 import { readFile } from 'node:fs/promises'
 import { join, normalize } from 'node:path'
@@ -24,8 +26,36 @@ async function readSidecar(name) {
   }
 }
 
+const radarHours = Number(process.env.MOTREGEN_OVERLAY_RADAR_HOURS ?? 0)
+
+async function chunkEntry(url) {
+  const head = Buffer.from(await (await fetch(`${origin}/data/${url}`, { headers: { range: 'bytes=0-7' } })).arrayBuffer())
+  if (head.subarray(0, 4).toString('latin1') !== 'mrf0') return undefined
+  const headerLength = 8 + head.readUInt32LE(4)
+  const header = JSON.parse(Buffer.from(await (await fetch(`${origin}/data/${url}`, { headers: { range: `bytes=8-${headerLength - 1}` } })).arrayBuffer()).toString('utf8'))
+  return { url, source: header.source, field: header.field ?? 'rain_rate', run: header.run, header_len: headerLength, times: header.frames.map((frame) => frame.time) }
+}
+
+// rtcor-<run>-h<n>-…: de vorige chunks hebben dezelfde naam met een run die n uur eerder ligt.
+async function olderRadarChunks(manifest) {
+  const current = manifest.chunks.find((chunk) => chunk.source === 'rtcor')
+  const match = current && /^(.*rtcor-)(\d{8}T\d{4})-h(\d+)(-.*)$/.exec(current.url)
+  if (!match) return []
+  const [, prefix, stamp, hours, suffix] = match
+  const run = Date.parse(`${stamp.slice(0, 4)}-${stamp.slice(4, 6)}-${stamp.slice(6, 8)}T${stamp.slice(9, 11)}:${stamp.slice(11, 13)}:00Z`)
+  const older = []
+  for (let back = Number(hours); back < radarHours; back += Number(hours)) {
+    const compact = new Date(run - back * 3_600_000).toISOString().replace(/[-:]/g, '').slice(0, 13)
+    const entry = await chunkEntry(`${prefix}${compact}-h${hours}${suffix}`).catch(() => undefined)
+    if (!entry) break
+    older.push(entry)
+  }
+  return older
+}
+
 async function overlaidManifest(search) {
   const manifest = await (await fetch(`${origin}/data/manifest.json${search}`)).json()
+  if (radarHours) manifest.chunks.push(...await olderRadarChunks(manifest))
   for (const [section, file] of Object.entries(sidecars)) {
     const sidecar = await readSidecar(file)
     if (!sidecar) continue

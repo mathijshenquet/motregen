@@ -10,6 +10,7 @@ mod font;
 pub mod isoline_labels;
 pub mod mode_constants;
 pub mod motion;
+pub mod name_mask;
 pub mod overlay;
 pub mod palette;
 pub mod pressure;

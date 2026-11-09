@@ -59,7 +59,7 @@ struct Config {
         value_parser = parse_duration
     )]
     uv_cadence: Duration,
-    #[arg(long, env = "MOTREGEN_HISTORY_HOURS", default_value_t = 3)]
+    #[arg(long, env = "MOTREGEN_HISTORY_HOURS", default_value_t = 6)]
     history_hours: u32,
     #[arg(long, env = "MOTREGEN_NOWCAST_MINUTES", default_value_t = 120)]
     nowcast_minutes: u32,

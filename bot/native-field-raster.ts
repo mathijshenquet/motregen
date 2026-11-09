@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import type { Grid } from '../web/src/core/contract.js'
-import { ISOLINE_FILL_OPACITY, ISOLINE_FILL_RESOLUTION, isolineColor } from '../web/src/core/isolines.js'
+import { FIXED_SCALE_FILL_OPACITY, ISOLINE_FILL_RESOLUTION, isolineColor } from '../web/src/core/isolines.js'
 import { TEMPERATURE_LINE_OPACITY, isolineWidthCss, lineProfile } from '../web/src/core/map-presentation.js'
 import { WIND_FILL_OPACITY } from '../web/src/core/wind-beaufort.js'
 import { ELEMENT_ZOOM } from './native-view.js'
@@ -93,7 +93,7 @@ export class NativeFieldRaster {
     // Bytes 16–19 zijn vrij sinds de isobaren uit de windfilm gingen (U101).
     header.writeUInt32LE(slice.segments.length / 6, 8); header.writeUInt32LE(slice.rings ? 1 : 0, 12)
     const profile = lineProfile(isolineWidthCss(ELEMENT_ZOOM) * FRAME.scale)
-    header.writeFloatLE(slice.kind === 'wind' ? WIND_FILL_OPACITY : ISOLINE_FILL_OPACITY, 20)
+    header.writeFloatLE(slice.kind === 'wind' ? WIND_FILL_OPACITY : FIXED_SCALE_FILL_OPACITY, 20)
     header.writeFloatLE(TEMPERATURE_LINE_OPACITY * profile.alpha, 24)
     header.writeFloatLE(profile.halfWidth, 28)
     const color = Number.parseInt(isolineColor(night ? 'dark' : 'light', slice.kind).slice(1), 16)
