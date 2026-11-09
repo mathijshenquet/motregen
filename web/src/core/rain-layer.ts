@@ -430,7 +430,8 @@ export class RainLayer implements CustomLayerInterface {
     const previousFramebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null
     const previousVertexArray = gl.getParameter(gl.VERTEX_ARRAY_BINDING) as WebGLVertexArrayObject | null
     const previousViewport = gl.getParameter(gl.VIEWPORT) as Int32Array
-    const previousColorMask = gl.getParameter(gl.COLOR_WRITEMASK) as boolean[]
+    // Geen getParameter(COLOR_WRITEMASK): die wacht synchroon op de GPU-rij (U109: 3,5 s per 10 s scrubben). Het
+    // masker staat hier altijd volledig aan: in de overlay vanzelf, in MapLibre zet drawCustom het vóór render.
     const blending = gl.isEnabled(gl.BLEND)
     const scissoring = gl.isEnabled(gl.SCISSOR_TEST)
 
@@ -453,7 +454,6 @@ export class RainLayer implements CustomLayerInterface {
     gl.bindVertexArray(previousVertexArray)
     gl.bindFramebuffer(gl.FRAMEBUFFER, previousFramebuffer)
     gl.viewport(previousViewport[0]!, previousViewport[1]!, previousViewport[2]!, previousViewport[3]!)
-    gl.colorMask(previousColorMask[0]!, previousColorMask[1]!, previousColorMask[2]!, previousColorMask[3]!)
     if (blending) gl.enable(gl.BLEND)
     if (scissoring) gl.enable(gl.SCISSOR_TEST)
     this.filters++

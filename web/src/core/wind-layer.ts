@@ -1271,7 +1271,6 @@ export class WindLayer implements CustomLayerInterface {
     if (!gl) return
     const framebuffer = gl.getParameter(gl.FRAMEBUFFER_BINDING) as WebGLFramebuffer | null
     const viewport = gl.getParameter(gl.VIEWPORT) as Int32Array
-    const clearColor = gl.getParameter(gl.COLOR_CLEAR_VALUE) as Float32Array
     const scissorEnabled = gl.isEnabled(gl.SCISSOR_TEST)
     gl.disable(gl.SCISSOR_TEST)
     gl.viewport(0, 0, width, height)
@@ -1282,7 +1281,9 @@ export class WindLayer implements CustomLayerInterface {
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer)
     gl.viewport(viewport[0]!, viewport[1]!, viewport[2]!, viewport[3]!)
-    gl.clearColor(clearColor[0]!, clearColor[1]!, clearColor[2]!, clearColor[3]!)
+    // Terug naar transparant zonder getParameter(COLOR_CLEAR_VALUE), die synchroon op de GPU wacht (U109): de
+    // overlay en MapLibre wissen beide transparant.
+    gl.clearColor(0, 0, 0, 0)
     if (scissorEnabled) gl.enable(gl.SCISSOR_TEST)
   }
 
