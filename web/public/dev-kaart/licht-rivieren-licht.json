@@ -200,7 +200,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#c5d9e9",
+        "line-color": "#a3c0da",
         "line-width": [
           "interpolate",
           [
@@ -243,7 +243,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#c5d9e9",
+        "line-color": "#a3c0da",
         "line-width": [
           "interpolate",
           [
@@ -295,7 +295,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#c5d9e9",
+        "line-color": "#a3c0da",
         "line-width": [
           "interpolate",
           [
@@ -332,7 +332,7 @@
       "source": "basemap",
       "source-layer": "water",
       "paint": {
-        "fill-color": "#c5d9e9"
+        "fill-color": "#bfd5e8"
       }
     },
     {

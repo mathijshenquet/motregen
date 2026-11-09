@@ -11,8 +11,6 @@ interface ThemePalette {
   paint: Record<string, Paint>
   /** Kleur van de rivierlijnen; zonder waarde de vulkleur van water. */
   river?: string
-  /** Inktlijn langs alle watervlakken (kust, meren, brede rivieren). */
-  waterEdge?: string
   /** Breed, zacht lint onder de landsgrens. */
   borderRibbon?: string
   stateLabel?: Paint
@@ -37,12 +35,13 @@ const LIGHT_CALM: ThemePalette = {
     landcover_wood: { 'fill-color': '#d9e6cc', 'fill-opacity': 0.55 },
     landcover_grass: { 'fill-color': '#dfe9d3', 'fill-opacity': 0.45 },
     landcover_wetland: { 'fill-color': '#e0ebdd' },
-    water: { 'fill-color': '#c5d9e9' },
+    water: { 'fill-color': '#bfd5e8' },
     landcover_sand: { 'fill-color': '#f2eddb' },
     boundary_2: { 'line-color': '#8d8c91', 'line-opacity': 0.7, 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.7, 11, 1.3] },
     'motregen-province-boundaries': { 'line-color': '#9eabaf', 'line-opacity': 0.6 },
     ...labels('#2a2a2a', '#ffffff'),
   },
+  river: '#a3c0da',
   stateLabel: { 'text-color': '#848f91', 'text-halo-color': '#f7f5f1' },
 }
 
@@ -60,49 +59,50 @@ const DARK_CALM: ThemePalette = {
     'motregen-province-boundaries': { 'line-color': '#6e8287', 'line-opacity': 0.6 },
     ...labels('#bcc8cb', '#121f24'),
   },
+  river: '#2f5567',
   stateLabel: { 'text-color': '#8c9da0', 'text-halo-color': '#121f24' },
 }
 
-// Eigen voorstel: een getekende atlas. Papier, water met een fijne inktrand, rivieren in dezelfde inkt, en een zacht
-// lint langs de landsgrens zoals in een schoolatlas.
+// Eigen voorstel: een getekende atlas. Papier, rivieren in een inktblauw dat dieper is dan het water, en een zacht lint
+// langs de landsgrens zoals in een schoolatlas. Een inktrand langs watervlakken viel af: vlakken zijn per tegel
+// afgeknipt, dus de rand tekent elke tegelgrens op zee.
 const LIGHT_ATLAS: ThemePalette = {
   paint: {
     background: { 'background-color': '#f4f0e6' },
     park: { 'fill-color': '#dfe6cf', 'fill-opacity': 0.55 },
-    landuse_residential: { 'fill-color': ['interpolate', ['linear'], ['zoom'], 9, '#e9e1d3', 12, '#ece2d3'] },
+    landuse_residential: { 'fill-color': ['interpolate', ['linear'], ['zoom'], 9, '#ece6da', 12, '#ece2d3'] },
     landcover_wood: { 'fill-color': '#d6dfc2', 'fill-opacity': 0.6 },
     landcover_grass: { 'fill-color': '#dee5cc', 'fill-opacity': 0.45 },
     landcover_wetland: { 'fill-color': '#dde6d6' },
-    water: { 'fill-color': '#c6d9e3' },
+    water: { 'fill-color': '#bed3df' },
     landcover_sand: { 'fill-color': '#efe5c7' },
     boundary_2: { 'line-color': '#8e7f8a', 'line-opacity': 0.8, 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.6, 11, 1.2] },
     'motregen-province-boundaries': { 'line-color': '#a99f95', 'line-opacity': 0.65 },
     ...labels('#40382f', '#f4f0e6', 1.2),
   },
-  river: '#8fb1c6',
-  waterEdge: '#8fb1c6',
+  river: '#89abc1',
   borderRibbon: '#e2cfd9',
   stateLabel: { 'text-color': '#a09386', 'text-halo-color': '#f4f0e6' },
 }
 
+// Nachtkaart: water duidelijk donkerder dan land (ΔL* ≈ 9), zodat de kust ook onder regen en temperatuur leesbaar blijft.
 const DARK_ATLAS: ThemePalette = {
   paint: {
-    background: { 'background-color': '#16232a' },
-    park: { 'fill-color': '#1c2d27', 'fill-opacity': 0.55 },
-    landuse_residential: { 'fill-color': '#1d2a30' },
-    landcover_wood: { 'fill-color': '#1b2f27', 'fill-opacity': 0.5 },
-    landcover_grass: { 'fill-color': '#1f3129', 'fill-opacity': 0.35 },
-    landcover_wetland: { 'fill-color': '#1d2f2a' },
-    water: { 'fill-color': '#101d25', 'fill-outline-color': '#101d25' },
-    landcover_sand: { 'fill-color': '#35322a' },
-    boundary_2: { 'line-color': '#867c8f', 'line-opacity': 0.8, 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.6, 11, 1.2] },
+    background: { 'background-color': '#1c2a31' },
+    park: { 'fill-color': '#1f3029', 'fill-opacity': 0.55 },
+    landuse_residential: { 'fill-color': '#202f36' },
+    landcover_wood: { 'fill-color': '#1d322a', 'fill-opacity': 0.5 },
+    landcover_grass: { 'fill-color': '#213429', 'fill-opacity': 0.35 },
+    landcover_wetland: { 'fill-color': '#1f3229' },
+    water: { 'fill-color': '#0d1820', 'fill-outline-color': '#0d1820' },
+    landcover_sand: { 'fill-color': '#38352c' },
+    boundary_2: { 'line-color': '#71697b', 'line-opacity': 0.8, 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.6, 11, 1.2] },
     'motregen-province-boundaries': { 'line-color': '#6f7f86', 'line-opacity': 0.6 },
-    ...labels('#cfc8bd', '#16232a', 1.2),
+    ...labels('#d2cbc0', '#1c2a31', 1.2),
   },
-  river: '#3a5a6c',
-  waterEdge: '#3a5a6c',
+  river: '#3d5f72',
   borderRibbon: '#3a3045',
-  stateLabel: { 'text-color': '#93a0a3', 'text-halo-color': '#16232a' },
+  stateLabel: { 'text-color': '#95a2a5', 'text-halo-color': '#1c2a31' },
 }
 
 export const BASEMAP_VARIANTS: BasemapVariant[] = [
@@ -142,15 +142,8 @@ export function applyVariant(style: Style, variant: BasemapVariant, theme: Theme
   })
   const waterIndex = layers.findIndex((layer) => layer.id === 'water')
   const waterColour = palette.paint.water?.['fill-color'] as string
-  // Rivierlijnen onder het watervlak: waar de rivier breder is dan de lijn, tekent het vlak (en zijn inktrand).
+  // Rivierlijnen onder het watervlak: waar de rivier breder is dan de lijn, tekent het vlak.
   if (variant.rivers) layers.splice(waterIndex, 0, ...([1, 2, 3] as const).map((rank) => riverLayer(rank, palette.river ?? waterColour, variant.riverScale ?? 1)))
-  if (palette.waterEdge) {
-    const index = layers.findIndex((layer) => layer.id === 'water') + 1
-    layers.splice(index, 0, {
-      id: 'water_edge', type: 'line', source: 'basemap', 'source-layer': 'water',
-      paint: { 'line-color': palette.waterEdge, 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.4, 8, 0.6, 12, 0.9] },
-    })
-  }
   if (palette.borderRibbon) {
     const index = layers.findIndex((layer) => layer.id === 'boundary_2')
     layers.splice(index, 0, {

@@ -87,7 +87,7 @@
             "zoom"
           ],
           9,
-          "#e9e1d3",
+          "#ece6da",
           12,
           "#ece2d3"
         ],
@@ -200,7 +200,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#8fb1c6",
+        "line-color": "#89abc1",
         "line-width": [
           "interpolate",
           [
@@ -243,7 +243,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#8fb1c6",
+        "line-color": "#89abc1",
         "line-width": [
           "interpolate",
           [
@@ -295,7 +295,7 @@
         "line-join": "round"
       },
       "paint": {
-        "line-color": "#8fb1c6",
+        "line-color": "#89abc1",
         "line-width": [
           "interpolate",
           [
@@ -332,31 +332,7 @@
       "source": "basemap",
       "source-layer": "water",
       "paint": {
-        "fill-color": "#c6d9e3"
-      }
-    },
-    {
-      "id": "water_edge",
-      "type": "line",
-      "source": "basemap",
-      "source-layer": "water",
-      "paint": {
-        "line-color": "#8fb1c6",
-        "line-width": [
-          "interpolate",
-          [
-            "linear"
-          ],
-          [
-            "zoom"
-          ],
-          4,
-          0.4,
-          8,
-          0.6,
-          12,
-          0.9
-        ]
+        "fill-color": "#bed3df"
       }
     },
     {
