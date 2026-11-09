@@ -69,3 +69,11 @@ telegram: 23 groen, 3 bestaande skips) en `basemap-cache`.
 | windzakken | 2D-canvas, Path2D per zak, flutter 30 fps | per zak 1 omtrek + banden als **SVG-padstring** opgebouwd en geparsed; `clientWidth/Height` per frame (kan layout afdwingen) | flutter blijft 30 fps hertekenen in Wind | bench (25 zakken × 5 paden, host onder load): opbouw 1,10 → 0,18 ms/frame | doorgevoerd: paden direct (`moveTo/lineTo`), containermaat gecachet op `resize`, geen cameracheck als onzichtbaar |
 | temperatuurgetallen | MapLibre-`Marker`s (DOM) | alleen bij een nieuwe snede | geen | — | — |
 | basiskaart | MapLibre | — | — | koude start desktop (SwiftShader): 737 ms shadercompilatie, waarvan 572 ms symboollaag | SwiftShader-artefact; op een echte GPU veel kleiner, niet aangepakt |
+
+## Bevinding buiten scope: tabeldata op de telefoon pas na ~60 s
+
+Telefoon 4G koud, Weer, int `a87a1fd` (A, loadavg 17): eerste kaart 2,7 s, histogram 9,7 s, **tabel compleet 68,8 s**;
+de U109-build geeft hetzelfde beeld (74,9 s, loadavg 15). De HARMONIE-chunks voor temperatuur, wind, windstoten en
+gevoel worden pas rond 60 s aangevraagd; tot de laadfase stil is gaat er 9,4 MB over de lijn. De U102-nulmeting van
+vanochtend (eigen basis) gaf 5,8–11 s. Puntreeksen en tabeldata zijn U102-terrein; deze track verandert daar niets
+aan. Repro: `MOTREGEN_PERF_MODES_OPTIONS='{"origin":"<int-preview>","modes":["weer"],"profiles":["telefoon"],"repeat":1,"outputDirectory":"…","interactions":false,"trace":false}' scripts/e2e-slot.sh pnpm exec playwright test --config playwright.perf-modes.config.ts --project perf`.
