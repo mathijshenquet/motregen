@@ -3,9 +3,13 @@
 // Faalt (exit 1) als een gebied meer dan 10 % plus 1 px² land verliest (eiland weg) of meer dan 25 % plus 1 px² land
 // wint (zee weg; weggelaten plassen geven tot ~20 % winst). Schrijft coast-check.json en een verschilblad
 // (rood: land verloren, groen: land erbij).
+// REFERENTIE is een archief, of `BRON.gpkg:laag` (een polygoonlaag in EPSG:3857, met gdal_rasterize op hetzelfde raster
+// gelegd): dan telt de bron zelf, niet een ander gegeneraliseerd archief.
 // Gebruik (vanuit web/): node --import tsx ../tools/basemap/coast-check.mts REFERENTIE KANDIDAAT UITMAP [zoom…]
 import { createRequire } from 'node:module'
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { execFileSync } from 'node:child_process'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { gunzipSync } from 'node:zlib'
@@ -90,7 +94,28 @@ async function rasterize(tiles: ReturnType<typeof open>, box: [number, number, n
   return { width, height, water: Uint8Array.from(data, (value: number) => value > 127 ? 1 : 0) }
 }
 
-const reference = open(referencePath)
+const WORLD = 40075016.6856
+const scratch = mkdtempSync(resolve(tmpdir(), 'coast-'))
+/** Waterraster uit een GPKG-laag op precies het raster van rasterize(). */
+async function rasterizeSource(source: string, box: [number, number, number, number], z: number) {
+  const [path, layer] = source.split(/:(?=[^:]+$)/)
+  const [left, top, right, bottom] = [lonToX(box[0], z), latToY(box[3], z), lonToX(box[2], z), latToY(box[1], z)]
+  const width = Math.max(1, Math.round((right - left) * OVERSAMPLE)), height = Math.max(1, Math.round((bottom - top) * OVERSAMPLE))
+  const meters = (value: number) => value / (256 * 2 ** z) * WORLD
+  // Eén uitsnede per gebied: gdal_rasterize leest anders bij elke zoom de hele bronlaag.
+  const clip = resolve(scratch, `${box.join('_')}.gpkg`)
+  if (!existsSync(clip)) {
+    execFileSync('ogr2ogr', ['--config', 'OGR2OGR_USE_ARROW_API', 'NO', '-f', 'GPKG', clip, path!, layer!, '-nln', layer!, '-spat', String(box[0] - 0.05), String(box[1] - 0.05), String(box[2] + 0.05), String(box[3] + 0.05), '-spat_srs', 'EPSG:4326'])
+  }
+  const output = resolve(scratch, 'source.tif')
+  rmSync(output, { force: true })
+  execFileSync('gdal_rasterize', ['-q', '-l', layer!, '-burn', '255', '-ot', 'Byte', '-init', '0', '-a_nodata', 'none', '-ts', String(width), String(height),
+    '-te', String(meters(left) - WORLD / 2), String(WORLD / 2 - meters(bottom)), String(meters(right) - WORLD / 2), String(WORLD / 2 - meters(top)), clip, output])
+  const { data } = await sharp(output).extractChannel(0).raw().toBuffer({ resolveWithObject: true })
+  return { width, height, water: Uint8Array.from(data, (value: number) => value > 127 ? 1 : 0) }
+}
+const fromSource = /\.gpkg:[^/]+$/.test(referencePath)
+const reference = fromSource ? undefined : open(referencePath)
 const candidate = open(candidatePath)
 mkdirSync(outDirectory, { recursive: true })
 const CELL = { width: 150, height: 96 }
@@ -98,7 +123,7 @@ const results: Array<{ region: string; zoom: number; referenceLandPx: number; ca
 const cells: Array<{ input: Buffer; left: number; top: number }> = []
 for (const [row, region] of REGIONS.entries()) {
   for (const [column, z] of zooms.entries()) {
-    const a = await rasterize(reference, region.box, z)
+    const a = reference ? await rasterize(reference, region.box, z) : await rasterizeSource(referencePath, region.box, z)
     const b = await rasterize(candidate, region.box, z)
     let referenceLand = 0, candidateLand = 0, lost = 0, gained = 0
     const pixels = Buffer.alloc(a.width * a.height * 3)
@@ -132,6 +157,7 @@ await sharp({ create: { width: sheetWidth, height: sheetHeight, channels: 3, bac
   .composite([...cells, { input: Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${sheetWidth}" height="${sheetHeight}" font-family="sans-serif">${labels}</svg>`), left: 0, top: 0 }])
   .png().toFile(resolve(outDirectory, 'blad-kust.png'))
 writeFileSync(resolve(outDirectory, 'coast-check.json'), `${JSON.stringify(results, null, 2)}\n`)
+rmSync(scratch, { recursive: true, force: true })
 const failures = results.filter((result) => !result.ok)
 for (const failure of failures) console.log(`FAAL ${failure.region} z${failure.zoom}: land ${failure.referenceLandPx.toFixed(1)} → ${failure.candidateLandPx.toFixed(1)} px² (${(failure.ratio * 100).toFixed(0)} %)`)
 console.log(`${results.length - failures.length}/${results.length} gebied×zoom binnen −${MAX_LOSS * 100} %/+${MAX_GAIN * 100} % land → ${resolve(outDirectory, 'blad-kust.png')}`)

@@ -2,7 +2,7 @@
 # U108: rivier-middellijnen als extra tegellaag `waterway` (rang 1–3) bovenop het bestaande archief.
 # Zonder vastgelegde rivers.geojson.gz eerst afleiden uit Overpass; daarna altijd: tegels maken en samenvoegen.
 # Gebruik: bash tools/basemap/rivers.sh [--refresh]; MOTREGEN_RIVER_MAX_RANK=2 laat rang 3 weg en schrijft alleen
-# de tegels (rivers-r2.mbtiles) voor strak.sh, zonder archief.
+# de tegels (rivers-r2.mbtiles) voor strak.sh, zonder archief; MOTREGEN_RIVER_TILES_ONLY=1 idem met rang 1–3.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 scratch="${MOTREGEN_BASEMAP_SCRATCH:-tmp/basemap}/rivers"
@@ -34,6 +34,6 @@ done
 ogr2ogr -f MBTILES "$tiles" "$scratch/rivers.gpkg" \
   -dsco MINZOOM=4 -dsco MAXZOOM=10 -dsco COMPRESS=YES -dsco SIMPLIFICATION=2 -dsco SIMPLIFICATION_MAX_ZOOM=2 \
   -dsco CONF='{"rank1":{"target_name":"waterway","minzoom":5},"rank2":{"target_name":"waterway","minzoom":7},"rank3":{"target_name":"waterway","minzoom":9}}'
-if [ "$max_rank" = 3 ]; then
+if [ "$max_rank" = 3 ] && [ -z "${MOTREGEN_RIVER_TILES_ONLY:-}" ]; then
   (cd web && node --import tsx ../tools/basemap/compose.mts rivieren "../$scratch" "../$tiles")
 fi

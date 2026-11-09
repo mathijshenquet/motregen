@@ -71,11 +71,16 @@ async function coldMapBytes(browser: Browser, variant: string, view?: typeof VIE
   return { variant, view: view ? `z${view.zoom}` : 'start', tileBytes: tiles, rangeRequests: requests, styleBytes: styles }
 }
 
+// Close-ups: MOTREGEN_KAART_VIEWS='[{"zoom":11,"lng":4.83,"lat":52.24,"tag":"uithoorn"}]' vervangt de vaste views (zonder
+// Gevoel/Wind); MOTREGEN_KAART_DEVICES en MOTREGEN_KAART_THEMES beperken de reeks.
+const views: typeof VIEWS = process.env.MOTREGEN_KAART_VIEWS ? JSON.parse(process.env.MOTREGEN_KAART_VIEWS) : VIEWS
+const devices = (process.env.MOTREGEN_KAART_DEVICES?.split(' ') ?? Object.keys(DEVICES)) as Array<keyof typeof DEVICES>
+const themes = (process.env.MOTREGEN_KAART_THEMES?.split(' ') ?? ['light', 'dark']) as Array<'light' | 'dark'>
 for (const variant of process.env.SKIP_SHOTS ? [] : variants) {
-  for (const device of Object.keys(DEVICES) as Array<keyof typeof DEVICES>) {
-    for (const theme of ['light', 'dark'] as const) {
-      for (const view of VIEWS) console.log(await shoot(browser, variant, device, theme, view))
-      if (device === 'desktop') for (const mode of MODES) console.log(await shoot(browser, variant, device, theme, VIEWS[1]!, mode))
+  for (const device of devices) {
+    for (const theme of themes) {
+      for (const view of views) console.log(await shoot(browser, variant, device, theme, view))
+      if (device === 'desktop' && !process.env.MOTREGEN_KAART_VIEWS) for (const mode of MODES) console.log(await shoot(browser, variant, device, theme, VIEWS[1]!, mode))
     }
   }
 }

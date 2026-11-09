@@ -19,8 +19,10 @@ interface ThemePalette {
 export interface BasemapVariant {
   name: string
   /** Welk archief: het huidige, met rivierlaag, of strak (rivieren + opnieuw gegeneraliseerde landbedekking/water). */
-  archive: 'basis' | 'rivieren' | 'strak'
+  archive: 'basis' | 'rivieren' | 'strak' | 'diagram' | 'diagram-wegen'
   rivers: boolean
+  /** Eigen weerkaart: alleen bos (binair), kernen, water, rivieren, grenzen, plaatsen; optioneel snelwegen. */
+  diagram?: { roads: boolean }
   palettes: Record<Theme, ThemePalette>
   riverScale?: number
 }
@@ -113,7 +115,33 @@ export const BASEMAP_VARIANTS: BasemapVariant[] = [
   { name: 'atlas', archive: 'rivieren', rivers: true, palettes: { light: LIGHT_ATLAS, dark: DARK_ATLAS }, riverScale: 0.85 },
   // PO 2026-11-09: het oorspronkelijke palet was prima; alleen grove rivieren en stadsvlekken, en de tekenkosten.
   { name: 'strak', archive: 'strak', rivers: true, palettes: { light: { paint: {} }, dark: { paint: {} } } },
+  // Herijking PO 2026-11-09: eigen, weergerichte kaart; herkenbaarheid eerst, bos binair, geen zand/heide/gras/moeras.
+  { name: 'diagram', archive: 'diagram', rivers: true, diagram: { roads: false }, palettes: { light: { paint: {} }, dark: { paint: {} } } },
+  { name: 'diagram-wegen', archive: 'diagram-wegen', rivers: true, diagram: { roads: true }, palettes: { light: { paint: {} }, dark: { paint: {} } } },
 ]
+
+const DIAGRAM_DROPPED = new Set(['park', 'landcover_grass', 'landcover_wetland', 'landcover_sand'])
+const DIAGRAM_CLASS: Record<string, string> = { landcover_wood: 'wood', landuse_residential: 'urban' }
+
+/** Diagramarchief: landbedekking heeft alleen `class` wood/urban, zonder detail_minzoom (de generalisatie selecteert al). */
+function diagramLayers(layers: Style['layers'], roads: boolean, theme: Theme): Style['layers'] {
+  const kept = layers.filter((layer) => !DIAGRAM_DROPPED.has(layer.id)).map((layer) => {
+    const kind = DIAGRAM_CLASS[layer.id]
+    return kind ? { ...layer, filter: ['==', ['get', 'class'], kind] } : layer
+  })
+  if (!roads) return kept
+  const index = kept.findIndex((layer) => layer.id === 'boundary_2')
+  kept.splice(index, 0, {
+    id: 'road_motorway', type: 'line', source: 'basemap', 'source-layer': 'road', minzoom: 6,
+    layout: { 'line-join': 'round', 'line-cap': 'round' },
+    paint: {
+      'line-color': theme === 'dark' ? '#4a5a60' : '#d9c9a8',
+      'line-width': ['interpolate', ['linear'], ['zoom'], 6, 0.5, 8, 0.9, 10, 1.4, 12, 2.2],
+      'line-opacity': ['interpolate', ['linear'], ['zoom'], 6, 0.5, 7, 0.9],
+    },
+  })
+  return kept
+}
 
 /** Breedte per zoom (px) voor rang 1–3; rang 2 en 3 vloeien in vanaf hun minimumzoom. */
 const RIVER_WIDTHS: Record<1 | 2 | 3, Array<[number, number]>> = {
@@ -139,7 +167,8 @@ function riverLayer(rank: 1 | 2 | 3, colour: string, scale: number) {
 
 export function applyVariant(style: Style, variant: BasemapVariant, theme: Theme): Style {
   const palette = variant.palettes[theme]
-  const layers = style.layers.map((layer) => {
+  const source = variant.diagram ? diagramLayers(style.layers, variant.diagram.roads, theme) : style.layers
+  const layers = source.map((layer) => {
     const paint = palette.paint[layer.id]
     const state = layer.id === 'label_state' ? palette.stateLabel : undefined
     return paint || state ? { ...layer, paint: { ...layer.paint, ...paint, ...state } } : layer
