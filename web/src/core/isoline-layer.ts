@@ -118,7 +118,8 @@ vec2 nearestBubble(vec2 px) {
 float bubbleZone(float disk) {
   return 1.0 - smoothstep(u_bubble_soft, u_bubble_soft + 3.0, disk);
 }
-// Unie van band k (k ≤ s < k + 1) en de schijf; < 0 = binnen.
+// Unie van band k (k ≤ s < k + 1) en de schijf; < 0 = binnen. Tijdens een bandwissel is .w gebroken (k + f): dan
+// vloeien de unies met band k en k + 1 met gewicht f over.
 float bubbleUnion(float disk, float k, float s, float gradient) {
   float band = max(k - s, s - (k + 1.0)) / max(gradient, 1e-6);
   return smin(band, disk, u_bubble_soft);
@@ -171,8 +172,10 @@ void main() {
   if (u_bubble_count > 0) {
     vec2 near = nearestBubble(gl_FragCoord.xy);
     if (near.y >= 0.0 && near.x < u_bubble_soft + 3.0) {
-      float k = u_bubbles[int(near.y)].w;
-      rgb = mix(rgb, band(k), clamp(0.5 - bubbleUnion(near.x, k, s, gradient), 0.0, 1.0));
+      float w = u_bubbles[int(near.y)].w, k = floor(w), f = w - k;
+      float in0 = clamp(0.5 - bubbleUnion(near.x, k, s, gradient), 0.0, 1.0) * (1.0 - f);
+      float in1 = clamp(0.5 - bubbleUnion(near.x, k + 1.0, s, gradient), 0.0, 1.0) * f;
+      rgb = band(k) * in0 + band(k + 1.0) * in1 + rgb * (1.0 - in0 - in1);
     }
   }
   color = vec4(rgb * opacity, opacity);
@@ -284,19 +287,24 @@ void main() {
   if (field.g < 0.5) discard;
   float s = (field.r - u_offset) / u_step;
   float gradient = length(vec2(levelOf(v_uv + dx) - s, levelOf(v_uv + dy) - s));
-  float k = u_bubbles[int(near.y)].w;
-  float union_ = bubbleUnion(near.x, k, s, gradient);
-  float edge = clamp(u_half_width + 0.5 - abs(union_), 0.0, 1.0);
+  float w = u_bubbles[int(near.y)].w, k = floor(w), f = w - k;
+  float union0 = bubbleUnion(near.x, k, s, gradient), union1 = bubbleUnion(near.x, k + 1.0, s, gradient);
+  float edge = clamp(u_half_width + 0.5 - abs(union0), 0.0, 1.0) * (1.0 - f) + clamp(u_half_width + 0.5 - abs(union1), 0.0, 1.0) * f;
+  // Overige niveaus buiten de unie; tijdens een wissel neemt niveau k het over van de rand van unie 0 en k + 2 andersom.
   float level = floor(s + 0.5);
-  float other = level == k || level == k + 1.0 ? 0.0
-    : clamp(u_half_width + 0.5 - abs(s - level) / max(gradient, 1e-6), 0.0, 1.0) * smoothstep(u_half_width + 1.0, u_half_width + 3.0, union_);
-  float line = max(edge, other) * u_line_alpha * zone;
+  float clear0 = smoothstep(u_half_width + 1.0, u_half_width + 3.0, union0), clear1 = smoothstep(u_half_width + 1.0, u_half_width + 3.0, union1);
+  float weight = level == k ? f * clear1 : level == k + 1.0 ? 0.0 : level == k + 2.0 ? (1.0 - f) * clear0 : mix(clear0, clear1, f);
+  float other = clamp(u_half_width + 0.5 - abs(s - level) / max(gradient, 1e-6), 0.0, 1.0) * weight;
+  float line = min(1.0, edge + other) * u_line_alpha * zone;
   if (line <= 0.0) discard;
   color = vec4(u_color * line, line);
 }`
 
-/** Een getal met een eigen vlak: plek, straal in CSS-px en de bandindex k (k ≤ (T − offset)/step < k + 1). */
-export interface IsolineBubble { lng: number; lat: number; radius: number; band: number }
+/**
+ * Een getal met een eigen vlak: anker, schermverschuiving en straal in CSS-px, en de bandindex k (k ≤ (T − offset)/step
+ * < k + 1); gebroken tijdens een bandwissel.
+ */
+export interface IsolineBubble { lng: number; lat: number; dx: number; dy: number; radius: number; band: number }
 /** Zachtheid van de unie schijf ∪ band in CSS-px. */
 const BUBBLE_SOFT_PX = 8
 
@@ -575,7 +583,7 @@ export class IsolineLayer implements CustomLayerInterface {
 
   /** Getallen die een eigen vlak krijgen (vulling en lijnen buigen eromheen); alleen een wijziging kost een pass. */
   setBubbles(bubbles: readonly IsolineBubble[]): void {
-    const key = bubbles.map((bubble) => `${bubble.lng},${bubble.lat},${bubble.radius},${bubble.band}`).join(';')
+    const key = bubbles.map((bubble) => `${bubble.lng},${bubble.lat},${bubble.dx},${bubble.dy},${bubble.radius},${bubble.band}`).join(';')
     if (key === this.bubbleKey) return
     this.bubbleKey = key
     this.bubbles = bubbles.slice(0, MAX_BUBBLES)
@@ -592,7 +600,7 @@ export class IsolineLayer implements CustomLayerInterface {
     for (let index = 0; index < count; index++) {
       const bubble = this.bubbles[index]!
       const point = this.map!.project([bubble.lng, bubble.lat])
-      data.set([point.x * scaleX, (cssHeight - point.y) * scaleY, bubble.radius * scaleX, bubble.band], index * 4)
+      data.set([(point.x + bubble.dx) * scaleX, (cssHeight - point.y - bubble.dy) * scaleY, bubble.radius * scaleX, bubble.band], index * 4)
     }
     gl.uniform4fv(uniform('u_bubbles[0]'), data)
     gl.uniform1i(uniform('u_bubble_count'), count)

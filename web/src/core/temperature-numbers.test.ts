@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { islandBox, lookLabelTuning, placeNamePaddingPx, placeNumberSpacingPx, regionNumbers, TEMPERATURE_LABEL_PLANS, temperatureLabelLook, temperatureLabelSize, type RegionOptions } from './temperature-numbers'
+import { islandBox, lookLabelTuning, nestedPlaces, numberColor, TEMPERATURE_NUMBER_PLACES, placeNamePaddingPx, placeNumberSpacingPx, regionNumbers, TEMPERATURE_LABEL_PLANS, temperatureLabelLook, temperatureLabelSize, type RegionOptions } from './temperature-numbers'
 import { loadLabelTuning } from './isoline-label-anchors'
 
 const options: RegionOptions = { cellPx: 6, insetPx: 14, keepInsetPx: 9, minDistancePx: 44, repeatPx: 160, max: 60 }
@@ -80,5 +80,27 @@ describe('one number per region', () => {
     const labels = regionNumbers(() => 2, 300, 300, { ...options, blocked: (x, y) => Math.hypot(x - 150, y - 150) < 40 })
     expect(labels.length).toBeGreaterThan(0)
     for (const label of labels) expect(Math.hypot(label.x - 150, label.y - 150)).toBeGreaterThanOrEqual(40)
+  })
+})
+
+describe('stable places and colours while zooming', () => {
+  it('only adds places when zooming in and only removes them when zooming out', () => {
+    let previous: string[] = []
+    for (let zoom = 5; zoom <= 10; zoom += 0.25) {
+      const names = nestedPlaces(zoom, 50, TEMPERATURE_NUMBER_PLACES).map((place) => place.name)
+      expect(names.slice(0, previous.length)).toEqual(previous)
+      previous = names
+    }
+    expect(previous.length).toBeGreaterThan(nestedPlaces(5, 50, TEMPERATURE_NUMBER_PLACES).length)
+  })
+
+  it('tints the digits with their band: dark on the light map, light on the dark map', () => {
+    const green: [number, number, number] = [0.38, 0.75, 0.38]
+    const luminance = ([r, g, b]: number[]) => 0.2126 * r! + 0.7152 * g! + 0.0722 * b!
+    const dark = numberColor(green, 'light'), light = numberColor(green, 'dark')
+    expect(luminance(dark)).toBeCloseTo(0.24, 2)
+    expect(luminance(light)).toBeCloseTo(0.86, 2)
+    expect(dark[1]).toBeGreaterThan(dark[0])
+    expect(light[1]).toBeGreaterThan(light[0])
   })
 })
