@@ -391,6 +391,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
    * (U102-meting, telefoon over HTTP/1.1).
    */
   async function regionChunk(current: Manifest | undefined, chunkUrl: string, x: number, y: number): Promise<RegionChunk | undefined> {
+    if (!regionsSection(current)) return undefined
     if (untrack(playing)) await Promise.race([firstMove, new Promise((resolve) => window.setTimeout(resolve, REGION_MOVE_WAIT_MS))])
     return regionPoints.chunk(current, chunkUrl, x, y)
   }
