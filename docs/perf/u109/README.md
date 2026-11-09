@@ -125,3 +125,42 @@ Lezing:
 2. Een wissel naar Wind zet windzakken binnen 25–220 ms neer; de Bft-vlakken volgen pas na 0,2–1,6 s (velden laden
    en een GPU-snede). Naar Gevoel: vlakken na 0,1–1,6 s.
 3. Basiskaart op de telefoon 3,2–8,1 s, regen 2,7–3,5 s: de regen staat er dus vaak vóór de basiskaart.
+
+## Kosten per frame en in rust (CPU-profiel per fase)
+
+Bron: `tmp/u109/q1/kosten-{A,B}` (`scripts/u109-queue.sh` stap 2, warme bezoeken met trace en CPU-profiel,
+`scripts/u109-phase-costs.ts`). A = int, B = U109-build vóór de GL-sync-fix. Eén run per cel, loadavg 16–37. Let
+op: warme meetbezoeken openen met `?perf`; `core/perf.ts` (20–90 ms/s op de telefoon) is die instrumentatie, geen
+productkost. De rustfase volgt in B direct op de laatste wissel en bevat daar nog laadstaart (decodes).
+
+Hoofddraad, ms per seconde fase:
+
+| profiel / modus | fase | A totaal | B totaal | grootste posten |
+| --- | --- | ---: | ---: | --- |
+| desktop / Weer | scrubben | 468 | 371 | regen `filterFrame` 410 → zie GL-sync hieronder |
+| desktop / Weer | afspelen | 191 | 96 | regen 163 (A) |
+| telefoon / Weer | afspelen | 234 | 285 | regen 132 (A) / 194 (B) |
+| telefoon / Wind | scrubben | 212 | 173 | windzakken 35,7 → 13,2 |
+| telefoon / Wind | afspelen | 188 | 179 | windzakken 26,8 → 17,3; isolijnen (workers) ~180–210 |
+| desktop / Wind | afspelen | 43 | 28 | windzakken 8,1 → 2,9 |
+| telefoon / Weer | rust | 73 | 56 | deeltjes (achtergrondwind) 29 |
+| desktop / Weer | rust | 19 | 27 | deeltjes 7 |
+
+### Synchrone GL-queries: de grootste vondst
+
+`filterFrame` (het bronfilter van elk nieuw regenframe) vroeg `getParameter(COLOR_WRITEMASK)` op. Dat is de enige
+statusquery die Chromium niet uit zijn cache beantwoordt: de hoofddraad wacht tot de GPU-procesrij leeg is.
+`scripts/u109-gl-sync.ts` (10 s scrubben, alle WebGL-queries getimed):
+
+| build | profiel | synchrone wachttijd per 10 s scrubben | grootste post |
+| --- | --- | ---: | --- |
+| U109 vóór fix | desktop | 4.350 ms | `COLOR_WRITEMASK` 86× |
+| U109 vóór fix | Pixel 5 | 4.061 ms | `COLOR_WRITEMASK` 83× |
+| U109 na fix (d97b1c6) | desktop | 1,7 ms | `VIEWPORT` 195× (gecachet) |
+| U109 na fix | Pixel 5 | 1,0 ms | `VIEWPORT` 162× |
+
+SwiftShader rekent GPU-werk op de CPU, dus de wachttijd per roundtrip (~30–50 ms) is hier overdreven; op een
+telefoon blijft het een volledige pijplijnsync per nieuw regenframe (twee per framewissel), juist tijdens scrubben
+en afspelen. Het masker staat op dat punt altijd volledig aan (overlay; in MapLibre zet `drawCustom` het vóór
+`render` en markeert de state daarna vuil), dus de query en het herstel zijn weggelaten. Idem
+`getParameter(COLOR_CLEAR_VALUE)` bij het wissen van de windtrails (18 ms per aanroep): terug naar transparant.
