@@ -45,6 +45,8 @@ await browser.close()
 
 async function settle(page: Page, mode: string): Promise<void> {
   await page.locator('.map-splash.ready').waitFor({ state: 'attached' })
+  // `?dev` (regimeproef) opent het dev-paneel over de kaart; voor het blad weg.
+  await page.addStyleTag({ content: '.dev-panel { display: none !important; }' })
   await page.locator('.scrubber-placeholder').waitFor({ state: 'detached' })
   const close = page.locator('.freshness-close')
   if (await close.isVisible().catch(() => false)) await close.click()
