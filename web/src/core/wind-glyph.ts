@@ -17,12 +17,12 @@ export const WINDSOCK_SHAPE = {
   /** Bij deze windkracht staat de zak vol. */
   fullForce: 5,
   /** Lengte als deel van maxLength: slap en vol. */
-  slackLength: 0.5,
+  slackLength: 0.42,
   /** Staartbreedte als deel van de mond: slap, en wat er bij vol bij komt. */
-  slackTail: 0.32,
+  slackTail: 0.26,
   fullTailGain: 0.24,
-  /** Doorbuiging van de slappe zak aan de staart, in radialen (~30°). */
-  slackBend: 0.5,
+  /** Doorbuiging van de slappe zak aan de staart, in radialen (~9°): een hint, geen haak (PO 2026-11-09). */
+  slackBend: 0.15,
 } as const
 
 /**

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Grid } from './contract'
 import { WINDSOCK_SAMPLES } from './wind-glyph'
-import { angleDifference, mixAngle, sampleWind, windsockHeadings, type WindsockField, type WindSlice } from './windsock-flow'
+import { advanceWave, angleDifference, followSpring, mixAngle, sampleWind, swayBends, windsockHeadings, type WindsockField, type WindSlice } from './windsock-flow'
 
 const grid = { crs: 'EPSG:3857', x0: 0, y0: 7_000_000, dx: 100_000, dy: -100_000, width: 10, height: 10 } as Grid
 
@@ -45,5 +45,41 @@ describe('windsockHeadings', () => {
     expect(headings[WINDSOCK_SAMPLES / 2]).toBeCloseTo(45, 6)
     expect(headings.at(-1)).toBeCloseTo(15, 6) // begrensd op 75° buiging
     expect(windsockHeadings(field, ...centre, 'stroom')!.at(-1)).toBeCloseTo(90, 6)
+  })
+})
+
+describe('momentum', () => {
+  it('volgt een sprong vloeiend en zonder doorschieten, ook bij grote framestappen', () => {
+    const spring = { value: 0, velocity: 0 }
+    const values: number[] = []
+    for (let frame = 0; frame < 120; frame++) { followSpring(spring, 90, 1 / 30, 0.6); values.push(spring.value) }
+    expect(Math.max(...values)).toBeLessThanOrEqual(90)
+    expect(values[8]).toBeGreaterThan(20)
+    expect(values[8]).toBeLessThan(80)
+    expect(spring.value).toBeCloseTo(90, 1)
+    const coarse = { value: 0, velocity: 0 }
+    followSpring(coarse, 90, 0.5, 0.6)
+    expect(coarse.value).toBeGreaterThan(0)
+    expect(coarse.value).toBeLessThanOrEqual(90)
+  })
+})
+
+describe('wuiven', () => {
+  it('beweegt vooral de staart, en sneller bij meer wind', () => {
+    const range = (strength: number, index: number) => {
+      const values = Array.from({ length: 200 }, (_, step) => swayBends(strength, advanceWave(0, strength, step / 50), step / 50, 1.3)[index]!)
+      return Math.max(...values) - Math.min(...values)
+    }
+    expect(range(3, WINDSOCK_SAMPLES)).toBeGreaterThan(range(3, 0) * 2)
+    const crossings = (strength: number) => {
+      let count = 0, previous = swayBends(strength, 0, 0, 0.4)[WINDSOCK_SAMPLES]!
+      for (let step = 1; step < 400; step++) {
+        const value = swayBends(strength, advanceWave(0, strength, step / 100), step / 100, 0.4)[WINDSOCK_SAMPLES]!
+        if (Math.sign(value) !== Math.sign(previous)) count++
+        previous = value
+      }
+      return count
+    }
+    expect(crossings(8)).toBeGreaterThan(crossings(1) * 2)
   })
 })
