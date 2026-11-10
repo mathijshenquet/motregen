@@ -11,6 +11,7 @@ use render_core::{
     mode_constants::mode_constants,
     projection::{Grid, Projection},
     time::{Manifest, frame_blend},
+    wind::ParticleChain,
     windsock,
 };
 use serde::{Deserialize, Serialize};
@@ -64,12 +65,15 @@ pub struct Slice {
     pub opacity: f64,
 }
 
-/// What a slice carries over to the next one: the label anchors and, for wind, the motion of the socks (U107).
+/// What a slice carries over to the next one: the label anchors and, for wind, the motion of the socks (U107) and
+/// the lives of the particles (U112).
 #[derive(Deserialize, Serialize)]
 struct FieldState {
     labels: Labels,
     #[serde(default)]
     socks: SockChain,
+    #[serde(default)]
+    particles: ParticleChain,
 }
 
 pub struct Fields<'a> {
@@ -81,6 +85,8 @@ pub struct Fields<'a> {
     labels: Labels,
     /// Wind: momentum and wave of the socks, stepped once per film frame in `Sources::input`.
     pub socks: SockChain,
+    /// Wind: the lives of the particles, stepped together with the socks (U112).
+    pub particles: ParticleChain,
     /// Wind (U101): Beaufort bands from u and v, without labels; otherwise the feels-like temperature.
     wind: bool,
     pub fields_us: u128,
@@ -115,6 +121,7 @@ impl<'a> Fields<'a> {
             prepared: Vec::new(),
             labels: Labels::default(),
             socks: SockChain::default(),
+            particles: ParticleChain::default(),
             wind,
             fields_us: 0,
             contours_us: 0,
@@ -182,6 +189,7 @@ impl<'a> Fields<'a> {
         Ok(serde_json::to_vec(&FieldState {
             labels: self.labels.clone(),
             socks: self.socks.clone(),
+            particles: self.particles.clone(),
         })?)
     }
 
@@ -189,6 +197,7 @@ impl<'a> Fields<'a> {
         let state: FieldState = serde_json::from_slice(state)?;
         self.labels = state.labels;
         self.socks = state.socks;
+        self.particles = state.particles;
         Ok(())
     }
 
