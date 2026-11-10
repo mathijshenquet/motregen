@@ -37,8 +37,11 @@ export class LayerOverlay {
   private readonly mapRendered = () => { if (this.camera() !== this.drawnCamera) this.draw() }
   private readonly resized = () => this.draw()
 
-  /** `maxFps`: bovengrens voor animatieframes (120 Hz-schermen zouden anders dubbel tekenen). */
-  constructor(private readonly map: MapLibreMap, readonly layer: OverlayLayer, above: Element, private readonly maxFps: () => number = () => Infinity) {
+  /**
+   * `maxFps`: bovengrens voor animatieframes (120 Hz-schermen zouden anders dubbel tekenen). `maxPixelRatio`: alleen
+   * `?dev&isolijndpr=` (U111), een lagere pixeldichtheid dan de kaart; de canvas wordt dan opgeschaald.
+   */
+  constructor(private readonly map: MapLibreMap, readonly layer: OverlayLayer, above: Element, private readonly maxFps: () => number = () => Infinity, private readonly maxPixelRatio = Infinity) {
     this.canvas = document.createElement('canvas')
     this.canvas.className = `map-overlay map-overlay-${layer.id}`
     this.canvas.setAttribute('aria-hidden', 'true')
@@ -142,9 +145,11 @@ export class LayerOverlay {
 
   private resize(): boolean {
     const source = this.map.getCanvas()
-    const resized = this.canvas.width !== source.width || this.canvas.height !== source.height
-    if (this.canvas.width !== source.width) this.canvas.width = source.width
-    if (this.canvas.height !== source.height) this.canvas.height = source.height
+    const scale = Math.min(1, this.maxPixelRatio / (window.devicePixelRatio || 1))
+    const width = Math.max(1, Math.round(source.width * scale)), height = Math.max(1, Math.round(source.height * scale))
+    const resized = this.canvas.width !== width || this.canvas.height !== height
+    if (this.canvas.width !== width) this.canvas.width = width
+    if (this.canvas.height !== height) this.canvas.height = height
     this.canvas.style.width = source.style.width
     this.canvas.style.height = source.style.height
     return resized

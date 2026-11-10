@@ -239,6 +239,14 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   // lopen door). `?dev&kaart=leeg` zit in basemap.ts.
   const particlesOff = devParams.get('deeltjes') === 'uit'
   const rainOff = devParams.get('regen') === 'uit'
+  // Kandidaat-fixes bisectieronde 1 (U111): elke zak een eigen kleine canvas; zak- en isolijncanvas op lagere DPR.
+  const devPixelRatio = (name: string) => {
+    const value = Number(devParams.get(name))
+    return value >= 1 && value <= 3 ? value : undefined
+  }
+  const separateSockCanvases = devParams.get('zakcanvas') === 'los'
+  const sockPixelRatio = devPixelRatio('zakdpr')
+  const isolinePixelRatio = devPixelRatio('isolijndpr') ?? Infinity
   const stillMode = new URLSearchParams(window.location.search).get('still') === '1'
   let rigFreeCamera = false
   // Bewaar de invoer voordat de live permalink de adresbalk normaliseert.
@@ -1789,9 +1797,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
    */
   function mountIsolines(set: IsolineSet, target: maplibregl.Map, isolines: IsolineLayer): void {
     try {
-      set.overlay = new LayerOverlay(target, isolines, target.getCanvas(), () => WIND_MAX_FPS)
+      isolines.maxPixelRatio = isolinePixelRatio
+      set.overlay = new LayerOverlay(target, isolines, target.getCanvas(), () => WIND_MAX_FPS, isolinePixelRatio)
     } catch {
       set.overlay = undefined
+      isolines.maxPixelRatio = Infinity
       target.addLayer(isolines, 'motregen-temperature')
     }
   }
@@ -2316,7 +2326,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         client.getHeader(frames[blends[0]!.left]!.u.chunk),
       ])
       if (request !== shownWindsockRequest || !map) return
-      windsockLayer ??= new WindsockLayer(map, { ...windsockOptions, reducedMotion: () => reducedMotion.matches, pin: () => marker?.getLngLat() })
+      windsockLayer ??= new WindsockLayer(map, { ...windsockOptions, separateCanvases: separateSockCanvases, maxPixelRatio: sockPixelRatio, reducedMotion: () => reducedMotion.matches, pin: () => marker?.getLngLat() })
       windsockLayer.setUnit(untrack(windUnit))
       windsockLayer.setTheme(untrack(mapSurfaceTheme) === 'dark')
       windsockLayer.setPlaces(nestedPlaces(map.getZoom(), WINDSOCK_SPACING_PX))

@@ -62,4 +62,17 @@ describe('LayerOverlay met drawKey (U111)', () => {
     expect(order.at(-1)).toBe('render')
     expect(overlay.draws).toBe(3)
   })
+
+  it('houdt met maxPixelRatio een kleinere canvas op dezelfde CSS-maat aan', () => {
+    const { gl } = fakeGl()
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(gl as unknown as RenderingContext)
+    vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(1)
+    vi.spyOn(window, 'devicePixelRatio', 'get').mockReturnValue(3)
+    const layer: OverlayLayer = { id: 'proef', type: 'custom', render: () => {} }
+    const host = document.createElement('div')
+    const above = document.createElement('canvas')
+    host.append(above)
+    const overlay = new LayerOverlay(fakeMap({ width: 1206, height: 2532 }), layer, above, () => Infinity, 2)
+    expect([overlay.canvas.width, overlay.canvas.height]).toEqual([804, 1688])
+  })
 })
