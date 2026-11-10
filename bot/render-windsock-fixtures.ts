@@ -2,9 +2,9 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import type { Grid, MrfHeader } from '../web/src/core/contract.js'
 import { beaufortFrame, beaufortScale } from '../web/src/core/wind-beaufort.js'
-import { WINDSOCK_SAMPLES, windsockBadge, windsockBand, windsockInflated, windsockShape } from '../web/src/core/wind-glyph.js'
+import { WINDSOCK_SAMPLES, windsockBadge, windsockBand, windsockInflated, windsockPill, windsockShape } from '../web/src/core/wind-glyph.js'
 import { advanceSock, sampleWind, sockReach, socksClear, SOCK_SNAP_SECONDS, swayBends, windsockHeadings, type SockMotion, type WindsockField } from '../web/src/core/windsock-flow.js'
-import { fillPolygon } from './native-windsocks.js'
+import { capsule, fillPolygon } from './native-windsocks.js'
 
 // Gelijkheidstest Rust ↔ Node voor de windzakken (U101): de Node-uitkomsten voor vaste invoer, die
 // crates/render-core/src/windsock.rs in zijn tests narekent.
@@ -69,11 +69,21 @@ export function windsockFixtures() {
     const a = sockReach([mastA[0], mastA[1]], headingA, strengthA), b = sockReach([mastB[0], mastB[1]], headingB, strengthB)
     return { a: { mast: a.mast, heading: headingA, strength: strengthA, tails: a.tails }, b: { mast: b.mast, heading: headingB, strength: strengthB, tails: b.tails }, clear: socksClear(a, b), clear_appear: socksClear(a, b, 1.15) }
   })
+  // De pil (U113): maat en kant per richting, en de toets met pil (een pil die over de buurzak valt).
+  const pills = ([[90, '2', 'Bft'], [270, '12', 'Bft'], [10, '7', 'km/u'], [200, '104', 'km/u'], [160, '3', 'm/s'], [350, '0', 'kn']] as const)
+    .map(([heading, label, unit]) => ({ heading, label, unit, pill: windsockPill(heading, label, unit) }))
+  const pillReaches = ([[[100, 100], 270, 3, '3', [148, 100], 90, 3, '3'], [[100, 100], 270, 3, '3', [160, 100], 90, 3, '3'], [[0, 0], 180, 4, '4', [0, 40], 0, 4, '4'], [[0, 0], 90, 5, '12', [40, -30], 90, 5, '12']] as const).map(([mastA, headingA, strengthA, labelA, mastB, headingB, strengthB, labelB]) => {
+    const a = sockReach([mastA[0], mastA[1]], headingA, strengthA, windsockPill(headingA, labelA, 'Bft'))
+    const b = sockReach([mastB[0], mastB[1]], headingB, strengthB, windsockPill(headingB, labelB, 'Bft'))
+    return { a: { mast: a.mast, heading: headingA, strength: strengthA, label: labelA, badge: a.badge }, b: { mast: b.mast, heading: headingB, strength: strengthB, label: labelB, badge: b.badge }, clear: socksClear(a, b), clear_appear: socksClear(a, b, 1.15) }
+  })
   const size = { width: 24, height: 20 }
   const fills = [
     { points: [[2.3, 1.6], [19.7, 4.2], [14.1, 17.8], [-3, 12]] as [number, number][], cut: undefined },
     { points: [[0, 0], [24, 0], [24, 20], [0, 20]] as [number, number][], cut: { x: 11.3, y: 9.6, radius: 5.2 } },
     { points: [[12, -4], [30, 10], [12, 24], [-6, 10]] as [number, number][], cut: { x: 4, y: 4, radius: 3 } },
+    { points: [[0, 0], [24, 0], [24, 20], [0, 20]] as [number, number][], cut: { x: 12.4, y: 9.7, radius: 4.6, halfLength: 5.3 } },
+    { points: capsule(11.8, 10.2, 6.1, 5.4), cut: undefined },
   ].map(({ points, cut }) => {
     const rgb = Buffer.alloc(size.width * size.height * 3, 40)
     fillPolygon(rgb, points, [250, 120, 30], 0.8, size, cut)
@@ -85,7 +95,7 @@ export function windsockFixtures() {
     speeds: [0, 0.2, 1.6, 4, 10.8, 25, 40].map((speed) => ({ speed, scale: beaufortScale(speed) })),
     east: [...east], north: [...north], quant: header.quant, frame: [...beaufortFrame(east, north, header, header).data],
   }
-  return { size, shapes, field: { grid: field.grid, slices: field.slices.map((slice) => ({ left: [...slice.left], right: [...slice.right], mix: slice.mix })) }, flow, motions, reaches, fills, beaufort }
+  return { size, shapes, pills, pill_reaches: pillReaches, field: { grid: field.grid, slices: field.slices.map((slice) => ({ left: [...slice.left], right: [...slice.right], mix: slice.mix })) }, flow, motions, reaches, fills, beaufort }
 }
 
 export async function generateWindsockFixtures(check = false): Promise<void> {

@@ -143,6 +143,64 @@ export function windsockBadge(shape: WindsockShape, position: WindsockBadgePosit
  */
 export const WINDSOCK_BADGE = { radius: 9.5, gap: 2, fontPx: 13, longFontPx: 10 } as const
 
+/**
+ * De pil met getal en eenheid (U113, PO 2026-11-10: "B pill is goed"): "2 Bft" of "25 km/u". Breedtes komen uit de
+ * advance van Noto Sans ExtraBold (crates/render-core/assets/NotoSans-ExtraBold.ttf, in em), niet uit een meting:
+ * zo rekenen app, Node-bot en Rust (render-core windsock::pill) dezelfde pil. Cijfers zijn tabulair; hun inkt loopt
+ * van 0 tot ~0,714 em, het midden op `digitMiddleEm`. De eenheid is `unitEm` van de kaartmaat (10 px bij 13).
+ * `shiftSine`: vanaf deze sinus van de zakrichting staat de pil helemaal aan de kant waar de zak niet is.
+ */
+export const WINDSOCK_PILL = {
+  unitEm: 10 / 13,
+  padding: 6,
+  gap: 2.5,
+  shiftSine: 0.5,
+  digitMiddleEm: 0.357,
+  digitEm: 0.578,
+  letterEm: { ' ': 0.26, B: 0.669, f: 0.399, t: 0.446, k: 0.638, n: 0.659, m: 0.986, '/': 0.427, u: 0.659, s: 0.509 } as Record<string, number>,
+} as const
+
+/** Pil of schijf rond de badge, in CSS-px t.o.v. de mast: midden (x, y), halve maten en de kier tot de zak. */
+export interface BadgeBox {
+  x: number
+  y: number
+  halfWidth: number
+  halfHeight: number
+  gap: number
+}
+
+export interface WindsockPill extends BadgeBox {
+  fontPx: number
+  unitPx: number
+  numberWidth: number
+  unitWidth: number
+  /** Basislijn t.o.v. het midden: de cijferinkt staat dan precies in het midden. */
+  baseline: number
+}
+
+/** Breedte van `text` in em volgens WINDSOCK_PILL (onbekende tekens als een cijfer). */
+export function pillTextEm(text: string): number {
+  let width = 0
+  for (const character of text) width += character >= '0' && character <= '9' ? WINDSOCK_PILL.digitEm : WINDSOCK_PILL.letterEm[character] ?? WINDSOCK_PILL.digitEm
+  return width
+}
+
+/**
+ * De pil op de mond. `heading`: schermrichting van de zak in graden (met de klok mee vanaf boven), zonder het wuiven,
+ * zodat de pil niet meeschudt; hij schuift vloeiend naar de kant waar de zak niet is (bij noord- of zuidwind in het
+ * midden). `size`: de kaartmaat (13 desktop en bot, 12 telefoon).
+ */
+export function windsockPill(heading: number, label: string, unit: string, size: number = WINDSOCK_BADGE.fontPx): WindsockPill {
+  const fontPx = size
+  const unitPx = Math.round(size * WINDSOCK_PILL.unitEm)
+  const numberWidth = pillTextEm(label) * fontPx
+  const unitWidth = pillTextEm(unit) * unitPx
+  const halfHeight = WINDSOCK_BADGE.radius * size / WINDSOCK_BADGE.fontPx
+  const halfWidth = Math.max(halfHeight, (numberWidth + WINDSOCK_PILL.gap + unitWidth) / 2 + WINDSOCK_PILL.padding)
+  const side = Math.max(-1, Math.min(1, -Math.sin(heading * Math.PI / 180) / WINDSOCK_PILL.shiftSine))
+  return { x: (halfWidth - halfHeight) * side, y: 0, halfWidth, halfHeight, gap: WINDSOCK_BADGE.gap, fontPx, unitPx, numberWidth, unitWidth, baseline: WINDSOCK_PILL.digitMiddleEm * fontPx }
+}
+
 const round = (value: number) => Math.round(value * 100) / 100
 const pathOf = (points: readonly Point[]) => `M${points.map(([x, y]) => `${round(x)} ${round(y)}`).join('L')}Z`
 

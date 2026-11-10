@@ -20,6 +20,8 @@ const scale = BASE_FRAME_SCALE * ELEMENT_SCALE
 export const FRAME = { width: FRAME_PIXELS.width / scale, height: FRAME_PIXELS.height / scale, scale } as const
 /** Browserviewport voor FRAME: gehele CSS-px; frameScreenshot knipt de schermafdruk terug naar FRAME_PIXELS. */
 export const FRAME_VIEWPORT = { width: Math.ceil(FRAME.width), height: Math.ceil(FRAME.height) } as const
+/** Filmtijd van de winddeeltjes per afspeelseconde: 1 = de schermsnelheid van de app (U112; keuze van de PO). */
+export const WIND_FILM_TEMPO = 0.6
 
 export type BotRole = 'combined' | 'renderer' | 'poller'
 

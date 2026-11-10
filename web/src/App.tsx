@@ -69,7 +69,7 @@ import { cssGradient, FIXED_SCALE_LEGEND, FIXED_SCALE_STOPS, loadTemperatureScal
 import { selectTemperaturePlaces, temperatureLabelSpacingPx, temperatureLabels, temperatureLayer, type TemperatureFeatureCollection } from './core/temperature'
 import { buildTimeline, epochInWindow, frameBlend, scrubberViewWindow, seriesValueAt, timelineCoverage, timelineCursorAtEpoch, timelineEpochAtCursor, timelineHorizonEnd, timelineIndexesInWindow, timelinePlaybackRate, type EpochWindow } from './core/time-model'
 import { formatUv, uvChipLabel, uvLevel, uvReading } from './core/uv'
-import { WIND_UNITS, type WindUnit } from './core/weather'
+import { WIND_UNIT_LABELS, WIND_UNITS, windValue, type WindUnit } from './core/weather'
 import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } from './core/wind'
 import { DEFAULT_WIND_TUNING, MOBILE_WIND, WIND_MAX_FPS, WIND_PARAMETERS, WIND_SIMULATION_FPS, WindLayer } from './core/wind-layer'
 import { BEAUFORT_FEEL_ZONES, BEAUFORT_LEGEND, beaufortFrame, beaufortPalette, windClassOpacity, WIND_FILL, WIND_NIGHT_LINE_LIGHTEN, WIND_THIN_PARTICLE_WIDTH } from './core/wind-beaufort'
@@ -3973,6 +3973,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
               <span><i style={{ background: `color-mix(in srgb, ${entry.color} ${Math.round(Math.max(0.18, windClassOpacity(zone.from + index())) * 100)}%, transparent)` }} />{entry.label}</span>}</For>
           </span>}</For>
           <small>Bft</small>
+          {/* Proef U113 (`?dev&zakeenheid=legenda`): de legenda zegt welke eenheid op de zak staat. 6,7 m/s ≈ 4 Bft. */}
+          <Show when={windsockOptions.unitStyle === 'legenda'}>
+            <span class="wind-legend-sock"><b>{windValue(6.7, windUnit())}</b>{`op de zak: ${WIND_UNIT_LABELS[windUnit()]}`}</span>
+          </Show>
         </aside>
       </Show>
       <Show when={!stillMode && legendOpen() && activeLegend() === 'weather'}>

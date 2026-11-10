@@ -1,0 +1,28 @@
+[
+ {
+  "name": "A",
+  "package": "org.mozilla.firefox",
+  "url": "http://ageq-dev2:4312/?lat=52.19&lon=5.08&modus=wind&dev"
+ },
+ {
+  "name": "B",
+  "package": "org.mozilla.firefox",
+  "url": "http://ageq-dev2:4312/?lat=52.19&lon=5.08&modus=wind&dev&zakclip=aan"
+ },
+ {
+  "name": "C",
+  "package": "org.mozilla.firefox",
+  "url": "http://ageq-dev2:4312/?lat=52.19&lon=5.08&modus=wind&dev&zakken=uit"
+ },
+ {
+  "name": "D",
+  "package": "org.mozilla.firefox",
+  "url": "http://ageq-dev2:4312/?lat=52.19&lon=5.08&modus=wind&dev&deeltjes=uit&regen=uit&zakken=uit&isolijnen=uit"
+ },
+ {
+  "name": "E",
+  "package": "com.android.chrome",
+  "url": "http://ageq-dev2:4312/?lat=52.19&lon=5.08&modus=wind&dev",
+  "layer": "com.android.chrome/ChromeChildSurface"
+ }
+]

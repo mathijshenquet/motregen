@@ -1,12 +1,12 @@
 import type { Map as MapLibreMap } from 'maplibre-gl'
 import { beaufortScale } from './wind-beaufort.js'
-import { DEFAULT_WINDSOCK_BADGE, WINDSOCK_SAMPLES, windsockBadge, windsockShape, type WindsockBadge, type WindsockShape } from './wind-glyph.js'
+import { WINDSOCK_SAMPLES, windsockShape, type WindsockShape } from './wind-glyph.js'
 import { advanceSock, angleDifference, DEFAULT_WINDSOCK_CURVATURE, sampleWind, SOCK_SNAP_SECONDS, sockReach, socksClear, swayBends, WINDSOCK_APPEAR_MARGIN, windsockHeadings, windsockPhase, type SockReach, type Spring, type WindsockField } from './windsock-flow.js'
 import type { TemperaturePlace } from './temperature.js'
-import { windValue, type WindUnit } from './weather.js'
+import { WIND_UNIT_LABELS, windValue, type WindUnit } from './weather.js'
 import { markLayerDrawn, recordPerfPhase } from './perf.js'
 import { WINDSOCK_ANCHOR_OFFSETS } from './windsock-anchors.js'
-import { drawSock } from './wind-sock-draw.js'
+import { DEFAULT_WINDSOCK_UNIT_STYLE, drawSock, sockBadge, WINDSOCK_UNIT_STYLES, windsockExtent, type SockBadge, type WindsockUnitStyle } from './wind-sock-draw.js'
 import { domRest } from './dom-rest.js'
 import { MapLabelPlacer, type Offset, type Placement } from './map-label-placement.js'
 import { MAP_LABEL_FONT_FAMILY, viewportMapLabelSize } from './map-labels.js'
@@ -49,6 +49,8 @@ export interface WindsockLayerOptions {
   reducedMotion: () => boolean
   /** Alleen `?dev&windfactor=`: vermenigvuldigt de wind van de zakken, om harde wind te bekijken. */
   speedFactor: number
+  /** Proef U113 (`?dev&zakeenheid=`). */
+  unitStyle: WindsockUnitStyle
   /** De locatiepin: zakken wijken ervoor, zoals de getallen in Gevoel. */
   pin: () => { lng: number; lat: number } | undefined
   /** Alleen `?dev&zakcanvas=los` (U111): elke zak een eigen kleine canvas in plaats van één schermvullende. */
@@ -78,8 +80,7 @@ interface SockDraw {
   x: number
   y: number
   shape: WindsockShape
-  badge: WindsockBadge
-  label: string
+  badge: SockBadge
   rect: DirtyRect
 }
 
@@ -315,9 +316,9 @@ export class WindsockLayer {
       const base = sock.heading!.value
       const headings = compass.map((heading, index) => base + angleDifference(target, heading) - bearing + (flutterBend?.[index] ?? 0))
       const shape = windsockShape(strength, headings, 'kaart')
-      const x = screen.x + sock.placed.dx, y = screen.y + sock.placed.dy, label = String(windValue(speed, this.unit))
-      const badge = windsockBadge(shape, DEFAULT_WINDSOCK_BADGE, label, size)
-      pending.push({ sock, x, y, shape, badge, label, rect: sockRect(x, y, shape, badge, ratio) })
+      const x = screen.x + sock.placed.dx, y = screen.y + sock.placed.dy
+      const badge = sockBadge(shape, base - bearing, String(windValue(speed, this.unit)), WIND_UNIT_LABELS[this.unit], this.options.unitStyle, size)
+      pending.push({ sock, x, y, shape, badge, rect: sockRect(x, y, shape, badge, ratio) })
       this.drawnCount++
       this.drawnMaxStrength = Math.max(this.drawnMaxStrength, strength)
     }
@@ -351,14 +352,14 @@ export class WindsockLayer {
   }
 
   /**
-   * Plek per zak met de gedeelde uitwijkregel (map-label-placement): de badge (de mast met het getal) mag niet over
-   * een plaatsnaam, de pin, de bediening of een andere badge vallen. De ladder begint bij de vaste voorkeursplek.
+   * Plek per zak met de gedeelde uitwijkregel (map-label-placement): de badge (pil met getal en eenheid op de mast)
+   * mag niet over een plaatsnaam, de pin, de bediening of een andere badge vallen; zakken en pillen niet over elkaar
+   * (`socksClear`). De ladder begint bij de vaste voorkeursplek.
    */
   private layout(size: number, now: number): void {
     this.layoutDirty = false
     this.lastLayout = now
     this.placer.begin()
-    const side = 2 * (windsockBadge(STRAIGHT, DEFAULT_WINDSOCK_BADGE, '0', size).cutRadius + 1)
     const reaches: SockReach[] = []
     const field = this.field, bearing = this.map.getBearing()
     for (const sock of this.socks) {
@@ -366,16 +367,21 @@ export class WindsockLayer {
       const ladder = SOCK_RING.map(([dx, dy]): Offset => [sock.offset[0] + dx, sock.offset[1] + dy])
       const wind = field && sampleWind(field, 0, sock.x, sock.y)
       const compass = wind && windsockHeadings(field, sock.x, sock.y, DEFAULT_WINDSOCK_CURVATURE)
-      const strength = wind ? beaufortScale(Math.hypot(wind[0], wind[1]) * this.options.speedFactor) : 0
+      const speed = wind ? Math.hypot(wind[0], wind[1]) * this.options.speedFactor : 0
+      const strength = beaufortScale(speed)
+      const heading = compass ? compass[0]! - bearing : 0
+      const badge = sockBadge(STRAIGHT, heading, String(windValue(speed, this.unit)), WIND_UNIT_LABELS[this.unit], this.options.unitStyle, size)
+      const side = { width: 2 * (badge.halfWidth + badge.gap + 1), height: 2 * (badge.halfHeight + badge.gap + 1) }
       const shown = sock.placed !== undefined
       let reach: SockReach | undefined
       // Geen zakken over elkaar (windsock-flow `socksClear`); een zak die erbij komt, vraagt wat meer ruimte.
       const clear = (dx: number, dy: number) => {
         if (!compass) return true
-        reach = sockReach([screen.x + dx, screen.y + dy], compass[0]! - bearing, strength)
+        reach = sockReach([screen.x + dx, screen.y + dy], heading, strength, badge)
         return reaches.every((other) => socksClear(reach!, other, shown ? 1 : WINDSOCK_APPEAR_MARGIN))
       }
-      sock.placed = this.placer.place(screen.x, screen.y, { width: side, height: side }, ladder, sock.placed?.index, clear)
+      // Het vak ligt om de pil, niet om de mast: de pil steekt naast de mast uit.
+      sock.placed = this.placer.place(screen.x + badge.x, screen.y + badge.y, side, ladder, sock.placed?.index, clear)
       if (sock.placed && reach) reaches.push(reach)
     }
   }
@@ -406,7 +412,7 @@ export class WindsockLayer {
       const left = rect.x - anchorX, top = rect.y - anchorY, right = left + rect.width, bottom = top + rect.height
       if (left < entry.left || top < entry.top || right > entry.right || bottom > entry.bottom || !entry.canvas.width) {
         // Ruim groeien: een trillende zak verandert elke frame een paar pixels van omvang.
-        const slack = Math.ceil(SOCK_RECT_MARGIN * ratio)
+        const slack = Math.ceil(SOCK_CANVAS_SLACK * ratio)
         entry.left = Math.min(entry.left, left - slack)
         entry.top = Math.min(entry.top, top - slack)
         entry.right = Math.max(entry.right, right + slack)
@@ -470,10 +476,10 @@ export class WindsockLayer {
   }
 
   private drawSock(context: CanvasRenderingContext2D, draw: Omit<SockDraw, 'sock' | 'rect'>): void {
-    const { x, y, shape, badge, label } = draw
+    const { x, y, shape, badge } = draw
     context.save()
     context.translate(x, y)
-    drawSock({ context, shape, badge, label, dark: this.dark, fontFamily: MAP_LABEL_FONT_FAMILY, cut: this.options.clipCut ? 'clip' : 'erase' })
+    drawSock({ context, shape, badge, dark: this.dark, fontFamily: MAP_LABEL_FONT_FAMILY, cut: this.options.clipCut ? 'clip' : 'erase' })
     context.restore()
   }
 
@@ -518,10 +524,14 @@ export class WindsockLayer {
   }
 }
 
-/** Dev-knop `?dev&windfactor=`; zonder knop de gekozen windmodus. */
+/** Dev-knoppen `?dev&windfactor=` en `?dev&zakeenheid=` (U113); zonder knop de standaard. */
 export function windsockDevOptions(params: URLSearchParams): Omit<WindsockLayerOptions, 'reducedMotion' | 'pin'> {
   const factor = Number(params.get('windfactor'))
-  return { speedFactor: Number.isFinite(factor) && factor > 0 ? factor : 1 }
+  const unitStyle = WINDSOCK_UNIT_STYLES.find((style) => style === params.get('zakeenheid')) ?? DEFAULT_WINDSOCK_UNIT_STYLE
+  return {
+    speedFactor: Number.isFinite(factor) && factor > 0 ? factor : 1,
+    unitStyle,
+  }
 }
 
 function sameField(next: WindsockField | undefined, current: WindsockField | undefined): boolean {
@@ -536,28 +546,25 @@ function sameField(next: WindsockField | undefined, current: WindsockField | und
 
 interface DirtyRect { x: number; y: number; width: number; height: number }
 
+/** Groeimarge van een losse zakcanvas in CSS-px (`separateCanvases`). */
+const SOCK_CANVAS_SLACK = 4
+
 function rectsOverlap(a: DirtyRect, b: DirtyRect): boolean {
   return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
 }
 
-/** Subpixelfasen per canvaspixel voor de schijfcache: een kwart pixel verschuiving valt op DPR 3 niet op. */
-
 /**
- * Ruimte rond de omtrek van zak en badge in CSS-px: de breedste lijn (3,5 px schaduw, halve breedte), de
- * schaduwverschuiving (1,3 px omlaag) en antialiasing, ruim genomen.
+ * Canvaspixels (afgerond naar buiten) die een zak op (x, y) kan raken: wat `drawSock` tekent (`windsockExtent`) en het
+ * gat rond de badge, dat bij vegen ook wist wat er al stond (`gap` reikt verder dan de inktrand van de badge).
  */
-const SOCK_RECT_MARGIN = 4
-
-/** Canvaspixels (afgerond naar buiten) die een zak op (x, y) kan raken. */
-export function sockRect(x: number, y: number, shape: WindsockShape, badge: WindsockBadge, ratio: number): DirtyRect {
-  let left = badge.x - badge.radius, right = badge.x + badge.radius, top = badge.y - badge.radius, bottom = badge.y + badge.radius
-  for (const [px, py] of [...shape.left, ...shape.right]) {
-    left = Math.min(left, px); right = Math.max(right, px); top = Math.min(top, py); bottom = Math.max(bottom, py)
-  }
-  const x0 = Math.floor((x + left - SOCK_RECT_MARGIN) * ratio), y0 = Math.floor((y + top - SOCK_RECT_MARGIN) * ratio)
-  const x1 = Math.ceil((x + right + SOCK_RECT_MARGIN) * ratio), y1 = Math.ceil((y + bottom + SOCK_RECT_MARGIN) * ratio)
+export function sockRect(x: number, y: number, shape: WindsockShape, badge: SockBadge, ratio: number): DirtyRect {
+  const extent = windsockExtent(shape, badge)
+  const left = Math.min(extent.left, badge.x - badge.halfWidth - badge.gap - 1), right = Math.max(extent.right, badge.x + badge.halfWidth + badge.gap + 1)
+  const top = Math.min(extent.top, badge.y - badge.halfHeight - badge.gap - 1), bottom = Math.max(extent.bottom, badge.y + badge.halfHeight + badge.gap + 1)
+  const x0 = Math.floor((x + left) * ratio), y0 = Math.floor((y + top) * ratio)
+  const x1 = Math.ceil((x + right) * ratio), y1 = Math.ceil((y + bottom) * ratio)
   return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 }
 }
 
-/** Een rechte zak, alleen om de badgemaat te bepalen (die hangt niet van de vorm af). */
+/** Een rechte zak, alleen om de badge te bepalen (die staat op de mond, en die ligt altijd op de mast). */
 const STRAIGHT = windsockShape(0, Array<number>(WINDSOCK_SAMPLES + 1).fill(0), 'kaart')

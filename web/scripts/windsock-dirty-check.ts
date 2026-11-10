@@ -94,7 +94,9 @@ const compare = `(() => {
   const holder = layer.surface, options = { ...layer.options }
   const rings = [], drawSock = layer.drawSock
   layer.drawSock = function (context, draw, ...rest) {
-    rings.push([(draw.x + draw.badge.x) * ratio, (draw.y + draw.badge.y) * ratio, draw.badge.cutRadius * ratio])
+    // Het gat (U113): de badge plus gap, een stadion (pil) of een cirkel; [middenX, middenY, halve lengte as, straal].
+    const badge = draw.badge, radius = badge.halfHeight + badge.gap
+    rings.push([(draw.x + badge.x) * ratio, (draw.y + badge.y) * ratio, Math.max(0, badge.halfWidth - badge.halfHeight) * ratio, radius * ratio])
     return drawSock.call(this, context, draw, ...rest)
   }
   layer.surface = layer.canvas
@@ -121,7 +123,7 @@ const compare = `(() => {
     const colourDelta = [0, 1, 2].map((channel) => Math.abs(full[index + channel] * full[index + 3] - tested[index + channel] * tested[index + 3]) / 255)
     const preDelta = Math.max(...colourDelta, Math.abs(full[index + 3] - tested[index + 3]))
     const px = (index / 4) % width + 0.5, py = Math.floor(index / 4 / width) + 0.5
-    if (${clip} && rings.some(([cx, cy, radius]) => Math.abs(Math.hypot(px - cx, py - cy) - radius) <= 2)) {
+    if (${clip} && rings.some(([cx, cy, half, radius]) => Math.abs(Math.hypot(Math.max(0, Math.abs(px - cx) - half), py - cy) - radius) <= 2)) {
       if (preDelta > 2) ringEdge++
       maxRing = Math.max(maxRing, preDelta)
       continue
