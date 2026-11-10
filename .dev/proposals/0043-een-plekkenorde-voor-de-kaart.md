@@ -1,6 +1,6 @@
 # MIP-43 — Eén plekkenorde voor alles op de kaart
 
-Status: draft · auteur: orkestrator (Claude) · PO-wens 2026-11-10
+Status: accepted (richting, 2026-11-10) · auteur: orkestrator (Claude) · PO-wens 2026-11-10
 
 ## Aanleiding
 
@@ -19,8 +19,10 @@ De PO (2026-11-10), bij screenshots van Wind en Weer op desktop:
    halve zoomstap zoveel als er passen bij een minimumafstand. Die afstand verschilt per laag: 40–64 px voor de
    getallen, ~70 px voor de zakken. "Zoveel als er passen" geeft op desktop 25–35 zakken, en dat is wat de PO te
    veel vindt.
-3. **Temperaturen in Weer** zijn labels óp de isothermen (`isoline-layer.ts`). Waar ze staan hangt af van het verloop
-   van de lijnen, niet van plaatsen. Daardoor stonden er op het screenshot maar 3 (5°, 3°, 6°), op willekeurige plekken.
+3. **Temperaturen in Weer** komen uit een eigen symboollaag (`motregen-temperature`) met dezelfde soort plaatsen.
+   MapLibre laat de meeste vallen, omdat ze botsen met de plaatsnamen van de basiskaart. Daardoor stonden er op het
+   screenshot maar 3 (5°, 3°, 6°), op plekken die willekeurig lijken. (Correctie 2026-11-10: eerst stond hier dat het
+   labels op de isothermen waren.)
 4. **De bot** gebruikt per still vaste platen met dezelfde lijsten. Zijn namen komen uit de eigen labelplaatsing van de
    plaat.
 
@@ -79,3 +81,22 @@ Eén worker (opus-5.5):
 
 U113 (de eenheid op de zak) staat hier los van en gaat gewoon door. U111 (Firefox) profiteert ervan: minder zakken
 is minder tekenwerk.
+
+## Besluit (PO 2026-11-10)
+
+Na proefversies van U114 (`track/u114-plekkenorde`, preview 4314) kiest de PO de **provincietrede** als richting: "ik
+vind provincies wel nicer, alleen de tween moeten we nog ff goedkrijgen, maar lijkt me in ieder geval het juiste pad".
+
+1. **Verst uitgezoomd** staat één plek per provincie, op een anker in de provincie, met naam en waarde ("Gelderland 3°").
+   Bij inzoomen schuift elke provincieplek naar zijn hoofdstad. Het label wisselt pas als hij daar aankomt; bij
+   uitzoomen gaat het andersom. Daarna volgt de stedentrede: hoofdsteden winnen altijd, en daarna is het strikt
+   monotoon (inzoomen voegt alleen toe; de pin duwt en verbergt geen plek).
+2. **Dichtheid** is een doel per schermoppervlak op elk zoomniveau, zonder trap direct na de tween. Rangen 1–6 zijn
+   handgekozen of komen uit de plaatsenlijst; per plek ligt een labelkant vast, zodat een naam niet over het water valt.
+3. **Naam en waarde samen** (keuze 1a): één label "Utrecht 5°", of een zak met de naam eronder.
+4. **De zakken in Wind** staan op de plekken uit de orde en hebben de pil van U113.
+
+Nog open, met voorstel van de orkestrator:
+- Wind in de provincietrede: die overslaan en meteen met de hoofdsteden beginnen (op de telefoon waren 12 zakken te vol).
+- Dieper dan zoom ~11,4 geen buurtschappen of wijken.
+- De bot (Node en Rust) volgt na de app, in een eigen stap.
