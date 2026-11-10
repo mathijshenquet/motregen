@@ -108,7 +108,12 @@ export class NativeWindsocks {
       const strength = Math.max(0, motion.strength!.value)
       // Geen zakken over elkaar (windsock-flow `socksClear`), in CSS-px zoals de app.
       const label = String(beaufortNumber(speed))
-      const reach = sockReach([(screenX + offsetX * FRAME.scale) / FRAME.scale, (screenY + offsetY * FRAME.scale) / FRAME.scale], compass[0]!, beaufortScale(speed), windsockPill(compass[0]!, label, WINDSOCK_FILM_UNIT))
+      const mast: Point = [(screenX + offsetX * FRAME.scale) / FRAME.scale, (screenY + offsetY * FRAME.scale) / FRAME.scale]
+      const pill = windsockPill(compass[0]!, label, WINDSOCK_FILM_UNIT)
+      // Zoals de app (map-label-placement): de pil helemaal in beeld, anders geen zak.
+      const pillX = mast[0] + pill.x, pillY = mast[1] + pill.y, spanX = pill.halfWidth + pill.gap, spanY = pill.halfHeight + pill.gap
+      if (pillX - spanX < 2 || pillY - spanY < 2 || pillX + spanX > FRAME.width - 2 || pillY + spanY > FRAME.height - 2) continue
+      const reach = sockReach(mast, compass[0]!, beaufortScale(speed), pill)
       const margin = !snap && this.shown.has(place.name) ? 1 : WINDSOCK_APPEAR_MARGIN
       if (!reaches.every((other) => socksClear(reach, other, margin))) continue
       reaches.push(reach)

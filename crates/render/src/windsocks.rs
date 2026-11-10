@@ -141,6 +141,18 @@ pub fn advance(
         ];
         let label = windsock::beaufort_number(speed).to_string();
         let pill = windsock::pill(target, &label, &settings.unit);
+        // Zoals de app (map-label-placement): de pil helemaal in beeld, anders geen zak.
+        let pill_left = mast[0] + pill.center[0] - pill.half_width - pill.gap;
+        let pill_right = mast[0] + pill.center[0] + pill.half_width + pill.gap;
+        let pill_top = mast[1] + pill.center[1] - pill.half_height - pill.gap;
+        let pill_bottom = mast[1] + pill.center[1] + pill.half_height + pill.gap;
+        if pill_left < 2.0
+            || pill_top < 2.0
+            || pill_right > size.width as f64 / scale - 2.0
+            || pill_bottom > size.height as f64 / scale - 2.0
+        {
+            continue;
+        }
         let reach = windsock::sock_reach(mast, target, windsock::beaufort_scale(speed), Some(&pill));
         let margin = if was_shown && !snap {
             1.0
