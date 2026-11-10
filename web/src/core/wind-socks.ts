@@ -320,7 +320,8 @@ export class WindsockLayer {
 
   /** Afstand van het zakanker tot het midden van de naam eronder (U114 `namen=samen`). */
   private nameDrop(size: number): number {
-    return windsockBadge(STRAIGHT, DEFAULT_WINDSOCK_BADGE, '0', size).cutRadius + 2 + size * 0.85 / 2 + 2
+    // Net onder het badgevak (straal + 1) plus de 3 px tussenruimte van MapLabelPlacer, anders botst de naam met zijn eigen zak.
+    return windsockBadge(STRAIGHT, DEFAULT_WINDSOCK_BADGE, '0', size).cutRadius + 1 + 4 + (size + 4) / 2
   }
 
   private drawName(context: CanvasRenderingContext2D, name: string, x: number, y: number, size: number): void {

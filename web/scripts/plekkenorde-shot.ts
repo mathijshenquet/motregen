@@ -39,11 +39,11 @@ for (const profileName of pick(Object.keys(profiles) as Array<keyof typeof profi
       if (step) await jump(page, UTRECHT.lng, UTRECHT.lat, overview + step)
       const name = `${mode}-${profileName}-z${step}`
       await page.locator('.map-shell').screenshot({ path: join(outDir, `${name}.png`) })
-      counts[name] = await page.evaluate(() => ({
+      counts[name] = await retry(() => page.evaluate(() => ({
         ...(window as unknown as { __motregenRenderedLabels: () => object }).__motregenRenderedLabels(),
         numbers: document.querySelectorAll('.temperature-number').length,
         socks: Number(document.querySelector<HTMLElement>('.map-overlay-windsocks')?.dataset.socks?.split('|')[0] ?? 0),
-      }))
+      })))
       console.log('shot', name, JSON.stringify(counts[name]))
     }
     await page.close()
@@ -52,6 +52,18 @@ for (const profileName of pick(Object.keys(profiles) as Array<keyof typeof profi
 }
 await browser.close()
 writeFileSync(join(outDir, 'counts.json'), `${JSON.stringify({ query: extra, time, counts }, null, 1)}\n`)
+
+// queryRenderedFeatures gooit soms tijdens een lopende bronupdate (MapLibre, "Out of bounds"): even later opnieuw.
+async function retry<T>(read: () => Promise<T>): Promise<T> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await read()
+    } catch (error) {
+      if (attempt >= 4) throw error
+      await new Promise((resolve) => setTimeout(resolve, 500))
+    }
+  }
+}
 
 async function jump(page: Page, lng: number, lat: number, zoom: number): Promise<void> {
   await page.evaluate(([lng, lat, zoom]) => (window as unknown as { __motregenJumpTo: (lng: number, lat: number, zoom: number) => void }).__motregenJumpTo(lng!, lat!, zoom!), [lng, lat, zoom])

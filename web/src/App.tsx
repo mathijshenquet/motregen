@@ -329,8 +329,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (!map) return undefined
     const names = (map.getStyle()?.layers ?? []).filter((layer) => layer.type === 'symbol' && layer.id.startsWith('label_')).map((layer) => layer.id)
     const count = (layers: string[]) => new Set(map!.queryRenderedFeatures({ layers: layers.filter((id) => map!.getLayer(id)) }).map((feature) => feature.properties?.name)).size
-    const source = map.getSource('motregen-temperature') ? map.querySourceFeatures('motregen-temperature').map((feature) => feature.properties?.label) : []
-    return { names: count(names), temperatures: count(['motregen-temperature']), temperatureSource: source, zoom: map.getZoom() }
+    return { names: count(names), temperatures: count(['motregen-temperature']), zoom: map.getZoom() }
   }
   // Camera voor de e2e van pin-navigatie en pan/zoom-only (U26).
   ;(window as unknown as { __motregenCamera: () => object | undefined }).__motregenCamera = () => map && {
