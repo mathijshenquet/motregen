@@ -1,5 +1,6 @@
 import type { LayerSpecification, StyleSpecification, SymbolLayerSpecification } from 'maplibre-gl'
 import type { OrderedPlace } from './map-places.js'
+import { MAP_LABEL_GLYPH_SCALE } from './map-labels.js'
 
 /**
  * U114 (MIP-43): plaatsnamen uit de plekkenorde in een eigen symboollaag, in de kleur van de stadsnamen van de
@@ -34,7 +35,7 @@ export function placeNamesLayer(style: StyleSpecification, size: number): Symbol
     source: PLACE_NAMES_LAYER,
     layout: {
       ...layout, 'text-field': ['get', 'name'], 'symbol-sort-key': ['get', 'order'], 'text-padding': PLACE_NAMES_PADDING_PX,
-      'text-size': size, 'text-anchor': 'center',
+      'text-size': size * MAP_LABEL_GLYPH_SCALE, 'text-anchor': 'center',
       'text-allow-overlap': true, 'text-ignore-placement': true,
     },
     paint: city?.paint ?? {},

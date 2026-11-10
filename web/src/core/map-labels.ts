@@ -10,6 +10,12 @@ export const MAP_LABEL_GLYPH_FONT = 'Noto Sans Regular'
 
 /** Typeschaal (PO-keuze 2026-11-09 "compact", zoals U100): 13 px desktop, 12 px telefoon; de bot neemt de desktopmaat. */
 export const MAP_LABEL_SIZES = { phone: 12, desktop: 13 } as const
+/**
+ * MapLibre zet zijn SDF-glyphs bij dezelfde text-size ~7 % smaller dan de browser Noto Sans Kaart in de DOM-labels van
+ * Gevoel en Wind (gemeten aan "Hilversum 0°", 136 tegen 147 px op DPR 3). Met deze factor zijn de labels in Weer en
+ * Lucht even groot (PO 2026-11-10: "label sizes ... kan ook beter unified").
+ */
+export const MAP_LABEL_GLYPH_SCALE = 1.08
 
 /** Telefoon: kortste zijde onder 600 CSS-px. */
 export function isPhoneMap(width: number, height: number): boolean {

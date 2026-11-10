@@ -78,7 +78,7 @@ import { loadPlaceOrder, nestedPlaces, orderedPlaces, placeOrderOptions, placeSi
 import { PLACE_NAMES_LAYER, placeNamesData, placeNamesLayer } from './core/place-names'
 import type { FootprintKind } from './core/place-footprint'
 import { WINDSOCK_SPACING_PX } from './core/windsock-flow'
-import { isPhoneMap, mapLabelSize } from './core/map-labels'
+import { isPhoneMap, MAP_LABEL_GLYPH_SCALE, mapLabelSize } from './core/map-labels'
 import { legendButtonVariant, legendIsOpen, PHONE_LAYOUT_QUERY, readLegendChoice, storeLegendChoice } from './core/legend-choice'
 import { MapLabelCollision } from './core/map-collision'
 import { WINDSOCK_LAG_MINUTES, type WindSlice } from './core/windsock-flow'
@@ -1939,7 +1939,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       set.labels = undefined
     }
     const { clientWidth, clientHeight } = map.getContainer()
-    map.addLayer(temperatureLayer(mapSurfaceTheme(), mapLabelSize(clientWidth, clientHeight)), beforeId)
+    // De bot deelt temperatureLayer en houdt zijn eigen maat; alleen de app schaalt naar de DOM-labels.
+    map.addLayer(temperatureLayer(mapSurfaceTheme(), mapLabelSize(clientWidth, clientHeight) * MAP_LABEL_GLYPH_SCALE), beforeId)
     if (ordered && !map.getLayer(PLACE_NAMES_LAYER)) {
       // Boven de temperaturen: namen gaan in de botsing voor, de getallen wijken uit.
       map.addSource(PLACE_NAMES_LAYER, { type: 'geojson', data: placeNamesData([]) })
