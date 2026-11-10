@@ -276,6 +276,14 @@ impl Daemon {
 
     fn initialize(&mut self) -> Result<()> {
         info!("startup backfill begins");
+        // De bijwagens (CAMS, ECMWF, ICON-D2) eerst inlezen: de eerste publicatie ruimt chunks op die niet in het
+        // manifest staan, en anders verdwenen hun chunks van eerder die dag bij elke herstart (prod 2026-11-10).
+        let result = self.refresh_cams();
+        self.finish_refresh("cams", result);
+        let result = self.refresh_ecmwf();
+        self.finish_refresh("ecmwf", result);
+        let result = self.refresh_icon_d2();
+        self.finish_refresh("icon_d2", result);
         let changed = self.refresh_arome()?;
         self.publish_after(changed)?;
         let changed = self.refresh_rtcor()?;
@@ -285,12 +293,6 @@ impl Daemon {
         self.schedule_seamless()?;
         let changed = self.refresh_uv()?;
         self.publish_after(changed)?;
-        let result = self.refresh_cams();
-        self.finish_refresh("cams", result);
-        let result = self.refresh_ecmwf();
-        self.finish_refresh("ecmwf", result);
-        let result = self.refresh_icon_d2();
-        self.finish_refresh("icon_d2", result);
         if self.config.once {
             let outcome = self.seamless_worker.wait_outcome()?;
             let changed = self.apply_seamless_outcome(outcome)?;
