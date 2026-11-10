@@ -13,15 +13,11 @@ import { chromium, firefox, type Browser } from '@playwright/test'
 //   laag apart af, vegen het geheel één keer): pixels binnen 2 canvaspixels van die rand tellen apart. Een AA-clip
 //   verschuift ook elders de randdekking een beetje (Skia tekent dan via de clipblitter), dus hier mag 1 % van de
 //   inktpixels Δ > 2 hebben (gekozen na de eerste meting, 0,47–0,57 %; op 4× uitvergroot niet te zien).
-// - --zuinig (`?dev&zakpaden=zuinig`): banden als twee vullingen en de badge uit een bitmapcache (kwart pixel);
-//   dezelfde grens als --zakclip.
-// - --bitmap (`?dev&zakpaden=bitmap`): voorgetekende zakken per gekwantiseerde stand; dezelfde grens als --zakclip.
-//   Met reducedMotion staan de zakken stil, dus dat meet alleen de krachtstappen en het herbemonsteren bij draaien;
-//   --wuivend zet reducedMotion uit en bevriest performance.now() tijdens getest en referentie (beide vers getekend),
-//   zodat ook de afronding van de golffasen meetelt.
+// - --wuivend: reducedMotion uit en performance.now() bevroren tijdens getest en referentie (beide vers getekend),
+//   zodat ook wuivende zakken meetellen.
 // Zonder vlaggen: exact gelijk. U111_CROPS=<map> schrijft een uitvergrote uitsnede van het eerste duidelijke verschil.
 //
-// usage: xvfb-run -a pnpm exec tsx scripts/windsock-dirty-check.ts ORIGIN [--browser=firefox|chromium] [--theme=licht|donker] [--sabotage] [--los] [--zakclip] [--zuinig] [--bitmap] [--wuivend] [--query=a=b&c=d]
+// usage: xvfb-run -a pnpm exec tsx scripts/windsock-dirty-check.ts ORIGIN [--browser=firefox|chromium] [--theme=licht|donker] [--sabotage] [--los] [--zakclip] [--wuivend] [--query=a=b&c=d]
 
 const args = process.argv.slice(2)
 const origin = args.find((arg) => !arg.startsWith('--'))
@@ -33,8 +29,6 @@ const theme = option('theme') ?? 'licht'
 const sabotage = args.includes('--sabotage')
 const separate = args.includes('--los')
 const clip = args.includes('--zakclip')
-const lean = args.includes('--zuinig')
-const bitmap = args.includes('--bitmap')
 const swaying = args.includes('--wuivend')
 
 const browser: Browser = browserName === 'firefox'
@@ -57,7 +51,7 @@ const context = await browser.newContext({
   colorScheme: theme === 'donker' ? 'dark' : 'light', timezoneId: 'Europe/Amsterdam',
 })
 const page = await context.newPage()
-await page.goto(new URL(`/wind?dev${separate ? '&zakcanvas=los' : ''}${clip ? '&zakclip=aan' : ''}${lean ? '&zakpaden=zuinig' : ''}${bitmap ? '&zakpaden=bitmap' : ''}${option('query') ? `&${option('query')}` : ''}`, origin).href)
+await page.goto(new URL(`/wind?dev${separate ? '&zakcanvas=los' : ''}${clip ? '&zakclip=aan' : ''}${option('query') ? `&${option('query')}` : ''}`, origin).href)
 await page.locator('details.dev-panel').evaluate((panel) => panel.removeAttribute('open')).catch(() => {})
 await page.waitForFunction(() => Number((document.querySelector('.map-overlay-windsocks') as HTMLCanvasElement | null)?.dataset.socks?.split('|')[0]) > 0, undefined, { timeout: 120_000 })
 // Pauzeren, zodat het veld vaststaat.
@@ -69,7 +63,7 @@ await page.waitForTimeout(1_000)
 // met --los de zakcanvassen samengelegd op gehele canvaspixels, dus zonder herbemonstering). Referentie: dezelfde
 // laag gedwongen vol op zijn grote canvas langs het standaardpad; daarna gaat de laag terug naar zijn eigen stand.
 const compare = `(() => {
-  const separate = ${separate}, tolerant = ${separate || clip || lean || bitmap}, loose = ${clip || lean || bitmap}, shift = ${sabotage && separate ? 1 : 0}
+  const separate = ${separate}, tolerant = ${separate || clip}, loose = ${clip}, shift = ${sabotage && separate ? 1 : 0}
   const layer = window.__motregenWindsocks()
   if (${swaying}) {
     const frozen = performance.now()
@@ -100,13 +94,11 @@ const compare = `(() => {
   const holder = layer.surface, options = { ...layer.options }
   const rings = [], drawSock = layer.drawSock
   layer.drawSock = function (context, draw, ...rest) {
-    rings.push([(draw.x + draw.badge.x) * ratio, (draw.y + draw.badge.y) * ratio, draw.badge.cutRadius * ratio, draw.badge.radius * ratio])
+    rings.push([(draw.x + draw.badge.x) * ratio, (draw.y + draw.badge.y) * ratio, draw.badge.cutRadius * ratio])
     return drawSock.call(this, context, draw, ...rest)
   }
   layer.surface = layer.canvas
   layer.options.clipCut = false
-  layer.options.leanPaths = false
-  layer.options.predrawn = false
   layer.drawnRects = undefined
   layer.draw()
   delete layer.drawSock
@@ -117,7 +109,7 @@ const compare = `(() => {
   layer.draw()
   if (${swaying}) delete performance.now
 
-  let different = 0, maxDelta = 0, inked = 0, visible = 0, maxPre = 0, outsideSock = 0, first = -1, ringEdge = 0, maxRing = 0, discEdge = 0
+  let different = 0, maxDelta = 0, inked = 0, visible = 0, maxPre = 0, outsideSock = 0, first = -1, ringEdge = 0, maxRing = 0
   for (let index = 0; index < full.length; index += 4) {
     if (full[index + 3]) inked++
     let pixelDifferent = false
@@ -136,7 +128,6 @@ const compare = `(() => {
     }
     maxPre = Math.max(maxPre, preDelta)
     if (preDelta > 2) visible++
-    if (preDelta > 2 && rings.some(([cx, cy, , radius]) => Math.abs(Math.hypot(px - cx, py - cy) - radius) <= 3)) discEdge++
     if (preDelta > ${Number(process.env.U111_CROP_MIN ?? 8)} && first < 0) first = index / 4
     if (separate && !boxes.some(([x0, y0, x1, y1]) => px >= x0 && px < x1 && py >= y0 && py < y1)) outsideSock++
   }
@@ -163,7 +154,7 @@ const compare = `(() => {
   }
   const pixels = canvases.reduce((sum, canvas) => sum + canvas.width * canvas.height, 0)
   const socks = layer.canvas.dataset.socks + (separate ? ', ' + canvases.length + ' canvassen, ' + (pixels / (width * height) * 100).toFixed(1) + ' % van het scherm' : '')
-  const note = 'zichtbaar anders (Δ>2) ' + visible + ' px, max Δ ' + Math.round(maxPre) + (separate ? ', buiten een zak ' + outsideSock + ' px' : '') + (${lean || bitmap} ? ', waarvan op de rand van de schijf ' + discEdge + ' px' : '') + (${clip} ? '; rand van het gat ' + ringEdge + ' px (max Δ ' + Math.round(maxRing) + ')' : '')
+  const note = 'zichtbaar anders (Δ>2) ' + visible + ' px, max Δ ' + Math.round(maxPre) + (separate ? ', buiten een zak ' + outsideSock + ' px' : '') + (${clip} ? '; rand van het gat ' + ringEdge + ' px (max Δ ' + Math.round(maxRing) + ')' : '')
   return { ok, crops, different, maxDelta, inked, socks: socks + '; ' + note }
 })()`
 

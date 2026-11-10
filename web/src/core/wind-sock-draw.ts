@@ -18,14 +18,6 @@ export interface SockScene {
    * al stond, dus alleen waar het gat geen andere tekening raakt.
    */
   cut?: 'clip' | 'erase'
-  /**
-   * Een deel: de zak, de schijf van de badge of het getal (de schijf uit een bitmapcache, `?dev&zakpaden=zuinig`).
-   * Voor voorgetekende zakken (`?dev&zakpaden=bitmap`): `shadow` alleen de schaduw zonder verschuiving, `fabric` de zak
-   * zonder schaduw; beide zonder gat (dat komt op het scherm, rond de badge).
-   */
-  parts?: 'all' | 'body' | 'disc' | 'label' | 'shadow' | 'fabric'
-  /** De oranje en de witte banden elk als één pad: twee vullingen in plaats van vijf (`?dev&zakpaden=zuinig`). */
-  mergedBands?: boolean
 }
 
 /** Het gat rond de badge. Eén functie voor knippen en vegen; bij de merge met U113 wordt dit `badgePath(…, cut)`. */
@@ -35,18 +27,17 @@ export function sockCutPath(badge: WindsockBadge): Path2D {
   return path
 }
 
-export function drawSock({ context, shape, badge, label, dark, fontFamily, cut = 'clip', parts = 'all', mergedBands = false }: SockScene): void {
+export function drawSock({ context, shape, badge, label, dark, fontFamily, cut = 'clip' }: SockScene): void {
   context.save()
   context.lineJoin = 'round'
   context.lineCap = 'round'
-  if (parts === 'all' || parts === 'body') drawBody(context, shape, badge, dark, cut, mergedBands, 'all')
-  if (parts === 'shadow' || parts === 'fabric') drawBody(context, shape, badge, dark, 'none', mergedBands, parts)
-  if (parts === 'all' || parts === 'disc') drawDisc(context, badge)
-  if (parts === 'all' || parts === 'label') drawLabel(context, badge, label, fontFamily)
+  drawBody(context, shape, badge, dark, cut)
+  drawDisc(context, badge)
+  drawLabel(context, badge, label, fontFamily)
   context.restore()
 }
 
-function drawBody(context: CanvasRenderingContext2D, shape: WindsockShape, badge: WindsockBadge, dark: boolean, cut: 'clip' | 'erase' | 'none', mergedBands: boolean, layers: 'all' | 'shadow' | 'fabric'): void {
+function drawBody(context: CanvasRenderingContext2D, shape: WindsockShape, badge: WindsockBadge, dark: boolean, cut: 'clip' | 'erase'): void {
   context.save()
   if (cut === 'clip') {
     const outside = new Path2D()
@@ -55,34 +46,18 @@ function drawBody(context: CanvasRenderingContext2D, shape: WindsockShape, badge
     context.clip(outside, 'evenodd')
   }
   const outline = pathOf(windsockOutline(shape))
-  if (layers !== 'fabric') {
-    context.save()
-    if (layers === 'all') context.translate(0, 1.3)
-    context.strokeStyle = 'rgba(0, 0, 0, 0.22)'
-    context.lineWidth = 3.5
-    context.stroke(outline)
-    context.restore()
-  }
-  if (layers === 'shadow') {
-    context.restore()
-    return
-  }
+  context.save()
+  context.translate(0, 1.3)
+  context.strokeStyle = 'rgba(0, 0, 0, 0.22)'
+  context.lineWidth = 3.5
+  context.stroke(outline)
+  context.restore()
   context.strokeStyle = `rgba(255, 255, 255, ${dark ? 0.6 : 0.9})`
   context.lineWidth = 3.2
   context.stroke(outline)
-  if (mergedBands) {
-    // De banden van één kleur raken elkaar niet; alleen de naden met de andere kleur antialiassen in een andere volgorde.
-    for (const [colour, first] of [[WINDSOCK_STYLE.orange, 0], [WINDSOCK_STYLE.white, 1]] as const) {
-      const bands = new Path2D()
-      for (let band = first; band < WINDSOCK_BANDS; band += 2) bands.addPath(pathOf(windsockBand(shape, band)))
-      context.fillStyle = colour
-      context.fill(bands)
-    }
-  } else {
-    for (let band = 0; band < WINDSOCK_BANDS; band++) {
-      context.fillStyle = band % 2 ? WINDSOCK_STYLE.white : WINDSOCK_STYLE.orange
-      context.fill(pathOf(windsockBand(shape, band)))
-    }
+  for (let band = 0; band < WINDSOCK_BANDS; band++) {
+    context.fillStyle = band % 2 ? WINDSOCK_STYLE.white : WINDSOCK_STYLE.orange
+    context.fill(pathOf(windsockBand(shape, band)))
   }
   context.strokeStyle = WINDSOCK_STYLE.inkColor
   context.lineWidth = 1.1

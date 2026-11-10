@@ -3,7 +3,21 @@
 PO 2026-11-10: lange frames op de windpagina (met windzakken) op zijn Android-telefoon, vooral in Firefox.
 Spec: `.dev/specs/track-u111-firefox-wind.md`. Gemeten op ageq-dev2, 2026-11-10.
 
-## Uitkomst in het kort
+## Eindstand (2026-11-10, na de SurfaceFlinger-meting op de telefoon)
+
+1. **Het gat rond de badge wegvegen in plaats van `clip()`** (standaard sinds ronde 3) verdubbelt de getoonde frames in
+   Firefox op de Pixel 9: 28,8 tegen 14,8 fps (mediaan van 3). Zie *Telefoonmeting met SurfaceFlinger* onder.
+2. **DOM-rust** (ronde 4, standaard aan) geeft geen meetbaar fps-verschil (30,7 tegen 30,6 fps in Firefox, 43,6 tegen
+   42,3 in Chrome), maar blijft: geen elementen meer per frame en geen layoutflush per zaktekening, dus minder CPU.
+3. **Voorgetekende zakken (`zakpaden=bitmap`) vallen af**: 10,8 fps, en met `zakgolf=regelmatig` 9,8 fps. Samen met
+   `zakpaden=zuinig` (nooit op de telefoon gemeten, beeld niet gelijk) zijn ze met hun code weg
+   (`windsock-predrawn.ts`, de schijfcache, de samengevoegde banden).
+4. Ter vergelijking blijven `?dev&zakclip=aan` (de oude clip) en `?dev&domrust=uit` (het oude DOM-gedrag) staan, tot
+   2026-11-24 (`docs/dev-opties.md`).
+5. Firefox blijft achter op Chrome: 30,7 tegen 43,6 fps op dezelfde scène. Zonder zakken haalt Firefox 35,7 fps; de
+   zakken kosten nu dus nog ~7 fps.
+
+## Uitkomst in het kort (ronde 0, vóór de bisectie)
 
 1. In beide PO-opnames speelt de app af (autoplay). Firefox haalt dan ~10 afspeeltikken/s, Chrome ~28. Zowel
    zakken, deeltjes als isolijnen tekenen in Firefox minder vaak, dus de hele pagina zit krap, niet één laag.
@@ -325,7 +339,7 @@ Lezing:
    `aaa_fill_path` in de zelf-top): de CanvasRenderer daalt, de hoofddraad stijgt evenveel. Kleine canvassen zijn
    dus geen uitweg.
 
-### 3. Kandidaat voor het padtekenen: `?dev&zakpaden=zuinig`
+### 3. Kandidaat voor het padtekenen: `?dev&zakpaden=zuinig` (verwijderd na de telefoonmeting)
 
 Een bitmapcache van de hele zak zou de golf moeten afronden: vorm, kracht en golf hangen continu van de tijd af, en
 afgeronde stappen zie je. Wel vast per frame is de badge. `zakpaden=zuinig` doet daarom twee dingen: de vijf banden als
@@ -345,7 +359,7 @@ Rig (build r3, alle lagen aan, één run, load 20–41): alle varianten laden en
 > 0); de spelend-fps (basis 20, `zakclip=aan` 44, `zuinig` 41, `zuinig&zakcanvas=los` 18) volgen vooral de load (basis
 viel op load 36–42) en zeggen niets over de telefoon.
 
-### 3a. Voorgetekende zakken: `?dev&zakpaden=bitmap` (PO-aanvulling 11:55 UTC)
+### 3a. Voorgetekende zakken: `?dev&zakpaden=bitmap` (PO-aanvulling 11:55 UTC; verwijderd na de telefoonmeting)
 
 `src/core/windsock-predrawn.ts`. Met de standaardkromming (`geen`) is een zak ten opzichte van zijn richting een functie
 van de kracht, twee golffasen (`sin(reis) + 0,35·sin(1,7·reis + 2,3·fase)`, dus niet periodiek in één fase), de trage
@@ -431,6 +445,8 @@ telt rAF; zijn "fps" is dus geen getoond frame.
 4. Voorgetekend, regelmatige golf: `http://ageq-dev2:4312/?perf=start&modus=wind&dev&zakpaden=bitmap&zakgolf=regelmatig`
 5. Zuinige paden: `http://ageq-dev2:4312/?perf=start&modus=wind&dev&zakpaden=zuinig`
 
+Links 3–5 werken niet meer: die knoppen zijn weg sinds de eindstand.
+
 Zonder `perf` (getoonde frames met SurfaceFlinger, zoals de laptop-agent meet): dezelfde links zonder `perf=start&`.
 Gecko-profielen: `gecko-android-agent.md` (`android-r3-<variant>.json.gz`).
 
@@ -501,6 +517,49 @@ zoom 7}`, opslag ongewijzigd. De pin blijft op de onthouden plaats; alleen de ca
 
 1. Basis (domrust aan): `http://ageq-dev2:4312/?modus=wind&dev&camera=5.29,52.13,7`
 2. Oud gedrag: `http://ageq-dev2:4312/?modus=wind&dev&camera=5.29,52.13,7&domrust=uit`
+
+## Telefoonmeting met SurfaceFlinger (ronde 3 en 4, 2026-11-10)
+
+Laptop-agent op de macbook van de PO, met `tools/laptop/sfbench/sfbench.py` (op int sinds 0574add, met de
+variantbestanden `variants-u111-{ae,fg,hi}.json`). Pixel 9 aan de lader, scherm 120 Hz, Firefox 159.0.1 en Chrome
+156.0.8078.79, geen profiler. Per run 15 s inlopen en 10 s getoonde frames tellen op de laag van de browser. De
+varianten lopen om en om, drie rondes, en voor elke ronde koelt de telefoon af tot thermische status 0. Ruwe data:
+`~/inbox-macbook/bench-u111-{ae,fg,hi}-*.jsonl` op ageq-dev2.
+
+**A–D, F–G** (`lat=52.19&lon=5.08`; A–D op build r3 `index-B9JLa3j3.js`, F–G op r4 `index-B0J3aeia.js`). Mediaan van 3
+runs:
+
+| variant | fps | interval p50 | p90 | max |
+| --- | --- | --- | --- | --- |
+| A basis (gat wegvegen) | 28,8 fps | 33,3 ms | 58,2 ms | 557 ms |
+| B `zakclip=aan` (oude clip) | 14,8 fps | 74,8 ms | 124,7 ms | 150 ms |
+| C `zakken=uit` | 35,7 fps | 24,9 ms | 58,2 ms | 100 ms |
+| D alleen de kaart | 28,0 fps | 33,2 ms | 66,5 ms | 183 ms |
+| F `zakpaden=bitmap` | 10,8 fps | 99,8 ms | 133,0 ms | 166 ms |
+| G `zakpaden=bitmap&zakgolf=regelmatig` | 9,8 fps | 99,8 ms | 133,1 ms | 166 ms |
+
+E (Chrome) was ongeldig: Chrome 156 presenteert in `ChromeChildSurface`, niet in zijn SurfaceView; sfbench kiest de
+laag nu per variant. B#3 (6,7 fps) en C#3 (8,5 fps) zijn uitschieters met p90 boven 430 ms; de mediaan vangt ze op.
+D staat steeds op status 1 en is niet sneller dan A; volgorde en warmte lopen daar samen.
+
+F en G liepen op een andere build dan A. Die build voegt alleen DOM-rust toe, en de basis daarvan (H Firefox) haalt
+30,7 fps. Dat de bitmapzakken op ~10 fps uitkomen, komt dus niet door de buildwissel. Waarom ze trager zijn, heb ik
+niet geprofileerd: per zak twee `drawImage` met een draaiing uit grote bitmaps die de CanvasRenderer elke frame
+herbemonstert, plus de gemiste cache (18–34 % treffers met de exacte golf) die elke frame nieuwe canvassen maakt, zijn
+de voor de hand liggende verdachten.
+
+**H/I** (`camera=5.29,52.13,7`, build r4 `index-B0J3aeia.js`). Mediaan van 3 runs:
+
+| variant | fps | interval p50 | p90 | max |
+| --- | --- | --- | --- | --- |
+| H Firefox (domrust aan) | 30,7 fps | 33,2 ms | 58,3 ms | 108 ms |
+| I Firefox (`domrust=uit`) | 30,6 fps | 33,2 ms | 66,5 ms | 133 ms |
+| H Chrome (domrust aan) | 43,6 fps | 24,9 ms | 33,3 ms | 58 ms |
+| I Chrome (`domrust=uit`) | 42,3 fps | 24,9 ms | 33,3 ms | 67 ms |
+
+Chrome draaide in elke ronde als derde en vierde, dus warmer (status 1, ~39 °C tegen 36–38 °C); het verschil met
+Firefox is daardoor eerder groter dan kleiner. De Firefox-kaart was tijdens het meten donker en de Chrome-kaart licht:
+de filmtijd stond op 17:00 tegen 16:36, rond zonsondergang (16:55). Dat is geen browserverschil.
 
 ## Gecko-profiel van Firefox Android via USB (macbook)
 

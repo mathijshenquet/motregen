@@ -6,9 +6,8 @@ import type { TemperaturePlace } from './temperature.js'
 import { windValue, type WindUnit } from './weather.js'
 import { markLayerDrawn, recordPerfPhase } from './perf.js'
 import { WINDSOCK_ANCHOR_OFFSETS } from './windsock-anchors.js'
-import { drawSock, sockCutPath } from './wind-sock-draw.js'
+import { drawSock } from './wind-sock-draw.js'
 import { domRest } from './dom-rest.js'
-import { PredrawnSocks, predrawnPose, type PredrawnPose, type PredrawnWave } from './windsock-predrawn.js'
 import { MapLabelPlacer, type Offset, type Placement } from './map-label-placement.js'
 import { MAP_LABEL_FONT_FAMILY, viewportMapLabelSize } from './map-labels.js'
 
@@ -58,12 +57,6 @@ export interface WindsockLayerOptions {
   maxPixelRatio?: number
   /** Alleen `?dev&zakclip=aan` (U111): het gat rond de badge weer wegknippen met `clip()` (de oude manier). */
   clipCut?: boolean
-  /** Alleen `?dev&zakpaden=zuinig` (U111): banden als twee vullingen en de badge uit een bitmapcache. */
-  leanPaths?: boolean
-  /** Alleen `?dev&zakpaden=bitmap` (U111): voorgetekende zakken per gekwantiseerde stand (windsock-predrawn). */
-  predrawn?: boolean
-  /** Alleen `?dev&zakgolf=regelmatig` (U111, met `predrawn`): zie `PredrawnWave`. */
-  predrawnWave?: PredrawnWave
   /** Alleen `?dev&zak2d=software` (U111): `willReadFrequently`, dan tekent Firefox de canvas in het contentproces. */
   softwareCanvas?: boolean
 }
@@ -88,8 +81,6 @@ interface SockDraw {
   badge: WindsockBadge
   label: string
   rect: DirtyRect
-  /** Met `predrawn`: de gekwantiseerde stand; `shape` is dan die stand op het scherm. */
-  pose?: PredrawnPose
 }
 
 /** Ring van uitwijkplekken rond de voorkeursplek in CSS-px: eerst dichtbij, dan verder weg (zoals PLACE_LADDER). */
@@ -113,8 +104,6 @@ export class WindsockLayer {
   private readonly sockCanvases = new Map<Sock, SockCanvas>()
   private sockCanvasRatio = 0
   private scratch?: { canvas: HTMLCanvasElement; context: CanvasRenderingContext2D }
-  private readonly discCache = new Map<string, { canvas: HTMLCanvasElement; half: number }>()
-  private predrawn?: PredrawnSocks
   private socks: Sock[] = []
   private field?: WindsockField
   private unit: WindUnit = 'bft'
@@ -324,15 +313,11 @@ export class WindsockLayer {
       const flutterBend = animate ? swayBends(strength, sock.wave, seconds, sock.phase).map((bend) => bend * calm) : undefined
       if (flutterBend) fluttering = true
       const base = sock.heading!.value
-      // Voorgetekend alleen zonder kromming langs de zak (de standaard): dan is de vorm een draaiing van één stand.
-      const pose = this.options.predrawn && compass.every((heading) => heading === target)
-        ? predrawnPose(strength, sock.wave, sock.phase, seconds, animate ? calm : 0, base - bearing, this.options.predrawnWave)
-        : undefined
       const headings = compass.map((heading, index) => base + angleDifference(target, heading) - bearing + (flutterBend?.[index] ?? 0))
-      const shape = pose?.screen ?? windsockShape(strength, headings, 'kaart')
+      const shape = windsockShape(strength, headings, 'kaart')
       const x = screen.x + sock.placed.dx, y = screen.y + sock.placed.dy, label = String(windValue(speed, this.unit))
       const badge = windsockBadge(shape, DEFAULT_WINDSOCK_BADGE, label, size)
-      pending.push({ sock, x, y, shape, badge, label, rect: sockRect(x, y, shape, badge, ratio), pose })
+      pending.push({ sock, x, y, shape, badge, label, rect: sockRect(x, y, shape, badge, ratio) })
       this.drawnCount++
       this.drawnMaxStrength = Math.max(this.drawnMaxStrength, strength)
     }
@@ -353,7 +338,7 @@ export class WindsockLayer {
       pending.forEach((draw, index) => {
         const overlaps = !this.options.clipCut && pending.slice(0, index).some((other) => rectsOverlap(other.rect, draw.rect))
         if (overlaps) this.drawViaScratch(context, draw, ratio)
-        else this.drawSock(context, draw, ratio, 0, 0)
+        else this.drawSock(context, draw)
       })
     }
     recordPerfPhase('windsock-draw', performance.now() - drawStarted, { socks: this.drawnCount, fluttering })
@@ -362,7 +347,6 @@ export class WindsockLayer {
     if (this.canvas.dataset.socks !== summary) this.canvas.dataset.socks = summary
     // Met `domRest` niet per tekening in de DOM (U111 ronde 4); rigs lezen `draws` via `__motregenWindsocks()`.
     if (!domRest) this.canvas.dataset.draws = String(this.draws)
-    if (this.predrawn) this.canvas.dataset.predrawn = `${this.predrawn.hits}/${this.predrawn.misses}/${this.predrawn.size}`
     if ((fluttering || settling) && this.inView && document.visibilityState !== 'hidden') this.scheduleFlutter(started, this.flutterFps(started))
   }
 
@@ -444,7 +428,7 @@ export class WindsockLayer {
       context.setTransform(1, 0, 0, 1, 0, 0)
       context.clearRect(0, 0, entry.canvas.width, entry.canvas.height)
       context.setTransform(ratio, 0, 0, ratio, -originX, -originY)
-      this.drawSock(context, draw, ratio, originX, originY)
+      this.drawSock(context, draw)
       drawn.add(draw.sock)
     }
     const current = new Set(this.socks)
@@ -475,7 +459,7 @@ export class WindsockLayer {
     context.setTransform(1, 0, 0, 1, 0, 0)
     context.clearRect(0, 0, rect.width, rect.height)
     context.setTransform(ratio, 0, 0, ratio, -rect.x, -rect.y)
-    this.drawSock(context, draw, ratio, rect.x, rect.y)
+    this.drawSock(context, draw)
     target.setTransform(1, 0, 0, 1, 0, 0)
     target.drawImage(canvas, 0, 0, rect.width, rect.height, rect.x, rect.y, rect.width, rect.height)
     target.setTransform(ratio, 0, 0, ratio, 0, 0)
@@ -485,58 +469,12 @@ export class WindsockLayer {
     return canvas.getContext('2d', this.options.softwareCanvas ? { willReadFrequently: true } : undefined)!
   }
 
-  /** `offsetX/Y`: canvaspixel van de doelcanvas waar de transform (ratio, 0, 0, ratio, -offsetX, -offsetY) begint. */
-  private drawSock(context: CanvasRenderingContext2D, draw: Omit<SockDraw, 'sock' | 'rect'>, ratio: number, offsetX: number, offsetY: number): void {
-    const { x, y, shape, badge, label, pose } = draw
-    const lean = this.options.leanPaths === true || pose !== undefined
+  private drawSock(context: CanvasRenderingContext2D, draw: Omit<SockDraw, 'sock' | 'rect'>): void {
+    const { x, y, shape, badge, label } = draw
     context.save()
     context.translate(x, y)
-    if (pose) {
-      this.predrawn ??= new PredrawnSocks((canvas) => this.context2d(canvas), MAP_LABEL_FONT_FAMILY)
-      this.predrawn.draw(context, pose, ratio, this.dark)
-      context.globalCompositeOperation = 'destination-out'
-      context.fill(sockCutPath(badge))
-    } else {
-      drawSock({ context, shape, badge, label, dark: this.dark, fontFamily: MAP_LABEL_FONT_FAMILY, cut: this.options.clipCut ? 'clip' : 'erase', parts: lean ? 'body' : 'all', mergedBands: lean })
-    }
+    drawSock({ context, shape, badge, label, dark: this.dark, fontFamily: MAP_LABEL_FONT_FAMILY, cut: this.options.clipCut ? 'clip' : 'erase' })
     context.restore()
-    if (!lean) return
-    this.drawCachedDisc(context, draw, ratio, offsetX, offsetY)
-    // Het getal live: Gecko zet glyphs per canvas op de pixel, uit een cache schoof het tot een canvaspixel.
-    context.save()
-    context.translate(x, y)
-    drawSock({ context, shape, badge, label, dark: this.dark, fontFamily: MAP_LABEL_FONT_FAMILY, parts: 'label' })
-    context.restore()
-  }
-
-  /**
-   * `leanPaths`: de schijf van de badge verandert alleen met zijn maat, dus één bitmap per maat en subpixelfase (kwart
-   * canvaspixel) in plaats van drie paden per zak per frame.
-   */
-  private drawCachedDisc(context: CanvasRenderingContext2D, draw: Omit<SockDraw, 'sock' | 'rect'>, ratio: number, offsetX: number, offsetY: number): void {
-    const { badge } = draw
-    const centreX = (draw.x + badge.x) * ratio - offsetX, centreY = (draw.y + badge.y) * ratio - offsetY
-    let baseX = Math.floor(centreX), baseY = Math.floor(centreY)
-    let phaseX = Math.round((centreX - baseX) * BADGE_PHASES), phaseY = Math.round((centreY - baseY) * BADGE_PHASES)
-    if (phaseX === BADGE_PHASES) { baseX++; phaseX = 0 }
-    if (phaseY === BADGE_PHASES) { baseY++; phaseY = 0 }
-    const key = `${badge.radius}|${ratio}|${phaseX}|${phaseY}`
-    let cached = this.discCache.get(key)
-    if (!cached) {
-      if (this.discCache.size > 256) this.discCache.clear()
-      // Schaduw 1,3 px omlaag, halve inktrand en antialias, ruim.
-      const half = Math.ceil((badge.radius + 3) * ratio)
-      const canvas = document.createElement('canvas')
-      canvas.width = canvas.height = 2 * half + 1
-      const cacheContext = this.context2d(canvas)
-      cacheContext.setTransform(ratio, 0, 0, ratio, half + phaseX / BADGE_PHASES - badge.x * ratio, half + phaseY / BADGE_PHASES - badge.y * ratio)
-      drawSock({ context: cacheContext, shape: draw.shape, badge, label: '', dark: this.dark, fontFamily: MAP_LABEL_FONT_FAMILY, parts: 'disc' })
-      cached = { canvas, half }
-      this.discCache.set(key, cached)
-    }
-    context.setTransform(1, 0, 0, 1, 0, 0)
-    context.drawImage(cached.canvas, baseX - cached.half, baseY - cached.half)
-    context.setTransform(ratio, 0, 0, ratio, -offsetX, -offsetY)
   }
 
   /** Volgende trillingsframe, niet vaker dan WINDSOCK_FLUTTER_FPS: elke frame zet de hele canvas opnieuw neer. */
@@ -603,7 +541,6 @@ function rectsOverlap(a: DirtyRect, b: DirtyRect): boolean {
 }
 
 /** Subpixelfasen per canvaspixel voor de schijfcache: een kwart pixel verschuiving valt op DPR 3 niet op. */
-const BADGE_PHASES = 4
 
 /**
  * Ruimte rond de omtrek van zak en badge in CSS-px: de breedste lijn (3,5 px schaduw, halve breedte), de

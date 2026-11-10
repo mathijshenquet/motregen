@@ -251,13 +251,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const [lng, lat, zoom] = (devParams.get('camera') ?? '').split(',').map(Number)
     return [lng, lat, zoom].every((value) => Number.isFinite(value)) ? { lng: lng!, lat: lat!, zoom: zoom! } : undefined
   })()
-  // Ronde 2 en 3 (Gecko-profielen): het oude gat met clip() ter vergelijking, de zakcanvas in het contentproces,
-  // en zuiniger zakpaden.
+  // Ronde 2 en 3 (Gecko-profielen): het oude gat met clip() ter vergelijking en de zakcanvas in het contentproces.
   const clipSockCut = devParams.get('zakclip') === 'aan'
   const softwareSockCanvas = devParams.get('zak2d') === 'software'
-  const leanSockPaths = devParams.get('zakpaden') === 'zuinig'
-  const predrawnSocks = devParams.get('zakpaden') === 'bitmap'
-  const predrawnWave = devParams.get('zakgolf') === 'regelmatig' ? 'regular' as const : 'exact' as const
   const sockPixelRatio = devPixelRatio('zakdpr')
   const isolinePixelRatio = devPixelRatio('isolijndpr') ?? Infinity
   const stillMode = new URLSearchParams(window.location.search).get('still') === '1'
@@ -2343,7 +2339,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         client.getHeader(frames[blends[0]!.left]!.u.chunk),
       ])
       if (request !== shownWindsockRequest || !map) return
-      windsockLayer ??= new WindsockLayer(map, { ...windsockOptions, separateCanvases: separateSockCanvases, maxPixelRatio: sockPixelRatio, clipCut: clipSockCut, leanPaths: leanSockPaths, predrawn: predrawnSocks, predrawnWave, softwareCanvas: softwareSockCanvas, reducedMotion: () => reducedMotion.matches, pin: () => marker?.getLngLat() })
+      windsockLayer ??= new WindsockLayer(map, { ...windsockOptions, separateCanvases: separateSockCanvases, maxPixelRatio: sockPixelRatio, clipCut: clipSockCut, softwareCanvas: softwareSockCanvas, reducedMotion: () => reducedMotion.matches, pin: () => marker?.getLngLat() })
       windsockLayer.setUnit(untrack(windUnit))
       windsockLayer.setTheme(untrack(mapSurfaceTheme) === 'dark')
       windsockLayer.setPlaces(nestedPlaces(map.getZoom(), WINDSOCK_SPACING_PX))

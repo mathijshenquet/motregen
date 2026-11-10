@@ -1,5 +1,9 @@
 # Opdracht voor een agent op de macbook: vier Firefox-profielen van de Android-telefoon (ronde 3)
 
+> **Stand 2026-11-10 (na de SurfaceFlinger-meting):** `zakpaden=bitmap`, `zakgolf=regelmatig` en `zakpaden=zuinig`
+> bestaan niet meer; die links tonen nu de basis. Ter vergelijking blijven `zakclip=aan` en `domrust=uit` (tot
+> 2026-11-24). Uitslag: `README.md`, *Telefoonmeting met SurfaceFlinger*.
+
 Je draait op de macbook van de PO (Mathijs). Zijn Android-telefoon (Pixel 9, Firefox 159, pakket `org.mozilla.firefox`)
 hangt met USB aan de macbook; USB-foutopsporing staat aan op de telefoon en in Firefox, en volgens de PO staat de
 profiler in desktop-Firefox klaar (`about:debugging`, telefoon verbonden). De PO wil dit niet zelf doen: werk het
