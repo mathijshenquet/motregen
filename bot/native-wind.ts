@@ -4,6 +4,7 @@ import { nativeProjection } from './native-projection.js'
 import { FRAME, FRAME_PIXELS } from './config.js'
 import { WIND_PARAMETERS, WIND_FOCUS_INTENSITY, WIND_INITIAL_STAGGER_SECONDS, WIND_SIMULATION_FPS, windLifeScale, halfFloatTrailFloor, bufferDecay, windColor, windScreenSpeed, weakWindTempo, speedDamping, particleCountForViewport, headAlpha, expectedLifetime } from '../web/src/core/wind-presentation.js'
 import type { StillManifest } from './stills.js'
+import { SOCK_SNAP_SECONDS } from '../web/src/core/windsock-flow.js'
 import { WIND_THIN_PARTICLE_WIDTH } from '../web/src/core/wind-beaufort.js'
 
 /** Dunne deeltjes zoals in de windmodus van de app: de vlakken en windzakken dragen de waarde (U101). */
@@ -28,9 +29,15 @@ export function sampleWind(frame: RainFrame, column: number, row: number): numbe
   return value
 }
 
+/** Waar een deeltje in zijn leven is; `reborn` zodra het minstens één keer opnieuw begon (U112). */
+interface ParticleLife { phase: number, reborn: boolean }
+
 export class NativeWindData {
   readonly eastwardData: NativeRainData
   readonly northwardData: NativeRainData
+  /** De levens van de deeltjes, van filmframe naar filmframe (U112), zoals de keten in `crates/render-core/src/wind.rs`. */
+  private lives: (ParticleLife | undefined)[] = []
+  private drawnSeconds = -Infinity
   constructor(origin: string, manifest: StillManifest) {
     this.eastwardData = new NativeRainData(origin, manifest, 'wind_u_ms')
     this.northwardData = new NativeRainData(origin, manifest, 'wind_v_ms')
@@ -47,9 +54,18 @@ export class NativeWindData {
     let randomState = 0x71b
     const random = () => { randomState = (Math.imul(1664525, randomState) + 1013904223) >>> 0; return randomState / 4294967296 }
     const rgb = base
+    const seconds = simulationMs / 1000
+    const elapsed = seconds - this.drawnSeconds
+    // Een eerste stap, een stap terug of een sprong begint vers: dan is de fase een pure functie van de filmtijd.
+    const snap = !(elapsed > 0) || elapsed > SOCK_SNAP_SECONDS
+    this.drawnSeconds = seconds
     for (let particle = 0; particle < count; particle++) {
-      const screenX = ((particle % columns) + 0.5 + (random() - 0.5) * WIND_PARAMETERS.spawnJitter) / columns * FRAME_PIXELS.width
-      const screenY = (Math.floor(particle / columns) + 0.5 + (random() - 0.5) * WIND_PARAMETERS.spawnJitter) / rows * FRAME_PIXELS.height
+      // Alle vier de trekkingen vooraf: een deeltje zonder wind verschuift die van de volgende niet.
+      const jitterX = random(), jitterY = random()
+      const lifeScale = windLifeScale(random())
+      const delay = random() * WIND_INITIAL_STAGGER_SECONDS
+      const screenX = ((particle % columns) + 0.5 + (jitterX - 0.5) * WIND_PARAMETERS.spawnJitter) / columns * FRAME_PIXELS.width
+      const screenY = (Math.floor(particle / columns) + 0.5 + (jitterY - 0.5) * WIND_PARAMETERS.spawnJitter) / rows * FRAME_PIXELS.height
       const column = projection.columns[0]! + (projection.columns[1]! - projection.columns[0]!) * (screenX - 0.5)
       const row = projection.rows[0]! + (projection.rows[1]! - projection.rows[0]!) * (screenY - 0.5)
       const east = sampleWind(eastwardData, column, row), north = sampleWind(northwardData, column, row)
@@ -57,12 +73,19 @@ export class NativeWindData {
       const speed = Math.hypot(east, north)
       if (speed < 0.01) continue
       const screenSpeed = windScreenSpeed(speed) * weakWindTempo(speed)
-      const lifeScale = windLifeScale(random())
-      const delay = random() * WIND_INITIAL_STAGGER_SECONDS
-      const age = simulationMs / 1000 - delay
-      if (age <= 0) continue
       const duration = expectedLifetime(screenSpeed, { trailDistance: WIND_PARAMETERS.trailDistance * lifeScale, maxAge: WIND_PARAMETERS.maxAge * lifeScale })
-      const phase = (age % duration) / duration
+      const previous = this.lives[particle]
+      let current: ParticleLife | undefined
+      if (previous && !snap) {
+        const stepped = previous.phase + elapsed / duration
+        current = { phase: stepped % 1, reborn: previous.reborn || stepped >= 1 }
+      } else {
+        const age = seconds - delay
+        current = age > 0 ? { phase: (age % duration) / duration, reborn: age >= duration } : undefined
+      }
+      this.lives[particle] = current
+      if (!current) continue
+      const phase = current.phase
       const lifeDistance = Math.min(WIND_PARAMETERS.trailDistance * lifeScale, screenSpeed * WIND_PARAMETERS.maxAge * lifeScale)
       const distance = (phase - 0.5) * lifeDistance * FRAME.scale
       const decayLength = screenSpeed / -Math.log(WIND_PARAMETERS.bufferFade) * FRAME.scale
@@ -85,8 +108,8 @@ export class NativeWindData {
       }
       const tailX = headX - directionX * length, tailY = headY - directionY * length
       drawStroke(rgb, FRAME_PIXELS, [tailX, tailY], [headX, headY], WIND_FILM_LINE_WIDTH * FRAME.scale, color, trailOpacity(travelled), coverage)
-      if (age >= duration) {
-        const sinceRespawn = age % duration
+      if (current.reborn) {
+        const sinceRespawn = phase * duration
         const previousLength = Math.min(lifeDistance, 3 * decayLength / FRAME.scale) * FRAME.scale
         const previousHeadX = screenX + directionX * lifeDistance * FRAME.scale / 2
         const previousHeadY = screenY + directionY * lifeDistance * FRAME.scale / 2
