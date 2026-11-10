@@ -60,13 +60,19 @@ for (const [profileName, profile] of Object.entries(profiles)) {
         ...Array.from({ length: 5 * FPS }, (_, frame) => 2.5 * (1 - frame / (5 * FPS))),
       ]
       const shell = page.locator('.map-shell')
+      const perFrame: Array<{ step: number; places: number }> = []
       for (const [frame, step] of zooms.entries()) {
         await page.evaluate(([lng, lat, zoom]) => (window as unknown as { __motregenJumpTo: (lng: number, lat: number, zoom: number) => void }).__motregenJumpTo(lng!, lat!, zoom!),
           [CENTRE.lng, CENTRE.lat, overview + step])
         await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))))
         await page.waitForTimeout(60)
         await shell.screenshot({ path: join(videoDir, `${String(frame).padStart(4, '0')}.png`) })
+        // Zichtbare plekken in dit frame (getallen die niet uitfaden, of de geplaatste zakken), voor de dichtheidscheck.
+        perFrame.push({ step: Math.round(step * 100) / 100, places: await page.evaluate((wind) => wind
+          ? (document.querySelector<HTMLElement>('.map-overlay-windsocks')?.dataset.placed ?? '').split('|').filter(Boolean).length
+          : Array.from(document.querySelectorAll<HTMLElement>('.temperature-number')).filter((element) => element.style.opacity !== '0').length, mode === 'wind') })
       }
+      counts[`clip-${mode}-${profileName}`] = perFrame
       await context.close()
       const target = join(outDir, `clip-${mode}-${profileName}.mp4`)
       execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', String(FPS), '-i', join(videoDir, '%04d.png'),

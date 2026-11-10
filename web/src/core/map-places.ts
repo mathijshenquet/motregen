@@ -261,15 +261,16 @@ export function orderedPlaces(view: PlaceOrderView, table: PlaceOrderTable | und
   if (!table) return []
   const zooms = table.zooms[placeOrderKey(view.kind, view.screen, view.density, view.tier)]!
   if (view.tier) {
-    // Stedentrede: de hoofdsteden staan er vanaf de landing (C); de rest komt gespreid binnen over de stap erna door
-    // [laagste tabelzoom, C + 1] lineair op [C, C + 1] te leggen. Die drempel is nooit lager dan de eigen minimale
-    // zoom, dus monotonie en "geen overlap" blijven gelden.
+    // Stedentrede: de hoofdsteden staan er vanaf de landing (C); de rest komt gespreid binnen over PROVINCE_STEPS.arrival
+    // erna door [laagste tabelzoom, C + arrival] lineair op [C, C + arrival] te leggen. Die drempel is nooit lager dan
+    // de eigen minimale zoom, dus monotonie en "geen overlap" blijven gelden. (Over een hele stap liet dat de
+    // telefoon een stap lang op 4–7 plekken staan, orkestrator 2026-11-10.)
     const landing = view.overviewZoom + PROVINCE_STEPS.cities
     if (view.zoom < landing) return []
-    const lowest = PLACE_ORDER_ZOOMS.from
+    const lowest = PLACE_ORDER_ZOOMS.from, arrival = PROVINCE_STEPS.arrival
     return table.places.filter((place, index) => {
       const own = zooms[index]!
-      const spread = CAPITALS.has(place.name) ? Math.max(own, landing) : own < landing + 1 ? landing + (own - lowest) / (landing + 1 - lowest) : own
+      const spread = CAPITALS.has(place.name) ? Math.max(own, landing) : own < landing + arrival ? landing + arrival * (own - lowest) / (landing + arrival - lowest) : own
       return view.zoom >= spread && (!place.abroad || view.zoom >= abroadFrom(view))
     })
   }
@@ -313,9 +314,9 @@ export const PROVINCES: readonly Province[] = [
 
 /**
  * Zoomstappen boven het overzicht: tot `provinces` staan de zwaartepunten, tot `cities` schuiven ze naar hun
- * hoofdstad (één zoomstap), vanaf `cities` de stedentrede.
+ * hoofdstad (één zoomstap), vanaf `cities` de stedentrede; de overige steden komen binnen `arrival` daarna binnen.
  */
-export const PROVINCE_STEPS = { provinces: 0.5, cities: 1.5 } as const
+export const PROVINCE_STEPS = { provinces: 0.5, cities: 1.5, arrival: 0.5 } as const
 
 export interface ProvincePlace extends OrderedPlace {
   /** De provincie waar deze plek bij hoort (ook als hij halverwege al de hoofdstad heet). */

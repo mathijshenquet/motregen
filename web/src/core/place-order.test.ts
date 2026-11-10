@@ -174,6 +174,19 @@ describe('plekkenorde (U114, MIP-43)', () => {
       }
     })
 
+    it('geen gat na de landing: vanaf de stedentrede + `arrival` minstens 80 % van de plekken van de gewone orde', () => {
+      for (const kind of FOOTPRINT_KINDS) for (const screen of PLACE_ORDER_SCREENS) for (const density of PLACE_DENSITIES) {
+        for (const centre of [[5.3, 52.2], LAND.Randstad!, LAND.Brabant!, LAND.Groningen!] as Array<[number, number]>) {
+          for (let step = PROVINCE_STEPS.cities + PROVINCE_STEPS.arrival; step <= 4; step += 0.25) {
+            const zoom = overview(screen) + step
+            const plain = visible(kind, screen, density, centre, zoom).length
+            const tiered = visible(kind, screen, density, centre, zoom, 'later', 'provincies').length
+            expect(tiered, `${kind} ${screen} ${density} ${centre} +${step}: ${tiered} tegen ${plain}`).toBeGreaterThanOrEqual(Math.floor(0.8 * plain))
+          }
+        }
+      }
+    })
+
     it('hoofdsteden staan er vanaf de stedentrede altijd: ze verliezen nooit een botsing; daarna monotoon', () => {
       for (const kind of FOOTPRINT_KINDS) for (const screen of PLACE_ORDER_SCREENS) for (const density of PLACE_DENSITIES) {
         const map = MAPS[screen], home = containView(MAP_CONTAIN_BOUNDS, map)
