@@ -1,5 +1,5 @@
 import type { LayerSpecification, StyleSpecification, SymbolLayerSpecification } from 'maplibre-gl'
-import type { OrderedPlace } from './map-places'
+import type { OrderedPlace } from './map-places.js'
 
 /**
  * U114 (MIP-43): plaatsnamen uit de plekkenorde in een eigen symboollaag, in de kleur van de stadsnamen van de
@@ -41,7 +41,10 @@ export function placeNamesLayer(style: StyleSpecification, size: number): Symbol
   }
 }
 
-export function placeNamesData(places: readonly OrderedPlace[]): GeoJSON.FeatureCollection<GeoJSON.Point, { name: string; order: number }> {
+interface PlaceNameFeature { type: 'Feature'; geometry: { type: 'Point'; coordinates: [number, number] }; properties: { name: string; order: number } }
+
+// Structureel getypt: de bot typecheckt dit bestand ook, en daar is de globale GeoJSON-namespace er niet.
+export function placeNamesData(places: readonly OrderedPlace[]): { type: 'FeatureCollection'; features: PlaceNameFeature[] } {
   return {
     type: 'FeatureCollection',
     features: places.filter((place) => !place.sea).map((place, order) => ({
