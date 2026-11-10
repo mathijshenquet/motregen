@@ -15,8 +15,8 @@ Spec: `.dev/specs/track-u111-firefox-wind.md`. Gemeten op ageq-dev2, 2026-11-10.
    - **isolijnen**: de overlay raakt zijn canvas niet aan als hij dezelfde snede opnieuw zou tekenen (`drawKey`).
      In de Firefox-opname van de PO tekende ~36 % van de composites een ongewijzigde snede (198 blits bij 126 traces).
 4. In de rig zijn die fixes **niet meetbaar**: software-WebRender rastert en composiet elk frame toch het hele
-   venster, en de host was gedeeld (load 21–79 door andere builds). Of ze op de telefoon tellen (GPU-WebRender,
-   canvas-uploads), laat alleen een meting op de telefoon zien.
+   venster, en de host was gedeeld (load 21–79 door andere builds). Op de telefoon van de PO maakten ze ook geen
+   verschil, en `isolijnen=uit` evenmin (zie onder): de rem zit daar ergens anders, vandaar de bisectie.
 5. Niet gedaan: de zakken op DPR 2 begrenzen (zichtbaar zachter, zie `zakken-dpr3-vs-dpr2.png`), de isolijnen
    minder vaak tracen tijdens afspelen (tracet bewust op de exacte tijd, PO 2026-09-25), de zakken in WebGL tekenen.
 
@@ -74,17 +74,48 @@ Headless Chromium met SwiftShader haalt op DPR 3 bij load 60–79 maar 3–13 fp
 - `zakken-voor-na-licht.jpg` (12:25) en `zakken-voor-na-donker.jpg` (22:25): links voor, rechts na, zelf bekeken;
   de zakken zijn gelijk.
 
-## Wat nog moet: meten op de telefoon
+## Telefoonmeting van de PO na de fixes (2026-11-10, Firefox 159)
 
-Op ageq-dev2 draaien (zolang deze sessie leeft) twee previews van deze track met live data:
+Profielen `~/motregen-profiles/2026-11-10T09:36:51.993Z…` (voor, 4311), `…09:37:15.299Z…` (na, 4312) en
+`…09:37:31.585Z…` (na, `isolijnen=uit`), samengevat door de orkestrator: **geen verschil**. `windsock-draw` ~20/s in
+alle drie (gat p50 58 / 38 / 49 ms), `wind-step` ~20/s (p50 33 ms, p90 92–110 ms), afspeeltikken ~11/s. Op de
+telefoon zijn de isolijnen dus niet de rem (in de rig wel: die overschat pixelwerk). Volgende stap: bisecteren.
 
-- voor: `http://ageq-dev2:4311/?perf=start&modus=wind` (eef3466, met de A/B-knoppen);
-- na: `http://ageq-dev2:4312/?perf=start&modus=wind` (b41397f);
-- A/B: `&dev&zakken=uit`, `&dev&isolijnen=uit`.
+## Bisectie op de telefoon (preview 4312, build 74df28d)
 
-Laat `isolijnen=uit` op de telefoon ook de grote winst zien, dan is de volgende stap structureel: de overlays
-(isolijnen, regen, wind) samen op één WebGL-canvas, zodat Firefox per frame één canvas presenteert in plaats van
-drie. Dat is een groter ontwerp en eerst een voorstel.
+Knoppen (combineerbaar, `docs/dev-opties.md`): `zakken=uit`, `isolijnen=uit`, `deeltjes=uit` (WebGL-windlaag niet
+opgezet), `regen=uit` (regenoverlay tekent niets; data en afspelen lopen door), `kaart=leeg` (basiskaart alleen met
+achtergrond). In de rig gecontroleerd: elke combinatie laadt en speelt af.
+
+1. Alles aan: `http://ageq-dev2:4312/?perf=start&modus=wind&dev`
+2. Zonder deeltjes: `http://ageq-dev2:4312/?perf=start&modus=wind&dev&deeltjes=uit`
+3. Zonder deeltjes en regen: `http://ageq-dev2:4312/?perf=start&modus=wind&dev&deeltjes=uit&regen=uit`
+4. Alles uit behalve de kaart: `http://ageq-dev2:4312/?perf=start&modus=wind&dev&deeltjes=uit&regen=uit&zakken=uit&isolijnen=uit`
+5. Zo nodig, ook de kaart leeg: link 4 plus `&kaart=leeg`
+
+Elke link opent met het open dev-paneel; dat staat er in alle vijf, dus het telt overal gelijk mee.
+
+## Gecko-profiel van Firefox Android via USB (macbook)
+
+De eerdere profielen in `~/motregen-profiles/macbook-firefox/` zijn van desktop-Firefox op de macbook (macOS),
+niet van de telefoon. Voor de telefoon:
+
+1. Telefoon: Android-ontwikkelaarsopties aan (Instellingen › Over de telefoon › zeven keer op het buildnummer),
+   daarin *USB-foutopsporing* aan. In Firefox voor Android: Instellingen › *Externe foutopsporing via USB* aan.
+2. Telefoon met USB aan de macbook; op de telefoon "USB-foutopsporing toestaan" bevestigen.
+3. Macbook, desktop-Firefox: open `about:debugging#/setup`, kies *USB-apparaten inschakelen*; de telefoon verschijnt
+   links, klik *Verbinden* en open hem.
+4. Op de apparaatpagina: *Prestaties profileren*. Zet de preset op **Graphics** (die neemt naast de hoofddraad ook
+   Compositor, Renderer, RenderBackend, SceneBuilder en de canvas-draden mee). Interval 1 ms is goed.
+5. Open op de telefoon een bisect-link, maar met `?perf=1` in plaats van `?perf=start` (de UserTiming-fasen komen dan
+   in het profiel, zonder de eigen opname van de app erbij). Wacht tot hij afspeelt, klik *Opname starten*, laat
+   ~15 s lopen, klik *Opname vastleggen*.
+6. De Firefox Profiler opent op de macbook. Kies *Uploaden* niet; gebruik het menu › *Downloaden* (`.json.gz`) en
+   zet het bestand in `~/motregen-profiles/` op ageq-dev2, bijvoorbeeld `android-wind-alles-aan.json.gz` en
+   `android-wind-alles-uit.json.gz`.
+
+Minimaal links 1 en 4. Lezen kan met `web/scripts/firefox-profile.ts` (fasen) en in de profiler zelf: de tracks
+Compositor en Renderer laten zien of Firefox zijn tijd buiten JS in compositing en canvas-uploads kwijt is.
 
 ## Reproduceren
 
