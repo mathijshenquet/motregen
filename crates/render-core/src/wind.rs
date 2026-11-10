@@ -206,7 +206,7 @@ pub fn particles(east: &WindField<'_>, north: &WindField<'_>) -> Vec<Option<Part
         .collect()
 }
 
-/// Steps every life to film time `seconds` at the wind of this frame: `phase += elapsed / duration`, a respawn at 1.
+/// Steps every life to film time `seconds` (times `film_tempo`) at the wind of this frame: `phase += elapsed / duration`, a respawn at 1.
 /// A first step, a step back or a jump of more than `snap_seconds` starts fresh, so stills and the first frame of a
 /// film without a cached chain stay a pure function of the epoch.
 pub fn advance(
@@ -214,6 +214,7 @@ pub fn advance(
     particles: &[Option<Particle>],
     seconds: f64,
 ) -> Vec<(Particle, Life)> {
+    let seconds = seconds * mode_constants().wind.film_tempo;
     let elapsed = chain
         .seconds
         .map_or(f64::NAN, |previous| seconds - previous);

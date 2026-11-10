@@ -1,7 +1,7 @@
 import { drawStroke } from './native-strokes.js'
 import { NativeRainData, type RainFrame } from './native-rain.js'
 import { nativeProjection } from './native-projection.js'
-import { FRAME, FRAME_PIXELS } from './config.js'
+import { FRAME, FRAME_PIXELS, WIND_FILM_TEMPO } from './config.js'
 import { WIND_PARAMETERS, WIND_FOCUS_INTENSITY, WIND_INITIAL_STAGGER_SECONDS, WIND_SIMULATION_FPS, windLifeScale, halfFloatTrailFloor, bufferDecay, windColor, windScreenSpeed, weakWindTempo, speedDamping, particleCountForViewport, headAlpha, expectedLifetime } from '../web/src/core/wind-presentation.js'
 import type { StillManifest } from './stills.js'
 import { SOCK_SNAP_SECONDS } from '../web/src/core/windsock-flow.js'
@@ -54,7 +54,7 @@ export class NativeWindData {
     let randomState = 0x71b
     const random = () => { randomState = (Math.imul(1664525, randomState) + 1013904223) >>> 0; return randomState / 4294967296 }
     const rgb = base
-    const seconds = simulationMs / 1000
+    const seconds = simulationMs / 1000 * WIND_FILM_TEMPO
     const elapsed = seconds - this.drawnSeconds
     // Een eerste stap, een stap terug of een sprong begint vers: dan is de fase een pure functie van de filmtijd.
     const snap = !(elapsed > 0) || elapsed > SOCK_SNAP_SECONDS
