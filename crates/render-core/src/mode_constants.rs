@@ -96,6 +96,8 @@ pub struct Wind {
     pub simulation_fps: f64,
     #[serde(rename = "screen_speed")]
     pub screen_speed: f64,
+    #[serde(rename = "film_tempo")]
+    pub film_tempo: f64,
     #[serde(rename = "damping_reference")]
     pub damping_reference: f64,
     #[serde(rename = "weak_speed")]

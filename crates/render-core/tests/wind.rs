@@ -76,11 +76,11 @@ fn uniform_wind_preserves_count_direction_missing_values_and_sea_damping() {
             mix: 0.5,
         };
         let mut rgb = vec![255; constants().size.width * constants().size.height * 3];
+        let particles = wind::particles(&field(&east_quant), &field(&north_quant));
+        let lives = wind::advance(&mut wind::ParticleChain::default(), &particles, 10.0);
         let stats = wind::draw(
             &mut rgb,
-            field(&east_quant),
-            field(&north_quant),
-            10.0,
+            &lives,
             false,
             Water {
                 width: 1,

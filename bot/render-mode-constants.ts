@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import { BASE_FRAME_SCALE, ELEMENT_SCALE, FRAME } from './config.js'
+import { BASE_FRAME_SCALE, ELEMENT_SCALE, FRAME, WIND_FILM_TEMPO } from './config.js'
 import { ELEMENT_ZOOM, isolineTolerancePx } from './native-view.js'
 import { fpsFraction, holdFrames, sequencePlan } from './sequences.js'
 import * as wind from '../web/src/core/wind-presentation.js'
@@ -40,7 +40,7 @@ export function modeConstants() {
     cloud: cloudConstants(),
     // De film is altijd Wind: dunne deeltjes zoals de app bij volle windfocus (U101).
     wind: { ...wind.WIND_PARAMETERS, lineWidth: wind.WIND_PARAMETERS.lineWidth * WIND_THIN_PARTICLE_WIDTH, count: wind.particleCountForViewport(FRAME.width, FRAME.height), focus: wind.WIND_FOCUS_INTENSITY,
-      stagger: wind.WIND_INITIAL_STAGGER_SECONDS, simulation_fps: wind.WIND_SIMULATION_FPS, screen_speed: wind.windScreenSpeed(1),
+      stagger: wind.WIND_INITIAL_STAGGER_SECONDS, simulation_fps: wind.WIND_SIMULATION_FPS, screen_speed: wind.windScreenSpeed(1), film_tempo: WIND_FILM_TEMPO,
       damping_reference: wind.DAMPING_REFERENCE_SPEED, weak_speed: wind.WEAK_WIND_SPEED, weak_boost: wind.WEAK_WIND_MAX_BOOST,
       stops: wind.BEAUFORT_STOPS, light: wind.LIGHT_RAMP, dark: wind.DARK_RAMP },
     isoline: { temperature_blur: isoline.ISOLINE_BLUR, pressure_blur: isoline.ISOBAR_BLUR, time_weights: isoline.ISOBAR_TIME_WEIGHTS,
