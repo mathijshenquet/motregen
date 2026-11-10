@@ -66,7 +66,7 @@ import { sunnyLocations, SUN_ICONS_ENABLED, type FieldBlend, type SunFeatureColl
 import { DEFAULT_LOCATION, stillMapTheme } from './core/still-theme.js'
 import { isSunUp, solarElevationSin } from './core/solar'
 import { cssGradient, FIXED_SCALE_LEGEND, FIXED_SCALE_STOPS, loadTemperatureScale, paletteRange, paletteStops, referenceRange, storeTemperatureScale, type PaletteRange, type TemperatureScale } from './core/temperature-palette'
-import { selectTemperaturePlaces, temperatureLabelSpacingPx, temperatureLabels, temperatureLayer, type TemperatureFeatureCollection } from './core/temperature'
+import { selectTemperaturePlaces, TEMPERATURE_VARIABLE_ANCHORS, temperatureLabelSpacingPx, temperatureLabels, temperatureLayer, type TemperatureFeatureCollection } from './core/temperature'
 import { buildTimeline, epochInWindow, frameBlend, scrubberViewWindow, seriesValueAt, timelineCoverage, timelineCursorAtEpoch, timelineEpochAtCursor, timelineHorizonEnd, timelineIndexesInWindow, timelinePlaybackRate, type EpochWindow } from './core/time-model'
 import { formatUv, uvChipLabel, uvLevel, uvReading } from './core/uv'
 import { WIND_UNITS, type WindUnit } from './core/weather'
@@ -74,9 +74,10 @@ import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } fro
 import { DEFAULT_WIND_TUNING, MOBILE_WIND, WIND_MAX_FPS, WIND_PARAMETERS, WIND_SIMULATION_FPS, WindLayer } from './core/wind-layer'
 import { BEAUFORT_FEEL_ZONES, BEAUFORT_LEGEND, beaufortFrame, beaufortPalette, windClassOpacity, WIND_FILL, WIND_NIGHT_LINE_LIGHTEN, WIND_THIN_PARTICLE_WIDTH } from './core/wind-beaufort'
 import { WindsockLayer, windsockDevOptions } from './core/wind-socks'
-import { nestedPlaces } from './core/map-places'
+import { nestedPlaces, orderedPlaces, placeNamesFromZoom, placeOrderOptions, type OrderedPlace, type PlaceOrderView } from './core/map-places'
+import { PLACE_NAMES_LAYER, placeNamesData, placeNamesLayer } from './core/place-names'
 import { WINDSOCK_SPACING_PX } from './core/windsock-flow'
-import { mapLabelSize } from './core/map-labels'
+import { isPhoneMap, mapLabelSize } from './core/map-labels'
 import { legendButtonVariant, legendIsOpen, PHONE_LAYOUT_QUERY, readLegendChoice, storeLegendChoice } from './core/legend-choice'
 import { MapLabelCollision } from './core/map-collision'
 import { WINDSOCK_LAG_MINUTES, type WindSlice } from './core/windsock-flow'
@@ -231,6 +232,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   // Afgevallen proeven (o.a. Regenisolijnen, U86) laten geen sleutel meer achter.
   forgetRetiredStorage(window.localStorage)
   const windsockOptions = windsockDevOptions(new URLSearchParams(devMode ? window.location.search : ''))
+  const placeOrder = placeOrderOptions(window.location.search)
   const stillMode = new URLSearchParams(window.location.search).get('still') === '1'
   let rigFreeCamera = false
   // Bewaar de invoer voordat de live permalink de adresbalk normaliseert.
@@ -321,6 +323,13 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   ;(window as unknown as { __motregenJumpTo: (lng: number, lat: number, zoom: number, free?: boolean) => void }).__motregenJumpTo = (lng, lat, zoom, free = false) => {
     rigFreeCamera = free
     map?.jumpTo({ center: [lng, lat], zoom })
+  }
+  // Rig-haak (U114): getoonde plaatsnamen en Weer-temperaturen tellen voor de plekkenorde-screenshots.
+  ;(window as unknown as { __motregenRenderedLabels: () => object | undefined }).__motregenRenderedLabels = () => {
+    if (!map) return undefined
+    const names = (map.getStyle()?.layers ?? []).filter((layer) => layer.type === 'symbol' && layer.id.startsWith('label_')).map((layer) => layer.id)
+    const count = (layers: string[]) => new Set(map!.queryRenderedFeatures({ layers: layers.filter((id) => map!.getLayer(id)) }).map((feature) => feature.properties?.name)).size
+    return { names: count(names), temperatures: count(['motregen-temperature']), zoom: map.getZoom() }
   }
   // Camera voor de e2e van pin-navigatie en pan/zoom-only (U26).
   ;(window as unknown as { __motregenCamera: () => object | undefined }).__motregenCamera = () => map && {
@@ -680,6 +689,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   },
     () => reducedMotion.matches)
   const [focusPinned, setFocusPinned] = createSignal<FocusKind>(focusMode.pinned())
+  // U114: bij `namen=samen` hangt de naamlaag aan de modus.
+  createEffect(() => { focusPinned(); updatePlaceNames() })
   // Niet-reactief op de cursor: de frame-loop zet de dekking per tik (U41).
   const isolineCoverage = () => untrack(() => timelineCoverage(feelsLikeTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS))
   const temperatureIsolines = isolineSet({
@@ -1040,12 +1051,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       })
       map.on('moveend', rememberMapView)
       map.on('dragstart', () => setMapSourceFaded(true))
-      map.on('zoomend', () => { void showTemperature(); void showWindsocks() })
+      map.on('zoomend', () => { updatePlaceNames(); void showTemperature(); void showWindsocks() })
       map.on('moveend', () => {
         labelCollision?.update()
         for (const set of isolineSets) { set.labels?.requestSpawn(); updateIsolineLabels(set) }
       })
-      map.on('resize', () => labelCollision?.update())
+      map.on('resize', () => { labelCollision?.update(); updatePlaceNames() })
       map.on('click', (event) => {
         usage.mark('pin')
         pick(event.lngLat.lng, event.lngLat.lat, nearestPlace(event.lngLat.lng, event.lngLat.lat).name)
@@ -1857,8 +1868,64 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
     const { clientWidth, clientHeight } = map.getContainer()
     map.addLayer(temperatureLayer(mapSurfaceTheme(), mapLabelSize(clientWidth, clientHeight)), beforeId)
+    if (placeOrder.places === 'orde' && !map.getLayer(PLACE_NAMES_LAYER)) {
+      // Boven de temperaturen: namen gaan in de botsing voor, de getallen wijken uit.
+      map.addSource(PLACE_NAMES_LAYER, { type: 'geojson', data: placeNamesData([]) })
+      map.addLayer(placeNamesLayer(map.getStyle()), beforeId)
+      placeNamesKey = ''
+      updatePlaceNames()
+    }
     labelCollision ??= new MapLabelCollision(map, () => marker?.getLngLat())
     labelCollision.attach(beforeId)
+  }
+
+  /** U114 (`?dev&plekken=orde`, MIP-43): de plekkenorde bij de huidige kaart. */
+  function placeOrderView(): PlaceOrderView | undefined {
+    if (!map) return undefined
+    const { clientWidth: width, clientHeight: height } = map.getContainer()
+    return {
+      zoom: map.getZoom(), overviewZoom: containZoom(MAP_CONTAIN_BOUNDS, mapViewport()),
+      screen: isPhoneMap(width, height) ? 'phone' : 'desktop', density: placeOrder.density, neighbours: placeOrder.neighbours,
+    }
+  }
+
+  function visibleOrderPlaces(): OrderedPlace[] {
+    const view = placeOrderView()
+    return view ? orderedPlaces(view) : []
+  }
+
+  /** `namen=later`: uitgezoomd geen namen, pas vanaf de zoom van rang 2. */
+  function placeNamesVisible(): boolean {
+    const view = placeOrderView()
+    return placeOrder.names !== 'later' || (view !== undefined && view.zoom >= placeNamesFromZoom(view) - 0.02)
+  }
+
+  /** `namen=samen`: het getal of de zak draagt de naam zelf (zeepunten hebben geen naam). */
+  function nameInValue(place: { name: string }): boolean {
+    return placeOrder.names === 'samen' && !(place as OrderedPlace).sea
+  }
+
+  let placeNamesKey = ''
+  /**
+   * Naamlaag bij zoom, maat of modus. Bij `samen` dragen getallen en zakken de naam; de naamlaag staat dan alleen aan
+   * in modi zonder waarde per plek (Lucht, en Weer met `weergetal=isolijn`).
+   */
+  function updatePlaceNames(): void {
+    if (placeOrder.places !== 'orde' || !map?.getSource(PLACE_NAMES_LAYER)) return
+    const mode = untrack(focusPinned)
+    const valuesCarryNames = placeOrder.names === 'samen' && (mode === 'temperature' || mode === 'wind' || (mode === 'weather' && placeOrder.weatherNumbers === 'plekken'))
+    const places = placeNamesVisible() && !valuesCarryNames ? visibleOrderPlaces() : []
+    const key = places.map((place) => place.name).join('|')
+    if (key !== placeNamesKey) {
+      placeNamesKey = key
+      ;(map.getSource(PLACE_NAMES_LAYER) as GeoJSONSource).setData(placeNamesData(places))
+    }
+    // Zonder naam ernaast staat het Weer-getal op de plek zelf; met naam wijkt het uit zoals de stadstemperaturen.
+    if (map.getLayer('motregen-temperature') && placeOrder.weatherNumbers === 'plekken') {
+      const centred = placeOrder.names === 'samen' || !placeNamesVisible()
+      map.setLayoutProperty('motregen-temperature', 'text-variable-anchor', centred ? ['center'] : [...TEMPERATURE_VARIABLE_ANCHORS])
+      map.setLayoutProperty('motregen-temperature', 'text-radial-offset', centred ? 0 : 1.15)
+    }
   }
 
   function applyRainPresentation(): void {
@@ -2157,7 +2224,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         if (set.kind !== 'cloud' && set.kind !== 'wind') {
           // Temperatuur: getallen op vaste plekken met een schijf in hun bandkleur (U100 ronde 3); isobaren: lijnlabels.
           set.labels = set.kind === 'temperature'
-            ? new TemperatureNumbers(renderedMap, grid, mapSurfaceTheme(), () => reducedMotion.matches, () => marker?.getLngLat(), (bubbles) => created.setBubbles(bubbles))
+            ? new TemperatureNumbers(renderedMap, grid, mapSurfaceTheme(), () => reducedMotion.matches, () => marker?.getLngLat(), (bubbles) => created.setBubbles(bubbles),
+              placeOrder.places === 'orde' ? { places: visibleOrderPlaces, named: nameInValue } : undefined)
             : new IsolineLabels(renderedMap, grid, mapSurfaceTheme(), () => reducedMotion.matches, set.kind)
         }
         set.key = ''
@@ -2305,10 +2373,13 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         client.getHeader(frames[blends[0]!.left]!.u.chunk),
       ])
       if (request !== shownWindsockRequest || !map) return
-      windsockLayer ??= new WindsockLayer(map, { ...windsockOptions, reducedMotion: () => reducedMotion.matches, pin: () => marker?.getLngLat() })
+      windsockLayer ??= new WindsockLayer(map, {
+        ...windsockOptions, reducedMotion: () => reducedMotion.matches, pin: () => marker?.getLngLat(),
+        ...placeOrder.places === 'orde' ? { named: nameInValue } : {},
+      })
       windsockLayer.setUnit(untrack(windUnit))
       windsockLayer.setTheme(untrack(mapSurfaceTheme) === 'dark')
-      windsockLayer.setPlaces(nestedPlaces(map.getZoom(), WINDSOCK_SPACING_PX))
+      windsockLayer.setPlaces(placeOrder.places === 'orde' ? visibleOrderPlaces() : nestedPlaces(map.getZoom(), WINDSOCK_SPACING_PX))
       windsockLayer.setOpacity(untrack(windFocus))
       windsockLayer.setField({ grid: header.grid, slices: [slices[0]!, slices[1]!, slices[2]!] })
     } catch {
@@ -2346,7 +2417,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       if (request !== shownTemperatureRequest || !map) return
       const source = map.getSource('motregen-temperature') as GeoJSONSource | undefined
       const { clientWidth, clientHeight } = map.getContainer()
-      const labels = temperatureLabels(left, right, leftHeader, rightHeader, mix, selectTemperaturePlaces(map.getZoom(), temperatureLabelSpacingPx(clientWidth, clientHeight)))
+      const fromOrder = placeOrder.places === 'orde' && placeOrder.weatherNumbers === 'plekken'
+      const labels = temperatureLabels(left, right, leftHeader, rightHeader, mix, fromOrder ? visibleOrderPlaces() : selectTemperaturePlaces(map.getZoom(), temperatureLabelSpacingPx(clientWidth, clientHeight)))
+      if (fromOrder) for (const feature of labels.features) {
+        const place = visibleOrderPlaces().find((candidate) => candidate.name === feature.properties.name)
+        if (place && nameInValue(place)) feature.properties.label = `${place.name} ${feature.properties.label}`
+      }
       const key = labels.features.map((feature) => `${feature.properties.name}:${feature.properties.label}`).join('|')
       temperatureInput = input
       temperaturePending = ''
