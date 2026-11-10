@@ -78,3 +78,14 @@ export function placeFootprint(name: string | undefined, side: LabelSide, size: 
   shapes.push({ dx, dy, halfWidth: sockNameWidth(name, size) / 2, halfHeight: (size + 4) / 2, radius: 0 })
   return shapes
 }
+
+/** Raken twee voetafdrukken elkaar bij deze schaal (px per wereldbreedte)? Lijf tegen lijf telt niet (zie Shape). */
+export function footprintsTouch(a: { x: number; y: number }, shapesA: readonly Shape[], b: { x: number; y: number }, shapesB: readonly Shape[], scale: number, gapPx = 0.5): boolean {
+  const dx = (a.x - b.x) * scale, dy = (a.y - b.y) * scale
+  return shapesA.some((shapeA) => shapesB.some((shapeB) => {
+    if (shapeA.body && shapeB.body) return false
+    const x = Math.max(0, Math.abs(dx + shapeA.dx - shapeB.dx) - shapeA.halfWidth - shapeB.halfWidth)
+    const y = Math.max(0, Math.abs(dy + shapeA.dy - shapeB.dy) - shapeA.halfHeight - shapeB.halfHeight)
+    return Math.hypot(x, y) < shapeA.radius + shapeB.radius + gapPx
+  }))
+}

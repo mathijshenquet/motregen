@@ -74,7 +74,7 @@ import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } fro
 import { DEFAULT_WIND_TUNING, MOBILE_WIND, WIND_MAX_FPS, WIND_PARAMETERS, WIND_SIMULATION_FPS, WindLayer } from './core/wind-layer'
 import { BEAUFORT_FEEL_ZONES, BEAUFORT_LEGEND, beaufortFrame, beaufortPalette, windClassOpacity, WIND_FILL, WIND_NIGHT_LINE_LIGHTEN, WIND_THIN_PARTICLE_WIDTH } from './core/wind-beaufort'
 import { WindsockLayer, windsockDevOptions } from './core/wind-socks'
-import { loadPlaceOrder, nestedPlaces, orderedPlaces, placeNamesFromZoom, placeOrderOptions, placeSide, PROVINCE_STEPS, provincePlaces, type OrderedPlace, type PlaceOrderView } from './core/map-places'
+import { loadPlaceOrder, nestedPlaces, orderedPlaces, placeNamesFromZoom, placeOrderOptions, placeSide, PROVINCE_STEPS, provinceTier, type OrderedPlace, type PlaceOrderView } from './core/map-places'
 import { PLACE_NAMES_LAYER, placeNamesData, placeNamesLayer } from './core/place-names'
 import type { FootprintKind } from './core/place-footprint'
 import { WINDSOCK_SPACING_PX } from './core/windsock-flow'
@@ -1914,14 +1914,16 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   function visibleOrderPlaces(kind: FootprintKind = valueFootprint()): OrderedPlace[] {
     const view = placeOrderView(kind)
     if (!view) return []
-    if (placeOrder.places !== 'provincies') return orderedPlaces(view)
-    return provincePlaces(view) ?? orderedPlaces({ ...view, tier: 'provincies' })
+    if (placeOrder.places !== 'orde') return orderedPlaces(view)
+    // Wind slaat de provincieplekken standaard over: meteen de hoofdsteden en de stedentrede (voorstel orkestrator).
+    if (kind === 'zak' && placeOrder.windTier === 'steden') return orderedPlaces({ ...view, tier: 'provincies', citiesFrom: view.overviewZoom })
+    return provinceTier(view)
   }
 
   /** Provincietrede: tijdens het zoomen schuiven de provincieplekken per frame mee (niet pas bij zoomend). */
   let provinceFrame: number | undefined
   function followProvinces(): void {
-    if (placeOrder.places !== 'provincies' || provinceFrame !== undefined) return
+    if (placeOrder.places !== 'orde' || provinceFrame !== undefined) return
     const view = placeOrderView()
     if (!view || view.zoom - view.overviewZoom > PROVINCE_STEPS.cities + 0.25) return
     provinceFrame = requestAnimationFrame(() => {

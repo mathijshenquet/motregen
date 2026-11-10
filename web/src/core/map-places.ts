@@ -1,4 +1,5 @@
-import type { FootprintKind, LabelSide } from './place-footprint.js'
+import { footprintsTouch, placeFootprint, type FootprintKind, type LabelSide, type Shape } from './place-footprint.js'
+import { MAP_LABEL_SIZES } from './map-labels.js'
 import { temperaturePlaces, type TemperaturePlace } from './temperature.js'
 
 /**
@@ -240,6 +241,8 @@ export async function loadPlaceOrder(): Promise<PlaceOrderTable> {
 export interface PlaceOrderView {
   /** `provincies`: de tabellen met hoofdsteden voorop, en de stedentrede pas vanaf PROVINCE_STEPS.cities. */
   tier?: 'provincies'
+  /** Bij `tier`: de stedentrede al vanaf deze zoom (Wind met `windtrede=steden`: vanaf het overzicht). */
+  citiesFrom?: number
   /** Welke voetafdruk (place-footprint): Weer/Gevoel `samen` of `naast`, Wind `zak`. */
   kind: FootprintKind
   zoom: number
@@ -261,25 +264,30 @@ export function orderedPlaces(view: PlaceOrderView, table: PlaceOrderTable | und
   if (!table) return []
   const zooms = table.zooms[placeOrderKey(view.kind, view.screen, view.density, view.tier)]!
   if (view.tier) {
-    // Stedentrede: de hoofdsteden staan er vanaf de landing (C); de rest komt gespreid binnen over PROVINCE_STEPS.arrival
-    // erna door [laagste tabelzoom, C + arrival] lineair op [C, C + arrival] te leggen. Die drempel is nooit lager dan
-    // de eigen minimale zoom, dus monotonie en "geen overlap" blijven gelden. (Over een hele stap liet dat de
-    // telefoon een stap lang op 4–7 plekken staan, orkestrator 2026-11-10.)
-    const landing = view.overviewZoom + PROVINCE_STEPS.cities
+    // Stedentrede (vanaf de landing C): de hoofdsteden en alles wat de tabel toelaat, meteen op het dichtheidsdoel.
+    // Vóór C staan de steden via provinceTier (die ze laat meegroeien tijdens de tween).
+    const landing = view.citiesFrom ?? view.overviewZoom + PROVINCE_STEPS.cities
     if (view.zoom < landing) return []
-    const lowest = PLACE_ORDER_ZOOMS.from, arrival = PROVINCE_STEPS.arrival
     return table.places.filter((place, index) => {
       const own = zooms[index]!
-      const spread = CAPITALS.has(place.name) ? Math.max(own, landing) : own < landing + arrival ? landing + arrival * (own - lowest) / (landing + arrival - lowest) : own
-      return view.zoom >= spread && (!place.abroad || view.zoom >= abroadFrom(view))
+      return view.zoom >= (CAPITALS.has(place.name) ? Math.max(own, landing) : own) && (!place.abroad || view.zoom >= abroadFrom(view, own))
     })
   }
   // Geen afrondingsmarge op de tabelzoom: een plek die er net eerder staat, kan een belangrijkere raken.
-  return table.places.filter((place, index) => view.zoom >= zooms[index]! && (!place.abroad || view.zoom >= abroadFrom(view)))
+  return table.places.filter((place, index) => view.zoom >= zooms[index]! && (!place.abroad || view.zoom >= abroadFrom(view, zooms[index]!)))
 }
 
-function abroadFrom(view: PlaceOrderView): number {
-  return view.neighbours === 'later' ? view.overviewZoom + NEIGHBOURS_LATER_STEPS - ZOOM_EPSILON : -Infinity
+/**
+ * Buurland `later`: niet vóór een stap boven het overzicht, en elk ook een stap na zijn eigen minimale zoom; anders kwam
+ * op een scherm vol België al het buurland tegelijk binnen (24 → 41 plekken in 0,1 zoom). Een hogere drempel dan de
+ * eigen minimale zoom is altijd veilig.
+ */
+function abroadFrom(view: PlaceOrderView, own: number): number {
+  if (view.neighbours !== 'later') return -Infinity
+  // Wat bij het overzicht al zou passen, verdeeld over een halve stap na de ondergrens (belangrijkste eerst).
+  const floor = view.overviewZoom + NEIGHBOURS_LATER_STEPS - ZOOM_EPSILON
+  const spread = 0.5 * Math.min(1, Math.max(0, (own - PLACE_ORDER_ZOOMS.from) / (view.overviewZoom - PLACE_ORDER_ZOOMS.from)))
+  return Math.max(floor + spread, own + NEIGHBOURS_LATER_STEPS)
 }
 
 /** Zoom vanaf waar `namen=later` namen toont. */
@@ -314,9 +322,9 @@ export const PROVINCES: readonly Province[] = [
 
 /**
  * Zoomstappen boven het overzicht: tot `provinces` staan de zwaartepunten, tot `cities` schuiven ze naar hun
- * hoofdstad (één zoomstap), vanaf `cities` de stedentrede; de overige steden komen binnen `arrival` daarna binnen.
+ * hoofdstad (één zoomstap), vanaf `cities` de stedentrede. Tijdens het schuiven groeien de steden al mee (provinceTier).
  */
-export const PROVINCE_STEPS = { provinces: 0.5, cities: 1.5, arrival: 0.5 } as const
+export const PROVINCE_STEPS = { provinces: 0.5, cities: 1.5 } as const
 
 export interface ProvincePlace extends OrderedPlace {
   /** De provincie waar deze plek bij hoort (ook als hij halverwege al de hoofdstad heet). */
@@ -325,8 +333,8 @@ export interface ProvincePlace extends OrderedPlace {
 
 /**
  * De provincieplekken bij deze zoom, of undefined in de stedentrede. Positie lineair in Web-Mercator van zwaartepunt
- * naar hoofdstad (met zachte in- en uitloop); de naam wisselt halverwege. Alleen een functie van de zoom, dus
- * uitzoomen loopt precies terug.
+ * naar hoofdstad (met zachte in- en uitloop); de naam blijft de provincienaam tot de landing. Alleen een functie van de
+ * zoom, dus uitzoomen loopt precies terug: eerst de provincienaam, dan wegschuiven.
  */
 export function provincePlaces(view: Pick<PlaceOrderView, 'zoom' | 'overviewZoom'>): ProvincePlace[] | undefined {
   const steps = view.zoom - view.overviewZoom
@@ -337,8 +345,9 @@ export function provincePlaces(view: Pick<PlaceOrderView, 'zoom' | 'overviewZoom
     const capital = PLACE_ORDER.find((place) => place.name === province.capital)!
     const from = mercator(province), to = mercator(capital)
     const x = from.x + (to.x - from.x) * eased, y = from.y + (to.y - from.y) * eased
+    // De provincienaam blijft tot de plek op de hoofdstad staat (PO 2026-11-10); daar neemt de stedentrede het over.
     return {
-      name: eased < 0.5 ? province.name : capital.name, rank: 1, province: province.name,
+      name: province.name, rank: 1, province: province.name,
       lng: x * 360 - 180, lat: Math.atan(Math.sinh(Math.PI * (1 - 2 * y))) * 180 / Math.PI,
     }
   })
@@ -350,6 +359,82 @@ function mercator({ lng, lat }: { lng: number; lat: number }): { x: number; y: n
 
 const CAPITALS = new Set(PROVINCES.map((province) => province.capital))
 
+/**
+ * De hele provincietrede bij deze zoom. Vóór de landing C: de provincieplekken plus de steden die al mogen, zodat het
+ * aantal per scherm vloeiend meegroeit en bij C zonder sprong op het dichtheidsdoel staat (PO 2026-11-10). Steden
+ * komen binnen via een groeiend quotum (zie hieronder; alleen plekken die de tabel bij deze zoom toelaat, dus ze raken
+ * elkaar niet), en pas als hun voetafdruk het resterende pad van geen enkele provincieplek meer raakt. Dat resterende pad wordt bij inzoomen alleen korter: monotoon.
+ */
+export function provinceTier(view: PlaceOrderView, table: PlaceOrderTable | undefined = loadedOrder): OrderedPlace[] {
+  const key = `${view.zoom}|${view.overviewZoom}|${view.kind}|${view.screen}|${view.density}|${view.neighbours}`
+  if (tierCache && tierCache.table === table && tierCache.key === key) return tierCache.places
+  const places = computeProvinceTier(view, table)
+  tierCache = { table, key, places }
+  return places
+}
+let tierCache: { table: PlaceOrderTable | undefined; key: string; places: OrderedPlace[] } | undefined
+
+function computeProvinceTier(view: PlaceOrderView, table: PlaceOrderTable | undefined): OrderedPlace[] {
+  const provinces = provincePlaces(view)
+  if (!provinces) return orderedPlaces({ ...view, tier: 'provincies' }, table)
+  if (!table) return provinces
+  const landing = view.overviewZoom + PROVINCE_STEPS.cities
+  const zooms = table.zooms[placeOrderKey(view.kind, view.screen, view.density, 'provincies')]!
+  // Quotum: een deel w (0 bij het overzicht → 1 bij C) van de steden die de tabel bij deze zoom toelaat, de
+  // laagste minimale zoom eerst. Nieuwe kandidaten hebben altijd een hogere minimale zoom dan de oude en het quotum
+  // groeit, dus wat er staat blijft staan; het aantal per scherm groeit zo ongeveer lineair naar het doel.
+  // Vroeg sneller, laat vlakker: het aantal kandidaten groeit zelf al tegen het eind.
+  const progress = Math.min(1, Math.max(0, (view.zoom - view.overviewZoom) / (landing - view.overviewZoom)))
+  const share = 1 - (1 - progress) ** 2
+  const candidates = table.places.flatMap((place, index) =>
+    !CAPITALS.has(place.name) && zooms[index]! <= view.zoom && (!place.abroad || view.zoom >= abroadFrom(view, zooms[index]!)) ? [{ place, zoom: zooms[index]!, index }] : [])
+  candidates.sort((left, right) => left.zoom - right.zoom || left.index - right.index)
+  const allowed = candidates.slice(0, Math.floor(share * candidates.length))
+  const size = MAP_LABEL_SIZES[view.screen]
+  // Het pad van elke provincieplek van nu tot de landing, op een vast raster vanaf C (zo blijft het monotoon).
+  const paths: Array<Array<{ x: number; y: number; zoom: number; shapes: readonly Shape[] }>> = PROVINCES.map(() => [])
+  // Tot RELEASE_SPREAD onder de zoom: een stad langs een pad komt pas binnen als het pad al zo lang vrij was, minder
+  // belangrijk later; zo komt een rij steden achter een voorbijgeschoven label niet in één keer binnen.
+  for (let zoom = landing; zoom >= view.zoom - RELEASE_SPREAD; zoom -= PATH_STEP) {
+    provincePlaces({ zoom: Math.min(zoom, landing - 1e-9), overviewZoom: view.overviewZoom })!.forEach((place, index) => {
+      paths[index]!.push({ ...mercator(place), zoom, shapes: placeFootprint(place.name, 'onder', size, view.kind) })
+    })
+  }
+  // Snelle afwijzing: verder dan de grootste voetafdruk (lijf + naam ≈ 200 px) van het omhullende vak van een pad.
+  const reach = 400 / (512 * 2 ** view.zoom)
+  const boxes = paths.map((path) => ({
+    left: Math.min(...path.map((point) => point.x)) - reach, right: Math.max(...path.map((point) => point.x)) + reach,
+    top: Math.min(...path.map((point) => point.y)) - reach, bottom: Math.max(...path.map((point) => point.y)) + reach,
+  }))
+  // Plaats in de rangorde (0 = belangrijkst): bestaande plekken houden hun plaats en de lijst groeit achteraan, dus de
+  // eigen spreiding krimpt bij inzoomen en "vrij sinds zoom − spreiding" blijft monotoon.
+  const cities = allowed.filter(({ place }, rank) => {
+    const at = mercator(place)
+    const near = paths.filter((_, path) => at.x >= boxes[path]!.left && at.x <= boxes[path]!.right && at.y >= boxes[path]!.top && at.y <= boxes[path]!.bottom)
+    if (!near.length) return true
+    const since = view.zoom - RELEASE_SPREAD * rank / candidates.length
+    const shapes = placeFootprint(place.sea ? undefined : place.name, placeSide(place), size, view.kind)
+    return near.every((path) => path.every((point) => point.zoom < since || !footprintsTouch(at, shapes, point, point.shapes, 512 * 2 ** point.zoom, PATH_GAP_PX)))
+  }).map(({ place }) => place)
+  return [...provinces, ...cities]
+}
+const PATH_STEP = 0.02
+/** Lucht rond het pad: meer dan een plek tussen twee monsters (PATH_STEP) verschuift, zodat er ook ertussen niets raakt. */
+const PATH_GAP_PX = 10
+const RELEASE_SPREAD = 0.25
+
+/** Plekken waarvan het anker op een kaart van deze maat ligt, met dit middelpunt en deze zoom (tests en metingen). */
+export function placesInView<T extends { lng: number; lat: number }>(places: readonly T[], [lng, lat]: readonly [number, number], zoom: number, map: { width: number; height: number }): Array<{ place: T; x: number; y: number }> {
+  const centre = mercator({ lng, lat }), scale = 512 * 2 ** zoom
+  return places.flatMap((place) => {
+    const at = mercator(place)
+    const x = (at.x - centre.x) * scale + map.width / 2, y = (at.y - centre.y) * scale + map.height / 2
+    return x >= 0 && y >= 0 && x <= map.width && y <= map.height ? [{ place, x, y }] : []
+  })
+}
+
+
+
 /** De hoofdsteden eerst: in de stedentrede verliezen ze nooit een botsing. */
 export function capitalsFirst(order: readonly OrderedPlace[]): OrderedPlace[] {
   const capitals = PROVINCES.map((province) => order.find((place) => place.name === province.capital)!)
@@ -358,7 +443,10 @@ export function capitalsFirst(order: readonly OrderedPlace[]): OrderedPlace[] {
 
 /** De dev-knoppen van U114 (MIP-12; `docs/dev-opties.md`). Zonder `?dev` het huidige gedrag. */
 export interface PlaceOrderOptions {
-  places: 'nu' | 'orde' | 'provincies'
+  /** `orde`: de plekkenorde met de provincietrede ervoor (PO-besluit MIP-43); `d`: de orde zonder trede (variant D, tot de merge). */
+  places: 'nu' | 'orde' | 'd'
+  /** Wind in de orde: meteen de stedentrede met de hoofdsteden voorop (`steden`), of ook de provincietrede. */
+  windTier: 'steden' | 'provincies'
   density: PlaceDensity
   names: 'samen' | 'naast' | 'later'
   weatherNumbers: 'plekken' | 'isolijn'
@@ -373,7 +461,9 @@ export function placeOrderOptions(search: string): PlaceOrderOptions {
     return dev && values.includes(value as T) ? value as T : values[0]!
   }
   return {
-    places: pick('plekken', ['nu', 'orde', 'provincies'] as const),
+    // `provincies` was de dev-naam van de trede vóór het besluit; dezelfde als `orde`.
+    places: params.get('plekken') === 'provincies' && dev ? 'orde' : pick('plekken', ['nu', 'orde', 'd'] as const),
+    windTier: pick('windtrede', ['steden', 'provincies'] as const),
     density: pick('dichtheid', ['midden', 'weinig', 'veel'] as const),
     names: pick('namen', ['naast', 'samen', 'later'] as const),
     weatherNumbers: pick('weergetal', ['plekken', 'isolijn'] as const),

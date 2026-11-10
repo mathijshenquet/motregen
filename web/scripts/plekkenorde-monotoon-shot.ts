@@ -29,7 +29,7 @@ interface Shot {
   at: [number, number, number]
 }
 
-const D = 'dev&plekken=orde&namen=samen'
+const D = 'dev&plekken=d&namen=samen'
 const shots: Shot[] = [
   ...(['weer', 'wind'] as const).flatMap((mode) => ([['donker', NIGHT], ['licht', DAY]] as const).flatMap(([theme, time]): Shot[] => [
     { name: `po-uit-${mode}-${theme}`, mode, pin: 'utrecht', query: D, time, viewport: SMALL, at: [4.95, 52.0, 1.5] },

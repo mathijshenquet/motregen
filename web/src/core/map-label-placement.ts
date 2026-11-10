@@ -121,6 +121,8 @@ export function chromeBoxes(container: HTMLElement): Box[] {
   const origin = container.getBoundingClientRect()
   const shell = container.closest('.map-shell') ?? container
   return [...shell.querySelectorAll(MAP_CHROME)].flatMap((element) => {
+    // Het dev-paneel telt niet: zijn knoppen haalden plekken onder het open paneel weg (Zeeland, U114).
+    if (element.closest('.dev-panel')) return []
     const rect = element.getBoundingClientRect()
     if (!rect.width || !rect.height) return []
     return [{ left: rect.left - origin.left, right: rect.right - origin.left, top: rect.top - origin.top, bottom: rect.bottom - origin.top }]

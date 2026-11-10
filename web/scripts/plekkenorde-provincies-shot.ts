@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdirSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-// Provincietrede (U114, `?dev&plekken=provincies&namen=samen`): stills op het overzicht, halverwege de tween en in de
+// Provincietrede (U114, `?dev&plekken=orde&namen=samen`, PO-besluit MIP-43; Wind standaard `windtrede=steden`): stills op het overzicht, halverwege de tween en in de
 // stedentrede, telefoon en desktop, Gevoel/Wind/Weer; plus per profiel en modus een clip (H.264, ≤ 12 s) van één
 // keer langzaam in- en uitzoomen over de overgang. De clip is frame voor frame opgebouwd (zoomstap, twee
 // animatieframes, still): headless tekent de kaart in software zo traag dat een realtime opname vooral dat toont.
@@ -15,7 +15,7 @@ mkdirSync(outDir, { recursive: true })
 const videoDir = join(outDir, 'video-ruw')
 
 const TIME = '2026-11-10T11:00:00.000Z'
-const QUERY = 'dev&plekken=provincies&namen=samen'
+const QUERY = process.env.SHOT_QUERY ?? 'dev&plekken=orde&namen=samen'
 const profiles = {
   telefoon: { viewport: { width: 402, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
   desktop: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1, isMobile: false, hasTouch: false },
