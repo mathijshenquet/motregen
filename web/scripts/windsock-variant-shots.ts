@@ -7,6 +7,8 @@ import { join } from 'node:path'
 // usage: pnpm exec tsx scripts/windsock-variant-shots.ts ORIGIN OUT_DIR TIJD-ISO VARIANT-QUERY...
 //   bv. zakeenheid=pil "zakeenheid=pil&windeenheid=kmh". SHOT_PROFILES=telefoon en SHOT_THEMES=licht beperken.
 //   `windeenheid=` zet de gekozen windeenheid (localStorage) en gaat niet naar de URL.
+//   "donker" zet alleen het app-thema (bediening, legenda); de kaart volgt de lucht van de kaarttijd. Een donkere kaart
+//   vraagt een nachttijd, bv. 19:00 UTC in november (U113, orkestrator 2026-11-10).
 const [origin, outDir, time, ...variants] = process.argv.slice(2)
 if (!origin || !outDir || !time || !variants.length) throw new Error('usage: windsock-variant-shots.ts ORIGIN OUT_DIR TIJD-ISO VARIANT-QUERY...')
 // Een nieuwe ronde begint met een lege uitvoermap: geen oude shots naast nieuwe.
