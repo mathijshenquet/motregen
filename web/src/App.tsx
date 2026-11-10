@@ -327,7 +327,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   // Rig-haak (U114): getoonde plaatsnamen en Weer-temperaturen tellen voor de plekkenorde-screenshots.
   ;(window as unknown as { __motregenRenderedLabels: () => object | undefined }).__motregenRenderedLabels = () => {
     if (!map) return undefined
-    const names = (map.getStyle()?.layers ?? []).filter((layer) => layer.type === 'symbol' && layer.id.startsWith('label_')).map((layer) => layer.id)
+    const names = (map.getStyle()?.layers ?? []).filter((layer) => layer.type === 'symbol' && layer.id.startsWith('label_') && layer.layout?.visibility !== 'none').map((layer) => layer.id)
     const count = (layers: string[]) => new Set(map!.queryRenderedFeatures({ layers: layers.filter((id) => map!.getLayer(id)) }).map((feature) => feature.properties?.name)).size
     return { names: count(names), temperatures: count(['motregen-temperature']), zoom: map.getZoom() }
   }

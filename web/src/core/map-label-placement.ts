@@ -55,7 +55,7 @@ export class MapLabelPlacer {
     this.width = container.clientWidth
     this.height = container.clientHeight
     this.chrome = chromeBoxes(container)
-    this.layers = (this.map.getStyle()?.layers ?? []).filter((layer) => layer.type === 'symbol' && layer.id.startsWith('label_')).map((layer) => layer.id)
+    this.layers = (this.map.getStyle()?.layers ?? []).filter((layer) => layer.type === 'symbol' && layer.id.startsWith('label_') && layer.layout?.visibility !== 'none').map((layer) => layer.id)
     this.taken = []
     this.pinBox = pinBox(this.map, this.pin())
   }

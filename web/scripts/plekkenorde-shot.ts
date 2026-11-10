@@ -30,6 +30,7 @@ for (const profileName of pick(Object.keys(profiles) as Array<keyof typeof profi
   for (const mode of modes) {
     const page = await context.newPage()
     page.setDefaultTimeout(120_000)
+    page.on('pageerror', (error) => console.log('pageerror', mode, profileName, error.message.slice(0, 200)))
     await page.goto(new URL(`/${mode}/utrecht?t=${encodeURIComponent(time)}${extra ? `&${extra}` : ''}`, origin).href)
     await settle(page)
     // Zoom 0 wordt door de kaartbegrenzing de overzichtszoom.
