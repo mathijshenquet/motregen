@@ -3,10 +3,10 @@ import { beaufortScale } from './wind-beaufort.js'
 import { DEFAULT_WINDSOCK_BADGE, WINDSOCK_SAMPLES, windsockBadge, windsockShape, type WindsockShape } from './wind-glyph.js'
 import { advanceSock, angleDifference, DEFAULT_WINDSOCK_CURVATURE, sampleWind, SOCK_SNAP_SECONDS, sockReach, socksClear, swayBends, WINDSOCK_APPEAR_MARGIN, windsockHeadings, windsockPhase, type SockReach, type Spring, type WindsockField } from './windsock-flow.js'
 import type { TemperaturePlace } from './temperature.js'
-import { windValue, type WindUnit } from './weather.js'
+import { WIND_UNIT_LABELS, windValue, type WindUnit } from './weather.js'
 import { markLayerDrawn, recordPerfPhase } from './perf.js'
 import { WINDSOCK_ANCHOR_OFFSETS } from './windsock-anchors.js'
-import { drawSock } from './wind-sock-draw.js'
+import { DEFAULT_WINDSOCK_UNIT_STYLE, drawSock, sockUnitBox, WINDSOCK_UNIT_STYLES, type SockUnit, type WindsockUnitStyle } from './wind-sock-draw.js'
 import { MapLabelPlacer, type Offset, type Placement } from './map-label-placement.js'
 import { MAP_LABEL_FONT_FAMILY, mapLabelSize } from './map-labels.js'
 
@@ -48,6 +48,8 @@ export interface WindsockLayerOptions {
   reducedMotion: () => boolean
   /** Alleen `?dev&windfactor=`: vermenigvuldigt de wind van de zakken, om harde wind te bekijken. */
   speedFactor: number
+  /** Proef U113 (`?dev&zakeenheid=`). */
+  unitStyle: WindsockUnitStyle
   /** De locatiepin: zakken wijken ervoor, zoals de getallen in Gevoel. */
   pin: () => { lng: number; lat: number } | undefined
 }
@@ -282,7 +284,10 @@ export class WindsockLayer {
     this.layoutDirty = false
     this.lastLayout = now
     this.placer.begin()
-    const side = 2 * (windsockBadge(STRAIGHT, DEFAULT_WINDSOCK_BADGE, '0', size).cutRadius + 1)
+    const badge = windsockBadge(STRAIGHT, DEFAULT_WINDSOCK_BADGE, '0', size)
+    const box = sockUnitBox(this.context, badge, '00', this.sockUnit(), MAP_LABEL_FONT_FAMILY)
+    const margin = badge.cutRadius - badge.radius + 1
+    const side = { width: 2 * (box.halfWidth + margin), height: 2 * (box.halfHeight + margin) }
     const reaches: SockReach[] = []
     const field = this.field, bearing = this.map.getBearing()
     for (const sock of this.socks) {
@@ -299,7 +304,7 @@ export class WindsockLayer {
         reach = sockReach([screen.x + dx, screen.y + dy], compass[0]! - bearing, strength)
         return reaches.every((other) => socksClear(reach!, other, shown ? 1 : WINDSOCK_APPEAR_MARGIN))
       }
-      sock.placed = this.placer.place(screen.x, screen.y, { width: side, height: side }, ladder, sock.placed?.index, clear)
+      sock.placed = this.placer.place(screen.x, screen.y, side, ladder, sock.placed?.index, clear)
       if (sock.placed && reach) reaches.push(reach)
     }
   }
@@ -307,8 +312,14 @@ export class WindsockLayer {
   private drawSock(context: CanvasRenderingContext2D, x: number, y: number, shape: WindsockShape, label: string, size: number): void {
     context.save()
     context.translate(x, y)
-    drawSock({ context, shape, badge: windsockBadge(shape, DEFAULT_WINDSOCK_BADGE, label, size), label, dark: this.dark, fontFamily: MAP_LABEL_FONT_FAMILY })
+    const unit = this.sockUnit()
+    drawSock({ context, shape, badge: windsockBadge(shape, DEFAULT_WINDSOCK_BADGE, unit ? '0' : label, size), label, dark: this.dark, fontFamily: MAP_LABEL_FONT_FAMILY, unit })
     context.restore()
+  }
+
+  private sockUnit(): SockUnit | undefined {
+    const style = this.options.unitStyle
+    return style === 'pil' || style === 'onder' ? { style, text: WIND_UNIT_LABELS[this.unit] } : undefined
   }
 
   /** Volgende trillingsframe, niet vaker dan WINDSOCK_FLUTTER_FPS: elke frame zet de hele canvas opnieuw neer. */
@@ -352,10 +363,14 @@ export class WindsockLayer {
   }
 }
 
-/** Dev-knop `?dev&windfactor=`; zonder knop de gekozen windmodus. */
+/** Dev-knoppen `?dev&windfactor=` en `?dev&zakeenheid=` (U113); zonder knop de standaard. */
 export function windsockDevOptions(params: URLSearchParams): Omit<WindsockLayerOptions, 'reducedMotion' | 'pin'> {
   const factor = Number(params.get('windfactor'))
-  return { speedFactor: Number.isFinite(factor) && factor > 0 ? factor : 1 }
+  const unitStyle = WINDSOCK_UNIT_STYLES.find((style) => style === params.get('zakeenheid')) ?? DEFAULT_WINDSOCK_UNIT_STYLE
+  return {
+    speedFactor: Number.isFinite(factor) && factor > 0 ? factor : 1,
+    unitStyle,
+  }
 }
 
 function sameField(next: WindsockField | undefined, current: WindsockField | undefined): boolean {

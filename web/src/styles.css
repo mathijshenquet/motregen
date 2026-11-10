@@ -191,6 +191,12 @@ button { color: inherit; cursor: pointer; }
 .feels-legend i { width: 18px; }
 .wind-legend { gap: 10px; }
 .map-legend .wind-zone { gap: 6px; }
+/* Proef U113: een windzakbadge als sleutel (wit, oranje getal, inktrand), zoals op de kaart. */
+.wind-legend-sock { color: var(--text); font-weight: 600; white-space: nowrap; }
+.wind-legend-sock b {
+  display: inline-grid; place-items: center; min-width: 19px; height: 19px; padding: 0 3px; box-sizing: border-box;
+  border-radius: 10px; background: #fff; border: 1.1px solid #17242b; color: #f2661c; font-weight: 800; font-size: 12px;
+}
 /* Boven een nachtkaart de donkere strook, ook in het lichte thema (zoals de bronregel). */
 .map-shell.sky-night :is(.map-legend, .legend-chip) { --surface-raised: #0f1d25; --text: #e3f1f6; --muted: #9fb6c0; }
 /* Telefoon (PO 2026-11-09): dicht een klein chipje linksonder tegen de kaartrand, op de plek van de strook (tapdoel
