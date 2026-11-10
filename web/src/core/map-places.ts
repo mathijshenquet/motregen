@@ -1,3 +1,4 @@
+import type { FootprintKind, LabelSide } from './place-footprint.js'
 import { temperaturePlaces, type TemperaturePlace } from './temperature.js'
 
 /**
@@ -51,11 +52,12 @@ const NESTED_FROM_ZOOM = 4
 /**
  * Plekkenorde (MIP-43, U114 `?dev&plekken=orde`, eigenaar Claude, vervalt 2026-11-24): één handgekozen lijst die
  * bepaalt welke plekken (namen, getallen, windzakken) er op de kaart staan. Rang 1 dekt NL plus een zeepunt; rang 2
- * provinciehoofdsteden, kust en IJsselmeer; rang 3–4 verfijning voor ingezoomd. Binnen een rang telt de volgorde: de
- * dichtheid neemt uitgezoomd de eerste N. Buurland en zeepunten tellen niet mee voor N; zeepunten krijgen geen naam.
+ * provinciehoofdsteden, kust en IJsselmeer; rang 3–4 verfijning voor ingezoomd; rang 5–6 vult uit de plaatsenlijst
+ * (scripts/plekkenorde-zooms.ts). De volgorde is de voorrang bij een botsing; zeepunten krijgen geen naam.
  */
 export interface OrderedPlace extends TemperaturePlace {
-  rank: 1 | 2 | 3 | 4
+  /** 1–4 handgekozen, 5 steden en grote dorpen, 6 overige dorpen (plaatsenlijst). */
+  rank: 1 | 2 | 3 | 4 | 5 | 6
   sea?: true
   abroad?: true
 }
@@ -107,20 +109,137 @@ export const PLACE_ORDER: readonly OrderedPlace[] = [
 
 export type PlaceOrderScreen = 'phone' | 'desktop'
 export type PlaceDensity = 'weinig' | 'midden' | 'veel'
+export const PLACE_ORDER_SCREENS: readonly PlaceOrderScreen[] = ['phone', 'desktop']
+export const PLACE_DENSITIES: readonly PlaceDensity[] = ['weinig', 'midden', 'veel']
 
-/** Zoveel NL-plekken (inclusief zeepunten) uitgezoomd op NL. */
-export const PLACE_ORDER_DENSITY: Record<PlaceOrderScreen, Record<PlaceDensity, number>> = {
-  phone: { weinig: 6, midden: 9, veel: 12 },
-  desktop: { weinig: 10, midden: 14, veel: 18 },
+/**
+ * Lucht tussen twee voetafdrukken (place-footprint) in px per dichtheid: de dichtheid is zo een doel per
+ * schermoppervlak, op elke zoom (PO 2026-11-10). Afgesteld met de dichtheidstest in place-order.test.ts.
+ */
+export const PLACE_ORDER_GAP_PX: Record<FootprintKind, Record<PlaceOrderScreen, Record<PlaceDensity, number>>> = {
+  samen: { phone: { weinig: 70, midden: 45, veel: 22 }, desktop: { weinig: 95, midden: 58, veel: 32 } },
+  naast: { phone: { weinig: 70, midden: 45, veel: 22 }, desktop: { weinig: 95, midden: 58, veel: 32 } },
+  zak: { phone: { weinig: 70, midden: 38, veel: 14 }, desktop: { weinig: 100, midden: 60, veel: 30 } },
 }
 
-/** Vanaf zoveel zoomstappen boven de overzichtszoom staat een hele rang erbij (index = rang − 1). */
-export const PLACE_RANK_ZOOM: Record<PlaceOrderScreen, readonly [number, number, number, number]> = {
-  phone: [0.5, 1, 2, 3],
-  desktop: [0.5, 1, 2, 3],
+/**
+ * Doel: zoveel plekken op een scherm vol land (kaart 402 × 740 telefoon, 970 × 900 desktop), op elke zoom, per
+ * voetafdruk (place-footprint).
+ */
+export const PLACE_ORDER_TARGET: Record<FootprintKind, Record<PlaceOrderScreen, Record<PlaceDensity, number>>> = {
+  samen: { phone: { weinig: 8, midden: 12, veel: 23 }, desktop: { weinig: 15, midden: 25, veel: 42 } },
+  naast: { phone: { weinig: 8, midden: 13, veel: 22 }, desktop: { weinig: 15, midden: 27, veel: 43 } },
+  zak: { phone: { weinig: 5, midden: 7, veel: 10 }, desktop: { weinig: 9, midden: 14, veel: 22 } },
+}
+
+export function placeOrderKey(kind: FootprintKind, screen: PlaceOrderScreen, density: PlaceDensity): string {
+  return `${kind}-${screen}-${density}`
+}
+
+/** Zoombereik van de vooraf berekende plekkenorde (scripts/plekkenorde-zooms.ts). */
+export const PLACE_ORDER_ZOOMS = { from: 4, to: 14 } as const
+
+/**
+ * Kant van de naam t.o.v. de plek (PO 2026-11-10: "een naam staat aan dezelfde kant van het water als zijn plek").
+ * Standaard onder; kustplaatsen met de hand, gecontroleerd op screenshots van Zeeland, de Kop van Noord-Holland en de
+ * Wadden.
+ */
+export const PLACE_SIDES: Readonly<Record<string, LabelSide>> = {
+  Vlissingen: 'boven',
+  'Hoek van Holland': 'rechts',
+  IJmuiden: 'rechts',
+  Harlingen: 'rechts',
+  Delfzijl: 'links',
+  'West-Terschelling': 'boven',
+  'Den Burg': 'rechts',
+  Zandvoort: 'rechts',
+  Katwijk: 'rechts',
+  Noordwijk: 'rechts',
+  Scheveningen: 'rechts',
+  'Egmond aan Zee': 'rechts',
+  'Bergen aan Zee': 'rechts',
+  Petten: 'rechts',
+  Callantsoog: 'rechts',
+  'Julianadorp': 'rechts',
+  Domburg: 'onder',
+  Westkapelle: 'rechts',
+  Zoutelande: 'boven',
+  Breskens: 'onder',
+  Cadzand: 'onder',
+  'Oost-Vlieland': 'boven',
+  Nes: 'boven',
+  Schiermonnikoog: 'boven',
+  Hollum: 'rechts',
+  'De Koog': 'rechts',
+  Oudeschild: 'links',
+  'Den Oever': 'rechts',
+  Stavoren: 'rechts',
+  Urk: 'rechts',
+  Enkhuizen: 'links',
+  Hoorn: 'boven',
+  Lemmer: 'rechts',
+  Lelystad: 'rechts',
+  Lauwersoog: 'onder',
+  Holwerd: 'onder',
+  Eemshaven: 'onder',
+  Termunten: 'links',
+  Hansweert: 'boven',
+  Kruiningen: 'boven',
+  Hellevoetsluis: 'boven',
+  Brouwershaven: 'onder',
+  Zierikzee: 'boven',
+  Oostende: 'rechts',
+  'Knokke-Heist': 'onder',
+  Blankenberge: 'rechts',
+  'De Panne': 'rechts',
+  Emden: 'rechts',
+}
+
+export function placeSide(place: { name: string }): LabelSide {
+  return PLACE_SIDES[place.name] ?? 'onder'
+}
+
+/** Vooraf berekende orde (scripts/plekkenorde-zooms.ts): plekken in volgorde van belang met hun minimale zoom. */
+export interface PlaceOrderTable {
+  places: OrderedPlace[]
+  /** Per placeOrderKey: minimale zoom per plek, Infinity = niet binnen PLACE_ORDER_ZOOMS. */
+  zooms: Record<string, number[]>
+}
+
+export interface CompactPlaceOrder {
+  /** Vingerafdruk van de bron (place-order-build). */
+  source: string
+  names: string[]
+  /** Graden × 1000. */
+  lng: number[]
+  lat: number[]
+  rank: number[]
+  sea: number[]
+  abroad: number[]
+  /** Zoom × 100, −1 = nooit. */
+  zooms: Record<string, number[]>
+}
+
+export function decodePlaceOrder(data: CompactPlaceOrder): PlaceOrderTable {
+  const sea = new Set(data.sea), abroad = new Set(data.abroad)
+  const places = data.names.map((name, index): OrderedPlace => ({
+    name, lng: data.lng[index]! / 1000, lat: data.lat[index]! / 1000, rank: data.rank[index] as OrderedPlace['rank'],
+    ...sea.has(index) ? { sea: true as const } : {}, ...abroad.has(index) ? { abroad: true as const } : {},
+  }))
+  const zooms = Object.fromEntries(Object.entries(data.zooms).map(([key, values]) => [key, values.map((value) => value < 0 ? Infinity : value / 100)]))
+  return { places, zooms }
+}
+
+let loadedOrder: PlaceOrderTable | undefined
+/** De orde laden (eigen chunk, alleen onder `?dev&plekken=orde`). */
+export async function loadPlaceOrder(): Promise<PlaceOrderTable> {
+  loadedOrder ??= decodePlaceOrder((await import('./place-order-zooms.json')).default as CompactPlaceOrder)
+  return loadedOrder
 }
 
 export interface PlaceOrderView {
+  /** Welke voetafdruk (place-footprint): Weer/Gevoel `samen` of `naast`, Wind `zak`. */
+  kind: FootprintKind
   zoom: number
   /** Overzichtszoom: de minzoom waarop het hele kaartkader past. */
   overviewZoom: number
@@ -129,25 +248,24 @@ export interface PlaceOrderView {
   neighbours: 'later' | 'meteen'
 }
 
+/** Buurland `later`: pas vanaf zoveel zoomstappen boven het overzicht. */
+export const NEIGHBOURS_LATER_STEPS = 1
+
 /**
- * Plekken bij deze zoom, in ordevolgorde: de eerste N NL-plekken (dichtheid) en elke rang vanaf zijn drempel. Buurland
- * `meteen` haalt rang-2-buurland naar het overzicht. Inzoomen voegt alleen toe.
+ * Plekken bij deze zoom, in ordevolgorde: elke plek vanaf zijn minimale zoom. Inzoomen voegt alleen toe; pan en pin
+ * tellen niet mee.
  */
-export function orderedPlaces(view: PlaceOrderView, order: readonly OrderedPlace[] = PLACE_ORDER): OrderedPlace[] {
-  const steps = view.zoom - view.overviewZoom + ZOOM_EPSILON
-  const first = PLACE_ORDER_DENSITY[view.screen][view.density]
-  let home = 0
-  return order.filter((place) => {
-    const prefix = !place.abroad && home++ < first
-    const rankReached = steps >= PLACE_RANK_ZOOM[view.screen][place.rank - 1]!
-    const early = place.abroad && view.neighbours === 'meteen' && place.rank <= 2
-    return prefix || rankReached || early
-  })
+export function orderedPlaces(view: PlaceOrderView, table: PlaceOrderTable | undefined = loadedOrder): OrderedPlace[] {
+  if (!table) return []
+  const zooms = table.zooms[placeOrderKey(view.kind, view.screen, view.density)]!
+  // Geen afrondingsmarge op de tabelzoom: een plek die er net eerder staat, kan een belangrijkere raken.
+  const abroadFrom = view.neighbours === 'later' ? view.overviewZoom + NEIGHBOURS_LATER_STEPS - ZOOM_EPSILON : -Infinity
+  return table.places.filter((place, index) => view.zoom >= zooms[index]! && (!place.abroad || view.zoom >= abroadFrom))
 }
 
-/** Zoom vanaf waar `namen=later` namen toont: de drempel van rang 2. */
+/** Zoom vanaf waar `namen=later` namen toont. */
 export function placeNamesFromZoom(view: Pick<PlaceOrderView, 'overviewZoom' | 'screen'>): number {
-  return view.overviewZoom + PLACE_RANK_ZOOM[view.screen][1]
+  return view.overviewZoom + 1
 }
 /** Een kaart op exact de overzichtszoom mag door afronding niet net onder een drempel vallen. */
 const ZOOM_EPSILON = 0.02

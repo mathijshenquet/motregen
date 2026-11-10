@@ -9,6 +9,7 @@ import { WINDSOCK_ANCHOR_OFFSETS } from './windsock-anchors.js'
 import { drawSock } from './wind-sock-draw.js'
 import { MapLabelPlacer, type Offset, type Placement } from './map-label-placement.js'
 import { MAP_LABEL_COLORS, MAP_LABEL_FONT_FAMILY, mapLabelSize } from './map-labels.js'
+import { sockNameOffset, sockNameWidth, type LabelSide } from './place-footprint.js'
 
 interface Sock {
   place: TemperaturePlace
@@ -52,8 +53,13 @@ export interface WindsockLayerOptions {
   speedFactor: number
   /** De locatiepin: zakken wijken ervoor, zoals de getallen in Gevoel. */
   pin: () => { lng: number; lat: number } | undefined
-  /** U114 `?dev&plekken=orde&namen=samen`: deze plek krijgt zijn naam onder de zak. */
+  /** U114 `?dev&plekken=orde&namen=samen`: deze plek krijgt zijn naam bij de zak. */
   named?: (place: TemperaturePlace) => boolean
+  /**
+   * U114 `?dev&plekken=orde`: zakken staan vast op hun plek (geen ladder, geen uitwijken voor pin of buurzak; de orde
+   * houdt ze uit elkaar) en de naam staat aan deze kant.
+   */
+  side?: (place: TemperaturePlace) => LabelSide
 }
 
 /** Ring van uitwijkplekken rond de voorkeursplek in CSS-px: eerst dichtbij, dan verder weg (zoals PLACE_LADDER). */
@@ -153,7 +159,8 @@ export class WindsockLayer {
     this.socks = places.map((place) => {
       const x = place.lng * Math.PI / 180 * MERCATOR_RADIUS
       const y = Math.log(Math.tan(Math.PI / 4 + place.lat * Math.PI / 360)) * MERCATOR_RADIUS
-      return { place, x, y, phase: windsockPhase(place.name), offset: WINDSOCK_ANCHOR_OFFSETS[place.name] ?? [0, 0], wave: 0 }
+      const offset: Offset = this.options.side ? [0, 0] : WINDSOCK_ANCHOR_OFFSETS[place.name] ?? [0, 0]
+      return { place, x, y, phase: windsockPhase(place.name), offset, wave: 0 }
     })
     this.layoutDirty = true
     this.draw()
@@ -267,7 +274,10 @@ export class WindsockLayer {
       const headings = compass.map((heading, index) => base + angleDifference(target, heading) - bearing + (flutterBend?.[index] ?? 0))
       const shape = windsockShape(strength, headings, 'kaart')
       this.drawSock(context, screen.x + sock.placed.dx, screen.y + sock.placed.dy, shape, String(windValue(speed, this.unit)), size)
-      if (sock.named) this.drawName(context, sock.place.name, screen.x + sock.placed.dx, screen.y + sock.placed.dy + this.nameDrop(size), size)
+      if (sock.named) {
+        const [nameX, nameY] = this.nameOffset(sock.place, size)
+        this.drawName(context, sock.place.name, screen.x + sock.placed.dx + nameX, screen.y + sock.placed.dy + nameY, size)
+      }
       this.drawnCount++
       this.drawnMaxStrength = Math.max(this.drawnMaxStrength, strength)
     }
@@ -292,6 +302,13 @@ export class WindsockLayer {
     const field = this.field, bearing = this.map.getBearing()
     for (const sock of this.socks) {
       const screen = this.map.project([sock.place.lng, sock.place.lat])
+      if (this.options.side) {
+        const radius = side / 2
+        const badge = { left: screen.x - radius, right: screen.x + radius, top: screen.y - radius, bottom: screen.y + radius }
+        sock.placed = this.placer.shows(screen.x, screen.y, badge) ? { dx: 0, dy: 0, index: 0 } : undefined
+        sock.named = Boolean(sock.placed && this.options.named?.(sock.place))
+        continue
+      }
       const ladder = SOCK_RING.map(([dx, dy]): Offset => [sock.offset[0] + dx, sock.offset[1] + dy])
       const wind = field && sampleWind(field, 0, sock.x, sock.y)
       const compass = wind && windsockHeadings(field, sock.x, sock.y, DEFAULT_WINDSOCK_CURVATURE)
@@ -307,7 +324,7 @@ export class WindsockLayer {
       sock.placed = this.placer.place(screen.x, screen.y, { width: side, height: side }, ladder, sock.placed?.index, clear)
       if (sock.placed && reach) reaches.push(reach)
       sock.named = Boolean(sock.placed && this.options.named?.(sock.place)
-        && this.placer.place(screen.x + sock.placed.dx, screen.y + sock.placed.dy + this.nameDrop(size), { width: sockNameWidth(sock.place.name, size), height: size + 4 }, [[0, 0]]))
+        && this.placer.place(screen.x + sock.placed.dx, screen.y + sock.placed.dy + this.nameOffset(sock.place, size)[1], { width: sockNameWidth(sock.place.name, size), height: size + 4 }, [[0, 0]]))
     }
   }
 
@@ -318,10 +335,9 @@ export class WindsockLayer {
     context.restore()
   }
 
-  /** Afstand van het zakanker tot het midden van de naam eronder (U114 `namen=samen`). */
-  private nameDrop(size: number): number {
-    // Net onder het badgevak (straal + 1) plus de 3 px tussenruimte van MapLabelPlacer, anders botst de naam met zijn eigen zak.
-    return windsockBadge(STRAIGHT, DEFAULT_WINDSOCK_BADGE, '0', size).cutRadius + 1 + 4 + (size + 4) / 2
+  /** Middelpunt van de naam t.o.v. het zakanker (U114 `namen=samen`): aan de vaste kant, standaard eronder. */
+  private nameOffset(place: TemperaturePlace, size: number): [number, number] {
+    return sockNameOffset(this.options.side?.(place) ?? 'onder', place.name, size)
   }
 
   private drawName(context: CanvasRenderingContext2D, name: string, x: number, y: number, size: number): void {
@@ -398,7 +414,3 @@ function sameField(next: WindsockField | undefined, current: WindsockField | und
 
 /** Een rechte zak, alleen om de badgemaat te bepalen (die hangt niet van de vorm af). */
 const STRAIGHT = windsockShape(0, Array<number>(WINDSOCK_SAMPLES + 1).fill(0), 'kaart')
-
-function sockNameWidth(name: string, size: number): number {
-  return Math.ceil(name.length * size * 0.85 * 0.55 + 6)
-}

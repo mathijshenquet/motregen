@@ -10,6 +10,7 @@ import { MapLabelPlacer, PLACE_LADDER } from './map-label-placement'
 import { mapDiscRadius, mapLabelSize } from './map-labels'
 import { MAP_PLACES, mapPlaceSpacingPx, MAX_PLACE_NUMBERS, nestedPlaces } from './map-places'
 import type { TemperaturePlace } from './temperature'
+import { islandBox, nameBoxWidth } from './place-footprint'
 
 /**
  * Temperatuurgetallen in Gevoel (U100 ronde 3, PO-keuze 2026-11-09 "plekken-half"): een getal op vaste plekken naast
@@ -43,8 +44,8 @@ interface Shown {
 }
 
 /**
- * U114 (`?dev&plekken=orde`): plekken uit de plekkenorde i.p.v. `nestedPlaces`; `named` zet de naam vóór het getal in
- * hetzelfde label (`namen=samen`).
+ * U114 (`?dev&plekken=orde`): plekken uit de plekkenorde i.p.v. `nestedPlaces`, vast op hun plek (geen ladder, geen
+ * uitwijken voor de pin); `named` zet de naam vóór het getal in hetzelfde label (`namen=samen`).
  */
 export interface NumberPlaces {
   places(): readonly TemperaturePlace[]
@@ -234,6 +235,15 @@ export class TemperatureNumbers implements IsolineLabelling {
       // Naam en getal als één label, samen gecentreerd op de plek; het getal (en zijn schijf) is het rechterdeel.
       const nameWidth = name ? nameBoxWidth(name, size) : 0
       const shift = nameWidth / 2
+      if (this.placeSource) {
+        // Plekkenorde: het label staat vast op de plek; welke plekken samen passen, bepaalt de orde zelf.
+        const exactHere = valueAt(shift, 0)
+        const width = box.width + nameWidth
+        const fixed = { left: origin.x - width / 2, right: origin.x + width / 2, top: origin.y - box.height / 2, bottom: origin.y + box.height / 2 }
+        if (exactHere === undefined || !this.placer.shows(origin.x, origin.y, fixed)) continue
+        wanted.set(key, { lng: place.lng, lat: place.lat, dx: shift, dy: 0, offsetIndex: 0, exact: exactHere, name })
+        continue
+      }
       const placed = this.placer.place(origin.x, origin.y, { width: box.width + nameWidth, height: box.height }, ladder, kept?.offsetIndex, (dx, dy) => {
         const sample = valueAt(dx + shift, dy)
         if (sample === undefined) return false
@@ -334,12 +344,4 @@ const BAND_TWEEN_MS = 280
 /** Zo ver (scherm-px) moet een grens het midden van een getal voorbij zijn voor het wisselt. */
 const BAND_DEADZONE_PX = 5
 
-/** Botsvak van een getal in px (zie .temperature-number): tabelcijfers ±0,6 em, padding 6 × 3 px. */
-export function islandBox(label: string, size: number): { width: number; height: number } {
-  return { width: Math.ceil(label.length * size * 0.6 + 12), height: Math.ceil(size + 6) }
-}
-
-/** Breedte van een plaatsnaam vóór het getal (`namen=samen`, .temperature-number-name: 0,85 em, ±0,55 em per teken). */
-export function nameBoxWidth(name: string, size: number): number {
-  return Math.ceil(name.length * size * 0.85 * 0.55 + 4)
-}
+export { islandBox, nameBoxWidth } from './place-footprint'

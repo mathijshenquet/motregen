@@ -78,6 +78,15 @@ export class MapLabelPlacer {
     return undefined
   }
 
+  /**
+   * Plekkenorde (U114): een plek staat vast op zijn anker en wijkt voor niets; hij staat er als zijn anker in beeld
+   * ligt en zijn vak niet onder de bediening valt. De pin tekent eroverheen.
+   */
+  shows(x: number, y: number, box: Box): boolean {
+    if (x < 0 || y < 0 || x > this.width || y > this.height) return false
+    return !this.chrome.some((other) => overlaps(box, other, 0))
+  }
+
   free(box: Box): boolean {
     if (box.left < 2 || box.top < 2 || box.right > this.width - 2 || box.bottom > this.height - 2) return false
     if (this.taken.some((other) => overlaps(box, other, 3)) || this.chrome.some((other) => overlaps(box, other, 4))) return false

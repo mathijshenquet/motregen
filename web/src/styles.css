@@ -1585,3 +1585,6 @@ td small { color: var(--muted); font-size: 9px; }
   position: absolute; right: 100%; top: 50%; transform: translateY(-50%);
   padding: 0 0 0 4px; font-size: calc(var(--map-label-size) * 0.85);
 }
+
+/* U114 plekkenorde: plekken wijken niet voor de pin; de pin tekent erover (boven getallen en windzakken). */
+.location-pin { z-index: 3; }
