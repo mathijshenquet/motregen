@@ -180,6 +180,71 @@ halveert ongeveer de JS per zaktekening, maar scheelt tijdens afspelen nauwelijk
 9. Alles aan met fix B: `http://ageq-dev2:4312/?perf=start&modus=wind&dev&zakdpr=2`
 10. Alles aan met fix C: `http://ageq-dev2:4312/?perf=start&modus=wind&dev&isolijndpr=2`
 
+## Bisectie ronde 2: Gecko-profielen van de telefoon (2026-11-10)
+
+Vier profielen (preset Graphics, build 74df28d), samengevat door de orkestrator met `web/scripts/gecko-threads.mjs`
+(`.dev/tracks/u111-firefox-wind/bisect-2.md`). CPU per draad in ms per s opname:
+
+| draad | 1 alles | 2 alleen zakken | 3 alleen isolijnen | 4 alleen kaart |
+| --- | --- | --- | --- | --- |
+| gpu/CanvasRenderer | 407 | 500 | 97 | niet in de top |
+| Web Content/GeckoMain | 354 | 339 | 379 | 343 |
+| gpu/Renderer (WebRender) | 106 | 155 | 169 | 185 |
+
+De rem is de draad CanvasRenderer in het GPU-proces, waar Firefox de 2D-canvascommando's afspeelt
+(`CanvasTranslator` → `DrawTargetWebgl`). Bij alleen de zakken gaat daar 32 % naar `Stroke`, 26 % naar
+`GenerateComplexClipMask` (Skia rastert per tekening in software een AA-clipmasker), 8 % naar `PushClip` en ~30 %
+naar het uploaden van masker en paden. Dat is `context.clip(outside, 'evenodd')` in `wind-sock-draw.ts`: het gat
+rond de badge.
+
+### Knoppen ronde 2
+
+1. `zakclip=uit`: dezelfde uitsparing zonder `clip()`. Eerst de zak, dan het gat wegvegen met `destination-out`,
+   dan de badge. Vegen raakt ook wat er al stond, dus op de grote canvas gaat elke zak eerst via een kleine
+   kladcanvas (`drawImage` op gehele canvaspixels); met `zakcanvas=los` staat elke zak al op een eigen canvas.
+   Beeld (`windsock-dirty-check.ts --zakclip [--los]`, vijf pannen, licht en donker): alleen antialias verschilt.
+   Op de rand van het gat ~900 px per beeld (max Δ ~120 van 255: clip dekt elke laag apart af, vegen het geheel één
+   keer, dus de rand van de zak is daar een fractie lichter), daarbuiten ~400 px met Δ > 2 (max Δ 17–49) op
+   ~77 000 inktpixels. Die tweede grens heb ik na de eerste meting op 1 % gezet (gemeten 0,47–0,57 %; een AA-clip
+   laat Skia ook elders via de clipblitter tekenen). Met `--sabotage` faalt de check (53 000 resp. 2 200 px).
+   Op 4× uitvergroot zie ik geen verschil: `zakclip-aan-vs-uit.jpg` (boven licht, onder donker; links clip,
+   rechts vegen).
+2. `zak2d=software`: de zakcanvassen met `getContext('2d', { willReadFrequently: true })`. Firefox tekent ze dan
+   met Skia in het contentproces, niet in het GPU-proces; dan uploadt hij de hele canvas per frame. Een meting, geen
+   fix: toont of het afspelen in de CanvasRenderer zelf de rem is.
+3. `zakdpr=2` en `isolijndpr=2` blijven, alleen om te meten.
+
+De Firefox-rig draait op softwareraster (llvmpipe, software-WebRender); of Firefox daar canvas-2D via
+`DrawTargetWebgl` in het GPU-proces tekent, heb ik niet nagegaan. De rig controleert vooral dat elke variant laadt en
+afspeelt; zijn CPU-cijfers zeggen weinig over de CanvasRenderer van de telefoon.
+
+Rig (build ec907c9, alle lagen aan, twee runs om en om, load 10–31, dus ruis): elke variant laadt en speelt af.
+Spelend fps en JS per `windsock-draw` (p50):
+
+| variant | spelend fps (2 runs) | JS per zaktekening |
+| --- | --- | --- |
+| basis | 44,6 · 20,2 | 5–6 ms |
+| `zakclip=uit` | 27,3 · 41,6 | 3–4 ms |
+| `zakclip=uit&zakcanvas=los` | 13,2 · 37,5 | 3–6 ms |
+| `zak2d=software` | 12,4 · 11,7 | 11–12 ms |
+| `zakclip=uit&zak2d=software` | 21,7 · 23,2 | 4–5 ms |
+
+Alleen `zak2d=software` springt eruit: de canvas tekent dan synchroon in het contentproces, dus de JS-tijd per
+tekening verdubbelt. Op de telefoon kan dat nog steeds goedkoper zijn dan de CanvasRenderer, vandaar de meting.
+
+### Telefoonlinks ronde 2 (alle lagen aan)
+
+1. Basis: `http://ageq-dev2:4312/?perf=start&modus=wind&dev`
+2. `http://ageq-dev2:4312/?perf=start&modus=wind&dev&zakclip=uit`
+3. `http://ageq-dev2:4312/?perf=start&modus=wind&dev&zakclip=uit&zakcanvas=los`
+4. `http://ageq-dev2:4312/?perf=start&modus=wind&dev&zak2d=software`
+5. `http://ageq-dev2:4312/?perf=start&modus=wind&dev&zakclip=uit&zak2d=software`
+
+Gecko-profielen van dezelfde vijf: `gecko-android-agent.md` (`?perf=1`, `android-r2-<variant>.json.gz`).
+
+Voor de merge met U113: daar wordt het gat een pil of grotere schijf (`badgePath(…, cut)`). Het weggeveegde gat moet
+dezelfde vorm volgen, en `sockRect()` moet de eenheidsbox (`sockUnitBox`) omvatten.
+
 ## Gecko-profiel van Firefox Android via USB (macbook)
 
 De eerdere profielen in `~/motregen-profiles/macbook-firefox/` zijn van desktop-Firefox op de macbook (macOS),
