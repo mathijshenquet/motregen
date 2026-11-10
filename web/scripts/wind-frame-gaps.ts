@@ -1,6 +1,7 @@
 import { chromium, firefox, type Browser, type BrowserContext, type Page } from '@playwright/test'
-import { writeFileSync } from 'node:fs'
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { loadavg } from 'node:os'
+import { execSync } from 'node:child_process'
 
 // U111: framegaten (rAF-intervallen) in de windmodus op een telefoonbeeld (402×844, DPR 3), per variant
 // (`?dev&zakken=uit`, `?dev&isolijnen=uit`). Twee vensters per bezoek: "spelend" (vast venster in de autoplay) en
@@ -41,7 +42,7 @@ const sampler = `(() => {
   requestAnimationFrame(tick)
 })()`
 
-interface Window { gaps: Stats; frames: number; playingShare: number; seconds: number; fps: number; phases: Record<string, { count: number; p50: number; sum: number }>; load: number }
+interface Window { gaps: Stats; frames: number; playingShare: number; cpuMsPerSecond: number; cpuMsPerFrame: number; seconds: number; fps: number; phases: Record<string, { count: number; p50: number; sum: number }>; load: number }
 interface Stats { p50: number; p90: number; p99: number; max: number }
 interface Visit { browser: string; variant: string; run: number; stil?: Window; spelend?: Window }
 
@@ -50,7 +51,7 @@ function quantile(sorted: number[], q: number): number {
   return sorted[Math.min(sorted.length - 1, Math.floor(q * sorted.length))]!
 }
 
-async function window(page: Page, from: number, to: number): Promise<Window> {
+async function window(page: Page, from: number, to: number, cpuMs: number): Promise<Window> {
   const { frames, phases } = await page.evaluate(() => (globalThis as unknown as { __u111: { frames: Array<[number, number]>; phases: Array<[string, number, number]> } }).__u111)
   const inWindow = frames.filter(([t]) => t >= from && t <= to)
   const times = inWindow.map(([t]) => t)
@@ -63,8 +64,32 @@ async function window(page: Page, from: number, to: number): Promise<Window> {
   const seconds = (to - from) / 1_000
   return {
     gaps: { p50: round(quantile(gaps, 0.5)), p90: round(quantile(gaps, 0.9)), p99: round(quantile(gaps, 0.99)), max: round(gaps.at(-1) ?? NaN) },
-    frames: times.length, playingShare: round(inWindow.filter(([, playing]) => playing).length / Math.max(1, inWindow.length)), seconds: round(seconds), fps: round(times.length / seconds), phases: byPhase, load: loadavg()[0]!,
+    frames: times.length, cpuMsPerSecond: round(cpuMs / seconds), cpuMsPerFrame: round(cpuMs / Math.max(1, times.length)), playingShare: round(inWindow.filter(([, playing]) => playing).length / Math.max(1, inWindow.length)), seconds: round(seconds), fps: round(times.length / seconds), phases: byPhase, load: loadavg()[0]!,
   }
+}
+
+// CPU-tijd (ms) van deze node-procesboom, dus de browser met al zijn processen: op een gedeelde host stabieler dan
+// fps, want het werk zelf hangt niet af van de andere load.
+const ticksPerSecond = Number(execSync('getconf CLK_TCK').toString()) || 100
+function treeCpuMs(root = process.pid): number {
+  const parents = new Map<number, number>()
+  const ticks = new Map<number, number>()
+  for (const entry of readdirSync('/proc')) {
+    if (!/^\d+$/.test(entry)) continue
+    try {
+      const stat = readFileSync(`/proc/${entry}/stat`, 'utf8')
+      const fields = stat.slice(stat.lastIndexOf(')') + 2).split(' ')
+      parents.set(Number(entry), Number(fields[1]))
+      ticks.set(Number(entry), Number(fields[11]) + Number(fields[12]))
+    } catch { /* proces net weg */ }
+  }
+  const inTree = (pid: number): boolean => {
+    for (let current = pid, depth = 0; current > 1 && depth < 64; current = parents.get(current) ?? 0, depth++) if (current === root) return true
+    return false
+  }
+  let total = 0
+  for (const [pid, value] of ticks) if (inTree(pid)) total += value
+  return total * 1_000 / ticksPerSecond
 }
 
 function round(value: number): number {
@@ -121,14 +146,16 @@ async function visit(browser: Browser, variant: string, run: number): Promise<Vi
   await page.locator('[data-playing]').waitFor({ state: 'attached', timeout: 120_000 })
   await page.waitForTimeout(warmSeconds * 1_000)
   const playFrom = await now(page)
+  const playCpu = treeCpuMs()
   await page.waitForTimeout(playSeconds * 1_000)
-  result.spelend = await window(page, playFrom, await now(page))
+  result.spelend = await window(page, playFrom, await now(page), treeCpuMs() - playCpu)
   await page.locator('.freshness-trigger').press(' ')
   await page.locator('.clock-play').waitFor({ state: 'visible', timeout: 10_000 })
   await page.waitForTimeout(2_000)
   const stillFrom = await now(page)
+  const stillCpu = treeCpuMs()
   await page.waitForTimeout(stillSeconds * 1_000)
-  result.stil = await window(page, stillFrom, await now(page))
+  result.stil = await window(page, stillFrom, await now(page), treeCpuMs() - stillCpu)
   await context.close()
   return result
 }
@@ -137,7 +164,7 @@ function line(visit: Visit, label: 'stil' | 'spelend'): string {
   const w = visit[label]
   if (!w) return `${visit.variant.padEnd(14)} ${label.padEnd(7)} —`
   const phase = (name: string) => `${name.replace('windsock-', 'zak-').replace('isoline-', 'iso-')} ${w.phases[name]!.count}×${w.phases[name]!.p50}`
-  return `${visit.variant.padEnd(14)} ${label.padEnd(7)} gat p50/p90/p99/max ${w.gaps.p50}/${w.gaps.p90}/${w.gaps.p99}/${w.gaps.max} ms · ${w.fps} fps over ${w.seconds} s (${Math.round(w.playingShare * 100)} % spelend) · ${['windsock-draw', 'wind-step', 'isoline-blit', 'isoline-trace'].map(phase).join(' · ')} ms · load ${w.load.toFixed(2)}`
+  return `${visit.variant.padEnd(14)} ${label.padEnd(7)} gat p50/p90/p99/max ${w.gaps.p50}/${w.gaps.p90}/${w.gaps.p99}/${w.gaps.max} ms · ${w.fps} fps over ${w.seconds} s (${Math.round(w.playingShare * 100)} % spelend) · cpu ${w.cpuMsPerSecond} ms/s, ${w.cpuMsPerFrame} ms/frame · ${['windsock-draw', 'wind-step', 'isoline-blit', 'isoline-trace'].map(phase).join(' · ')} ms · load ${w.load.toFixed(2)}`
 }
 
 const visits: Visit[] = []

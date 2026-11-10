@@ -611,6 +611,12 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.uniform1f(uniform('u_bubble_soft'), BUBBLE_SOFT_PX * scaleX)
   }
 
+  /** Wat `render` tekent: de getoonde snedes (geometrie, pass, vulling, gewicht), dekking en pauze (U111). */
+  drawKey(): string {
+    const shown = this.shown.map(({ slice, weight }) => `${this.slices.indexOf(slice)}:${slice.geometry}:${slice.passed}:${slice.filled}:${weight}`)
+    return `${this.paused}|${this.opacity}|${shown.join(';')}`
+  }
+
   setStyle(style: IsolineStyle): void {
     this.style = style
     this.invalidate()

@@ -1,6 +1,6 @@
 import type { Map as MapLibreMap } from 'maplibre-gl'
 import { beaufortScale } from './wind-beaufort.js'
-import { DEFAULT_WINDSOCK_BADGE, WINDSOCK_SAMPLES, windsockBadge, windsockShape, type WindsockShape } from './wind-glyph.js'
+import { DEFAULT_WINDSOCK_BADGE, WINDSOCK_SAMPLES, windsockBadge, windsockShape, type WindsockBadge, type WindsockShape } from './wind-glyph.js'
 import { advanceSock, angleDifference, DEFAULT_WINDSOCK_CURVATURE, sampleWind, SOCK_SNAP_SECONDS, sockReach, socksClear, swayBends, WINDSOCK_APPEAR_MARGIN, windsockHeadings, windsockPhase, type SockReach, type Spring, type WindsockField } from './windsock-flow.js'
 import type { TemperaturePlace } from './temperature.js'
 import { windValue, type WindUnit } from './weather.js'
@@ -76,6 +76,8 @@ export class WindsockLayer {
   private frame?: number
   private delay?: number
   private drawnCamera = ''
+  /** Canvaspixels van de zakken in de vorige tekening; zonder: onbekend, dan de hele canvas wissen. */
+  private drawnRects?: DirtyRect[]
   /** Wandklok (s) van de vorige tekening, voor het momentum. */
   private drawnAt = -Infinity
   private readonly placer: MapLabelPlacer
@@ -212,16 +214,18 @@ export class WindsockLayer {
     if (this.canvas.width !== Math.round(width * ratio) || this.canvas.height !== Math.round(height * ratio)) {
       this.canvas.width = Math.round(width * ratio)
       this.canvas.height = Math.round(height * ratio)
+      this.drawnRects = []
       this.canvas.style.width = `${width}px`
       this.canvas.style.height = `${height}px`
     }
     const context = this.context
     context.setTransform(1, 0, 0, 1, 0, 0)
-    context.clearRect(0, 0, this.canvas.width, this.canvas.height)
     this.drawnCount = 0
     this.drawnMaxStrength = 0
     const field = this.field
     if (!field || this.opacity <= 0) {
+      context.clearRect(0, 0, this.canvas.width, this.canvas.height)
+      this.drawnRects = []
       if (this.canvas.dataset.socks !== '0|0') this.canvas.dataset.socks = '0|0'
       return
     }
@@ -247,6 +251,8 @@ export class WindsockLayer {
       recordPerfPhase('windsock-layout', performance.now() - started)
     }
     const drawStarted = performance.now()
+    const pending: Array<() => void> = []
+    const rects: DirtyRect[] = []
     for (const sock of this.socks) {
       if (!sock.placed) continue
       const screen = this.map.project([sock.place.lng, sock.place.lat])
@@ -262,10 +268,23 @@ export class WindsockLayer {
       const base = sock.heading!.value
       const headings = compass.map((heading, index) => base + angleDifference(target, heading) - bearing + (flutterBend?.[index] ?? 0))
       const shape = windsockShape(strength, headings, 'kaart')
-      this.drawSock(context, screen.x + sock.placed.dx, screen.y + sock.placed.dy, shape, String(windValue(speed, this.unit)), size)
+      const x = screen.x + sock.placed.dx, y = screen.y + sock.placed.dy, label = String(windValue(speed, this.unit))
+      const badge = windsockBadge(shape, DEFAULT_WINDSOCK_BADGE, label, size)
+      rects.push(sockRect(x, y, shape, badge, ratio))
+      pending.push(() => this.drawSock(context, x, y, shape, badge, label))
       this.drawnCount++
       this.drawnMaxStrength = Math.max(this.drawnMaxStrength, strength)
     }
+    // Alleen wissen waar een zak stond of komt (U111): een volle canvas wissen en hertekenen kostte op Firefox
+    // Android (canvas-2D op de CPU) per frame het hele scherm. Zonder bekende vorige stand alles.
+    context.setTransform(1, 0, 0, 1, 0, 0)
+    const cleared = this.drawnRects ? [...this.drawnRects, ...rects] : undefined
+    const canvasArea = this.canvas.width * this.canvas.height
+    if (!cleared || cleared.reduce((sum, rect) => sum + rect.width * rect.height, 0) > canvasArea / 2) context.clearRect(0, 0, this.canvas.width, this.canvas.height)
+    else for (const rect of cleared) context.clearRect(rect.x, rect.y, rect.width, rect.height)
+    this.drawnRects = rects
+    context.setTransform(ratio, 0, 0, ratio, 0, 0)
+    for (const drawPending of pending) drawPending()
     recordPerfPhase('windsock-draw', performance.now() - drawStarted, { socks: this.drawnCount, fluttering })
     if (this.drawnCount) markLayerDrawn('windzakken')
     const summary = `${this.drawnCount}|${Math.round(this.drawnMaxStrength * 10) / 10}`
@@ -304,10 +323,10 @@ export class WindsockLayer {
     }
   }
 
-  private drawSock(context: CanvasRenderingContext2D, x: number, y: number, shape: WindsockShape, label: string, size: number): void {
+  private drawSock(context: CanvasRenderingContext2D, x: number, y: number, shape: WindsockShape, badge: WindsockBadge, label: string): void {
     context.save()
     context.translate(x, y)
-    drawSock({ context, shape, badge: windsockBadge(shape, DEFAULT_WINDSOCK_BADGE, label, size), label, dark: this.dark, fontFamily: MAP_LABEL_FONT_FAMILY })
+    drawSock({ context, shape, badge, label, dark: this.dark, fontFamily: MAP_LABEL_FONT_FAMILY })
     context.restore()
   }
 
@@ -366,6 +385,25 @@ function sameField(next: WindsockField | undefined, current: WindsockField | und
     const other = current.slices[index]!
     return slice.left === other.left && slice.right === other.right && slice.mix === other.mix
   })
+}
+
+interface DirtyRect { x: number; y: number; width: number; height: number }
+
+/**
+ * Ruimte rond de omtrek van zak en badge in CSS-px: de breedste lijn (3,5 px schaduw, halve breedte), de
+ * schaduwverschuiving (1,3 px omlaag) en antialiasing, ruim genomen.
+ */
+const SOCK_RECT_MARGIN = 4
+
+/** Canvaspixels (afgerond naar buiten) die een zak op (x, y) kan raken. */
+export function sockRect(x: number, y: number, shape: WindsockShape, badge: WindsockBadge, ratio: number): DirtyRect {
+  let left = badge.x - badge.radius, right = badge.x + badge.radius, top = badge.y - badge.radius, bottom = badge.y + badge.radius
+  for (const [px, py] of [...shape.left, ...shape.right]) {
+    left = Math.min(left, px); right = Math.max(right, px); top = Math.min(top, py); bottom = Math.max(bottom, py)
+  }
+  const x0 = Math.floor((x + left - SOCK_RECT_MARGIN) * ratio), y0 = Math.floor((y + top - SOCK_RECT_MARGIN) * ratio)
+  const x1 = Math.ceil((x + right + SOCK_RECT_MARGIN) * ratio), y1 = Math.ceil((y + bottom + SOCK_RECT_MARGIN) * ratio)
+  return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 }
 }
 
 /** Een rechte zak, alleen om de badgemaat te bepalen (die hangt niet van de vorm af). */

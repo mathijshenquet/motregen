@@ -344,6 +344,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       return windOverlay.canvas.toDataURL('image/png')
     }
   }
+  // Rig-haak (U111): de zakkenlaag, om vuile-rechthoek-tekeningen tegen een volle hertekening te leggen.
+  ;(window as unknown as { __motregenWindsocks: () => WindsockLayer | undefined }).__motregenWindsocks = () => windsockLayer
   // Meetpunt voor de kostenmeting (track-LOGs U8b/U8c): repaints, contour-passes, blits, label-rondes.
   ;(window as unknown as { __motregenIsolines: () => object }).__motregenIsolines = () => ({
     ...isolineCounters(),
