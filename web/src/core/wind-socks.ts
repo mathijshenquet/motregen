@@ -326,6 +326,8 @@ export class WindsockLayer {
       sock.named = Boolean(sock.placed && this.options.named?.(sock.place)
         && this.placer.place(screen.x + sock.placed.dx, screen.y + sock.placed.dy + this.nameOffset(sock.place, size)[1], { width: sockNameWidth(sock.place.name, size), height: size + 4 }, [[0, 0]]))
     }
+    // Rig (U114): welke plekken een zak kregen, voor de pin- en monotonietoets.
+    if (this.options.side) this.canvas.dataset.placed = this.socks.filter((sock) => sock.placed).map((sock) => sock.place.name).join('|')
   }
 
   private drawSock(context: CanvasRenderingContext2D, x: number, y: number, shape: WindsockShape, label: string, size: number): void {

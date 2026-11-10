@@ -133,7 +133,8 @@ export default defineConfig({
       // runtimecache: precache haalde ze bij de installatie opnieuw op (cache: reload, 204 kB ongecomprimeerd),
       // terwijl 256-511 zelden nodig is.
       globPatterns: ['**/*.{js,css,html,ico,png,svg}', 'basemap/*.json', 'assets/*.pbf-*.gz'],
-      globIgnores: ['**/data/**', '**/perf-mobile/**', 'route.html', 'og-image.png'],
+      // U114: de plekkenorde (`?dev&plekken=orde`) is een dev-chunk van 155 kB gzip; niet bij elke installatie ophalen.
+      globIgnores: ['**/data/**', '**/perf-mobile/**', 'route.html', 'og-image.png', '**/place-order-zooms-*.js'],
       navigateFallback: '/index.html',
       navigateFallbackDenylist: [/^\/(?:data|telegram|changelog)(?:\/|$)/, /^\/(?:hit|sw\.js|sitemap\.xml|robots\.txt)$/],
       runtimeCaching: [
