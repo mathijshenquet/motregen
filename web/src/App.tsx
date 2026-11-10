@@ -328,7 +328,14 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   ;(window as unknown as { __motregenRenderedLabels: () => object | undefined }).__motregenRenderedLabels = () => {
     if (!map) return undefined
     const names = (map.getStyle()?.layers ?? []).filter((layer) => layer.type === 'symbol' && layer.id.startsWith('label_') && layer.layout?.visibility !== 'none').map((layer) => layer.id)
-    const count = (layers: string[]) => new Set(map!.queryRenderedFeatures({ layers: layers.filter((id) => map!.getLayer(id)) }).map((feature) => feature.properties?.name)).size
+    // MapLibre gooit soms "Out of bounds" op een GeoJSON-bron midden in een setData: dan -1, de rig probeert opnieuw.
+    const count = (layers: string[]) => {
+      try {
+        return new Set(map!.queryRenderedFeatures({ layers: layers.filter((id) => map!.getLayer(id)) }).map((feature) => feature.properties?.name)).size
+      } catch {
+        return -1
+      }
+    }
     return { names: count(names), temperatures: count(['motregen-temperature']), zoom: map.getZoom() }
   }
   // Camera voor de e2e van pin-navigatie en pan/zoom-only (U26).

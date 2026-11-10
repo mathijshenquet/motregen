@@ -1,5 +1,5 @@
 import { chromium, type Page } from '@playwright/test'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 // Plekkenorde (U114, MIP-43): telefoon en desktop, uitgezoomd en 1–2 zoomstappen in, Weer/Gevoel/Wind, licht,
@@ -8,6 +8,8 @@ import { join } from 'node:path'
 //   SHOT_MODES=wind,gevoel, SHOT_PROFILES=telefoon en SHOT_STEPS=0,2 beperken de matrix.
 const [origin, outDir, extra = '', fixedTime] = process.argv.slice(2)
 if (!origin || !outDir) throw new Error('usage: pnpm exec tsx scripts/plekkenorde-shot.ts ORIGIN OUT_DIR [EXTRA-QUERY] [TIJD-ISO]')
+// Eigen uitvoermap: elke run begint leeg, zodat er geen stills van een vorige run blijven staan.
+rmSync(outDir, { recursive: true, force: true })
 mkdirSync(outDir, { recursive: true })
 
 const profiles = {
@@ -58,9 +60,11 @@ writeFileSync(join(outDir, 'counts.json'), `${JSON.stringify({ query: extra, tim
 async function retry<T>(read: () => Promise<T>): Promise<T> {
   for (let attempt = 1; ; attempt++) {
     try {
-      return await read()
+      const result = await read()
+      if (attempt < 8 && Object.values(result as object).includes(-1)) throw new Error('telling mislukt')
+      return result
     } catch (error) {
-      if (attempt >= 4) throw error
+      if (attempt >= 8) { console.log('telling', String(error)); return { error: String(error) } as T }
       await new Promise((resolve) => setTimeout(resolve, 500))
     }
   }
