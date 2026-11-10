@@ -9,14 +9,14 @@ import { FOOTPRINT_KINDS } from '../src/core/place-footprint.js'
 const [out] = process.argv.slice(2)
 if (!out) throw new Error('usage: pnpm exec tsx scripts/plekkenorde-provincies-curve.ts OUT.md')
 const table = decodePlaceOrder(JSON.parse(readFileSync(new URL('../src/core/place-order-zooms.json', import.meta.url), 'utf8')) as CompactPlaceOrder)
-const MAPS: Record<PlaceOrderScreen, { width: number; height: number }> = { phone: { width: 402, height: 740 }, desktop: { width: 970, height: 900 } }
+const MAPS: Record<PlaceOrderScreen, { width: number; height: number }> = { phone: { width: 402, height: 462 }, desktop: { width: 970, height: 900 } }
 // Middelpunt Utrecht–Veluwe, zoals de clips.
 const CENTRE = [5.3, 52.2] as const
 const steps = Array.from({ length: Math.round((PROVINCE_STEPS.cities + 1.5) / 0.1) + 1 }, (_, index) => Math.round(index) / 10)
 const lines = [
   '# Provincietrede: plekken per scherm tegen de zoom',
   '',
-  `Middelpunt ${CENTRE.join(', ')}; kaart telefoon 402 × 740, desktop 970 × 900 css-px. Kolom = zoomstappen boven het overzicht;`,
+  `Middelpunt ${CENTRE.join(', ')}; kaart telefoon 402 × 462 (onder het paneel), desktop 970 × 900 css-px. Kolom = zoomstappen boven het overzicht;`,
   `provincies tot +${PROVINCE_STEPS.provinces}, tween tot +${PROVINCE_STEPS.cities}, daarna de stedentrede. "orde" = dezelfde view zonder trede (= plekken=d). De zak-regels met trede gelden voor windtrede=provincies.`,
   '',
   `| voetafdruk | scherm | dichtheid | trede | ${steps.map((step) => `+${step.toFixed(1)}`).join(' | ')} |`,

@@ -118,19 +118,19 @@ export const PLACE_DENSITIES: readonly PlaceDensity[] = ['weinig', 'midden', 've
  * schermoppervlak, op elke zoom (PO 2026-11-10). Afgesteld met de dichtheidstest in place-order.test.ts.
  */
 export const PLACE_ORDER_GAP_PX: Record<FootprintKind, Record<PlaceOrderScreen, Record<PlaceDensity, number>>> = {
-  samen: { phone: { weinig: 70, midden: 45, veel: 22 }, desktop: { weinig: 95, midden: 58, veel: 32 } },
-  naast: { phone: { weinig: 70, midden: 45, veel: 22 }, desktop: { weinig: 95, midden: 58, veel: 32 } },
-  zak: { phone: { weinig: 70, midden: 38, veel: 14 }, desktop: { weinig: 100, midden: 60, veel: 30 } },
+  samen: { phone: { weinig: 44, midden: 28, veel: 8 }, desktop: { weinig: 95, midden: 58, veel: 32 } },
+  naast: { phone: { weinig: 44, midden: 28, veel: 8 }, desktop: { weinig: 95, midden: 58, veel: 32 } },
+  zak: { phone: { weinig: 31, midden: 14, veel: 0 }, desktop: { weinig: 100, midden: 60, veel: 30 } },
 }
 
 /**
- * Doel: zoveel plekken op een scherm vol land (kaart 402 × 740 telefoon, 970 × 900 desktop), op elke zoom, per
+ * Doel: zoveel plekken op een scherm vol land (kaart 402 × 462 telefoon onder het paneel, 970 × 900 desktop), op elke zoom, per
  * voetafdruk (place-footprint).
  */
 export const PLACE_ORDER_TARGET: Record<FootprintKind, Record<PlaceOrderScreen, Record<PlaceDensity, number>>> = {
-  samen: { phone: { weinig: 8, midden: 12, veel: 23 }, desktop: { weinig: 15, midden: 25, veel: 42 } },
-  naast: { phone: { weinig: 8, midden: 13, veel: 22 }, desktop: { weinig: 15, midden: 27, veel: 43 } },
-  zak: { phone: { weinig: 5, midden: 7, veel: 10 }, desktop: { weinig: 9, midden: 14, veel: 22 } },
+  samen: { phone: { weinig: 8, midden: 12, veel: 22 }, desktop: { weinig: 15, midden: 25, veel: 42 } },
+  naast: { phone: { weinig: 8, midden: 12, veel: 21 }, desktop: { weinig: 15, midden: 27, veel: 43 } },
+  zak: { phone: { weinig: 5, midden: 7, veel: 9 }, desktop: { weinig: 9, midden: 14, veel: 22 } },
 }
 
 export function placeOrderKey(kind: FootprintKind, screen: PlaceOrderScreen, density: PlaceDensity, tier?: 'provincies'): string {

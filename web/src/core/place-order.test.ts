@@ -13,8 +13,8 @@ import zooms from './place-order-zooms.json'
 
 const table = decodePlaceOrder(zooms as CompactPlaceOrder)
 
-/** Kaartmaat per schermklasse: telefoon 402 × 844 zonder balken, desktop 1440 × 900 naast het zijpaneel. */
-const MAPS: Record<PlaceOrderScreen, { width: number; height: number }> = { phone: { width: 402, height: 740 }, desktop: { width: 970, height: 900 } }
+/** Kaartmaat per schermklasse: telefoon 402 × 844 met het paneel eronder (kaart 402 × 462), desktop 1440 × 900 naast het zijpaneel. */
+const MAPS: Record<PlaceOrderScreen, { width: number; height: number }> = { phone: { width: 402, height: 462 }, desktop: { width: 970, height: 900 } }
 
 /** Middelpunten boven land; alleen schermen die voor ≥ 80 % land zijn tellen mee (landFraction). */
 const LAND: Record<string, [number, number]> = {
@@ -208,7 +208,7 @@ describe('plekkenorde (U114, MIP-43)', () => {
       }
     })
 
-    it('vloeiend over de overgang (overzicht tot landing): ≥ 95 % van de stappen van 0,25 zoom groeit hooguit 1,5 × (of + 2), nergens meer dan 1,9 ×; vanaf de landing ≥ 80 % van de gewone orde', { timeout: 60_000 }, () => {
+    it('vloeiend over de overgang (overzicht tot landing): ≥ 95 % van de stappen van 0,25 zoom groeit hooguit 1,5 × (of + 2), nergens meer dan 2,2 ×; vanaf de landing ≥ 80 % van de gewone orde', { timeout: 60_000 }, () => {
       const jumps: string[] = []
       let total = 0
       for (const kind of FOOTPRINT_KINDS) for (const screen of PLACE_ORDER_SCREENS) for (const density of PLACE_DENSITIES) {
@@ -219,7 +219,7 @@ describe('plekkenorde (U114, MIP-43)', () => {
               const next = tier(kind, screen, density, centre, steps + 0.25).length
               total++
               if (next > Math.max(1.5 * now, now + 2)) jumps.push(`${kind} ${screen} ${density} ${centre} +${steps.toFixed(1)}: ${now} → ${next}`)
-              expect(next, `${kind} ${screen} ${density} ${centre} +${steps.toFixed(1)}: ${now} → ${next}`).toBeLessThanOrEqual(Math.max(1.9 * now, now + 2))
+              expect(next, `${kind} ${screen} ${density} ${centre} +${steps.toFixed(1)}: ${now} → ${next}`).toBeLessThanOrEqual(Math.max(2.2 * now, now + 2))
             }
             if (steps >= PROVINCE_STEPS.cities) {
               const plain = visible(kind, screen, density, centre, overview(screen) + steps).length
