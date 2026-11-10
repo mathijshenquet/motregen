@@ -1,6 +1,6 @@
 import { MAP_CONTAIN_BOUNDS } from './map-constraint.js'
 import { MAP_LABEL_SIZES } from './map-labels.js'
-import { capitalsFirst, PLACE_DENSITIES, PLACE_ORDER, PLACE_ORDER_GAP_PX, PLACE_ORDER_SCREENS, PLACE_ORDER_ZOOMS, PLACE_SIDES, placeOrderKey, PROVINCES, placeSide, type CompactPlaceOrder, type OrderedPlace } from './map-places.js'
+import { capitalsFirst, encodeZoom, PLACE_DENSITIES, PLACE_ORDER, PLACE_ORDER_GAP_PX, PLACE_ORDER_SCREENS, PLACE_ORDER_ZOOMS, PLACE_SIDES, placeOrderKey, PROVINCES, placeSide, type CompactPlaceOrder, type OrderedPlace } from './map-places.js'
 import type { CataloguePlace } from './place-index.js'
 import { FOOTPRINT_KINDS, placeFootprint, type LabelSide } from './place-footprint.js'
 import { placesUrl } from './places-asset.js'
@@ -69,23 +69,22 @@ export function placeOrderSource(): string {
 export function buildPlaceOrder(gazetteer: readonly CataloguePlace[]): CompactPlaceOrder {
   const places = orderCandidates(gazetteer)
   const zooms: Record<string, number[]> = {}
-  // `provincies`: dezelfde plekken met de hoofdsteden voorop; de uitkomst terug op de index van `places`.
+  // De voorrang met de hoofdsteden voorop (de provincietrede landt op hen); de uitkomst terug op de index van `places`.
   const capitalsOrder = capitalsFirst(places).map((place) => places.indexOf(place))
-  for (const tier of [undefined, 'provincies'] as const) for (const kind of FOOTPRINT_KINDS) for (const screen of PLACE_ORDER_SCREENS) {
+  const position = new Map(capitalsOrder.map((index, rank) => [index, rank]))
+  const capitals = new Set(PROVINCES.map((province) => province.capital))
+  for (const kind of FOOTPRINT_KINDS) for (const screen of PLACE_ORDER_SCREENS) {
     const size = MAP_LABEL_SIZES[screen]
-    const ordered = tier ? capitalsOrder.map((index) => places[index]!) : places
-    const capitals = new Set(tier ? PROVINCES.map((province) => province.capital) : [])
-    const candidates = ordered.map((place) => ({
+    const candidates = capitalsOrder.map((index) => places[index]!).map((place) => ({
       ...mercatorFraction(place.lng, place.lat), shapes: placeFootprint(place.sea ? undefined : place.name, placeSide(place), size, kind),
       ...capitals.has(place.name) && !place.sea ? { tight: true } : {},
     }))
     for (const density of PLACE_DENSITIES) {
       const found = minimumZooms(candidates, { fromZoom: PLACE_ORDER_ZOOMS.from, toZoom: PLACE_ORDER_ZOOMS.to, gapPx: PLACE_ORDER_GAP_PX[kind][screen][density] })
-      const byPlace = tier ? places.map((_, index) => found[capitalsOrder.indexOf(index)]!) : found
-      zooms[placeOrderKey(kind, screen, density, tier)] = byPlace.map((zoom) => Number.isFinite(zoom) ? Math.ceil(zoom * 100) : -1)
+      zooms[placeOrderKey(kind, screen, density)] = places.map((_, index) => encodeZoom(found[position.get(index)!]!))
     }
   }
-  const keep = places.map((_, index) => Object.values(zooms).some((values) => values[index]! >= 0))
+  const keep = places.map((_, index) => Object.values(zooms).some((values) => values[index]! !== 255))
   const kept = <T>(values: readonly T[]) => values.filter((_, index) => keep[index])
   const shown = kept(places)
   return {
@@ -96,7 +95,7 @@ export function buildPlaceOrder(gazetteer: readonly CataloguePlace[]): CompactPl
     rank: shown.map((place) => place.rank),
     sea: shown.flatMap((place, index) => place.sea ? [index] : []),
     abroad: shown.flatMap((place, index) => place.abroad ? [index] : []),
-    zooms: Object.fromEntries(Object.entries(zooms).map(([key, values]) => [key, kept(values)])),
+    zooms: Object.fromEntries(Object.entries(zooms).map(([key, values]) => [key, btoa(String.fromCharCode(...kept(values)))])),
   }
 }
 

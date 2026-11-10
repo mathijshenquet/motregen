@@ -57,23 +57,21 @@ export function sockNameOffset(side: LabelSide, name: string, size: number): [nu
 const WIDEST_VALUE = '−10°'
 
 /**
- * `samen`: Weer en Gevoel met de naam vóór het getal in één label; `naast`: Weer, Gevoel en Lucht met het getal op de
- * plek en de naam aan de vaste kant; `zak`: Wind (lijfbereik, badge, naam aan de vaste kant). Dezelfde orde, eigen
- * voetafdruk: Wind is daardoor dunner dan Gevoel.
+ * `samen`: Weer, Gevoel en Lucht, met de naam vóór het getal in één label (of, in Lucht, de naam alleen op dezelfde
+ * plek); `zak`: Wind (lijfbereik, badge, naam aan de vaste kant). Dezelfde orde, eigen voetafdruk: Wind is daardoor
+ * dunner dan Gevoel.
  */
-export type FootprintKind = 'samen' | 'naast' | 'zak'
-export const FOOTPRINT_KINDS: readonly FootprintKind[] = ['samen', 'naast', 'zak']
+export type FootprintKind = 'samen' | 'zak'
+export const FOOTPRINT_KINDS: readonly FootprintKind[] = ['samen', 'zak']
 
 export function placeFootprint(name: string | undefined, side: LabelSide, size: number, kind: FootprintKind): Shape[] {
   const value = islandBox(WIDEST_VALUE, size)
-  const shapes: Shape[] = kind === 'zak'
-    ? [{ dx: 0, dy: 0, halfWidth: 0, halfHeight: 0, radius: SOCK_REACH_PX, body: true }, { dx: 0, dy: 0, halfWidth: 0, halfHeight: 0, radius: sockBadgeRadius(size) }]
-    : [{ dx: 0, dy: 0, halfWidth: value.width / 2, halfHeight: value.height / 2, radius: 0 }]
-  if (!name) return shapes
   if (kind === 'samen') {
-    const together = value.width + nameBoxWidth(name, size)
-    return [{ dx: 0, dy: 0, halfWidth: together / 2, halfHeight: value.height / 2, radius: 0 }]
+    const width = value.width + (name ? nameBoxWidth(name, size) : 0)
+    return [{ dx: 0, dy: 0, halfWidth: width / 2, halfHeight: value.height / 2, radius: 0 }]
   }
+  const shapes: Shape[] = [{ dx: 0, dy: 0, halfWidth: 0, halfHeight: 0, radius: SOCK_REACH_PX, body: true }, { dx: 0, dy: 0, halfWidth: 0, halfHeight: 0, radius: sockBadgeRadius(size) }]
+  if (!name) return shapes
   const [dx, dy] = sockNameOffset(side, name, size)
   shapes.push({ dx, dy, halfWidth: sockNameWidth(name, size) / 2, halfHeight: (size + 4) / 2, radius: 0 })
   return shapes

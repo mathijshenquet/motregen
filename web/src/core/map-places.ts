@@ -119,7 +119,6 @@ export const PLACE_DENSITIES: readonly PlaceDensity[] = ['weinig', 'midden', 've
  */
 export const PLACE_ORDER_GAP_PX: Record<FootprintKind, Record<PlaceOrderScreen, Record<PlaceDensity, number>>> = {
   samen: { phone: { weinig: 44, midden: 28, veel: 8 }, desktop: { weinig: 95, midden: 58, veel: 32 } },
-  naast: { phone: { weinig: 44, midden: 28, veel: 8 }, desktop: { weinig: 95, midden: 58, veel: 32 } },
   zak: { phone: { weinig: 31, midden: 14, veel: 0 }, desktop: { weinig: 100, midden: 60, veel: 30 } },
 }
 
@@ -129,12 +128,11 @@ export const PLACE_ORDER_GAP_PX: Record<FootprintKind, Record<PlaceOrderScreen, 
  */
 export const PLACE_ORDER_TARGET: Record<FootprintKind, Record<PlaceOrderScreen, Record<PlaceDensity, number>>> = {
   samen: { phone: { weinig: 8, midden: 12, veel: 22 }, desktop: { weinig: 15, midden: 25, veel: 42 } },
-  naast: { phone: { weinig: 8, midden: 12, veel: 21 }, desktop: { weinig: 15, midden: 27, veel: 43 } },
   zak: { phone: { weinig: 5, midden: 7, veel: 9 }, desktop: { weinig: 9, midden: 14, veel: 22 } },
 }
 
-export function placeOrderKey(kind: FootprintKind, screen: PlaceOrderScreen, density: PlaceDensity, tier?: 'provincies'): string {
-  return `${tier ? `${tier}-` : ''}${kind}-${screen}-${density}`
+export function placeOrderKey(kind: FootprintKind, screen: PlaceOrderScreen, density: PlaceDensity): string {
+  return `${kind}-${screen}-${density}`
 }
 
 /** Zoombereik van de vooraf berekende plekkenorde (scripts/plekkenorde-zooms.ts). */
@@ -217,8 +215,16 @@ export interface CompactPlaceOrder {
   rank: number[]
   sea: number[]
   abroad: number[]
-  /** Zoom × 100, −1 = nooit. */
-  zooms: Record<string, number[]>
+  /** Per placeOrderKey: base64, één byte per plek (encodeZoom); 255 = nooit. */
+  zooms: Record<string, string>
+}
+
+/** Minimale zoom in één byte: stappen van 1/25 zoom vanaf PLACE_ORDER_ZOOMS.from, naar boven afgerond (nooit te vroeg). */
+const ZOOM_BYTE_STEPS = 25
+const NEVER = 255
+
+export function encodeZoom(zoom: number): number {
+  return Number.isFinite(zoom) ? Math.ceil((zoom - PLACE_ORDER_ZOOMS.from) * ZOOM_BYTE_STEPS - 1e-9) : NEVER
 }
 
 export function decodePlaceOrder(data: CompactPlaceOrder): PlaceOrderTable {
@@ -227,23 +233,27 @@ export function decodePlaceOrder(data: CompactPlaceOrder): PlaceOrderTable {
     name, lng: data.lng[index]! / 1000, lat: data.lat[index]! / 1000, rank: data.rank[index] as OrderedPlace['rank'],
     ...sea.has(index) ? { sea: true as const } : {}, ...abroad.has(index) ? { abroad: true as const } : {},
   }))
-  const zooms = Object.fromEntries(Object.entries(data.zooms).map(([key, values]) => [key, values.map((value) => value < 0 ? Infinity : value / 100)]))
+  const zooms = Object.fromEntries(Object.entries(data.zooms).map(([key, encoded]) => [key,
+    Array.from(atob(encoded), (character) => character.charCodeAt(0)).map((value) => value === NEVER ? Infinity : PLACE_ORDER_ZOOMS.from + value / ZOOM_BYTE_STEPS)]))
   return { places, zooms }
 }
 
 let loadedOrder: PlaceOrderTable | undefined
-/** De orde laden (eigen chunk, alleen onder `?dev&plekken=orde`). */
-export async function loadPlaceOrder(): Promise<PlaceOrderTable> {
-  loadedOrder ??= decodePlaceOrder((await import('./place-order-zooms.json')).default as CompactPlaceOrder)
-  return loadedOrder
+let loadingOrder: Promise<PlaceOrderTable> | undefined
+/** De orde laden (eigen chunk; App vraagt hem pas na de eerste kaartweergave). */
+export function loadPlaceOrder(): Promise<PlaceOrderTable> {
+  loadingOrder ??= import('./place-order-zooms.json').then((module) => loadedOrder = decodePlaceOrder(module.default as CompactPlaceOrder))
+  return loadingOrder
+}
+
+export function placeOrderLoaded(): boolean {
+  return loadedOrder !== undefined
 }
 
 export interface PlaceOrderView {
-  /** `provincies`: de tabellen met hoofdsteden voorop, en de stedentrede pas vanaf PROVINCE_STEPS.cities. */
-  tier?: 'provincies'
-  /** Bij `tier`: de stedentrede al vanaf deze zoom (Wind met `windtrede=steden`: vanaf het overzicht). */
+  /** De stedentrede vanaf deze zoom (standaard de landing van de provincietrede; Wind met `windtrede=steden`: het overzicht). */
   citiesFrom?: number
-  /** Welke voetafdruk (place-footprint): Weer/Gevoel `samen` of `naast`, Wind `zak`. */
+  /** Welke voetafdruk (place-footprint): Weer, Gevoel en Lucht `samen`, Wind `zak`. */
   kind: FootprintKind
   zoom: number
   /** Overzichtszoom: de minzoom waarop het hele kaartkader past. */
@@ -257,24 +267,19 @@ export interface PlaceOrderView {
 export const NEIGHBOURS_LATER_STEPS = 1
 
 /**
- * Plekken bij deze zoom, in ordevolgorde: elke plek vanaf zijn minimale zoom. Inzoomen voegt alleen toe; pan en pin
- * tellen niet mee.
+ * De stedentrede: elke plek vanaf zijn minimale zoom (de hoofdsteden voorop in de voorrang, en er vanaf de trede).
+ * Inzoomen voegt alleen toe; pan en pin tellen niet mee. Vóór de landing staan de steden via provinceTier.
  */
 export function orderedPlaces(view: PlaceOrderView, table: PlaceOrderTable | undefined = loadedOrder): OrderedPlace[] {
   if (!table) return []
-  const zooms = table.zooms[placeOrderKey(view.kind, view.screen, view.density, view.tier)]!
-  if (view.tier) {
-    // Stedentrede (vanaf de landing C): de hoofdsteden en alles wat de tabel toelaat, meteen op het dichtheidsdoel.
-    // Vóór C staan de steden via provinceTier (die ze laat meegroeien tijdens de tween).
-    const landing = view.citiesFrom ?? view.overviewZoom + PROVINCE_STEPS.cities
-    if (view.zoom < landing) return []
-    return table.places.filter((place, index) => {
-      const own = zooms[index]!
-      return view.zoom >= (CAPITALS.has(place.name) ? Math.max(own, landing) : own) && (!place.abroad || view.zoom >= abroadFrom(view, own))
-    })
-  }
+  const zooms = table.zooms[placeOrderKey(view.kind, view.screen, view.density)]!
+  const landing = view.citiesFrom ?? view.overviewZoom + PROVINCE_STEPS.cities
+  if (view.zoom < landing) return []
   // Geen afrondingsmarge op de tabelzoom: een plek die er net eerder staat, kan een belangrijkere raken.
-  return table.places.filter((place, index) => view.zoom >= zooms[index]! && (!place.abroad || view.zoom >= abroadFrom(view, zooms[index]!)))
+  return table.places.filter((place, index) => {
+    const own = zooms[index]!
+    return view.zoom >= (CAPITALS.has(place.name) ? Math.max(own, landing) : own) && (!place.abroad || view.zoom >= abroadFrom(view, own))
+  })
 }
 
 /**
@@ -290,10 +295,6 @@ function abroadFrom(view: PlaceOrderView, own: number): number {
   return Math.max(floor + spread, own + NEIGHBOURS_LATER_STEPS)
 }
 
-/** Zoom vanaf waar `namen=later` namen toont. */
-export function placeNamesFromZoom(view: Pick<PlaceOrderView, 'overviewZoom' | 'screen'>): number {
-  return view.overviewZoom + 1
-}
 /** Een kaart op exact de overzichtszoom mag door afronding niet net onder een drempel vallen. */
 const ZOOM_EPSILON = 0.02
 
@@ -376,10 +377,10 @@ let tierCache: { table: PlaceOrderTable | undefined; key: string; places: Ordere
 
 function computeProvinceTier(view: PlaceOrderView, table: PlaceOrderTable | undefined): OrderedPlace[] {
   const provinces = provincePlaces(view)
-  if (!provinces) return orderedPlaces({ ...view, tier: 'provincies' }, table)
+  if (!provinces) return orderedPlaces(view, table)
   if (!table) return provinces
   const landing = view.overviewZoom + PROVINCE_STEPS.cities
-  const zooms = table.zooms[placeOrderKey(view.kind, view.screen, view.density, 'provincies')]!
+  const zooms = table.zooms[placeOrderKey(view.kind, view.screen, view.density)]!
   // Quotum: een deel w (0 bij het overzicht → 1 bij C) van de steden die de tabel bij deze zoom toelaat, de
   // laagste minimale zoom eerst. Nieuwe kandidaten hebben altijd een hogere minimale zoom dan de oude en het quotum
   // groeit, dus wat er staat blijft staan; het aantal per scherm groeit zo ongeveer lineair naar het doel.
@@ -443,12 +444,14 @@ export function capitalsFirst(order: readonly OrderedPlace[]): OrderedPlace[] {
 
 /** De dev-knoppen van U114 (MIP-12; `docs/dev-opties.md`). Zonder `?dev` het huidige gedrag. */
 export interface PlaceOrderOptions {
-  /** `orde`: de plekkenorde met de provincietrede ervoor (PO-besluit MIP-43); `d`: de orde zonder trede (variant D, tot de merge). */
-  places: 'nu' | 'orde' | 'd'
-  /** Wind in de orde: meteen de stedentrede met de hoofdsteden voorop (`steden`), of ook de provincietrede. */
+  /**
+   * `orde` (standaard, MIP-43): de plekkenorde met de provincietrede ervoor. `nu`: het oude gedrag, alleen als
+   * terugvaloptie achter `?dev` (eigenaar Claude, U114, vervalt 2026-11-17).
+   */
+  places: 'nu' | 'orde'
+  /** Wind: meteen de stedentrede met de hoofdsteden voorop (`steden`), of ook de provincietrede. */
   windTier: 'steden' | 'provincies'
   density: PlaceDensity
-  names: 'samen' | 'naast' | 'later'
   weatherNumbers: 'plekken' | 'isolijn'
   neighbours: 'later' | 'meteen'
 }
@@ -461,11 +464,9 @@ export function placeOrderOptions(search: string): PlaceOrderOptions {
     return dev && values.includes(value as T) ? value as T : values[0]!
   }
   return {
-    // `provincies` was de dev-naam van de trede vóór het besluit; dezelfde als `orde`.
-    places: params.get('plekken') === 'provincies' && dev ? 'orde' : pick('plekken', ['nu', 'orde', 'd'] as const),
+    places: pick('plekken', ['orde', 'nu'] as const),
     windTier: pick('windtrede', ['steden', 'provincies'] as const),
     density: pick('dichtheid', ['midden', 'weinig', 'veel'] as const),
-    names: pick('namen', ['naast', 'samen', 'later'] as const),
     weatherNumbers: pick('weergetal', ['plekken', 'isolijn'] as const),
     neighbours: pick('buurland', ['later', 'meteen'] as const),
   }

@@ -74,7 +74,7 @@ import { buildWindTimeline, sameGrid, zipWindFrame, type WindTimelineFrame } fro
 import { DEFAULT_WIND_TUNING, MOBILE_WIND, WIND_MAX_FPS, WIND_PARAMETERS, WIND_SIMULATION_FPS, WindLayer } from './core/wind-layer'
 import { BEAUFORT_FEEL_ZONES, BEAUFORT_LEGEND, beaufortFrame, beaufortPalette, windClassOpacity, WIND_FILL, WIND_NIGHT_LINE_LIGHTEN, WIND_THIN_PARTICLE_WIDTH } from './core/wind-beaufort'
 import { WindsockLayer, windsockDevOptions } from './core/wind-socks'
-import { loadPlaceOrder, nestedPlaces, orderedPlaces, placeNamesFromZoom, placeOrderOptions, placeSide, PROVINCE_STEPS, provinceTier, type OrderedPlace, type PlaceOrderView } from './core/map-places'
+import { loadPlaceOrder, nestedPlaces, orderedPlaces, placeOrderOptions, placeSide, PROVINCE_STEPS, provinceTier, type OrderedPlace, type PlaceOrderView } from './core/map-places'
 import { PLACE_NAMES_LAYER, placeNamesData, placeNamesLayer } from './core/place-names'
 import type { FootprintKind } from './core/place-footprint'
 import { WINDSOCK_SPACING_PX } from './core/windsock-flow'
@@ -236,9 +236,14 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const placeOrder = placeOrderOptions(window.location.search)
   /** U114: plekken uit de plekkenorde (`orde`, of `provincies` met de provincietrede ervoor). */
   const ordered = placeOrder.places !== 'nu'
-  // De orde staat in een eigen chunk; tot hij binnen is, staan er geen plekken. Daarna alles één keer opnieuw.
-  if (ordered) {
-    void loadPlaceOrder().then(() => {
+  /**
+   * De ordetabel (eigen chunk) pas na de eerste kaartweergave, zodat hij de eerste regen niet vertraagt. Tot hij binnen
+   * is, staan uitgezoomd de provincieplekken (die hebben geen tabel nodig) en dieper nog geen plekken; daarna alles één
+   * keer opnieuw.
+   */
+  function loadOrderWhenIdle(): void {
+    if (!ordered) return
+    const load = () => void loadPlaceOrder().then(() => {
       updatePlaceNames()
       temperatureTick = undefined
       temperatureInput = ''
@@ -246,7 +251,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       void showWindsocks()
       for (const set of isolineSets) { set.labels?.requestSpawn(); updateIsolineLabels(set) }
     })
+    // Safari kent requestIdleCallback niet.
+    const idle = (window as { requestIdleCallback?: (callback: () => void, options: { timeout: number }) => number }).requestIdleCallback
+    if (idle) idle(load, { timeout: 1_500 })
+    else window.setTimeout(load, 200)
   }
+
   const stillMode = new URLSearchParams(window.location.search).get('still') === '1'
   let rigFreeCamera = false
   // Bewaar de invoer voordat de live permalink de adresbalk normaliseert.
@@ -1074,6 +1084,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       map.on('dragstart', () => setMapSourceFaded(true))
       map.on('zoomend', () => { updatePlaceNames(); void showTemperature(); void showWindsocks() })
       map.on('zoom', followProvinces)
+      map.once('idle', loadOrderWhenIdle)
       map.on('moveend', () => {
         labelCollision?.update()
         for (const set of isolineSets) { set.labels?.requestSpawn(); updateIsolineLabels(set) }
@@ -1892,7 +1903,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     map.addLayer(temperatureLayer(mapSurfaceTheme(), mapLabelSize(clientWidth, clientHeight)), beforeId)
     if (ordered && !map.getLayer(PLACE_NAMES_LAYER)) {
       // Boven de temperaturen: namen gaan in de botsing voor, de getallen wijken uit.
-      map.addSource(PLACE_NAMES_LAYER, { type: 'geojson', data: placeNamesData([], mapLabelSize(clientWidth, clientHeight)) })
+      map.addSource(PLACE_NAMES_LAYER, { type: 'geojson', data: placeNamesData([]) })
       map.addLayer(placeNamesLayer(map.getStyle(), mapLabelSize(clientWidth, clientHeight)), beforeId)
       placeNamesKey = ''
       updatePlaceNames()
@@ -1914,9 +1925,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   function visibleOrderPlaces(kind: FootprintKind = valueFootprint()): OrderedPlace[] {
     const view = placeOrderView(kind)
     if (!view) return []
-    if (placeOrder.places !== 'orde') return orderedPlaces(view)
     // Wind slaat de provincieplekken standaard over: meteen de hoofdsteden en de stedentrede (voorstel orkestrator).
-    if (kind === 'zak' && placeOrder.windTier === 'steden') return orderedPlaces({ ...view, tier: 'provincies', citiesFrom: view.overviewZoom })
+    if (kind === 'zak' && placeOrder.windTier === 'steden') return orderedPlaces({ ...view, citiesFrom: view.overviewZoom })
     return provinceTier(view)
   }
 
@@ -1934,20 +1944,14 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     })
   }
 
-  /** Voetafdruk van de getallen in Weer en Gevoel: naam in het label (`samen`) of ernaast. */
+  /** Voetafdruk van de getallen in Weer en Gevoel (en de namen in Lucht): de naam vóór het getal in één label. */
   function valueFootprint(): FootprintKind {
-    return placeOrder.names === 'samen' ? 'samen' : 'naast'
+    return 'samen'
   }
 
-  /** `namen=later`: uitgezoomd geen namen, pas vanaf de zoom van rang 2. */
-  function placeNamesVisible(): boolean {
-    const view = placeOrderView()
-    return placeOrder.names !== 'later' || (view !== undefined && view.zoom >= placeNamesFromZoom(view) - 0.02)
-  }
-
-  /** `namen=samen`: het getal of de zak draagt de naam zelf (zeepunten hebben geen naam). */
+  /** Het getal of de zak draagt de naam zelf (zeepunten hebben geen naam). */
   function nameInValue(place: { name: string }): boolean {
-    return placeOrder.names === 'samen' && !(place as OrderedPlace).sea
+    return !(place as OrderedPlace).sea
   }
 
   let placeNamesKey = ''
@@ -1958,9 +1962,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   function updatePlaceNames(): void {
     if (!ordered || !map?.getSource(PLACE_NAMES_LAYER)) return
     const mode = untrack(focusPinned)
-    const valuesCarryNames = placeOrder.names === 'samen' && (mode === 'temperature' || mode === 'wind' || (mode === 'weather' && placeOrder.weatherNumbers === 'plekken'))
-    // In Wind horen de namen bij de zakken; elders bij de getallen (of, in Lucht, bij niets: dezelfde voetafdruk).
-    const places = placeNamesVisible() && !valuesCarryNames ? visibleOrderPlaces(mode === 'wind' ? 'zak' : 'naast') : []
+    const valuesCarryNames = mode === 'temperature' || mode === 'wind' || (mode === 'weather' && placeOrder.weatherNumbers === 'plekken')
+    // Alleen in Lucht (en Weer met de oude stadstemperaturen) staat de naam los, op de plek van het label.
+    const places = !valuesCarryNames ? visibleOrderPlaces() : []
     const { clientWidth, clientHeight } = map.getContainer()
     const size = mapLabelSize(clientWidth, clientHeight)
     const key = `${size}|${places.map((place) => place.name).join('|')}`
@@ -1968,7 +1972,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       placeNamesKey = key
       // Geen namen: laag uit i.p.v. lege data. Na setData naar nul features gooide queryRenderedFeatures (ook die van
       // MapLabelPlacer) "Out of bounds" op de verouderde symboolindex (U114, reproduceerbaar met namen=later).
-      if (places.length) (map.getSource(PLACE_NAMES_LAYER) as GeoJSONSource).setData(placeNamesData(places, size))
+      if (places.length) (map.getSource(PLACE_NAMES_LAYER) as GeoJSONSource).setData(placeNamesData(places))
       map.setLayoutProperty(PLACE_NAMES_LAYER, 'visibility', places.length ? 'visible' : 'none')
     }
     // Het Weer-getal staat vast op de plek; welke plekken samen passen, bepaalt de orde, dus MapLibre botst niets

@@ -133,8 +133,9 @@ export default defineConfig({
       // runtimecache: precache haalde ze bij de installatie opnieuw op (cache: reload, 204 kB ongecomprimeerd),
       // terwijl 256-511 zelden nodig is.
       globPatterns: ['**/*.{js,css,html,ico,png,svg}', 'basemap/*.json', 'assets/*.pbf-*.gz'],
-      // U114: de plekkenorde (`?dev&plekken=orde`) is een dev-chunk van 155 kB gzip; niet bij elke installatie ophalen.
-      globIgnores: ['**/data/**', '**/perf-mobile/**', 'route.html', 'og-image.png', '**/place-order-zooms-*.js'],
+      // De plekkenorde (U114, place-order-zooms-*.js, ± 90 kB gzip) laadt App pas na de eerste kaartweergave; de precache
+      // geeft hem een tweede bezoek meteen.
+      globIgnores: ['**/data/**', '**/perf-mobile/**', 'route.html', 'og-image.png'],
       navigateFallback: '/index.html',
       navigateFallbackDenylist: [/^\/(?:data|telegram|changelog)(?:\/|$)/, /^\/(?:hit|sw\.js|sitemap\.xml|robots\.txt)$/],
       runtimeCaching: [

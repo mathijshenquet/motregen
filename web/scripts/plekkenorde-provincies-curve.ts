@@ -17,7 +17,7 @@ const lines = [
   '# Provincietrede: plekken per scherm tegen de zoom',
   '',
   `Middelpunt ${CENTRE.join(', ')}; kaart telefoon 402 × 462 (onder het paneel), desktop 970 × 900 css-px. Kolom = zoomstappen boven het overzicht;`,
-  `provincies tot +${PROVINCE_STEPS.provinces}, tween tot +${PROVINCE_STEPS.cities}, daarna de stedentrede. "orde" = dezelfde view zonder trede (= plekken=d). De zak-regels met trede gelden voor windtrede=provincies.`,
+  `provincies tot +${PROVINCE_STEPS.provinces}, tween tot +${PROVINCE_STEPS.cities}, daarna de stedentrede. "orde" = de stedentrede vanaf het overzicht (zonder provincietrede, zoals Wind met windtrede=steden). De zak-regels met trede gelden voor windtrede=provincies.`,
   '',
   `| voetafdruk | scherm | dichtheid | trede | ${steps.map((step) => `+${step.toFixed(1)}`).join(' | ')} |`,
   `| --- | --- | --- | --- | ${steps.map(() => '---').join(' | ')} |`,
@@ -26,7 +26,7 @@ for (const kind of FOOTPRINT_KINDS) for (const screen of Object.keys(MAPS) as Pl
   const home = containView(MAP_CONTAIN_BOUNDS, MAPS[screen])
   const count = (step: number, tiered: boolean) => {
     const view = { kind, zoom: home.zoom + step, overviewZoom: home.zoom, screen, density, neighbours: 'later' as const }
-    return placesInView(tiered ? provinceTier(view, table) : orderedPlaces(view, table), CENTRE, view.zoom, MAPS[screen]).length
+    return placesInView(tiered ? provinceTier(view, table) : orderedPlaces({ ...view, citiesFrom: home.zoom }, table), CENTRE, view.zoom, MAPS[screen]).length
   }
   lines.push(`| ${kind} | ${screen} | ${density} | provincies | ${steps.map((step) => count(step, true)).join(' | ')} |`)
   lines.push(`| ${kind} | ${screen} | ${density} | orde | ${steps.map((step) => count(step, false)).join(' | ')} |`)

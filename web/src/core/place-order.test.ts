@@ -26,11 +26,12 @@ const LAND: Record<string, [number, number]> = {
 interface Seen { place: OrderedPlace; x: number; y: number }
 
 /** Zichtbare plekken met hun schermpositie (anker) bij dit middelpunt en deze zoom. */
-function visible(kind: FootprintKind, screen: PlaceOrderScreen, density: PlaceDensity, [lng, lat]: [number, number], zoom: number, neighbours: 'later' | 'meteen' = 'later', tier?: 'provincies'): Seen[] {
+/** De stedentrede vanaf het overzicht (zonder provincietrede ervoor): de orde zelf, zoals Wind met `windtrede=steden`. */
+function visible(kind: FootprintKind, screen: PlaceOrderScreen, density: PlaceDensity, [lng, lat]: [number, number], zoom: number, neighbours: 'later' | 'meteen' = 'later'): Seen[] {
   const map = MAPS[screen]
   const overviewZoom = containZoom(MAP_CONTAIN_BOUNDS, map)
   const centre = mercatorFraction(lng, lat), scale = 512 * 2 ** zoom
-  return orderedPlaces({ kind, zoom, overviewZoom, screen, density, neighbours, tier }, table).flatMap((place) => {
+  return orderedPlaces({ kind, zoom, overviewZoom, screen, density, neighbours, citiesFrom: overviewZoom }, table).flatMap((place) => {
     const at = mercatorFraction(place.lng, place.lat)
     const x = (at.x - centre.x) * scale + map.width / 2, y = (at.y - centre.y) * scale + map.height / 2
     return x >= 0 && y >= 0 && x <= map.width && y <= map.height ? [{ place, x, y }] : []
@@ -94,6 +95,9 @@ describe('plekkenorde (U114, MIP-43)', () => {
             ...mercatorFraction(place.lng, place.lat), shapes: placeFootprint(place.sea ? undefined : place.name, placeSide(place), size, kind), name: place.name,
           }))
           for (const [index, a] of seen.entries()) for (const b of seen.slice(0, index)) {
+            // Hoofdsteden onderling hoeven alleen niet te overlappen (zonder lijfbereik): place-thinning `tight`.
+            const capital = (name: string) => PROVINCES.some((province) => province.capital === name)
+            if (capital(a.name) && capital(b.name)) continue
             expect(lastClash(a, b, 0, zoom, zoom), `${kind} ${screen} z${zoom}: ${a.name} / ${b.name}`).toBe(-Infinity)
           }
         }
@@ -106,8 +110,9 @@ describe('plekkenorde (U114, MIP-43)', () => {
       const map = MAPS[screen]
       const home = containView(MAP_CONTAIN_BOUNDS, map)
       const overviewCounts = PLACE_DENSITIES.map((density) => visible(kind, screen, density, [home.lng, home.lat], home.zoom).length)
-      expect(overviewCounts[0], `${kind} ${screen} overzicht weinig < midden`).toBeLessThan(overviewCounts[1]!)
-      expect(overviewCounts[1], `${kind} ${screen} overzicht midden < veel`).toBeLessThan(overviewCounts[2]!)
+      // Bij het overzicht domineren de vaste hoofdsteden; daar alleen "niet minder", verderop verschillen ze duidelijk (zie de gemiddelden).
+      expect(overviewCounts[0], `${kind} ${screen} overzicht weinig ≤ midden`).toBeLessThanOrEqual(overviewCounts[1]!)
+      expect(overviewCounts[1], `${kind} ${screen} overzicht midden ≤ veel`).toBeLessThanOrEqual(overviewCounts[2]!)
       for (const density of PLACE_DENSITIES) {
         const target = PLACE_ORDER_TARGET[kind][screen][density]
         const ratios: Array<{ ratio: number; label: string; inBand: boolean }> = []
@@ -235,7 +240,7 @@ describe('plekkenorde (U114, MIP-43)', () => {
   it('windtrede=steden: Wind begint bij het overzicht meteen met de hoofdsteden, zonder provincieplekken, en is monotoon', () => {
     for (const screen of PLACE_ORDER_SCREENS) for (const density of PLACE_DENSITIES) {
       const home = containView(MAP_CONTAIN_BOUNDS, MAPS[screen])
-      const at = (zoom: number) => orderedPlaces({ kind: 'zak', zoom, overviewZoom: home.zoom, screen, density, neighbours: 'later', tier: 'provincies', citiesFrom: home.zoom }, table)
+      const at = (zoom: number) => orderedPlaces({ kind: 'zak', zoom, overviewZoom: home.zoom, screen, density, neighbours: 'later', citiesFrom: home.zoom }, table)
       const first = at(home.zoom)
       expect(first.some((place) => PROVINCES.some((province) => province.name === place.name && province.capital !== place.name))).toBe(false)
       expect(first.filter((place) => PROVINCES.some((province) => province.capital === place.name)).length, `${screen} ${density}`).toBeGreaterThanOrEqual(6)
@@ -255,21 +260,21 @@ describe('plekkenorde (U114, MIP-43)', () => {
 
   it('buurland later: niet vóór een zoomstap boven het overzicht (verspreid over de halve stap erna); meteen: al in het overzicht', () => {
     const view = { kind: 'samen' as const, overviewZoom: overview('desktop'), screen: 'desktop' as const, density: 'midden' as const }
-    const abroad = (zoom: number, neighbours: 'later' | 'meteen') => orderedPlaces({ ...view, zoom, neighbours }, table).filter((place) => place.abroad).length
+    const abroad = (zoom: number, neighbours: 'later' | 'meteen') => orderedPlaces({ ...view, zoom, neighbours, citiesFrom: view.overviewZoom }, table).filter((place) => place.abroad).length
     expect(abroad(view.overviewZoom, 'later')).toBe(0)
     expect(abroad(view.overviewZoom, 'meteen')).toBeGreaterThan(0)
     expect(abroad(view.overviewZoom + 0.99, 'later')).toBe(0)
     expect(abroad(view.overviewZoom + 1.5, 'later')).toBeGreaterThan(0)
   })
 
-  it('leest de knoppen alleen onder ?dev', () => {
-    expect(placeOrderOptions('?plekken=orde').places).toBe('nu')
-    expect(placeOrderOptions('?dev&plekken=provincies').places).toBe('orde')
-    expect(placeOrderOptions('?dev&plekken=d').places).toBe('d')
-    expect(placeOrderOptions('?dev&plekken=orde').windTier).toBe('steden')
-    expect(placeOrderOptions('?dev&plekken=orde&windtrede=provincies').windTier).toBe('provincies')
-    expect(placeOrderOptions('?dev&plekken=orde&namen=samen&dichtheid=veel')).toEqual({
-      places: 'orde', windTier: 'steden', density: 'veel', names: 'samen', weatherNumbers: 'plekken', neighbours: 'later',
+  it('zonder ?dev de orde met de provincietrede; de knoppen (en het oude gedrag `nu`) alleen onder ?dev', () => {
+    expect(placeOrderOptions('').places).toBe('orde')
+    expect(placeOrderOptions('?plekken=nu').places).toBe('orde')
+    expect(placeOrderOptions('?dev&plekken=nu').places).toBe('nu')
+    expect(placeOrderOptions('?dev&windtrede=provincies').windTier).toBe('provincies')
+    expect(placeOrderOptions('?dichtheid=veel')).toEqual({ places: 'orde', windTier: 'steden', density: 'midden', weatherNumbers: 'plekken', neighbours: 'later' })
+    expect(placeOrderOptions('?dev&dichtheid=veel&buurland=meteen')).toEqual({
+      places: 'orde', windTier: 'steden', density: 'veel', weatherNumbers: 'plekken', neighbours: 'meteen',
     })
   })
 })
