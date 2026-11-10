@@ -14,14 +14,15 @@ rmSync(outDir, { recursive: true, force: true })
 mkdirSync(outDir, { recursive: true })
 const videoDir = join(outDir, 'video-ruw')
 
-const TIME = '2026-11-10T11:00:00.000Z'
+// SHOT_TIME (nacht = donkere kaart), SHOT_QUERY (leeg = zonder ?dev), SHOT_STEPS=0,1,2.5 en SHOT_CLIPS=0 maken andere sets.
+const TIME = process.env.SHOT_TIME ?? '2026-11-10T11:00:00.000Z'
 const QUERY = process.env.SHOT_QUERY ?? 'dev&plekken=orde&namen=samen'
 const profiles = {
   telefoon: { viewport: { width: 402, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
   desktop: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1, isMobile: false, hasTouch: false },
 }
 // Zoomstappen boven het overzicht: provincies, halverwege de tween, net voor en in de stedentrede.
-const STEPS = [0, 0.75, 1, 1.25, 1.5, 2.5]
+const STEPS = process.env.SHOT_STEPS ? process.env.SHOT_STEPS.split(',').map(Number) : [0, 0.75, 1, 1.25, 1.5, 2.5]
 const CENTRE = { lng: 5.3, lat: 52.2 }
 
 const counts: Record<string, unknown> = {}
@@ -35,7 +36,7 @@ for (const [profileName, profile] of Object.entries(profiles)) {
     const page = await context.newPage()
     page.setDefaultTimeout(120_000)
     page.on('pageerror', (error) => console.log('pageerror', mode, profileName, error.message.slice(0, 200)))
-    await page.goto(new URL(`/${mode}/utrecht?t=${encodeURIComponent(TIME)}&${QUERY}`, origin).href)
+    await page.goto(new URL(`/${mode}/utrecht?t=${encodeURIComponent(TIME)}${QUERY ? `&${QUERY}` : ''}`, origin).href)
     await settle(page)
     await jump(page, CENTRE.lng, CENTRE.lat, 0, 3_500)
     const overview = await page.evaluate(() => (window as unknown as { __motregenCamera: () => { zoom: number } }).__motregenCamera().zoom)
