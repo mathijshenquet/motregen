@@ -1,5 +1,5 @@
 import type { Grid } from './contract.js'
-import { WINDSOCK_SAMPLES, WINDSOCK_SHAPE, windsockShape, type Point } from './wind-glyph.js'
+import { WINDSOCK_SAMPLES, WINDSOCK_SHAPE, windsockPill, windsockShape, type BadgeBox, type Point } from './wind-glyph.js'
 
 /**
  * Hoe de zak meebuigt: niet (standaard sinds PO 2026-11-09: "de kromming werkt niet echt"), met de stroomlijn door
@@ -258,28 +258,45 @@ export const SOCK_SNAP_SECONDS = 1
  * gebruiken deze regel.
  */
 export const WINDSOCK_REACH_RADIUS = 12
-/** Kandidaten liggen minstens zo ver uit elkaar: een volle zak plus twee halve diktes (CSS-px). */
-export const WINDSOCK_SPACING_PX = Math.round(WINDSOCK_SHAPE.sizes.kaart.maxLength + 2 * WINDSOCK_REACH_RADIUS)
+/**
+ * Kandidaten liggen minstens zo ver uit elkaar: een volle zak, het deel van de pil ("0 Bft") dat aan de andere kant
+ * van de mast uitsteekt, en twee halve diktes (CSS-px; U113: 70 → 88 met de pil).
+ */
+export const WINDSOCK_SPACING_PX = (() => {
+  const pill = windsockPill(90, '0', 'Bft')
+  return Math.round(WINDSOCK_SHAPE.sizes.kaart.maxLength + 2 * (pill.halfWidth - pill.halfHeight) + 2 * WINDSOCK_REACH_RADIUS)
+})()
 /** Een zak die nog niet stond, heeft zoveel meer ruimte nodig: zo knippert er niets bij afspelen. */
 export const WINDSOCK_APPEAR_MARGIN = 1.15
 
-/** Mast en de drie staartstanden (recht, en de maximale wuifuitslag links en rechts) in CSS-px. */
-export interface SockReach { mast: Point; tails: Point[] }
+/**
+ * Mast en de drie staartstanden (recht, en de maximale wuifuitslag links en rechts) in CSS-px; `badge` is de pil (of
+ * schijf) als capsule: een liggend lijnstuk met een straal (U113: de pil steekt naast de mast uit).
+ */
+export interface SockReach { mast: Point; tails: Point[]; badge?: { from: Point; to: Point; radius: number } }
 
-/** `heading`: schermrichting van de zak (kompasgraden min kaartdraaiing), `strength` in Bft. */
-export function sockReach(mast: Point, heading: number, strength: number): SockReach {
+/** `heading`: schermrichting van de zak (kompasgraden min kaartdraaiing), `strength` in Bft; `badge` t.o.v. de mast. */
+export function sockReach(mast: Point, heading: number, strength: number, badge?: BadgeBox): SockReach {
   const spread = WINDSOCK_SWAY.amplitude(strength) + WINDSOCK_SWAY.gust.amplitude
   const tails = [0, -spread, spread].map((offset) => {
     const [x, y] = windsockShape(strength, Array<number>(WINDSOCK_SAMPLES + 1).fill(heading + offset), 'kaart').axis.at(-1)!
     return [mast[0] + x, mast[1] + y] as Point
   })
-  return { mast, tails }
+  if (!badge) return { mast, tails }
+  const straight = Math.max(0, badge.halfWidth - badge.halfHeight)
+  const centerX = mast[0] + badge.x, centerY = mast[1] + badge.y
+  return { mast, tails, badge: { from: [centerX - straight, centerY], to: [centerX + straight, centerY], radius: badge.halfHeight + badge.gap } }
 }
 
-/** Raken twee zakken elkaar niet? `margin` > 1 vraagt extra ruimte (een zak die erbij komt). */
+/** Raken twee zakken elkaar niet (assen en pillen)? `margin` > 1 vraagt extra ruimte (een zak die erbij komt). */
 export function socksClear(a: SockReach, b: SockReach, margin = 1): boolean {
   const gap = 2 * WINDSOCK_REACH_RADIUS * margin
-  return a.tails.every((tailA) => b.tails.every((tailB) => segmentDistance(a.mast, tailA, b.mast, tailB) >= gap))
+  if (!a.tails.every((tailA) => b.tails.every((tailB) => segmentDistance(a.mast, tailA, b.mast, tailB) >= gap))) return false
+  const pillClear = (pill: NonNullable<SockReach['badge']>, other: SockReach) =>
+    other.tails.every((tail) => segmentDistance(pill.from, pill.to, other.mast, tail) >= (pill.radius + WINDSOCK_REACH_RADIUS) * margin)
+  if (a.badge && !pillClear(a.badge, b)) return false
+  if (b.badge && !pillClear(b.badge, a)) return false
+  return !a.badge || !b.badge || segmentDistance(a.badge.from, a.badge.to, b.badge.from, b.badge.to) >= (a.badge.radius + b.badge.radius) * margin
 }
 
 function segmentDistance(a0: Point, a1: Point, b0: Point, b1: Point): number {

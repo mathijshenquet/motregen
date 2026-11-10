@@ -1,7 +1,8 @@
 import sharp from 'sharp'
 import { beaufortNumber, beaufortScale } from '../web/src/core/wind-beaufort.js'
 import { nestedPlaces } from '../web/src/core/map-places.js'
-import { DEFAULT_WINDSOCK_BADGE, WINDSOCK_BADGE, WINDSOCK_BANDS, WINDSOCK_STYLE, windsockBadge, windsockBand, windsockInflated, windsockShape, type Point, type WindsockShape } from '../web/src/core/wind-glyph.js'
+import { WINDSOCK_BANDS, WINDSOCK_PILL, WINDSOCK_STYLE, windsockBand, windsockInflated, windsockPill, windsockShape, type Point, type WindsockShape } from '../web/src/core/wind-glyph.js'
+import { WIND_UNIT_LABELS } from '../web/src/core/weather.js'
 import { advanceSock, angleDifference, DEFAULT_WINDSOCK_CURVATURE, sampleWind, SOCK_SNAP_SECONDS, sockReach, socksClear, swayBends, WINDSOCK_APPEAR_MARGIN, windsockPhase, WINDSOCK_LAG_MINUTES, WINDSOCK_SPACING_PX, windsockHeadings, type SockMotion, type SockReach, type WindsockField, type WindSlice } from '../web/src/core/windsock-flow.js'
 import { FRAME, FRAME_PIXELS } from './config.js'
 import { nativeProjection } from './native-projection.js'
@@ -14,8 +15,10 @@ import { WINDSOCK_ANCHOR_OFFSETS } from '../web/src/core/windsock-anchors.js'
 const MERCATOR_RADIUS = 6378137
 const rgb = (hex: string) => [1, 3, 5].map((offset) => Number.parseInt(hex.slice(offset, offset + 2), 16))
 const ORANGE = rgb(WINDSOCK_STYLE.orange), WHITE = rgb(WINDSOCK_STYLE.white), INK = rgb(WINDSOCK_STYLE.inkColor), BLACK = [0, 0, 0], HALO = [255, 255, 255]
-/** Zelfde badge als op de kaart van de app (wind-socks.ts): oranje getal, rechtop, in een witte cirkel. */
+/** Zelfde badge als op de kaart van de app (wind-socks.ts): oranje getal en de eenheid in inkt, rechtop, in een witte pil. */
 const LABEL_STYLE = 'windsock'
+/** De eenheid op de zak in de film (U113); de bot kent geen eenheidsinstelling. */
+export const WINDSOCK_FILM_UNIT = WIND_UNIT_LABELS.bft
 
 /**
  * De windzakken van de windfilm (U101), met dezelfde vorm, stroming en trilling als de app: getekend als vlakken
@@ -29,22 +32,26 @@ export class NativeWindsocks {
   private drawnSeconds = -Infinity
   /** Zakken die het vorige frame stonden (hysterese: een nieuwe zak vraagt WINDSOCK_APPEAR_MARGIN meer ruimte). */
   private shown = new Set<string>()
-  /** Per getal: midden van de inkt t.o.v. het midden van de glyph (beeldpunten), zoals Rust `ink_offset`. */
-  private constructor(private readonly text: NativeText, private readonly inkOffsets: ReadonlyMap<string, readonly [number, number]>) {}
+  private constructor(private readonly text: NativeText) {}
 
+  /**
+   * Per Bft één glyph met getal en eenheid: pen op PILL_GLYPH.pen, basislijn op PILL_GLYPH.baseline (beeldpunten),
+   * op de breedtes van WINDSOCK_PILL zoals de app.
+   */
   static async prepare(): Promise<NativeWindsocks> {
     const glyphs = new Map<string, Glyph>()
-    const inkOffsets = new Map<string, readonly [number, number]>()
+    const { width, height, pen, baseline } = PILL_GLYPH
     for (let force = 0; force <= 12; force++) {
       const label = String(force)
-      const width = 64, height = 48
-      const size = (label.length > 2 ? WINDSOCK_BADGE.longFontPx : WINDSOCK_BADGE.fontPx) * FRAME.scale
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><text x="32" y="24.5" text-anchor="middle" dominant-baseline="central" font-family="Noto Sans, sans-serif" font-size="${size}" font-weight="800" fill="${WINDSOCK_STYLE.orange}">${label}</text></svg>`
+      const pill = windsockPill(90, label, WINDSOCK_FILM_UNIT)
+      const unitX = pen + (pill.numberWidth + WINDSOCK_PILL.gap) * FRAME.scale
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><text y="${baseline}" font-family="Noto Sans, sans-serif" font-weight="800">` +
+        `<tspan x="${pen}" font-size="${pill.fontPx * FRAME.scale}" fill="${WINDSOCK_STYLE.orange}">${label}</tspan>` +
+        `<tspan x="${unitX}" font-size="${pill.unitPx * FRAME.scale}" fill="${WINDSOCK_STYLE.inkColor}">${WINDSOCK_FILM_UNIT}</tspan></text></svg>`
       const rgba = await sharp(Buffer.from(svg)).ensureAlpha().raw().toBuffer()
       for (const theme of ['light', 'dark'] as const) glyphs.set(`${theme}:${LABEL_STYLE}:${label}`, { rgba, width, height })
-      inkOffsets.set(label, inkOffset(rgba, width, height))
     }
-    return new NativeWindsocks(new NativeText(glyphs), inkOffsets)
+    return new NativeWindsocks(new NativeText(glyphs))
   }
 
   /** Het veld op `epoch` en een half en een heel WINDSOCK_LAG_MINUTES eerder, binnen de tijdlijn. */
@@ -100,23 +107,25 @@ export class NativeWindsocks {
       advanceSock(motion, compass[0]!, beaufortScale(speed), elapsed, snap)
       const strength = Math.max(0, motion.strength!.value)
       // Geen zakken over elkaar (windsock-flow `socksClear`), in CSS-px zoals de app.
-      const reach = sockReach([(screenX + offsetX * FRAME.scale) / FRAME.scale, (screenY + offsetY * FRAME.scale) / FRAME.scale], compass[0]!, beaufortScale(speed))
+      const label = String(beaufortNumber(speed))
+      const reach = sockReach([(screenX + offsetX * FRAME.scale) / FRAME.scale, (screenY + offsetY * FRAME.scale) / FRAME.scale], compass[0]!, beaufortScale(speed), windsockPill(compass[0]!, label, WINDSOCK_FILM_UNIT))
       const margin = !snap && this.shown.has(place.name) ? 1 : WINDSOCK_APPEAR_MARGIN
       if (!reaches.every((other) => socksClear(reach, other, margin))) continue
       reaches.push(reach)
       shown.add(place.name)
       const bends = swayBends(strength, motion.wave, seconds, windsockPhase(place.name))
       const shape = windsockShape(strength, compass.map((heading, index) => motion.heading!.value + angleDifference(compass[0]!, heading) + bends[index]!), 'kaart')
-      await this.drawSock(rgb, screenX + offsetX * FRAME.scale, screenY + offsetY * FRAME.scale, shape, String(beaufortNumber(speed)), theme, opacity)
+      await this.drawSock(rgb, screenX + offsetX * FRAME.scale, screenY + offsetY * FRAME.scale, shape, motion.heading!.value, label, theme, opacity)
     }
     this.shown = shown
   }
 
-  private async drawSock(rgb: Buffer, x: number, y: number, shape: WindsockShape, label: string, theme: NativeTheme, opacity: number): Promise<void> {
+  private async drawSock(rgb: Buffer, x: number, y: number, shape: WindsockShape, heading: number, label: string, theme: NativeTheme, opacity: number): Promise<void> {
     const scale = FRAME.scale
     const place = (points: readonly Point[], offsetY = 0): Point[] => points.map(([px, py]) => [x + px * scale, y + (py + offsetY) * scale])
-    const badge = windsockBadge(shape, DEFAULT_WINDSOCK_BADGE, label)
-    const cut = { x: x + badge.x * scale, y: y + badge.y * scale, radius: badge.cutRadius * scale }
+    const pill = windsockPill(heading, label, WINDSOCK_FILM_UNIT)
+    const straight = Math.max(0, pill.halfWidth - pill.halfHeight)
+    const cut = { x: x + pill.x * scale, y: y + pill.y * scale, radius: (pill.halfHeight + pill.gap) * scale, halfLength: straight * scale }
     // Dezelfde lagen als de canvas in de app: schaduw, lichte rand, banden, inktrand, hoepel en mast, rond de
     // badge weggeknipt; dan de badge zelf met het getal.
     const { shadow, halo, ink, hoopHalfWidth, mast } = WINDSOCK_STYLE
@@ -127,24 +136,14 @@ export class NativeWindsocks {
     fillPolygon(rgb, place(thickLine(shape.left[0]!, shape.right[0]!, hoopHalfWidth)), INK, opacity, FRAME_PIXELS, cut)
     fillPolygon(rgb, place(circle(0, 0, mast.halo)), HALO, opacity, FRAME_PIXELS, cut)
     fillPolygon(rgb, place(circle(0, 0, mast.ink)), INK, opacity, FRAME_PIXELS, cut)
-    fillPolygon(rgb, place(circle(badge.x, badge.y, badge.radius + ink), shadow.offsetY), BLACK, shadow.alpha * opacity)
-    fillPolygon(rgb, place(circle(badge.x, badge.y, badge.radius + ink)), INK, opacity)
-    fillPolygon(rgb, place(circle(badge.x, badge.y, badge.radius - ink)), HALO, opacity)
-    // Het midden van de inkt precies in het midden van de cirkel (U107), niet een basislijnschatting.
-    const [inkX, inkY] = this.inkOffsets.get(label) ?? [0, 0]
-    await this.text.draw(rgb, label, cut.x - inkX, cut.y - inkY, 0, LABEL_STYLE, theme, opacity)
+    fillPolygon(rgb, place(capsule(pill.x, pill.y, straight, pill.halfHeight + ink), shadow.offsetY), BLACK, shadow.alpha * opacity)
+    fillPolygon(rgb, place(capsule(pill.x, pill.y, straight, pill.halfHeight + ink)), INK, opacity)
+    fillPolygon(rgb, place(capsule(pill.x, pill.y, straight, pill.halfHeight - ink)), HALO, opacity)
+    // Pen en basislijn van de glyph op die van de pil (getal en eenheid samen breed als in de app).
+    const startX = cut.x - (pill.numberWidth + WINDSOCK_PILL.gap + pill.unitWidth) / 2 * scale
+    const baselineY = cut.y + pill.baseline * scale
+    await this.text.draw(rgb, label, startX - PILL_GLYPH.pen + PILL_GLYPH.width / 2, baselineY - PILL_GLYPH.baseline + PILL_GLYPH.height / 2, 0, LABEL_STYLE, theme, opacity)
   }
-}
-
-/** Midden van de inktgrenzen (alfa > 0) t.o.v. waar NativeText.draw het midden van de glyph zet. */
-export function inkOffset(rgba: Uint8Array | Buffer, width: number, height: number): [number, number] {
-  let left = width, top = height, right = -1, bottom = -1
-  for (let row = 0; row < height; row++) for (let column = 0; column < width; column++) {
-    if (!rgba[(row * width + column) * 4 + 3]) continue
-    left = Math.min(left, column); right = Math.max(right, column); top = Math.min(top, row); bottom = Math.max(bottom, row)
-  }
-  if (right < 0) return [0, 0]
-  return [(left + right) / 2 - width / 2 + 0.5, (top + bottom) / 2 - height / 2 + 0.5]
 }
 
 /** De plaatsen met een zak in het vaste botbeeld (zoals de app); ook de Rust-renderer krijgt deze lijst. */
@@ -158,6 +157,18 @@ export function thickLine([ax, ay]: Point, [bx, by]: Point, halfWidth: number): 
   return [[ax + normalX, ay + normalY], [bx + normalX, by + normalY], [bx - normalX, by - normalY], [ax - normalX, ay - normalY]]
 }
 
+/** Een liggende capsule (de pil): twee halve cirkels van 16 punten, zoals Rust `windsock::capsule`. */
+export function capsule(centerX: number, centerY: number, halfLength: number, radius: number): Point[] {
+  const half = (side: number) => Array.from({ length: 17 }, (_, index): Point => {
+    const angle = -Math.PI / 2 * side + index / 16 * Math.PI * side
+    return [centerX + side * halfLength + Math.cos(angle) * radius * side, centerY + Math.sin(angle) * radius]
+  })
+  return [...half(1), ...half(-1)]
+}
+
+/** Glyph van getal plus eenheid in beeldpunten: ruim genoeg voor "12 Bft" op framemaat. */
+const PILL_GLYPH = { width: 160, height: 64, pen: 8, baseline: 40 } as const
+
 export function circle(centerX: number, centerY: number, radius: number): Point[] {
   return Array.from({ length: 32 }, (_, index) => [centerX + Math.cos(index / 32 * 2 * Math.PI) * radius, centerY + Math.sin(index / 32 * 2 * Math.PI) * radius])
 }
@@ -167,7 +178,7 @@ export function circle(centerX: number, centerY: number, radius: number): Point[
  * Vult een veelhoek met exacte oppervlaktedekking per pixel (de signed-area-accumulatie van font-rs): elke rand
  * telt per pixel zijn bijdrage op, een lopende som per rij geeft de dekking.
  */
-export function fillPolygon(rgb: Buffer, points: readonly Point[], color: readonly number[], opacity: number, size: { width: number; height: number } = FRAME_PIXELS, cut?: { x: number; y: number; radius: number }): void {
+export function fillPolygon(rgb: Buffer, points: readonly Point[], color: readonly number[], opacity: number, size: { width: number; height: number } = FRAME_PIXELS, cut?: { x: number; y: number; radius: number; halfLength?: number }): void {
   if (opacity <= 0 || points.length < 3) return
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
   for (const [px, py] of points) { minX = Math.min(minX, px); maxX = Math.max(maxX, px); minY = Math.min(minY, py); maxY = Math.max(maxY, py) }
@@ -186,8 +197,8 @@ export function fillPolygon(rgb: Buffer, points: readonly Point[], color: readon
     for (let column = 0; column < width; column++) {
       sum += coverage[row * width + column]!
       const screenX = left + column
-      // Buiten de uitsparing (badge) telt de pixel mee, met een zachte rand van één pixel.
-      const outsideCut = cut ? Math.max(0, Math.min(1, Math.hypot(screenX + 0.5 - cut.x, top + row + 0.5 - cut.y) - cut.radius + 0.5)) : 1
+      // Buiten de uitsparing (badge, een liggende capsule) telt de pixel mee, met een zachte rand van één pixel.
+      const outsideCut = cut ? Math.max(0, Math.min(1, Math.hypot(Math.max(0, Math.abs(screenX + 0.5 - cut.x) - (cut.halfLength ?? 0)), top + row + 0.5 - cut.y) - cut.radius + 0.5)) : 1
       const alpha = Math.min(1, Math.abs(sum)) * opacity * outsideCut
       if (alpha <= 0 || screenX >= size.width) continue
       const offset = ((top + row) * size.width + screenX) * 3

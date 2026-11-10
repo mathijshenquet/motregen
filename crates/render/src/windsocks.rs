@@ -41,10 +41,12 @@ pub struct SockChain {
     shown: Vec<bool>,
 }
 
-/// Wat het tekenen van één zak nodig heeft: de getekende richtingen per asstuk, kracht en het Bft-getal.
+/// Wat het tekenen van één zak nodig heeft: de getekende richtingen per asstuk, de richting zonder wuiven (voor de
+/// kant van de pil), kracht en het Bft-getal.
 pub struct SockPose {
     point: Point,
     headings: Vec<f64>,
+    heading: f64,
     strength: f64,
     label: String,
 }
@@ -137,7 +139,9 @@ pub fn advance(
             point[0] / scale + place.offset[0],
             point[1] / scale + place.offset[1],
         ];
-        let reach = windsock::sock_reach(mast, target, windsock::beaufort_scale(speed));
+        let label = windsock::beaufort_number(speed).to_string();
+        let pill = windsock::pill(target, &label, &settings.unit);
+        let reach = windsock::sock_reach(mast, target, windsock::beaufort_scale(speed), Some(&pill));
         let margin = if was_shown && !snap {
             1.0
         } else {
@@ -164,8 +168,9 @@ pub fn advance(
                     heading.value + windsock::angle_difference(target, *compass) + bend
                 })
                 .collect(),
+            heading: heading.value,
             strength,
-            label: windsock::beaufort_number(speed).to_string(),
+            label,
         });
     }
     poses
@@ -174,7 +179,7 @@ pub fn advance(
 pub fn draw(rgb: &mut [u8], badges: &mut RotatedText, poses: &[SockPose], night: bool) {
     for pose in poses {
         let shape = windsock::shape(pose.strength, &pose.headings);
-        draw_sock(rgb, badges, pose.point, &shape, &pose.label, night);
+        draw_sock(rgb, badges, pose.point, &shape, pose.heading, &pose.label, night);
     }
 }
 
@@ -183,6 +188,7 @@ fn draw_sock(
     labels: &mut RotatedText,
     at: Point,
     shape: &Shape,
+    heading: f64,
     label: &str,
     night: bool,
 ) {
@@ -196,14 +202,17 @@ fn draw_sock(
             .map(|&[x, y]| [at[0] + x * scale, at[1] + (y + offset_y) * scale])
             .collect()
     };
-    let badge = windsock::badge(shape, settings.badge_at_mouth, label);
+    // De pil met getal en eenheid op de mond (U113, `drawSock` in de app).
+    let pill = windsock::pill(heading, label, &settings.unit);
+    let straight = (pill.half_width - pill.half_height).max(0.0);
     let center = [
-        at[0] + badge.center[0] * scale,
-        at[1] + badge.center[1] * scale,
+        at[0] + pill.center[0] * scale,
+        at[1] + pill.center[1] * scale,
     ];
     let cut = Some(Cut {
         center,
-        radius: badge.cut_radius * scale,
+        radius: (pill.half_height + pill.gap) * scale,
+        half_length: straight * scale,
     });
     let (orange, white, ink) = (
         color(&style.orange),
@@ -269,40 +278,40 @@ fn draw_sock(
         1.0,
         cut,
     );
+    let plate = |grow: f64| windsock::capsule(pill.center, straight, pill.half_height + grow);
     fill(
-        place(
-            &windsock::circle(badge.center, badge.radius + style.ink),
-            style.shadow.offset_y,
-        ),
+        place(&plate(style.ink), style.shadow.offset_y),
         [0; 3],
         style.shadow.alpha,
         None,
     );
-    fill(
-        place(
-            &windsock::circle(badge.center, badge.radius + style.ink),
-            0.0,
-        ),
-        ink,
-        1.0,
-        None,
-    );
-    fill(
-        place(
-            &windsock::circle(badge.center, badge.radius - style.ink),
-            0.0,
-        ),
-        halo,
-        1.0,
-        None,
-    );
-    labels.draw_ink_centered(
+    fill(place(&plate(style.ink), 0.0), ink, 1.0, None);
+    fill(place(&plate(-style.ink), 0.0), halo, 1.0, None);
+    let start = [
+        center[0] - (pill.number_width + settings.pill.gap + pill.unit_width) / 2.0 * scale,
+        center[1] + pill.baseline * scale,
+    ];
+    labels.draw_from_baseline(
         rgb,
         label,
-        center,
+        start,
         TextStyle {
-            size: (badge.font_px * scale).round() as u32,
+            size: (pill.font_px * scale).round() as u32,
             color: orange,
+            halo,
+            opacity: 1.0,
+        },
+    );
+    labels.draw_from_baseline(
+        rgb,
+        &settings.unit,
+        [
+            start[0] + (pill.number_width + settings.pill.gap) * scale,
+            start[1],
+        ],
+        TextStyle {
+            size: (pill.unit_px * scale).round() as u32,
+            color: ink,
             halo,
             opacity: 1.0,
         },

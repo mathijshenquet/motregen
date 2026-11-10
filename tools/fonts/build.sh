@@ -10,8 +10,8 @@ source="$store/share/fonts/noto/NotoSans.ttf"
 scratch=$(mktemp -d)
 trap 'rm -rf "$scratch"' EXIT
 tools() { uv run --quiet --with fonttools --with brotli "$@"; }
-# Kaartgetallen: cijfers, graden, min, plus, spatie, punt/komma en de Bft-afkorting.
-digits='U+0020,U+002B-002E,U+0030-0039,U+00B0,U+2212,U+0042,U+0066,U+0074'
+# Kaartgetallen: cijfers, graden, min, plus, spatie, punt/komma en de windeenheden op de zak (Bft, kn, km/u, m/s; U113).
+digits='U+0020,U+002B-002F,U+0030-0039,U+00B0,U+2212,U+0042,U+0066,U+006B,U+006D,U+006E,U+0073-0075'
 tools fonttools varLib.instancer "$source" wght=400:800 wdth=100 -o "$scratch/web.ttf"
 mkdir -p web/src/assets/fonts
 tools pyftsubset "$scratch/web.ttf" --unicodes="$digits" --layout-features='tnum,kern' --flavor=woff2 \
