@@ -174,6 +174,76 @@ pub fn badge(shape: &Shape, at_mouth: bool, label: &str) -> Badge {
     }
 }
 
+/// `windsockPill` (wind-glyph.ts, U113): getal en eenheid in een pil op de mond, in CSS-px t.o.v. de mast.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Pill {
+    pub center: Point,
+    pub half_width: f64,
+    pub half_height: f64,
+    pub gap: f64,
+    pub font_px: f64,
+    pub unit_px: f64,
+    pub number_width: f64,
+    pub unit_width: f64,
+    /// Basislijn t.o.v. het midden: de cijferinkt staat dan precies in het midden.
+    pub baseline: f64,
+}
+
+/// `pillTextEm`: breedte in em volgens de pilconstanten (onbekende tekens als een cijfer).
+pub fn pill_text_em(text: &str) -> f64 {
+    let pill = &mode_constants().windsock.pill;
+    text.chars()
+        .map(|character| {
+            if character.is_ascii_digit() {
+                pill.digit_em
+            } else {
+                pill.letter_em.get(&character).copied().unwrap_or(pill.digit_em)
+            }
+        })
+        .sum()
+}
+
+/// `windsockPill`: `heading` is de schermrichting van de zak zonder wuiven; de pil schuift naar de kant waar de zak
+/// niet is. Kaartmaat zoals de bot: `badge.font_px` (13).
+pub fn pill(heading: f64, label: &str, unit: &str) -> Pill {
+    let settings = &mode_constants().windsock;
+    let constants = &settings.pill;
+    let size = settings.badge.font_px;
+    let unit_px = (size * constants.unit_em).round();
+    let number_width = pill_text_em(label) * size;
+    let unit_width = pill_text_em(unit) * unit_px;
+    let half_height = settings.badge.radius;
+    let half_width =
+        half_height.max((number_width + constants.gap + unit_width) / 2.0 + constants.padding);
+    let side = (-heading.to_radians().sin() / constants.shift_sine).clamp(-1.0, 1.0);
+    Pill {
+        center: [(half_width - half_height) * side, 0.0],
+        half_width,
+        half_height,
+        gap: settings.badge.gap,
+        font_px: size,
+        unit_px,
+        number_width,
+        unit_width,
+        baseline: constants.digit_middle_em * size,
+    }
+}
+
+/// Een liggende capsule (de pil) als veelhoek: twee halve cirkels van 16 punten.
+pub fn capsule(center: Point, half_length: f64, radius: f64) -> Vec<Point> {
+    let half = |side: f64| {
+        (0..=16).map(move |index| {
+            let angle = -std::f64::consts::FRAC_PI_2 * side
+                + index as f64 / 16.0 * std::f64::consts::PI * side;
+            [
+                center[0] + side * half_length + angle.cos() * radius * side,
+                center[1] + angle.sin() * radius,
+            ]
+        })
+    };
+    half(1.0).chain(half(-1.0)).collect()
+}
+
 /// Windvectoren (oost, noord) in m/s per rastercel; `None` is geen data.
 pub trait Vectors {
     fn vector(&self, index: usize) -> Option<[f64; 2]>;
@@ -295,11 +365,13 @@ pub fn headings(
     )
 }
 
-/// Ronde uitsparing: wat erbinnen valt, wordt niet getekend (de badge).
+/// Uitsparing: wat erbinnen valt, wordt niet getekend (de badge). Een liggende capsule met `half_length` (de pil);
+/// 0 is een cirkel.
 #[derive(Clone, Copy)]
 pub struct Cut {
     pub center: Point,
     pub radius: f64,
+    pub half_length: f64,
 }
 
 /// `fillPolygon`: exacte oppervlaktedekking per pixel (signed-area-accumulatie van font-rs).
@@ -356,7 +428,8 @@ pub fn fill_polygon(
             sum += f64::from(coverage[row * width + column]);
             let screen_x = left + column;
             let outside_cut = cut.map_or(1.0, |cut| {
-                ((screen_x as f64 + 0.5 - cut.center[0])
+                (((screen_x as f64 + 0.5 - cut.center[0]).abs() - cut.half_length)
+                    .max(0.0)
                     .hypot((top + row) as f64 + 0.5 - cut.center[1])
                     - cut.radius
                     + 0.5)
@@ -587,14 +660,16 @@ pub fn sway_bends(strength: f64, wave: f64, seconds: f64, phase: f64) -> Vec<f64
         .collect()
 }
 
-/// `sockReach`: mast en de drie staartstanden (recht en de maximale wuifuitslag naar beide kanten), in CSS-px.
+/// `sockReach`: mast en de drie staartstanden (recht en de maximale wuifuitslag naar beide kanten), in CSS-px; de
+/// pil als capsule (lijnstuk plus straal), U113.
 pub struct Reach {
     pub mast: Point,
     pub tails: [Point; 3],
+    pub badge: Option<(Point, Point, f64)>,
 }
 
-/// `heading`: schermrichting van de zak in kompasgraden, `strength` in Bft.
-pub fn sock_reach(mast: Point, heading: f64, strength: f64) -> Reach {
+/// `heading`: schermrichting van de zak in kompasgraden, `strength` in Bft; `pill` t.o.v. de mast.
+pub fn sock_reach(mast: Point, heading: f64, strength: f64, pill: Option<&Pill>) -> Reach {
     let settings = &mode_constants().windsock;
     let sway = &settings.sway;
     let calm = (strength / sway.amplitude.calm_force).min(1.0);
@@ -609,17 +684,41 @@ pub fn sock_reach(mast: Point, heading: f64, strength: f64) -> Reach {
             .unwrap();
         [mast[0] + tail[0], mast[1] + tail[1]]
     });
-    Reach { mast, tails }
+    let badge = pill.map(|pill| {
+        let straight = (pill.half_width - pill.half_height).max(0.0);
+        let (x, y) = (mast[0] + pill.center[0], mast[1] + pill.center[1]);
+        ([x - straight, y], [x + straight, y], pill.half_height + pill.gap)
+    });
+    Reach { mast, tails, badge }
 }
 
 /// `socksClear`: raken twee zakken elkaar niet; `margin` > 1 vraagt extra ruimte.
 pub fn socks_clear(a: &Reach, b: &Reach, margin: f64) -> bool {
-    let gap = 2.0 * mode_constants().windsock.reach_radius * margin;
-    a.tails.iter().all(|tail_a| {
+    let reach_radius = mode_constants().windsock.reach_radius;
+    let gap = 2.0 * reach_radius * margin;
+    if !a.tails.iter().all(|tail_a| {
         b.tails
             .iter()
             .all(|tail_b| segment_distance(a.mast, *tail_a, b.mast, *tail_b) >= gap)
-    })
+    }) {
+        return false;
+    }
+    let pill_clear = |(from, to, radius): (Point, Point, f64), other: &Reach| {
+        other.tails.iter().all(|tail| {
+            segment_distance(from, to, other.mast, *tail) >= (radius + reach_radius) * margin
+        })
+    };
+    if a.badge.is_some_and(|pill| !pill_clear(pill, b))
+        || b.badge.is_some_and(|pill| !pill_clear(pill, a))
+    {
+        return false;
+    }
+    match (a.badge, b.badge) {
+        (Some((from_a, to_a, radius_a)), Some((from_b, to_b, radius_b))) => {
+            segment_distance(from_a, to_a, from_b, to_b) >= (radius_a + radius_b) * margin
+        }
+        _ => true,
+    }
 }
 
 fn segment_distance(a0: Point, a1: Point, b0: Point, b1: Point) -> f64 {

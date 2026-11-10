@@ -20,7 +20,7 @@ use render_core::{
     rotated_text::{RotatedText, TextStyle},
     text::Text,
     time::{Manifest, dark, epoch, frame_blend},
-    wind::{self, Water, WindField},
+    wind::{self, Life, Particle, Water, WindField},
 };
 use std::{
     fs,
@@ -38,7 +38,6 @@ struct WaterMask {
 
 struct Input {
     epoch: i64,
-    simulation_seconds: f64,
     still: bool,
     loop_frame: bool,
     night: bool,
@@ -47,6 +46,8 @@ struct Input {
     wind: Option<[(Pair, Pair); 3]>,
     /// De zakken van dit filmframe, met momentum uit de keten (U107).
     socks: Vec<crate::windsocks::SockPose>,
+    /// De deeltjes van dit filmframe, met hun levensfase uit de keten (U112).
+    particles: Vec<(Particle, Life)>,
 }
 
 struct Worker {
@@ -148,15 +149,12 @@ impl Painter<'_> {
             input.slice.opacity,
         );
         profile.composition_us += composition_started.elapsed().as_micros();
-        if let Some(pairs) = &input.wind {
-            let [(east, north), ..] = pairs;
+        if input.wind.is_some() {
             let started = Instant::now();
             let water = &self.water[usize::from(input.night)];
             wind::draw(
                 &mut rgb,
-                wind_field(east),
-                wind_field(north),
-                input.simulation_seconds,
+                &input.particles,
                 input.night,
                 Water {
                     width: water.width,
@@ -272,15 +270,19 @@ impl<'a> Sources<'a> {
         let socks = wind.as_ref().map_or_else(Vec::new, |pairs| {
             crate::windsocks::advance(&mut self.fields.socks, &grid, pairs, simulation_seconds)
         });
+        let particles = wind.as_ref().map_or_else(Vec::new, |[(east, north), ..]| {
+            let particles = wind::particles(&wind_field(east), &wind_field(north));
+            wind::advance(&mut self.fields.particles, &particles, simulation_seconds)
+        });
         Ok(Input {
             epoch: time,
-            simulation_seconds,
             still: plan.still,
             loop_frame: plan.loop_frame,
             night: dark(time),
             slice,
             wind,
             socks,
+            particles,
         })
     }
 

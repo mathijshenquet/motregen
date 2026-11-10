@@ -1,0 +1,24 @@
+[
+ {
+  "name": "H-ff",
+  "package": "org.mozilla.firefox",
+  "url": "http://ageq-dev2:4312/?modus=wind&dev&camera=5.29,52.13,7"
+ },
+ {
+  "name": "I-ff",
+  "package": "org.mozilla.firefox",
+  "url": "http://ageq-dev2:4312/?modus=wind&dev&camera=5.29,52.13,7&domrust=uit"
+ },
+ {
+  "name": "H-chrome",
+  "package": "com.android.chrome",
+  "url": "http://ageq-dev2:4312/?modus=wind&dev&camera=5.29,52.13,7",
+  "layer": "com.android.chrome/ChromeChildSurface"
+ },
+ {
+  "name": "I-chrome",
+  "package": "com.android.chrome",
+  "url": "http://ageq-dev2:4312/?modus=wind&dev&camera=5.29,52.13,7&domrust=uit",
+  "layer": "com.android.chrome/ChromeChildSurface"
+ }
+]

@@ -23,6 +23,8 @@ export interface ChromeTrace {
     platform: string
     userAgent: string
     profiler: 'js-self-profiling' | 'measures-only'
+    /** `?perf=start&auto[=naam]`: welke variant dit is, voor de bestandsnaam in de sink (U111). */
+    label?: string
   }
 }
 
@@ -51,6 +53,7 @@ export async function recordProfile(
   durationMs = 30_000,
   captureStartTime = performance.now(),
   stop?: AbortSignal,
+  label?: string,
 ): Promise<ProfileRecording> {
   const startedAt = performance.now()
   const Profiler = (globalThis as typeof globalThis & { Profiler?: ProfilerConstructor }).Profiler
@@ -83,6 +86,7 @@ export async function recordProfile(
     origin: location.origin,
     platform: browserPlatform(),
     userAgent: navigator.userAgent,
+    label,
   })
   return { trace, json: JSON.stringify(trace), profilerAvailable: !!selfProfile, startedAt: captureStartTime, endedAt }
 }
@@ -98,6 +102,7 @@ export interface TraceExportInput {
   origin: string
   platform: string
   userAgent: string
+  label?: string
 }
 
 export function buildChromeTrace(input: TraceExportInput): ChromeTrace {
@@ -128,6 +133,7 @@ export function buildChromeTrace(input: TraceExportInput): ChromeTrace {
       platform: input.platform,
       userAgent: input.userAgent,
       profiler: input.selfProfile ? 'js-self-profiling' : 'measures-only',
+      ...input.label === undefined ? {} : { label: input.label },
     },
   }
 }

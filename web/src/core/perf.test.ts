@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { configurePerfMode, consumeColdProfile, PerfMonitor, type PerfEnvironment } from './perf'
+import { autoSendLabel, configurePerfMode, consumeColdProfile, PerfMonitor, type PerfEnvironment } from './perf'
 
 function harness() {
   let now = 0
@@ -209,5 +209,20 @@ describe('performance monitor', () => {
     expect(configurePerfMode(new URL('https://example.test/?perf=0'), storage)).toBe(false)
     expect(configurePerfMode(new URL('https://example.test/?perf=start'), storage)).toBe(true)
     expect(consumeColdProfile(storage)).toBe(true)
+  })
+})
+
+describe('autoSendLabel (U111)', () => {
+  const label = (search: string) => autoSendLabel(new URL(`http://ageq-dev2:4312/${search}`))
+
+  it('alleen bij ?perf=start met auto', () => {
+    expect(label('?perf=start&modus=wind&dev')).toBeUndefined()
+    expect(label('?perf=1&auto')).toBeUndefined()
+  })
+
+  it('noemt de variant naar de waarde of naar de overige parameters', () => {
+    expect(label('?perf=start&auto=zuinig&modus=wind&dev')).toBe('zuinig')
+    expect(label('?perf=start&auto&modus=wind&dev&zakclip=aan')).toBe('zakclip=aan')
+    expect(label('?perf=start&auto&modus=wind&dev')).toBe('basis')
   })
 })

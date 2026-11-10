@@ -54,8 +54,8 @@ impl RotatedText {
                     + 12;
                 let height = size as usize * 2;
                 let mut alpha = vec![0; width * height];
-                let mut position = 6.0_f32;
-                let baseline = (height as f64 / 2.0 + f64::from(size) * 0.35).round() as isize;
+                let mut position = STAMP_PEN as f32;
+                let baseline = stamp_baseline(height, size) as isize;
                 for (metrics, coverage) in glyphs {
                     let left = position.round() as isize + metrics.xmin as isize;
                     let top = baseline - metrics.ymin as isize - metrics.height as isize;
@@ -125,6 +125,25 @@ impl RotatedText {
             0.0,
             style,
         );
+    }
+
+    /// Rechtop, met de pen van het eerste teken op `start[0]` en de basislijn op `start[1]`: getal en eenheid in de
+    /// pil (U113), op de breedtes van de pilconstanten zoals de app.
+    pub fn draw_from_baseline(
+        &mut self,
+        rgb: &mut [u8],
+        text: &str,
+        start: [f64; 2],
+        style: TextStyle,
+    ) {
+        let stamp = self.stamp(text, style.size);
+        let baseline = stamp_baseline(stamp.height, style.size);
+        // `draw` zet stempelpunt (breedte/2, hoogte/2) op het midden; de pen staat in de stempel op x = 6.
+        let center = [
+            start[0] + stamp.width as f64 / 2.0 - STAMP_PEN,
+            start[1] + stamp.height as f64 / 2.0 - baseline,
+        ];
+        self.draw(rgb, text, center, 0.0, style);
     }
 
     /// Midden van de inktgrenzen t.o.v. het punt waarop `draw` de stempel zet, in beeldpunten.
@@ -234,4 +253,12 @@ impl RotatedText {
             }
         }
     }
+}
+
+/// Waar de pen in een stempel begint (beeldpunten vanaf links).
+const STAMP_PEN: f64 = 6.0;
+
+/// Basislijn van een stempel van `height` beeldpunten (rij vanaf boven).
+fn stamp_baseline(height: usize, size: u32) -> f64 {
+    (height as f64 / 2.0 + f64::from(size) * 0.35).round()
 }

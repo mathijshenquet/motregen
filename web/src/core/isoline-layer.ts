@@ -357,6 +357,8 @@ export class IsolineLayer implements CustomLayerInterface {
   contentDrawn = false
   /** Gezet door een `LayerOverlay`: de isolijnen tekenen dan zonder MapLibre-render. */
   requestRepaint?: () => void
+  /** Alleen `?dev&isolijndpr=` (U111): samen met dezelfde grens op de `LayerOverlay`. */
+  maxPixelRatio = Infinity
   private map?: MapLibreMap
   private gl?: WebGL2RenderingContext
   private composite?: WebGLProgram
@@ -611,6 +613,12 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.uniform1f(uniform('u_bubble_soft'), BUBBLE_SOFT_PX * scaleX)
   }
 
+  /** Wat `render` tekent: de getoonde snedes (geometrie, pass, vulling, gewicht), dekking en pauze (U111). */
+  drawKey(): string {
+    const shown = this.shown.map(({ slice, weight }) => `${this.slices.indexOf(slice)}:${slice.geometry}:${slice.passed}:${slice.filled}:${weight}`)
+    return `${this.paused}|${this.opacity}|${shown.join(';')}`
+  }
+
   setStyle(style: IsolineStyle): void {
     this.style = style
     this.invalidate()
@@ -742,7 +750,7 @@ export class IsolineLayer implements CustomLayerInterface {
     gl.clearColor(0, 0, 0, 0)
     gl.clear(gl.COLOR_BUFFER_BIT)
 
-    const ratio = window.devicePixelRatio || 1
+    const ratio = this.pixelRatio()
     const { halfWidth, alpha } = lineProfile(isolineWidthCss(map.getZoom()) * ratio)
     // Rooster (kolom, rij) → mercator is affien; in float64 met de kaartmatrix vermenigvuldigd
     // houdt dat de vertexcoördinaten klein (0–225) en dus exact in float32.
@@ -868,8 +876,13 @@ export class IsolineLayer implements CustomLayerInterface {
 
   /** Offscreen snede in CSS-pixels × `resolution`: de device-DPR (2 op Retina) telt niet mee. */
   private targetSize(gl: WebGL2RenderingContext, resolution: number): [number, number] {
-    const scale = Math.min(1, resolution) / Math.max(1, window.devicePixelRatio || 1)
+    const scale = Math.min(1, resolution) / Math.max(1, this.pixelRatio())
     return [Math.max(1, Math.round(gl.drawingBufferWidth * scale)), Math.max(1, Math.round(gl.drawingBufferHeight * scale))]
+  }
+
+  /** Pixeldichtheid van de doelcanvas: die van het scherm, of lager met `?dev&isolijndpr=` (U111). */
+  private pixelRatio(): number {
+    return Math.min(window.devicePixelRatio || 1, this.maxPixelRatio)
   }
 
   private repaint(): void {

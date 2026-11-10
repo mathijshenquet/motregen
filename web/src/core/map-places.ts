@@ -119,7 +119,8 @@ export const PLACE_DENSITIES: readonly PlaceDensity[] = ['weinig', 'midden', 've
  */
 export const PLACE_ORDER_GAP_PX: Record<FootprintKind, Record<PlaceOrderScreen, Record<PlaceDensity, number>>> = {
   samen: { phone: { weinig: 44, midden: 28, veel: 8 }, desktop: { weinig: 95, midden: 58, veel: 32 } },
-  zak: { phone: { weinig: 31, midden: 14, veel: 0 }, desktop: { weinig: 100, midden: 60, veel: 30 } },
+  zak: { phone: { weinig: 35, midden: 12, veel: 0 }, desktop: { weinig: 85, midden: 45, veel: 15 } },
+  'zak-kmu': { phone: { weinig: 35, midden: 12, veel: 0 }, desktop: { weinig: 85, midden: 45, veel: 15 } },
 }
 
 /**
@@ -128,7 +129,9 @@ export const PLACE_ORDER_GAP_PX: Record<FootprintKind, Record<PlaceOrderScreen, 
  */
 export const PLACE_ORDER_TARGET: Record<FootprintKind, Record<PlaceOrderScreen, Record<PlaceDensity, number>>> = {
   samen: { phone: { weinig: 8, midden: 12, veel: 22 }, desktop: { weinig: 15, midden: 25, veel: 42 } },
-  zak: { phone: { weinig: 5, midden: 7, veel: 9 }, desktop: { weinig: 9, midden: 14, veel: 22 } },
+  // Wind op de telefoon: de pil (U113) begrenst het; meer dan ± 7 zakken past er niet op een kaart van 402 × 462.
+  zak: { phone: { weinig: 4, midden: 6, veel: 7 }, desktop: { weinig: 9, midden: 14, veel: 23 } },
+  'zak-kmu': { phone: { weinig: 3, midden: 4, veel: 5 }, desktop: { weinig: 7, midden: 11, veel: 17 } },
 }
 
 export function placeOrderKey(kind: FootprintKind, screen: PlaceOrderScreen, density: PlaceDensity): string {

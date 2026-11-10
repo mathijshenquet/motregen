@@ -11,6 +11,8 @@ use serde::Deserialize;
 struct Fixtures {
     size: Size,
     shapes: Vec<ShapeCase>,
+    pills: Vec<PillCase>,
+    pill_reaches: Vec<PillReachCase>,
     field: FieldFixture,
     flow: Vec<FlowCase>,
     motions: Vec<MotionCase>,
@@ -41,6 +43,53 @@ struct BadgeFixture {
     radius: f64,
     cut_radius: f64,
     font_px: f64,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PillFixture {
+    x: f64,
+    y: f64,
+    half_width: f64,
+    half_height: f64,
+    gap: f64,
+    font_px: f64,
+    unit_px: f64,
+    number_width: f64,
+    unit_width: f64,
+    baseline: f64,
+}
+
+#[derive(Deserialize)]
+struct PillCase {
+    heading: f64,
+    label: String,
+    unit: String,
+    pill: PillFixture,
+}
+
+#[derive(Deserialize)]
+struct CapsuleFixture {
+    from: Point,
+    to: Point,
+    radius: f64,
+}
+
+#[derive(Deserialize)]
+struct PillSide {
+    mast: Point,
+    heading: f64,
+    strength: f64,
+    label: String,
+    badge: CapsuleFixture,
+}
+
+#[derive(Deserialize)]
+struct PillReachCase {
+    a: PillSide,
+    b: PillSide,
+    clear: bool,
+    clear_appear: bool,
 }
 
 #[derive(Deserialize)]
@@ -113,6 +162,8 @@ struct CutFixture {
     x: f64,
     y: f64,
     radius: f64,
+    #[serde(rename = "halfLength", default)]
+    half_length: f64,
 }
 
 #[derive(Deserialize)]
@@ -254,7 +305,8 @@ fn sampling_streamline_and_lag_match_the_app() {
 #[test]
 fn sock_reach_and_overlap_test_match_the_app() {
     for (index, case) in fixtures().reaches.into_iter().enumerate() {
-        let reach = |side: &ReachSide| windsock::sock_reach(side.mast, side.heading, side.strength);
+        let reach =
+            |side: &ReachSide| windsock::sock_reach(side.mast, side.heading, side.strength, None);
         let (a, b) = (reach(&case.a), reach(&case.b));
         close_points(
             &a.tails,
@@ -271,6 +323,54 @@ fn sock_reach_and_overlap_test_match_the_app() {
             case.clear,
             "geval {index}: vrij"
         );
+        assert_eq!(
+            windsock::socks_clear(&a, &b, 1.15),
+            case.clear_appear,
+            "geval {index}: vrij met marge"
+        );
+    }
+}
+
+#[test]
+fn pill_matches_the_app() {
+    for case in fixtures().pills {
+        let pill = windsock::pill(case.heading, &case.label, &case.unit);
+        let name = format!("pil {} {} bij {}°", case.label, case.unit, case.heading);
+        for (actual, expected, field) in [
+            (pill.center[0], case.pill.x, "x"),
+            (pill.center[1], case.pill.y, "y"),
+            (pill.half_width, case.pill.half_width, "halve breedte"),
+            (pill.half_height, case.pill.half_height, "halve hoogte"),
+            (pill.gap, case.pill.gap, "kier"),
+            (pill.font_px, case.pill.font_px, "letter"),
+            (pill.unit_px, case.pill.unit_px, "eenheidsletter"),
+            (pill.number_width, case.pill.number_width, "getalbreedte"),
+            (pill.unit_width, case.pill.unit_width, "eenheidsbreedte"),
+            (pill.baseline, case.pill.baseline, "basislijn"),
+        ] {
+            close(actual, expected, &format!("{name}: {field}"));
+        }
+    }
+}
+
+#[test]
+fn overlap_test_with_pills_matches_the_app() {
+    for (index, case) in fixtures().pill_reaches.into_iter().enumerate() {
+        let reach = |side: &PillSide| {
+            let pill = windsock::pill(side.heading, &side.label, "Bft");
+            windsock::sock_reach(side.mast, side.heading, side.strength, Some(&pill))
+        };
+        let (a, b) = (reach(&case.a), reach(&case.b));
+        for (reach, side, name) in [(&a, &case.a, "a"), (&b, &case.b, "b")] {
+            let (from, to, radius) = reach.badge.unwrap();
+            close_points(
+                &[from, to],
+                &[side.badge.from, side.badge.to],
+                &format!("geval {index}: pil {name}"),
+            );
+            close(radius, side.badge.radius, &format!("geval {index}: pilstraal {name}"));
+        }
+        assert_eq!(windsock::socks_clear(&a, &b, 1.0), case.clear, "geval {index}: vrij");
         assert_eq!(
             windsock::socks_clear(&a, &b, 1.15),
             case.clear_appear,
@@ -336,6 +436,7 @@ fn polygon_fill_with_cut_is_byte_identical_to_the_bot() {
         let cut = case.cut.as_ref().map(|cut| Cut {
             center: [cut.x, cut.y],
             radius: cut.radius,
+            half_length: cut.half_length,
         });
         windsock::fill_polygon(&mut rgb, size, &case.points, [250, 120, 30], 0.8, cut);
         assert_eq!(rgb, case.rgb, "vulling {index}");

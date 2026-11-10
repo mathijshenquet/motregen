@@ -1,15 +1,16 @@
 import type { Map as MapLibreMap } from 'maplibre-gl'
 import { beaufortScale } from './wind-beaufort.js'
-import { DEFAULT_WINDSOCK_BADGE, WINDSOCK_SAMPLES, windsockBadge, windsockShape, type WindsockShape } from './wind-glyph.js'
+import { WINDSOCK_SAMPLES, windsockShape, type WindsockShape } from './wind-glyph.js'
 import { advanceSock, angleDifference, DEFAULT_WINDSOCK_CURVATURE, sampleWind, SOCK_SNAP_SECONDS, sockReach, socksClear, swayBends, WINDSOCK_APPEAR_MARGIN, windsockHeadings, windsockPhase, type SockReach, type Spring, type WindsockField } from './windsock-flow.js'
 import type { TemperaturePlace } from './temperature.js'
-import { windValue, type WindUnit } from './weather.js'
+import { WIND_UNIT_LABELS, windValue, type WindUnit } from './weather.js'
 import { markLayerDrawn, recordPerfPhase } from './perf.js'
 import { WINDSOCK_ANCHOR_OFFSETS } from './windsock-anchors.js'
-import { drawSock } from './wind-sock-draw.js'
+import { DEFAULT_WINDSOCK_UNIT_STYLE, drawSock, sockBadge, WINDSOCK_UNIT_STYLES, windsockExtent, type SockBadge, type WindsockUnitStyle } from './wind-sock-draw.js'
+import { domRest } from './dom-rest.js'
 import { MapLabelPlacer, type Offset, type Placement } from './map-label-placement.js'
-import { MAP_LABEL_COLORS, MAP_LABEL_FONT_FAMILY, mapLabelSize } from './map-labels.js'
-import { sockNameOffset, sockNameWidth, type LabelSide } from './place-footprint.js'
+import { MAP_LABEL_COLORS, MAP_LABEL_FONT_FAMILY, viewportMapLabelSize } from './map-labels.js'
+import { sockNameOffset, sockNameWidth, sockPillRadius, type LabelSide } from './place-footprint.js'
 
 interface Sock {
   place: TemperaturePlace
@@ -51,6 +52,8 @@ export interface WindsockLayerOptions {
   reducedMotion: () => boolean
   /** Alleen `?dev&windfactor=`: vermenigvuldigt de wind van de zakken, om harde wind te bekijken. */
   speedFactor: number
+  /** Proef U113 (`?dev&zakeenheid=`). */
+  unitStyle: WindsockUnitStyle
   /** De locatiepin: zakken wijken ervoor, zoals de getallen in Gevoel. */
   pin: () => { lng: number; lat: number } | undefined
   /** U114 `?dev&plekken=orde&namen=samen`: deze plek krijgt zijn naam bij de zak. */
@@ -60,6 +63,39 @@ export interface WindsockLayerOptions {
    * houdt ze uit elkaar) en de naam staat aan deze kant.
    */
   side?: (place: TemperaturePlace) => LabelSide
+  /** Alleen `?dev&zakcanvas=los` (U111): elke zak een eigen kleine canvas in plaats van één schermvullende. */
+  separateCanvases?: boolean
+  /** Alleen `?dev&zakdpr=` (U111): bovengrens voor de pixeldichtheid van de zakcanvas. */
+  maxPixelRatio?: number
+  /** Alleen `?dev&zakclip=aan` (U111): het gat rond de badge weer wegknippen met `clip()` (de oude manier). */
+  clipCut?: boolean
+  /** Alleen `?dev&zak2d=software` (U111): `willReadFrequently`, dan tekent Firefox de canvas in het contentproces. */
+  softwareCanvas?: boolean
+}
+
+/** Eigen canvas van één zak (`separateCanvases`), in canvaspixels rond de afgeronde ankerpixel van de zak. */
+interface SockCanvas {
+  canvas: HTMLCanvasElement
+  context: CanvasRenderingContext2D
+  left: number
+  top: number
+  right: number
+  bottom: number
+  originX: number
+  originY: number
+}
+
+/** U114: de naam bij de zak, middelpunt t.o.v. het zakanker. */
+interface SockName { text: string; offset: [number, number]; width: number; size: number }
+
+interface SockDraw {
+  sock: Sock
+  x: number
+  y: number
+  shape: WindsockShape
+  badge: SockBadge
+  name?: SockName
+  rect: DirtyRect
 }
 
 /** Ring van uitwijkplekken rond de voorkeursplek in CSS-px: eerst dichtbij, dan verder weg (zoals PLACE_LADDER). */
@@ -78,6 +114,11 @@ const LAYOUT_INTERVAL_MS = 250
 export class WindsockLayer {
   readonly canvas: HTMLCanvasElement
   private readonly context: CanvasRenderingContext2D
+  /** Krijgt dekking en zichtbaarheid: de canvas, of met `separateCanvases` de houder van de zakcanvassen. */
+  private readonly surface: HTMLElement
+  private readonly sockCanvases = new Map<Sock, SockCanvas>()
+  private sockCanvasRatio = 0
+  private scratch?: { canvas: HTMLCanvasElement; context: CanvasRenderingContext2D }
   private socks: Sock[] = []
   private field?: WindsockField
   private unit: WindUnit = 'bft'
@@ -86,6 +127,8 @@ export class WindsockLayer {
   private frame?: number
   private delay?: number
   private drawnCamera = ''
+  /** Canvaspixels van de zakken in de vorige tekening; zonder: onbekend, dan de hele canvas wissen. */
+  private drawnRects?: DirtyRect[]
   /** Wandklok (s) van de vorige tekening, voor het momentum. */
   private drawnAt = -Infinity
   private readonly placer: MapLabelPlacer
@@ -131,10 +174,19 @@ export class WindsockLayer {
     this.canvas = document.createElement('canvas')
     this.canvas.className = 'map-overlay map-overlay-windsocks'
     this.canvas.setAttribute('aria-hidden', 'true')
-    this.canvas.style.opacity = '0'
-    this.canvas.style.visibility = 'hidden'
     map.getCanvasContainer().append(this.canvas)
-    this.context = this.canvas.getContext('2d')!
+    if (options.separateCanvases) {
+      this.surface = document.createElement('div')
+      this.surface.className = 'map-overlay map-overlay-windsocks-los'
+      this.surface.setAttribute('aria-hidden', 'true')
+      this.canvas.width = this.canvas.height = 0
+      this.canvas.after(this.surface)
+    } else {
+      this.surface = this.canvas
+    }
+    this.surface.style.opacity = '0'
+    this.surface.style.visibility = 'hidden'
+    this.context = this.context2d(this.canvas)
     this.placer = new MapLabelPlacer(map, options.pin)
     this.measure()
     map.on('render', this.mapRendered)
@@ -187,6 +239,8 @@ export class WindsockLayer {
   setUnit(unit: WindUnit): void {
     if (unit === this.unit) return
     this.unit = unit
+    // De pil (en de naam ernaast) hangt van de eenheid af.
+    this.layoutDirty = true
     this.draw()
   }
 
@@ -200,8 +254,8 @@ export class WindsockLayer {
     if (opacity === this.opacity) return
     const wasHidden = this.opacity <= 0
     this.opacity = opacity
-    this.canvas.style.opacity = String(opacity)
-    this.canvas.style.visibility = opacity > 0 ? '' : 'hidden'
+    this.surface.style.opacity = String(opacity)
+    this.surface.style.visibility = opacity > 0 ? '' : 'hidden'
     if (wasHidden !== opacity <= 0) this.draw()
   }
 
@@ -214,6 +268,7 @@ export class WindsockLayer {
     for (const type of ACTIVITY_EVENTS) window.removeEventListener(type, this.activity, { capture: true })
     document.removeEventListener('visibilitychange', this.pageVisibility)
     this.canvas.remove()
+    if (this.surface !== this.canvas) this.surface.remove()
   }
 
   /** Aantal zakken dat de laatste tekening in beeld zette (e2e en screenshots). */
@@ -225,21 +280,25 @@ export class WindsockLayer {
     this.stopAnimation()
     this.drawnCamera = this.camera()
     if (!this.width || !this.height) this.measure()
-    const ratio = window.devicePixelRatio || 1
+    const ratio = Math.min(window.devicePixelRatio || 1, this.options.maxPixelRatio ?? Infinity)
     const { width, height } = this
-    if (this.canvas.width !== Math.round(width * ratio) || this.canvas.height !== Math.round(height * ratio)) {
+    const separate = this.surface !== this.canvas
+    if (!separate && this.canvas.width !== Math.round(width * ratio) || this.canvas.height !== Math.round(height * ratio)) {
       this.canvas.width = Math.round(width * ratio)
       this.canvas.height = Math.round(height * ratio)
+      this.drawnRects = []
       this.canvas.style.width = `${width}px`
       this.canvas.style.height = `${height}px`
     }
     const context = this.context
     context.setTransform(1, 0, 0, 1, 0, 0)
-    context.clearRect(0, 0, this.canvas.width, this.canvas.height)
     this.drawnCount = 0
     this.drawnMaxStrength = 0
     const field = this.field
     if (!field || this.opacity <= 0) {
+      context.clearRect(0, 0, this.canvas.width, this.canvas.height)
+      this.drawnRects = []
+      if (separate) this.paintSeparate([], ratio)
       if (this.canvas.dataset.socks !== '0|0') this.canvas.dataset.socks = '0|0'
       return
     }
@@ -256,7 +315,7 @@ export class WindsockLayer {
     this.drawnAt = seconds
     let fluttering = false
     let settling = false
-    const size = mapLabelSize(window.innerWidth, window.innerHeight)
+    const size = viewportMapLabelSize()
     // Indelen bij een nieuwe stand (pin, plekken, stilstand) of tijdens bewegen hooguit om de LAYOUT_INTERVAL_MS.
     if (this.layoutDirty || ((this.fieldChanged || this.drawnCamera !== this.layoutCamera) && started - this.lastLayout >= LAYOUT_INTERVAL_MS)) {
       this.fieldChanged = false
@@ -265,6 +324,7 @@ export class WindsockLayer {
       recordPerfPhase('windsock-layout', performance.now() - started)
     }
     const drawStarted = performance.now()
+    const pending: SockDraw[] = []
     for (const sock of this.socks) {
       if (!sock.placed) continue
       const screen = this.map.project([sock.place.lng, sock.place.lat])
@@ -280,37 +340,59 @@ export class WindsockLayer {
       const base = sock.heading!.value
       const headings = compass.map((heading, index) => base + angleDifference(target, heading) - bearing + (flutterBend?.[index] ?? 0))
       const shape = windsockShape(strength, headings, 'kaart')
-      this.drawSock(context, screen.x + sock.placed.dx, screen.y + sock.placed.dy, shape, String(windValue(speed, this.unit)), size)
-      if (sock.named) {
-        const [nameX, nameY] = this.nameOffset(sock.place, size)
-        this.drawName(context, sock.place.name, screen.x + sock.placed.dx + nameX, screen.y + sock.placed.dy + nameY, size)
-      }
+      const x = screen.x + sock.placed.dx, y = screen.y + sock.placed.dy
+      const badge = sockBadge(shape, base - bearing, String(windValue(speed, this.unit)), WIND_UNIT_LABELS[this.unit], this.options.unitStyle, size)
+      // U114: de naam aan de vaste kant hoort bij de zak, ook in de vuile rechthoek.
+      const name = sock.named ? { text: sock.place.name, offset: this.nameOffset(sock.place, size), width: sockNameWidth(sock.place.name, size), size } : undefined
+      pending.push({ sock, x, y, shape, badge, name, rect: sockRect(x, y, shape, badge, ratio, name) })
       this.drawnCount++
       this.drawnMaxStrength = Math.max(this.drawnMaxStrength, strength)
+    }
+    // Alleen wissen waar een zak stond of komt (U111): een volle canvas wissen en hertekenen kostte op Firefox
+    // Android (canvas-2D op de CPU) per frame het hele scherm. Zonder bekende vorige stand alles.
+    if (separate) this.paintSeparate(pending, ratio)
+    else {
+      const rects = pending.map((draw) => draw.rect)
+      context.setTransform(1, 0, 0, 1, 0, 0)
+      const cleared = this.drawnRects ? [...this.drawnRects, ...rects] : undefined
+      const canvasArea = this.canvas.width * this.canvas.height
+      if (!cleared || cleared.reduce((sum, rect) => sum + rect.width * rect.height, 0) > canvasArea / 2) context.clearRect(0, 0, this.canvas.width, this.canvas.height)
+      else for (const rect of cleared) context.clearRect(rect.x, rect.y, rect.width, rect.height)
+      this.drawnRects = rects
+      context.setTransform(ratio, 0, 0, ratio, 0, 0)
+      // Het gat wegvegen raakt alles wat er al staat: een zak die over een eerder getekende zak van deze frame valt,
+      // gaat via de kladcanvas (zelden; de indeling houdt zakken uit elkaar). Het gat ligt binnen de eigen rechthoek.
+      pending.forEach((draw, index) => {
+        const overlaps = !this.options.clipCut && pending.slice(0, index).some((other) => rectsOverlap(other.rect, draw.rect))
+        if (overlaps) this.drawViaScratch(context, draw, ratio)
+        else this.drawSock(context, draw)
+      })
     }
     recordPerfPhase('windsock-draw', performance.now() - drawStarted, { socks: this.drawnCount, fluttering })
     if (this.drawnCount) markLayerDrawn('windzakken')
     const summary = `${this.drawnCount}|${Math.round(this.drawnMaxStrength * 10) / 10}`
     if (this.canvas.dataset.socks !== summary) this.canvas.dataset.socks = summary
-    this.canvas.dataset.draws = String(this.draws)
+    // Met `domRest` niet per tekening in de DOM (U111 ronde 4); rigs lezen `draws` via `__motregenWindsocks()`.
+    if (!domRest) this.canvas.dataset.draws = String(this.draws)
     if ((fluttering || settling) && this.inView && document.visibilityState !== 'hidden') this.scheduleFlutter(started, this.flutterFps(started))
   }
 
   /**
-   * Plek per zak met de gedeelde uitwijkregel (map-label-placement): de badge (de mast met het getal) mag niet over
-   * een plaatsnaam, de pin, de bediening of een andere badge vallen. De ladder begint bij de vaste voorkeursplek.
+   * Plek per zak met de gedeelde uitwijkregel (map-label-placement): de badge (pil met getal en eenheid op de mast)
+   * mag niet over een plaatsnaam, de pin, de bediening of een andere badge vallen; zakken en pillen niet over elkaar
+   * (`socksClear`). De ladder begint bij de vaste voorkeursplek.
    */
   private layout(size: number, now: number): void {
     this.layoutDirty = false
     this.lastLayout = now
     this.placer.begin()
-    const side = 2 * (windsockBadge(STRAIGHT, DEFAULT_WINDSOCK_BADGE, '0', size).cutRadius + 1)
     const reaches: SockReach[] = []
     const field = this.field, bearing = this.map.getBearing()
     for (const sock of this.socks) {
       const screen = this.map.project([sock.place.lng, sock.place.lat])
       if (this.options.side) {
-        const radius = side / 2
+        // De pil kan aan elke kant van de mast staan: zijn hele bereik telt (place-footprint).
+        const radius = sockPillRadius(size, this.unit === 'kmh')
         const badge = { left: screen.x - radius, right: screen.x + radius, top: screen.y - radius, bottom: screen.y + radius }
         sock.placed = this.placer.shows(screen.x, screen.y, badge) ? { dx: 0, dy: 0, index: 0 } : undefined
         sock.named = Boolean(sock.placed && this.options.named?.(sock.place))
@@ -319,16 +401,21 @@ export class WindsockLayer {
       const ladder = SOCK_RING.map(([dx, dy]): Offset => [sock.offset[0] + dx, sock.offset[1] + dy])
       const wind = field && sampleWind(field, 0, sock.x, sock.y)
       const compass = wind && windsockHeadings(field, sock.x, sock.y, DEFAULT_WINDSOCK_CURVATURE)
-      const strength = wind ? beaufortScale(Math.hypot(wind[0], wind[1]) * this.options.speedFactor) : 0
+      const speed = wind ? Math.hypot(wind[0], wind[1]) * this.options.speedFactor : 0
+      const strength = beaufortScale(speed)
+      const heading = compass ? compass[0]! - bearing : 0
+      const badge = sockBadge(STRAIGHT, heading, String(windValue(speed, this.unit)), WIND_UNIT_LABELS[this.unit], this.options.unitStyle, size)
+      const side = { width: 2 * (badge.halfWidth + badge.gap + 1), height: 2 * (badge.halfHeight + badge.gap + 1) }
       const shown = sock.placed !== undefined
       let reach: SockReach | undefined
       // Geen zakken over elkaar (windsock-flow `socksClear`); een zak die erbij komt, vraagt wat meer ruimte.
       const clear = (dx: number, dy: number) => {
         if (!compass) return true
-        reach = sockReach([screen.x + dx, screen.y + dy], compass[0]! - bearing, strength)
+        reach = sockReach([screen.x + dx, screen.y + dy], heading, strength, badge)
         return reaches.every((other) => socksClear(reach!, other, shown ? 1 : WINDSOCK_APPEAR_MARGIN))
       }
-      sock.placed = this.placer.place(screen.x, screen.y, { width: side, height: side }, ladder, sock.placed?.index, clear)
+      // Het vak ligt om de pil, niet om de mast: de pil steekt naast de mast uit.
+      sock.placed = this.placer.place(screen.x + badge.x, screen.y + badge.y, side, ladder, sock.placed?.index, clear)
       if (sock.placed && reach) reaches.push(reach)
       sock.named = Boolean(sock.placed && this.options.named?.(sock.place)
         && this.placer.place(screen.x + sock.placed.dx, screen.y + sock.placed.dy + this.nameOffset(sock.place, size)[1], { width: sockNameWidth(sock.place.name, size), height: size + 4 }, [[0, 0]]))
@@ -337,16 +424,107 @@ export class WindsockLayer {
     if (this.options.side) this.canvas.dataset.placed = this.socks.filter((sock) => sock.placed).map((sock) => sock.place.name).join('|')
   }
 
-  private drawSock(context: CanvasRenderingContext2D, x: number, y: number, shape: WindsockShape, label: string, size: number): void {
+  /**
+   * `separateCanvases`: elke zak op een eigen canvas, die alleen groeit (zo trilt de zak zonder nieuwe canvas) en
+   * alleen verschuift als het anker een canvaspixel verschuift. De zak valt op dezelfde subpixelfase als op de grote
+   * canvas, dus dezelfde pixels; per frame gaat alleen de oppervlakte van de zakken naar de compositor.
+   */
+  private paintSeparate(draws: readonly SockDraw[], ratio: number): void {
+    if (ratio !== this.sockCanvasRatio) {
+      for (const entry of this.sockCanvases.values()) entry.canvas.remove()
+      this.sockCanvases.clear()
+      this.sockCanvasRatio = ratio
+    }
+    const drawn = new Set<Sock>()
+    for (const draw of draws) {
+      const anchorX = Math.floor(draw.x * ratio), anchorY = Math.floor(draw.y * ratio)
+      const { rect } = draw
+      let entry = this.sockCanvases.get(draw.sock)
+      if (!entry) {
+        const canvas = document.createElement('canvas')
+        canvas.className = 'map-overlay'
+        this.surface.append(canvas)
+        entry = { canvas, context: this.context2d(canvas), left: 0, top: 0, right: 0, bottom: 0, originX: NaN, originY: NaN }
+        this.sockCanvases.set(draw.sock, entry)
+      }
+      const left = rect.x - anchorX, top = rect.y - anchorY, right = left + rect.width, bottom = top + rect.height
+      if (left < entry.left || top < entry.top || right > entry.right || bottom > entry.bottom || !entry.canvas.width) {
+        // Ruim groeien: een trillende zak verandert elke frame een paar pixels van omvang.
+        const slack = Math.ceil(SOCK_CANVAS_SLACK * ratio)
+        entry.left = Math.min(entry.left, left - slack)
+        entry.top = Math.min(entry.top, top - slack)
+        entry.right = Math.max(entry.right, right + slack)
+        entry.bottom = Math.max(entry.bottom, bottom + slack)
+        entry.canvas.width = entry.right - entry.left
+        entry.canvas.height = entry.bottom - entry.top
+        entry.canvas.style.width = `${entry.canvas.width / ratio}px`
+        entry.canvas.style.height = `${entry.canvas.height / ratio}px`
+      }
+      const originX = anchorX + entry.left, originY = anchorY + entry.top
+      if (originX !== entry.originX || originY !== entry.originY) {
+        entry.originX = originX
+        entry.originY = originY
+        entry.canvas.style.left = `${originX / ratio}px`
+        entry.canvas.style.top = `${originY / ratio}px`
+      }
+      if (entry.canvas.style.visibility) entry.canvas.style.visibility = ''
+      const context = entry.context
+      context.setTransform(1, 0, 0, 1, 0, 0)
+      context.clearRect(0, 0, entry.canvas.width, entry.canvas.height)
+      context.setTransform(ratio, 0, 0, ratio, -originX, -originY)
+      this.drawSock(context, draw)
+      drawn.add(draw.sock)
+    }
+    const current = new Set(this.socks)
+    for (const [sock, entry] of this.sockCanvases) {
+      if (drawn.has(sock)) continue
+      if (!current.has(sock)) {
+        entry.canvas.remove()
+        this.sockCanvases.delete(sock)
+      } else if (entry.canvas.style.visibility !== 'hidden') entry.canvas.style.visibility = 'hidden'
+    }
+  }
+
+  /**
+   * Een zak die een andere raakt: op zijn rechthoek in de kladcanvas, dan op gehele canvaspixels erover. Niet voor elke
+   * zak: in Firefox kost elke kladtekening een framebufferwissel en een upload (Gecko-profiel ronde 2).
+   */
+  private drawViaScratch(target: CanvasRenderingContext2D, draw: SockDraw, ratio: number): void {
+    const { rect } = draw
+    if (!this.scratch) {
+      const canvas = document.createElement('canvas')
+      this.scratch = { canvas, context: this.context2d(canvas) }
+    }
+    const { canvas, context } = this.scratch
+    if (canvas.width < rect.width || canvas.height < rect.height) {
+      canvas.width = Math.max(canvas.width, rect.width)
+      canvas.height = Math.max(canvas.height, rect.height)
+    }
+    context.setTransform(1, 0, 0, 1, 0, 0)
+    context.clearRect(0, 0, rect.width, rect.height)
+    context.setTransform(ratio, 0, 0, ratio, -rect.x, -rect.y)
+    this.drawSock(context, draw)
+    target.setTransform(1, 0, 0, 1, 0, 0)
+    target.drawImage(canvas, 0, 0, rect.width, rect.height, rect.x, rect.y, rect.width, rect.height)
+    target.setTransform(ratio, 0, 0, ratio, 0, 0)
+  }
+
+  private context2d(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
+    return canvas.getContext('2d', this.options.softwareCanvas ? { willReadFrequently: true } : undefined)!
+  }
+
+  private drawSock(context: CanvasRenderingContext2D, draw: Omit<SockDraw, 'sock' | 'rect'>): void {
+    const { x, y, shape, badge, name } = draw
     context.save()
     context.translate(x, y)
-    drawSock({ context, shape, badge: windsockBadge(shape, DEFAULT_WINDSOCK_BADGE, label, size), label, dark: this.dark, fontFamily: MAP_LABEL_FONT_FAMILY })
+    drawSock({ context, shape, badge, dark: this.dark, fontFamily: MAP_LABEL_FONT_FAMILY, cut: this.options.clipCut ? 'clip' : 'erase' })
+    if (name) this.drawName(context, name.text, name.offset[0], name.offset[1], name.size)
     context.restore()
   }
 
   /** Middelpunt van de naam t.o.v. het zakanker (U114 `namen=samen`): aan de vaste kant, standaard eronder. */
   private nameOffset(place: TemperaturePlace, size: number): [number, number] {
-    return sockNameOffset(this.options.side?.(place) ?? 'onder', place.name, size)
+    return sockNameOffset(this.options.side?.(place) ?? 'onder', place.name, size, this.unit === 'kmh')
   }
 
   private drawName(context: CanvasRenderingContext2D, name: string, x: number, y: number, size: number): void {
@@ -405,10 +583,14 @@ export class WindsockLayer {
   }
 }
 
-/** Dev-knop `?dev&windfactor=`; zonder knop de gekozen windmodus. */
+/** Dev-knoppen `?dev&windfactor=` en `?dev&zakeenheid=` (U113); zonder knop de standaard. */
 export function windsockDevOptions(params: URLSearchParams): Omit<WindsockLayerOptions, 'reducedMotion' | 'pin'> {
   const factor = Number(params.get('windfactor'))
-  return { speedFactor: Number.isFinite(factor) && factor > 0 ? factor : 1 }
+  const unitStyle = WINDSOCK_UNIT_STYLES.find((style) => style === params.get('zakeenheid')) ?? DEFAULT_WINDSOCK_UNIT_STYLE
+  return {
+    speedFactor: Number.isFinite(factor) && factor > 0 ? factor : 1,
+    unitStyle,
+  }
 }
 
 function sameField(next: WindsockField | undefined, current: WindsockField | undefined): boolean {
@@ -421,5 +603,33 @@ function sameField(next: WindsockField | undefined, current: WindsockField | und
   })
 }
 
-/** Een rechte zak, alleen om de badgemaat te bepalen (die hangt niet van de vorm af). */
+interface DirtyRect { x: number; y: number; width: number; height: number }
+
+/** Groeimarge van een losse zakcanvas in CSS-px (`separateCanvases`). */
+const SOCK_CANVAS_SLACK = 4
+
+function rectsOverlap(a: DirtyRect, b: DirtyRect): boolean {
+  return a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
+}
+
+/**
+ * Canvaspixels (afgerond naar buiten) die een zak op (x, y) kan raken: wat `drawSock` tekent (`windsockExtent`) en het
+ * gat rond de badge, dat bij vegen ook wist wat er al stond (`gap` reikt verder dan de inktrand van de badge).
+ */
+export function sockRect(x: number, y: number, shape: WindsockShape, badge: SockBadge, ratio: number, name?: SockName): DirtyRect {
+  const extent = windsockExtent(shape, badge)
+  let left = Math.min(extent.left, badge.x - badge.halfWidth - badge.gap - 1), right = Math.max(extent.right, badge.x + badge.halfWidth + badge.gap + 1)
+  let top = Math.min(extent.top, badge.y - badge.halfHeight - badge.gap - 1), bottom = Math.max(extent.bottom, badge.y + badge.halfHeight + badge.gap + 1)
+  if (name) {
+    // Halve breedte plus de halo (3 px lijn) en een px marge.
+    const halfWidth = name.width / 2 + 3, halfHeight = (name.size + 4) / 2 + 2
+    left = Math.min(left, name.offset[0] - halfWidth); right = Math.max(right, name.offset[0] + halfWidth)
+    top = Math.min(top, name.offset[1] - halfHeight); bottom = Math.max(bottom, name.offset[1] + halfHeight)
+  }
+  const x0 = Math.floor((x + left) * ratio), y0 = Math.floor((y + top) * ratio)
+  const x1 = Math.ceil((x + right) * ratio), y1 = Math.ceil((y + bottom) * ratio)
+  return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 }
+}
+
+/** Een rechte zak, alleen om de badge te bepalen (die staat op de mond, en die ligt altijd op de mast). */
 const STRAIGHT = windsockShape(0, Array<number>(WINDSOCK_SAMPLES + 1).fill(0), 'kaart')

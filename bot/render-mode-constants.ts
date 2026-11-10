@@ -1,6 +1,6 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
-import { BASE_FRAME_SCALE, ELEMENT_SCALE, FRAME } from './config.js'
+import { BASE_FRAME_SCALE, ELEMENT_SCALE, FRAME, WIND_FILM_TEMPO } from './config.js'
 import { ELEMENT_ZOOM, isolineTolerancePx } from './native-view.js'
 import { fpsFraction, holdFrames, sequencePlan } from './sequences.js'
 import * as wind from '../web/src/core/wind-presentation.js'
@@ -10,13 +10,13 @@ import * as map from '../web/src/core/map-presentation.js'
 import * as palette from '../web/src/core/temperature-palette.js'
 import { NETHERLANDS_FLANDERS_BOUNDS } from '../web/src/core/map-frame.js'
 import { BEAUFORT_COLORS, BEAUFORT_LOWER_MS, CODES_PER_FORCE, WIND_FILL, WIND_NIGHT_LINE_LIGHTEN, WIND_THIN_PARTICLE_WIDTH } from '../web/src/core/wind-beaufort.js'
-import { DEFAULT_WINDSOCK_BADGE, WINDSOCK_BADGE, WINDSOCK_BANDS, WINDSOCK_SAMPLES, WINDSOCK_SHAPE, WINDSOCK_STYLE } from '../web/src/core/wind-glyph.js'
+import { DEFAULT_WINDSOCK_BADGE, WINDSOCK_BADGE, WINDSOCK_BANDS, WINDSOCK_PILL, WINDSOCK_SAMPLES, WINDSOCK_SHAPE, WINDSOCK_STYLE } from '../web/src/core/wind-glyph.js'
 import { DEFAULT_WINDSOCK_CURVATURE, MAX_BEND_DEGREES, SOCK_SNAP_SECONDS, WINDSOCK_APPEAR_MARGIN, WINDSOCK_REACH_RADIUS, WINDSOCK_LAG_MINUTES, WINDSOCK_MOMENTUM, WINDSOCK_STREAM_KM, WINDSOCK_SWAY_NUMBERS, windsockPhase } from '../web/src/core/windsock-flow.js'
 import { DISC_MIN_EM, MAP_LABEL_SIZES, mapDiscRadius } from '../web/src/core/map-labels.js'
 import { MAP_PLACES, mapPlaceSpacingPx, MAX_PLACE_NUMBERS, nestedPlaces } from '../web/src/core/map-places.js'
 import { PLACE_LADDER } from '../web/src/core/map-label-placement.js'
 import { NATIVE_VIEW } from './native-view.js'
-import { windsockPlaces } from './native-windsocks.js'
+import { WINDSOCK_FILM_UNIT, windsockPlaces } from './native-windsocks.js'
 import { WINDSOCK_ANCHOR_OFFSETS } from '../web/src/core/windsock-anchors.js'
 import { createHash } from 'node:crypto'
 import * as cloudMap from '../web/src/core/cloud-map.js'
@@ -40,7 +40,7 @@ export function modeConstants() {
     cloud: cloudConstants(),
     // De film is altijd Wind: dunne deeltjes zoals de app bij volle windfocus (U101).
     wind: { ...wind.WIND_PARAMETERS, lineWidth: wind.WIND_PARAMETERS.lineWidth * WIND_THIN_PARTICLE_WIDTH, count: wind.particleCountForViewport(FRAME.width, FRAME.height), focus: wind.WIND_FOCUS_INTENSITY,
-      stagger: wind.WIND_INITIAL_STAGGER_SECONDS, simulation_fps: wind.WIND_SIMULATION_FPS, screen_speed: wind.windScreenSpeed(1),
+      stagger: wind.WIND_INITIAL_STAGGER_SECONDS, simulation_fps: wind.WIND_SIMULATION_FPS, screen_speed: wind.windScreenSpeed(1), film_tempo: WIND_FILM_TEMPO,
       damping_reference: wind.DAMPING_REFERENCE_SPEED, weak_speed: wind.WEAK_WIND_SPEED, weak_boost: wind.WEAK_WIND_MAX_BOOST,
       stops: wind.BEAUFORT_STOPS, light: wind.LIGHT_RAMP, dark: wind.DARK_RAMP },
     isoline: { temperature_blur: isoline.ISOLINE_BLUR, pressure_blur: isoline.ISOBAR_BLUR, time_weights: isoline.ISOBAR_TIME_WEIGHTS,
@@ -57,7 +57,7 @@ export function modeConstants() {
     windsock: {
       samples: WINDSOCK_SAMPLES, bands: WINDSOCK_BANDS, ...WINDSOCK_SHAPE.sizes.kaart, full_force: WINDSOCK_SHAPE.fullForce,
       slack_length: WINDSOCK_SHAPE.slackLength, slack_tail: WINDSOCK_SHAPE.slackTail, full_tail_gain: WINDSOCK_SHAPE.fullTailGain,
-      slack_bend: WINDSOCK_SHAPE.slackBend, style: WINDSOCK_STYLE, badge: WINDSOCK_BADGE, badge_at_mouth: DEFAULT_WINDSOCK_BADGE === 'mond',
+      slack_bend: WINDSOCK_SHAPE.slackBend, style: WINDSOCK_STYLE, badge: WINDSOCK_BADGE, pill: WINDSOCK_PILL, unit: WINDSOCK_FILM_UNIT, badge_at_mouth: DEFAULT_WINDSOCK_BADGE === 'mond',
       stream_km: WINDSOCK_STREAM_KM, lag_minutes: WINDSOCK_LAG_MINUTES, max_bend: MAX_BEND_DEGREES,
       stream: DEFAULT_WINDSOCK_CURVATURE === 'stroom' || DEFAULT_WINDSOCK_CURVATURE === 'beide',
       lag: DEFAULT_WINDSOCK_CURVATURE === 'traag' || DEFAULT_WINDSOCK_CURVATURE === 'beide',

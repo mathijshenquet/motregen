@@ -19,6 +19,11 @@ export function basemapVariant(search: string): typeof BASEMAP_VARIANTS[number] 
   if (!params.has('dev')) return undefined
   return BASEMAP_VARIANTS.find((name) => name !== 'diagram' && name === params.get('kaart'))
 }
+/** U111-bisectie (`?dev&kaart=leeg`, vervalt 2026-11-24): de basisstijl met alleen zijn achtergrond. */
+function emptyBasemap(search: string): boolean {
+  const params = new URLSearchParams(search)
+  return params.has('dev') && params.get('kaart') === 'leeg'
+}
 const cache = new Map<MapTheme, Promise<StyleSpecification>>()
 const glyphs = new Map<string, Promise<ArrayBuffer>>()
 let protocolInstalled = false
@@ -62,8 +67,9 @@ export function loadBasemapStyle(theme: MapTheme): Promise<StyleSpecification> {
         return response.json() as Promise<StyleSpecification>
       }))
       .then((style) => {
-        // U114 `?dev&plekken=orde|provincies`: plaatsnamen komen uit de plekkenorde (place-names.ts), niet uit de basiskaart.
+        // U114: plaatsnamen komen uit de plekkenorde (place-names.ts), niet uit de basiskaart (behalve `?dev&plekken=nu`).
         if (placeOrderOptions(location.search).places !== 'nu') style = withoutBasemapPlaceNames(style)
+        if (typeof location !== 'undefined' && emptyBasemap(location.search)) style = { ...style, layers: style.layers.filter((layer) => layer.type === 'background') }
         const prepared = prepareBasemapStyle(style, import.meta.env.VITE_DATA_ORIGIN ?? location.origin, new URL(url, location.href).href)
         for (const source of Object.values(prepared.sources)) {
           if (source.type !== 'vector' || !source.url?.startsWith('pmtiles://')) continue

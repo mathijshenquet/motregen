@@ -1,5 +1,5 @@
 use serde::Deserialize;
-use std::sync::OnceLock;
+use std::{collections::HashMap, sync::OnceLock};
 
 #[derive(Debug, Deserialize)]
 pub struct ModeConstants {
@@ -96,6 +96,8 @@ pub struct Wind {
     pub simulation_fps: f64,
     #[serde(rename = "screen_speed")]
     pub screen_speed: f64,
+    #[serde(rename = "film_tempo")]
+    pub film_tempo: f64,
     #[serde(rename = "damping_reference")]
     pub damping_reference: f64,
     #[serde(rename = "weak_speed")]
@@ -188,6 +190,10 @@ pub struct Windsock {
     pub slack_bend: f64,
     pub style: WindsockStyle,
     pub badge: WindsockBadge,
+    /// `WINDSOCK_PILL` (U113): getal en eenheid in een pil.
+    pub pill: WindsockPill,
+    /// De eenheid op de zak in de film (de bot kent geen eenheidsinstelling).
+    pub unit: String,
     pub badge_at_mouth: bool,
     pub stream_km: f64,
     pub lag_minutes: f64,
@@ -276,6 +282,19 @@ pub struct Halo {
 pub struct Mast {
     pub halo: f64,
     pub ink: f64,
+}
+
+/// `WINDSOCK_PILL` (wind-glyph.ts): breedtes in em van Noto Sans ExtraBold, zodat de pil overal gelijk is.
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WindsockPill {
+    pub unit_em: f64,
+    pub padding: f64,
+    pub gap: f64,
+    pub shift_sine: f64,
+    pub digit_middle_em: f64,
+    pub digit_em: f64,
+    pub letter_em: HashMap<char, f64>,
 }
 
 #[derive(Debug, Deserialize)]
