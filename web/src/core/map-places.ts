@@ -71,8 +71,9 @@ const abroad = (rank: OrderedPlace['rank'], name: string, lng: number, lat: numb
 export const PLACE_ORDER: readonly OrderedPlace[] = [
   ...land(1, 'Amsterdam, Groningen, Eindhoven, Zwolle, Vlissingen, Maastricht'),
   sea('Noordzee west', 1),
-  ...land(1, 'Rotterdam, Leeuwarden'),
-  ...land(2, 'Utrecht, Den Helder, Enschede'),
+  // Leeuwarden pas in rang 2: uitgezoomd op de telefoon botst zijn naam met Groningen (60 px).
+  ...land(1, 'Rotterdam, Den Helder'),
+  ...land(2, 'Leeuwarden, Utrecht, Enschede'),
   sea('IJsselmeer', 2),
   ...land(2, 'Arnhem, Den Haag, Breda, Assen'),
   sea('Waddenzee noord', 2),

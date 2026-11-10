@@ -6,6 +6,11 @@ import type { OrderedPlace } from './map-places'
  * stadsnamen van de basiskaart. De `label_`-prefix laat getallen en zakken ervoor wijken (MapLabelPlacer).
  */
 export const PLACE_NAMES_LAYER = 'label_orde'
+/**
+ * Botsmarge rond een naam. De basiskaart gebruikt 24/18/14/4 px om zelf te dunnen; de orde is al dun, en met die
+ * marge vielen de Weer-getallen naast hun naam weg.
+ */
+export const PLACE_NAMES_PADDING_PX = 2
 
 /** De `place`-lagen van de basiskaart (stad, dorp, provincie) uit: namen komen dan alleen uit de orde. */
 export function withoutBasemapPlaceNames(style: StyleSpecification): StyleSpecification {
@@ -23,7 +28,7 @@ export function placeNamesLayer(style: StyleSpecification): SymbolLayerSpecifica
     id: PLACE_NAMES_LAYER,
     type: 'symbol',
     source: PLACE_NAMES_LAYER,
-    layout: { ...layout, 'text-field': ['get', 'name'], 'symbol-sort-key': ['get', 'order'] },
+    layout: { ...layout, 'text-field': ['get', 'name'], 'symbol-sort-key': ['get', 'order'], 'text-padding': PLACE_NAMES_PADDING_PX },
     paint: city?.paint ?? {},
   }
 }

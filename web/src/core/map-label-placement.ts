@@ -1,4 +1,5 @@
 import type { Map as MapLibreMap } from 'maplibre-gl'
+import { PLACE_NAMES_LAYER, PLACE_NAMES_PADDING_PX } from './place-names.js'
 
 /**
  * Eén uitwijkregel voor alle kaartgetallen en windzakken (U107, docs/kaartstijl.md): een label staat op de eerste
@@ -82,14 +83,22 @@ export class MapLabelPlacer {
     if (this.taken.some((other) => overlaps(box, other, 3)) || this.chrome.some((other) => overlaps(box, other, 4))) return false
     if (this.pinBox && overlaps(box, this.pinBox, 0)) return false
     if (!this.layers.length) return true
-    const inset = Math.max(0, placeNamePaddingPx(this.map.getZoom()) - 3)
+    // De namen van de plekkenorde (U114) hebben een eigen, kleine padding; de basiskaartnamen die van hun stijl.
+    const own = this.layers.filter((id) => id === PLACE_NAMES_LAYER)
+    const basemap = this.layers.filter((id) => id !== PLACE_NAMES_LAYER)
+    return this.clear(box, basemap, placeNamePaddingPx(this.map.getZoom())) && this.clear(box, own, PLACE_NAMES_PADDING_PX)
+  }
+
+  private clear(box: Box, layers: string[], padding: number): boolean {
+    if (!layers.length) return true
+    const inset = Math.max(0, padding - 3)
     // Nooit kleiner dan het midden: een omgekeerd vak zou een ander gebied bevragen.
     const x = (box.left + box.right) / 2, y = (box.top + box.bottom) / 2
     const query: [[number, number], [number, number]] = [
       [Math.min(x, box.left + inset), Math.min(y, box.top + inset)],
       [Math.max(x, box.right - inset), Math.max(y, box.bottom - inset)],
     ]
-    return !this.map.queryRenderedFeatures(query, { layers: this.layers }).length
+    return !this.map.queryRenderedFeatures(query, { layers }).length
   }
 }
 

@@ -329,7 +329,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (!map) return undefined
     const names = (map.getStyle()?.layers ?? []).filter((layer) => layer.type === 'symbol' && layer.id.startsWith('label_')).map((layer) => layer.id)
     const count = (layers: string[]) => new Set(map!.queryRenderedFeatures({ layers: layers.filter((id) => map!.getLayer(id)) }).map((feature) => feature.properties?.name)).size
-    return { names: count(names), temperatures: count(['motregen-temperature']), zoom: map.getZoom() }
+    const source = map.getSource('motregen-temperature') ? map.querySourceFeatures('motregen-temperature').map((feature) => feature.properties?.label) : []
+    return { names: count(names), temperatures: count(['motregen-temperature']), temperatureSource: source, zoom: map.getZoom() }
   }
   // Camera voor de e2e van pin-navigatie en pan/zoom-only (U26).
   ;(window as unknown as { __motregenCamera: () => object | undefined }).__motregenCamera = () => map && {
@@ -1924,7 +1925,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     if (map.getLayer('motregen-temperature') && placeOrder.weatherNumbers === 'plekken') {
       const centred = placeOrder.names === 'samen' || !placeNamesVisible()
       map.setLayoutProperty('motregen-temperature', 'text-variable-anchor', centred ? ['center'] : [...TEMPERATURE_VARIABLE_ANCHORS])
-      map.setLayoutProperty('motregen-temperature', 'text-radial-offset', centred ? 0 : 1.15)
+      // 1,15 em (stadstemperaturen) botste op de telefoon vanaf zoom 7 met vrijwel elke naam; 1,6 em niet (gemeten U114).
+      map.setLayoutProperty('motregen-temperature', 'text-radial-offset', centred ? 0 : 1.6)
     }
   }
 
