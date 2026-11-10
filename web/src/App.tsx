@@ -230,7 +230,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const devMode = new URLSearchParams(window.location.search).has('dev')
   // Afgevallen proeven (o.a. Regenisolijnen, U86) laten geen sleutel meer achter.
   forgetRetiredStorage(window.localStorage)
-  const windsockOptions = windsockDevOptions(new URLSearchParams(devMode ? window.location.search : ''))
+  const devParams = new URLSearchParams(devMode ? window.location.search : '')
+  const windsockOptions = windsockDevOptions(devParams)
+  // A/B-knoppen voor de framegaten in Wind op Firefox Android (U111, vervallen 2026-11-24).
+  const windsocksOff = devParams.get('zakken') === 'uit'
+  const isolinesOff = devParams.get('isolijnen') === 'uit'
   const stillMode = new URLSearchParams(window.location.search).get('still') === '1'
   let rigFreeCamera = false
   // Bewaar de invoer voordat de live permalink de adresbalk normaliseert.
@@ -683,18 +687,18 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   // Niet-reactief op de cursor: de frame-loop zet de dekking per tik (U41).
   const isolineCoverage = () => untrack(() => timelineCoverage(feelsLikeTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS))
   const temperatureIsolines = isolineSet({
-    kind: 'temperature', layerId: 'motregen-isolines', timeline: feelsLikeTimeline, focus, active: createMemo(() => focus() > 0),
+    kind: 'temperature', layerId: 'motregen-isolines', timeline: feelsLikeTimeline, focus, active: createMemo(() => !isolinesOff && focus() > 0),
     step: () => TEMPERATURE_ISOLINE_STEP, style: isolineStyle, coverage: isolineCoverage, setCount: setIsolineCount,
   })
   // Bewolkingssluier (PO 2026-09-25 live, U34): cloud_frac als zachte grijswitte vulling, zonder lijnen of
   // labels, alleen in de modus Lucht en pas dan geladen. Wijkt af van MIP-4 ronde 3 ("nooit als kaartlaag").
   const cloudIsolines = isolineSet({
-    kind: 'cloud', layerId: 'motregen-cloud-veil', timeline: cloudTimeline, focus: airFocus, active: createMemo(() => airFocus() > 0),
+    kind: 'cloud', layerId: 'motregen-cloud-veil', timeline: cloudTimeline, focus: airFocus, active: createMemo(() => !isolinesOff && airFocus() > 0),
     step: () => CLOUD_VEIL_STEP, style: cloudVeilStyle, coverage: () => untrack(() => timelineCoverage(cloudTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS)), setCount: () => undefined,
   })
   // Windmodus (U101): Beaufortvlakken met hun grenzen, dunne deeltjes en windzakken.
   const windBeaufortIsolines = isolineSet({
-    kind: 'wind', layerId: 'motregen-wind-beaufort', timeline: windUFrames, focus: windFocus, active: createMemo(() => windFocus() > 0),
+    kind: 'wind', layerId: 'motregen-wind-beaufort', timeline: windUFrames, focus: windFocus, active: createMemo(() => !isolinesOff && windFocus() > 0),
     step: () => 1, style: windBeaufortStyle, coverage: () => untrack(() => timelineCoverage(windUFrames(), selectedEpoch(), ISOLINE_EDGE_FADE_MS)), setCount: () => undefined,
   })
   const isolineSets = [temperatureIsolines, cloudIsolines, windBeaufortIsolines]
@@ -2290,7 +2294,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
    * staart vraagt het veld ook een half en een heel WINDSOCK_LAG_MINUTES eerder.
    */
   async function showWindsocks(): Promise<void> {
-    if (!map || windFocus() <= 0) return
+    if (!map || windFocus() <= 0 || windsocksOff) return
     const frames = windTimeline()
     if (!frames.length) return
     const epoch = selectedEpoch()
