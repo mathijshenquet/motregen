@@ -1,5 +1,5 @@
 import { chromium } from '@playwright/test'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 // Windzakvarianten (U113): per `?dev`-variant telefoon en desktop, licht en donker, op één kaarttijd; telt de zakken
@@ -9,6 +9,8 @@ import { join } from 'node:path'
 //   `windeenheid=` zet de gekozen windeenheid (localStorage) en gaat niet naar de URL.
 const [origin, outDir, time, ...variants] = process.argv.slice(2)
 if (!origin || !outDir || !time || !variants.length) throw new Error('usage: windsock-variant-shots.ts ORIGIN OUT_DIR TIJD-ISO VARIANT-QUERY...')
+// Een nieuwe ronde begint met een lege uitvoermap: geen oude shots naast nieuwe.
+rmSync(outDir, { recursive: true, force: true })
 mkdirSync(outDir, { recursive: true })
 
 const profiles = {
