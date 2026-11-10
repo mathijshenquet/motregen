@@ -5,6 +5,12 @@ export interface OverlayLayer extends CustomLayerInterface {
   requestRepaint?: () => void
   /** Zet de laag dit na elke render; false = niets getekend, dan hoeft de compositor de canvas niet mee te nemen. */
   contentDrawn?: boolean
+  /**
+   * Na `prerender`: beschrijft wat `render` zou tekenen. Gelijk aan de vorige tekening (en dezelfde canvasmaat) =
+   * de canvas niet aanraken; zonder tekening in de standaard-framebuffer presenteert de browser niets nieuws, wat in
+   * Firefox op Android per frame een volle canvas scheelt (U111).
+   */
+  drawKey?: () => string
 }
 
 /**
@@ -18,18 +24,24 @@ export class LayerOverlay {
   readonly canvas: HTMLCanvasElement
   readonly gl: WebGL2RenderingContext
   draws = 0
+  /** Tekenbeurten zonder verschil met de vorige (drawKey), dus zonder nieuwe canvas. */
+  skips = 0
   private frame?: number
   private delay?: number
   private drawnAt = -Infinity
   private drawnCamera = ''
+  private drawnKey?: string
   private manual = false
   private hidden = false
   private readonly afterDraw: Array<() => void> = []
   private readonly mapRendered = () => { if (this.camera() !== this.drawnCamera) this.draw() }
   private readonly resized = () => this.draw()
 
-  /** `maxFps`: bovengrens voor animatieframes (120 Hz-schermen zouden anders dubbel tekenen). */
-  constructor(private readonly map: MapLibreMap, readonly layer: OverlayLayer, above: Element, private readonly maxFps: () => number = () => Infinity) {
+  /**
+   * `maxFps`: bovengrens voor animatieframes (120 Hz-schermen zouden anders dubbel tekenen). `maxPixelRatio`: alleen
+   * `?dev&isolijndpr=` (U111), een lagere pixeldichtheid dan de kaart; de canvas wordt dan opgeschaald.
+   */
+  constructor(private readonly map: MapLibreMap, readonly layer: OverlayLayer, above: Element, private readonly maxFps: () => number = () => Infinity, private readonly maxPixelRatio = Infinity) {
     this.canvas = document.createElement('canvas')
     this.canvas.className = `map-overlay map-overlay-${layer.id}`
     this.canvas.setAttribute('aria-hidden', 'true')
@@ -97,16 +109,30 @@ export class LayerOverlay {
 
   private draw(): void {
     const gl = this.gl
-    this.resize()
+    // Een nieuwe canvasmaat wist de inhoud: dan altijd tekenen.
+    const resized = this.resize()
     this.drawnCamera = this.camera()
     this.drawnAt = performance.now()
+    const options = { defaultProjectionData: this.map.transform.getProjectionDataForCustomLayer(false) } as CustomRenderMethodInput
+    const keyed = this.layer.drawKey !== undefined
+    // Een laag met drawKey tekent in prerender alleen in eigen framebuffers: die eerst, dan pas de canvas wissen.
+    if (keyed) {
+      this.layer.prerender?.(gl, options)
+      const key = this.layer.drawKey!()
+      const unchanged = key === this.drawnKey && !resized
+      this.drawnKey = key
+      if (unchanged) {
+        this.skips++
+        for (const callback of this.afterDraw.splice(0)) callback()
+        return
+      }
+    }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null)
     gl.viewport(0, 0, this.canvas.width, this.canvas.height)
     gl.clearColor(0, 0, 0, 0)
     gl.clear(gl.COLOR_BUFFER_BIT)
-    const projection = this.map.transform.getProjectionDataForCustomLayer(false)
-    this.layer.prerender?.(gl, { defaultProjectionData: projection } as CustomRenderMethodInput)
-    this.layer.render(gl, { defaultProjectionData: projection } as CustomRenderMethodInput)
+    if (!keyed) this.layer.prerender?.(gl, options)
+    this.layer.render(gl, options)
     // U109: een lege, schermvullende canvas kost op de GPU evenveel compositing als een gevulde.
     const hidden = this.layer.contentDrawn === false
     if (hidden !== this.hidden) {
@@ -117,12 +143,16 @@ export class LayerOverlay {
     for (const callback of this.afterDraw.splice(0)) callback()
   }
 
-  private resize(): void {
+  private resize(): boolean {
     const source = this.map.getCanvas()
-    if (this.canvas.width !== source.width) this.canvas.width = source.width
-    if (this.canvas.height !== source.height) this.canvas.height = source.height
+    const scale = Math.min(1, this.maxPixelRatio / (window.devicePixelRatio || 1))
+    const width = Math.max(1, Math.round(source.width * scale)), height = Math.max(1, Math.round(source.height * scale))
+    const resized = this.canvas.width !== width || this.canvas.height !== height
+    if (this.canvas.width !== width) this.canvas.width = width
+    if (this.canvas.height !== height) this.canvas.height = height
     this.canvas.style.width = source.style.width
     this.canvas.style.height = source.style.height
+    return resized
   }
 
   private camera(): string {

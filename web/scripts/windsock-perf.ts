@@ -39,7 +39,8 @@ for (const scenario of scenarios) {
   await cdp.send('Performance.enable')
   const taskSeconds = async () => (await cdp.send('Performance.getMetrics')).metrics.find((metric) => metric.name === 'TaskDuration')?.value ?? 0
   const tasksBefore = await taskSeconds()
-  const draws = () => page.evaluate(() => Number(document.querySelector<HTMLElement>('.map-overlay-windsocks')?.dataset.draws ?? 0))
+  // De laag zelf (U111 ronde 4: `data-draws` staat alleen nog met `?dev&domrust=uit` in de DOM).
+  const draws = () => page.evaluate(() => (window as unknown as { __motregenWindsocks?: () => { draws: number } | undefined }).__motregenWindsocks?.()?.draws ?? Number(document.querySelector<HTMLElement>('.map-overlay-windsocks')?.dataset.draws ?? 0))
   const before = await draws()
   await page.waitForTimeout(10_000)
   const result = await page.evaluate(() => {

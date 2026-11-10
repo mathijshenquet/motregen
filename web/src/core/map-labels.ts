@@ -3,6 +3,7 @@
  * app en in de bot. Plaatsnamen komen uit de basiskaart (Noto Sans Regular, glyph-PBF); getallen gebruiken
  * dezelfde letter, gebundeld als subset (`assets/fonts/noto-sans-kaart.woff2`, tools/fonts/build.sh).
  */
+import { domRest } from './dom-rest.js'
 export const MAP_LABEL_FONT_FAMILY = '"Noto Sans Kaart", "Noto Sans", sans-serif'
 /** De naam in de MapLibre-stijl voor symboollagen (dezelfde letter als glyph-PBF). */
 export const MAP_LABEL_GLYPH_FONT = 'Noto Sans Regular'
@@ -18,6 +19,24 @@ export function isPhoneMap(width: number, height: number): boolean {
 /** Lettermaat van elk kaartgetal (temperatuur, gevoel, windbadge) in CSS-px. */
 export function mapLabelSize(width: number, height: number): number {
   return MAP_LABEL_SIZES[isPhoneMap(width, height) ? 'phone' : 'desktop']
+}
+
+let viewport: [number, number] | undefined
+let watchingResize = false
+
+/**
+ * `mapLabelSize` voor het venster, voor tekenpaden per frame: innerWidth/innerHeight gecachet tot de volgende `resize`.
+ * Lezen dwingt in Gecko een stijl- en layoutflush af als de DOM vuil is; op Firefox Android was dat 46 % van de
+ * zaktekening (U111 ronde 4).
+ */
+export function viewportMapLabelSize(): number {
+  if (!domRest) return mapLabelSize(window.innerWidth, window.innerHeight)
+  if (!watchingResize) {
+    watchingResize = true
+    window.addEventListener('resize', () => { viewport = undefined }, { passive: true })
+  }
+  viewport ??= [window.innerWidth, window.innerHeight]
+  return mapLabelSize(viewport[0], viewport[1])
 }
 
 /** Inkt en halo van vrijstaande kaartgetallen, gelijk aan de plaatsnamen van de basiskaart. */

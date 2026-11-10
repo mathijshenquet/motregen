@@ -77,17 +77,37 @@ export interface SockScene {
   badge: SockBadge
   dark: boolean
   fontFamily: string
+  /**
+   * `clip`: de zak rond de badge wegknippen. `erase` (de kaartlaag, U111): eerst de zak, dan het gat wegvegen met
+   * destination-out; Firefox Android rastert voor elke `clip()` een masker in software. `erase` veegt ook weg wat er
+   * al stond, dus alleen waar het gat geen andere tekening raakt.
+   */
+  cut?: 'clip' | 'erase'
 }
 
-export function drawSock({ context, shape, badge, dark, fontFamily }: SockScene): void {
+/** Het gat rond de badge (U113: de vorm van de badge plus `gap`). Eén functie voor knippen en vegen. */
+export function sockCutPath(badge: SockBadge): Path2D {
+  return badgePath(badge, badge.gap)
+}
+
+export function drawSock({ context, shape, badge, dark, fontFamily, cut = 'clip' }: SockScene): void {
   context.save()
   context.lineJoin = 'round'
   context.lineCap = 'round'
+  drawBody(context, shape, badge, dark, cut)
+  drawPlate(context, badge)
+  drawLabel(context, badge, fontFamily)
+  context.restore()
+}
+
+function drawBody(context: CanvasRenderingContext2D, shape: WindsockShape, badge: SockBadge, dark: boolean, cut: 'clip' | 'erase'): void {
   context.save()
-  const outside = new Path2D()
-  outside.rect(-240, -240, 480, 480)
-  outside.addPath(badgePath(badge, badge.gap))
-  context.clip(outside, 'evenodd')
+  if (cut === 'clip') {
+    const outside = new Path2D()
+    outside.rect(-240, -240, 480, 480)
+    outside.addPath(sockCutPath(badge))
+    context.clip(outside, 'evenodd')
+  }
   const outline = pathOf(windsockOutline(shape))
   context.save()
   context.translate(0, 1.3)
@@ -111,7 +131,15 @@ export function drawSock({ context, shape, badge, dark, fontFamily }: SockScene)
   mouth.lineTo(...shape.right[0]!)
   context.stroke(mouth)
   context.restore()
+  if (cut === 'erase') {
+    context.save()
+    context.globalCompositeOperation = 'destination-out'
+    context.fill(sockCutPath(badge))
+    context.restore()
+  }
+}
 
+function drawPlate(context: CanvasRenderingContext2D, badge: SockBadge): void {
   const plate = badgePath(badge)
   context.save()
   context.translate(0, 1.3)
@@ -123,6 +151,9 @@ export function drawSock({ context, shape, badge, dark, fontFamily }: SockScene)
   context.strokeStyle = WINDSOCK_STYLE.inkColor
   context.lineWidth = 1.1
   context.stroke(plate)
+}
+
+function drawLabel(context: CanvasRenderingContext2D, badge: SockBadge, fontFamily: string): void {
   context.textAlign = 'left'
   context.textBaseline = 'alphabetic'
   context.fillStyle = WINDSOCK_STYLE.orange
@@ -154,7 +185,6 @@ export function drawSock({ context, shape, badge, dark, fontFamily }: SockScene)
     const unitInk = context.measureText(unit)
     context.fillText(unit, badge.x - (unitInk.actualBoundingBoxRight - unitInk.actualBoundingBoxLeft) / 2, badge.y + radius * 0.66)
   }
-  context.restore()
 }
 
 function pathOf(points: readonly Point[]): Path2D {

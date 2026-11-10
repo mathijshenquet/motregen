@@ -254,6 +254,18 @@ export function configurePerfMode(url: URL, storage: Pick<Storage, 'getItem' | '
   return coldStart
 }
 
+/**
+ * `?perf=start&auto[=naam]` (U111): de koude-startopname na afloop zelf naar de profielsink sturen, zonder tikken,
+ * voor een meetlus met adb. De naam komt in de bestandsnaam; zonder waarde de overige parameters (`zakclip=aan`).
+ */
+export function autoSendLabel(url: URL): string | undefined {
+  if (url.searchParams.get('perf') !== 'start' || !url.searchParams.has('auto')) return undefined
+  const named = url.searchParams.get('auto')
+  if (named) return named
+  const rest = [...url.searchParams].filter(([key]) => !['perf', 'auto', 'modus', 'dev'].includes(key)).map(([key, value]) => value ? `${key}=${value}` : key)
+  return rest.join('&') || 'basis'
+}
+
 export function consumeColdProfile(storage: Pick<Storage, 'getItem' | 'removeItem'>): boolean {
   const requested = storage.getItem(PERF_COLD_STORAGE_KEY) === '1'
   if (requested) {
@@ -420,6 +432,10 @@ export class PerfMonitor {
   setDetailedEnabled(enabled: boolean): void {
     detailedMeasurementsEnabled = enabled
     activeMonitor = this
+    // De fps-teller vraagt elke frame een rAF aan; dat houdt de refresh driver op schermtempo (120 Hz), ook als er
+    // niets beweegt. Alleen tijdens het meten (U111).
+    if (enabled) this.start()
+    else this.stop()
     if (!enabled) {
       this.longFrameObserver?.disconnect()
       this.longFrameObserver = undefined
@@ -674,7 +690,6 @@ export function installPerfMonitor(): PerfMonitor {
     cancelFrame: (handle) => cancelAnimationFrame(handle),
   })
   performance.setResourceTimingBufferSize(2_000)
-  monitor.start()
   activeMonitor = monitor
   window.__motregenPerf = monitor
   return monitor

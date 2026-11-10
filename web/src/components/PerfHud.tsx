@@ -87,7 +87,9 @@ export default function PerfHud(props: Props) {
       <div><dt>ttfh · ttfp</dt><dd data-testid="perf-ttfp">{milliseconds(metric().ttfhMs)} · {milliseconds(metric().ttfpMs)}</dd></div>
       <div><dt>Leeg in beeld</dt><dd data-testid="perf-blank-visible">{milliseconds(metric().blankVisibleMs)} · {metric().blankSlotSeconds.toFixed(1)} slot-s · eerste balk {milliseconds(metric().firstBarMs)}</dd></div>
       <div><dt>Scrub p50 / p95</dt><dd>{milliseconds(metric().scrub.p50Ms)} / {milliseconds(metric().scrub.p95Ms)}</dd></div>
-      <div><dt>FPS</dt><dd>{metric().fps?.toFixed(1) ?? '—'}</dd></div>
+      {/* rAF-callbacks per seconde, niet de frames die het scherm toont: Gecko roept rAF ook aan als de compositor
+          dat frame niet haalt (Pixel 9: 51,6 rAF/s bij 24 getoonde frames, U111). */}
+      <div><dt>rAF/s</dt><dd title="requestAnimationFrame-callbacks, niet de getoonde frames">{metric().fps?.toFixed(1) ?? '—'}</dd></div>
       <div><dt>Manifest</dt><dd>{age(metric().manifestAgeMs)}</dd></div>
       <Show when={rates()}>{(rate) => <>
         <div><dt>Kaart</dt><dd data-testid="perf-repaints">{rate().repaintsPerSecond.toFixed(0)} repaints/s</dd></div>

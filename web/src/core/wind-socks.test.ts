@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { windsockPill, windsockShape, WINDSOCK_SAMPLES } from './wind-glyph'
-import { windsockExtent } from './wind-sock-draw'
-import { windsockDevOptions } from './wind-socks'
+import { sockBadge, windsockExtent } from './wind-sock-draw'
+import { sockRect, windsockDevOptions } from './wind-socks'
 import { sockReach, socksClear } from './windsock-flow'
 
 describe('windsockDevOptions', () => {
@@ -33,5 +33,26 @@ describe('de pil op de zak (U113)', () => {
     const extent = windsockExtent(shape, pill)
     expect(extent.left).toBeLessThan(pill.x - pill.halfWidth)
     expect(extent.right).toBeGreaterThan(shape.axis.at(-1)![0])
+  })
+})
+
+describe('sockRect (U111)', () => {
+  it('omvat de omvang van zak en badge en het weggeveegde gat, in canvaspixels naar buiten afgerond', () => {
+    const headings = Array.from({ length: WINDSOCK_SAMPLES + 1 }, (_, index) => 120 + index * 9)
+    const shape = windsockShape(6, headings, 'kaart')
+    const ratio = 3
+    for (const style of ['pil', 'cirkel', 'onder'] as const) {
+      const badge = sockBadge(shape, 120, '6', 'Bft', style, 13)
+      const rect = sockRect(100.4, 200.7, shape, badge, ratio)
+      const extent = windsockExtent(shape, badge)
+      const hole = { left: badge.x - badge.halfWidth - badge.gap, right: badge.x + badge.halfWidth + badge.gap, top: badge.y - badge.halfHeight - badge.gap, bottom: badge.y + badge.halfHeight + badge.gap }
+      for (const box of [extent, hole]) {
+        expect((100.4 + box.left) * ratio).toBeGreaterThanOrEqual(rect.x)
+        expect((100.4 + box.right) * ratio).toBeLessThanOrEqual(rect.x + rect.width)
+        expect((200.7 + box.top) * ratio).toBeGreaterThanOrEqual(rect.y)
+        expect((200.7 + box.bottom) * ratio).toBeLessThanOrEqual(rect.y + rect.height)
+      }
+      expect(Number.isInteger(rect.x) && Number.isInteger(rect.y) && Number.isInteger(rect.width) && Number.isInteger(rect.height)).toBe(true)
+    }
   })
 })

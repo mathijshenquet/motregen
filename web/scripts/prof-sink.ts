@@ -34,11 +34,13 @@ const server = createServer((request, response) => {
 })
 
 async function save(body: Buffer): Promise<string> {
-  const parsed = JSON.parse(body.toString('utf8')) as { metadata?: { platform?: unknown } }
+  const parsed = JSON.parse(body.toString('utf8')) as { metadata?: { platform?: unknown; label?: unknown } }
   validateChromeTrace(parsed)
   const platform = safePart(typeof parsed.metadata?.platform === 'string' ? parsed.metadata.platform : 'unknown')
+  // `?perf=start&auto[=naam]` (U111): de variant in de naam, zodat een meetlus zijn opnames terugvindt.
+  const label = typeof parsed.metadata?.label === 'string' ? `-${safePart(parsed.metadata.label)}` : ''
   const stamp = new Date().toISOString()
-  const filename = `${stamp}-${platform}.json`
+  const filename = `${stamp}-${platform}${label}.json`
   await mkdir(outputDir, { recursive: true })
   await writeFile(join(outputDir, filename), body, { flag: 'wx', mode: 0o600 })
   return filename

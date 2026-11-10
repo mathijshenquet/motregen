@@ -96,7 +96,7 @@ import { sameFields } from './core/stable'
 import { READY_WINDOW_MS, windowReady } from './core/window-ready'
 import { visibleSlotStates } from './core/screen-truth'
 import type { Intent } from './core/intent'
-import { coldProfileRequested, decode, fetchManifest, initialClient, initialManifest, manifestUrl, perf, profileMode } from './startup'
+import { autoSendProfile, coldProfileRequested, decode, fetchManifest, initialClient, initialManifest, manifestUrl, perf, profileMode } from './startup'
 import { loadsHistoryEarly } from './core/decode-budget'
 const defaultLocation = DEFAULT_LOCATION
 // Intent (MIP-20): velden die de kaart of de scrubber in een van de modi tekent; de straling hoort
@@ -230,9 +230,34 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const devMode = new URLSearchParams(window.location.search).has('dev')
   // Afgevallen proeven (o.a. Regenisolijnen, U86) laten geen sleutel meer achter.
   forgetRetiredStorage(window.localStorage)
-  const windsockOptions = windsockDevOptions(new URLSearchParams(devMode ? window.location.search : ''))
+  const devParams = new URLSearchParams(devMode ? window.location.search : '')
+  const windsockOptions = windsockDevOptions(devParams)
+  // A/B-knoppen voor de framegaten in Wind op Firefox Android (U111, vervallen 2026-11-24).
+  const windsocksOff = devParams.get('zakken') === 'uit'
+  const isolinesOff = devParams.get('isolijnen') === 'uit'
+  // Bisectie op de telefoon (U111): de WebGL-windlaag niet opzetten; de regenoverlay tekent niets (data en afspelen
+  // lopen door). `?dev&kaart=leeg` zit in basemap.ts.
+  const particlesOff = devParams.get('deeltjes') === 'uit'
+  const rainOff = devParams.get('regen') === 'uit'
+  // Kandidaat-fixes bisectieronde 1 (U111): elke zak een eigen kleine canvas; zak- en isolijncanvas op lagere DPR.
+  const devPixelRatio = (name: string) => {
+    const value = Number(devParams.get(name))
+    return value >= 1 && value <= 3 ? value : undefined
+  }
+  const separateSockCanvases = devParams.get('zakcanvas') === 'los'
+  // Vaste camera voor metingen (U111 ronde 4): `?dev&camera=<lon>,<lat>,<zoom>` zet de kaart daar bij het laden,
+  // zonder kaartbegrenzing, locatiefix, centreren op de pin of opslag, zodat elke browser dezelfde scène heeft.
+  const devCamera = (() => {
+    const [lng, lat, zoom] = (devParams.get('camera') ?? '').split(',').map(Number)
+    return [lng, lat, zoom].every((value) => Number.isFinite(value)) ? { lng: lng!, lat: lat!, zoom: zoom! } : undefined
+  })()
+  // Ronde 2 en 3 (Gecko-profielen): het oude gat met clip() ter vergelijking en de zakcanvas in het contentproces.
+  const clipSockCut = devParams.get('zakclip') === 'aan'
+  const softwareSockCanvas = devParams.get('zak2d') === 'software'
+  const sockPixelRatio = devPixelRatio('zakdpr')
+  const isolinePixelRatio = devPixelRatio('isolijndpr') ?? Infinity
   const stillMode = new URLSearchParams(window.location.search).get('still') === '1'
-  let rigFreeCamera = false
+  let rigFreeCamera = devCamera !== undefined
   // Bewaar de invoer voordat de live permalink de adresbalk normaliseert.
   const initialUrl = new URL(window.location.href)
   const initialPresets = parsePresets(initialUrl.search, Date.now(), initialUrl.pathname, initialUrl.hash)
@@ -340,6 +365,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       return windOverlay.canvas.toDataURL('image/png')
     }
   }
+  // Rig-haak (U111): de zakkenlaag, om vuile-rechthoek-tekeningen tegen een volle hertekening te leggen.
+  ;(window as unknown as { __motregenWindsocks: () => WindsockLayer | undefined }).__motregenWindsocks = () => windsockLayer
   // Meetpunt voor de kostenmeting (track-LOGs U8b/U8c): repaints, contour-passes, blits, label-rondes.
   ;(window as unknown as { __motregenIsolines: () => object }).__motregenIsolines = () => ({
     ...isolineCounters(),
@@ -458,7 +485,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [urlPlace, setUrlPlace] = createSignal<{ name: string; slug: string }>()
   // Verleende locatietoestemming gaat vóór de onthouden plaats (U26); tot de fix er is staat die er.
   void grantedStartFix({ permissions: navigator.permissions, geolocation: navigator.geolocation }, MAP_CONTAIN_BOUNDS).then((fix) => {
-    if (stillMode) return
+    if (stillMode || devCamera) return
     // Een gedeeld punt of een andere plaats dan waar we al staan gaat vóór de locatiefix; de eigen
     // permalink van de huidige plaats niet.
     if (initialPresets.point) return
@@ -683,18 +710,18 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   // Niet-reactief op de cursor: de frame-loop zet de dekking per tik (U41).
   const isolineCoverage = () => untrack(() => timelineCoverage(feelsLikeTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS))
   const temperatureIsolines = isolineSet({
-    kind: 'temperature', layerId: 'motregen-isolines', timeline: feelsLikeTimeline, focus, active: createMemo(() => focus() > 0),
+    kind: 'temperature', layerId: 'motregen-isolines', timeline: feelsLikeTimeline, focus, active: createMemo(() => !isolinesOff && focus() > 0),
     step: () => TEMPERATURE_ISOLINE_STEP, style: isolineStyle, coverage: isolineCoverage, setCount: setIsolineCount,
   })
   // Bewolkingssluier (PO 2026-09-25 live, U34): cloud_frac als zachte grijswitte vulling, zonder lijnen of
   // labels, alleen in de modus Lucht en pas dan geladen. Wijkt af van MIP-4 ronde 3 ("nooit als kaartlaag").
   const cloudIsolines = isolineSet({
-    kind: 'cloud', layerId: 'motregen-cloud-veil', timeline: cloudTimeline, focus: airFocus, active: createMemo(() => airFocus() > 0),
+    kind: 'cloud', layerId: 'motregen-cloud-veil', timeline: cloudTimeline, focus: airFocus, active: createMemo(() => !isolinesOff && airFocus() > 0),
     step: () => CLOUD_VEIL_STEP, style: cloudVeilStyle, coverage: () => untrack(() => timelineCoverage(cloudTimeline(), selectedEpoch(), ISOLINE_EDGE_FADE_MS)), setCount: () => undefined,
   })
   // Windmodus (U101): Beaufortvlakken met hun grenzen, dunne deeltjes en windzakken.
   const windBeaufortIsolines = isolineSet({
-    kind: 'wind', layerId: 'motregen-wind-beaufort', timeline: windUFrames, focus: windFocus, active: createMemo(() => windFocus() > 0),
+    kind: 'wind', layerId: 'motregen-wind-beaufort', timeline: windUFrames, focus: windFocus, active: createMemo(() => !isolinesOff && windFocus() > 0),
     step: () => 1, style: windBeaufortStyle, coverage: () => untrack(() => timelineCoverage(windUFrames(), selectedEpoch(), ISOLINE_EDGE_FADE_MS)), setCount: () => undefined,
   })
   const isolineSets = [temperatureIsolines, cloudIsolines, windBeaufortIsolines]
@@ -742,7 +769,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   createEffect(() => perf.setDetailedEnabled(profileMode || perfVisible()))
 
   let profileStop: AbortController | undefined
-  async function startProfile(durationMs = 30_000, captureStartTime = performance.now()): Promise<void> {
+  async function startProfile(durationMs = 30_000, captureStartTime = performance.now(), label?: string): Promise<void> {
     if (profileState() === 'recording') return
     setPerfVisible(true)
     setProfileState('recording')
@@ -751,7 +778,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     profileStop = new AbortController()
     try {
       const { recordProfile } = await import('./core/profile-recorder')
-      const recording = await recordProfile(perf, durationMs, captureStartTime, profileStop.signal)
+      const recording = await recordProfile(perf, durationMs, captureStartTime, profileStop.signal, label)
       setProfileRecording(recording)
       setProfileState('ready')
       setProfileNotice(recording.profilerAvailable ? 'Opname gereed · stacks + fasen' : 'Opname gereed · alleen fasen')
@@ -781,7 +808,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
   }
 
-  if (coldProfileRequested) void startProfile(Math.max(0, 30_000 - performance.now()), 0)
+  if (coldProfileRequested) {
+    void startProfile(Math.max(0, 30_000 - performance.now()), 0, autoSendProfile).then(() => {
+      if (autoSendProfile !== undefined && profileState() === 'ready') void sendProfile()
+    })
+  }
 
   onMount(() => {
     const telegram = props.telegram
@@ -952,7 +983,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       const initialTheme = stillMode ? stillMapTheme(selectedEpoch()) : mapTheme()
       const style = await loadBasemapStyle(initialTheme)
       appliedMapTheme = initialTheme
-      const initialView = constrainView(!stillMode && initialPresets.point
+      const initialView = devCamera ?? constrainView(!stillMode && initialPresets.point
         ? { ...initialPresets.point, zoom: 7 }
         : initialMapView ?? containView(MAP_CONTAIN_BOUNDS, mapViewport()), MAP_CONTAIN_BOUNDS, mapViewport())
       map = new maplibregl.Map({
@@ -1744,6 +1775,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   function mountRain(grid: Grid): void {
     if (!map) return
     layer = new RainLayer(grid)
+    if (rainOff) Object.assign(layer, { render: () => {}, contentDrawn: false })
     applyRainColours()
     try {
       rainOverlay = new LayerOverlay(map, layer, windOverlay?.canvas ?? map.getCanvas(), () => WIND_MAX_FPS)
@@ -1754,7 +1786,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
 
   function mountWind(grid: Grid): WindLayer | undefined {
-    if (!map) return
+    if (!map || particlesOff) return
     const wind = new WindLayer(grid, mapTheme(), focusedWindTuning())
     windLayer = wind
     try {
@@ -1778,9 +1810,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
    */
   function mountIsolines(set: IsolineSet, target: maplibregl.Map, isolines: IsolineLayer): void {
     try {
-      set.overlay = new LayerOverlay(target, isolines, target.getCanvas(), () => WIND_MAX_FPS)
+      isolines.maxPixelRatio = isolinePixelRatio
+      set.overlay = new LayerOverlay(target, isolines, target.getCanvas(), () => WIND_MAX_FPS, isolinePixelRatio)
     } catch {
       set.overlay = undefined
+      isolines.maxPixelRatio = Infinity
       target.addLayer(isolines, 'motregen-temperature')
     }
   }
@@ -2290,7 +2324,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
    * staart vraagt het veld ook een half en een heel WINDSOCK_LAG_MINUTES eerder.
    */
   async function showWindsocks(): Promise<void> {
-    if (!map || windFocus() <= 0) return
+    if (!map || windFocus() <= 0 || windsocksOff) return
     const frames = windTimeline()
     if (!frames.length) return
     const epoch = selectedEpoch()
@@ -2305,7 +2339,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         client.getHeader(frames[blends[0]!.left]!.u.chunk),
       ])
       if (request !== shownWindsockRequest || !map) return
-      windsockLayer ??= new WindsockLayer(map, { ...windsockOptions, reducedMotion: () => reducedMotion.matches, pin: () => marker?.getLngLat() })
+      windsockLayer ??= new WindsockLayer(map, { ...windsockOptions, separateCanvases: separateSockCanvases, maxPixelRatio: sockPixelRatio, clipCut: clipSockCut, softwareCanvas: softwareSockCanvas, reducedMotion: () => reducedMotion.matches, pin: () => marker?.getLngLat() })
       windsockLayer.setUnit(untrack(windUnit))
       windsockLayer.setTheme(untrack(mapSurfaceTheme) === 'dark')
       windsockLayer.setPlaces(nestedPlaces(map.getZoom(), WINDSOCK_SPACING_PX))
@@ -2476,7 +2510,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
 
   /** Centreer alleen als het punt anders buiten (of in de rand van) het vrije kaartvlak valt. */
   function revealPoint(lng: number, lat: number): void {
-    if (!map) return
+    if (!map || devCamera) return
     const { width, height, insets } = mapViewport()
     const { x, y } = map.project([lng, lat])
     const margin = PIN_EDGE_MARGIN
@@ -3065,6 +3099,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
 
   function rememberMapView(): void {
+    if (devCamera) return
     window.clearTimeout(mapViewTimer)
     mapViewTimer = window.setTimeout(() => {
       if (!map) return
@@ -3140,7 +3175,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
 
   function applyMapContainLimit(): void {
-    if (!map) return
+    if (!map || devCamera) return
     const minimumZoom = containZoom(MAP_CONTAIN_BOUNDS, mapViewport())
     if (Number.isFinite(minimumZoom)) map.setMinZoom(Math.min(Math.max(minimumZoom, -2), map.getMaxZoom()))
   }

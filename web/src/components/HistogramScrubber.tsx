@@ -1,4 +1,5 @@
-import { createEffect, createMemo, createSignal, createUniqueId, For, Index, onCleanup, onMount, Show, untrack } from 'solid-js'
+import { createEffect, createMemo, createSignal, createUniqueId, For, Index, onCleanup, onMount, Show, untrack, type JSX } from 'solid-js'
+import { domRest } from '../core/dom-rest'
 import { CLOUD_LAYERS, cloudBand, skyAt, skyStars, skyStops, skyStrokes, sunCrossings, type CloudLayer, type CloudSeries, type SkyStar, type SkyStop, type SkyStroke } from '../core/cloud-section'
 import { sameFields, stableByIndex } from '../core/stable'
 import type { TimelineFrame } from '../core/contract'
@@ -622,6 +623,9 @@ export default function HistogramScrubber(props: Props) {
   // Alleen toetsstappen en tikken krijgen een korte glijbeweging; slepen en afspelen volgen direct.
   const [gliding, setGliding] = createSignal(false)
   const tween = () => gliding() && !props.playing
+  // De waarden van wind en temperatuur waren elke cursorstap een nieuw element, dus hun overgang liep nooit; met
+  // `domRest` blijven ze staan en zou hij ineens wel lopen. Zo ziet het er hetzelfde uit (U111 ronde 4).
+  const readoutTween = () => !domRest && tween()
   const playbackActive = () => props.playing && (props.playbackReady ?? true)
   // Een transform per afspeeltik kostte Chromium per tik een Layerize van de hele pagina (U41, ~40 %
   // van de hoofddraad). Afspelen loopt lineair in de tijd, dus de compositor kan de baan schuiven;
@@ -883,7 +887,7 @@ export default function HistogramScrubber(props: Props) {
                 {/* Per laagnaam (vaste sleutel), zodat een aanvulling van de reeksen alleen gewijzigde wolkvormen vervangt. */}
                 <g class="scrub-view" style={layerStyle(coverOpacity())}>
                   <For each={coverBands().map((band) => band.key)}>{(key) => <g class="cloud-band" data-layer={key}>
-                    <For each={coverBands().find((band) => band.key === key)?.paths}>{(path) => <><path d={path} fill={`url(#${cloudId}-${key})`} /><path class="cloud-shadow" d={path} fill={`url(#${cloudId}-shadow)`} /></>}</For>
+                    <Rows each={coverBands().find((band) => band.key === key)?.paths}>{(path) => <><path d={path()} fill={`url(#${cloudId}-${key})`} /><path class="cloud-shadow" d={path()} fill={`url(#${cloudId}-shadow)`} /></>}</Rows>
                   </g>}</For>
                 </g>
                 {/* Het id zit op de binnengroep: <use> kloont ook inline stijl, en de dekking hier is in Lucht 0. */}
@@ -891,8 +895,8 @@ export default function HistogramScrubber(props: Props) {
                   <For each={layerBands().map((band) => band.key)}>{(key) => <g class="cloud-band" data-layer={key}>
                     {/* Diepte als tint (PO 2026-10-16): de gestapelde rij erachter donkerder, de voorste rij lichter. Gewone
                         vulling, geen filter, zodat Weer en Lucht er hetzelfde uitzien. */}
-                    <For each={layerBands().find((band) => band.key === key)?.back}>{(path) => <><path d={path} fill={`url(#${cloudId}-${key})`} /><path class="cloud-back" d={path} /></>}</For>
-                    <For each={layerBands().find((band) => band.key === key)?.paths}>{(path) => <><path d={path} fill={`url(#${cloudId}-${key})`} /><path class="cloud-shadow" d={path} fill={`url(#${cloudId}-shadow)`} /><path class="cloud-near" d={path} /></>}</For>
+                    <Rows each={layerBands().find((band) => band.key === key)?.back}>{(path) => <><path d={path()} fill={`url(#${cloudId}-${key})`} /><path class="cloud-back" d={path()} /></>}</Rows>
+                    <Rows each={layerBands().find((band) => band.key === key)?.paths}>{(path) => <><path d={path()} fill={`url(#${cloudId}-${key})`} /><path class="cloud-shadow" d={path()} fill={`url(#${cloudId}-shadow)`} /><path class="cloud-near" d={path()} /></>}</Rows>
                   </g>}</For>
                 </g></g>
               </g>
@@ -927,7 +931,7 @@ export default function HistogramScrubber(props: Props) {
             <Show when={temperatureMix() > 0 && temperatureChart()}>{(chart) => <g class="temperature-chart scrub-view" data-testid="temperature-chart" style={layerStyle(temperatureMix())}>
               <defs>
                 <linearGradient id={`${temperatureId}-fill`} gradientUnits="userSpaceOnUse" x1="0" x2="0" y1={chart().bottom} y2={chart().top}>
-                  <For each={chart().stops}>{(stop) => <stop offset={stop.offset} stop-color={stop.color} />}</For>
+                  <Rows each={chart().stops}>{(stop) => <stop offset={stop().offset} stop-color={stop().color} />}</Rows>
                 </linearGradient>
               </defs>
               <For each={chart().area}>{(path) => <path class="temperature-area" d={path} fill={`url(#${temperatureId}-fill)`} />}</For>
@@ -939,7 +943,7 @@ export default function HistogramScrubber(props: Props) {
             <Show when={windMix() > 0 && windChart()}>{(chart) => <g class="wind-chart scrub-view" data-testid="wind-chart" style={layerStyle(windMix())}>
               <defs>
                 <linearGradient id={`${windId}-fill`} gradientUnits="userSpaceOnUse" x1="0" x2="0" y1={chart().bottom} y2={chart().top}>
-                  <For each={chart().stops}>{(stop) => <stop offset={stop.offset} stop-color={`rgb(${stop.color})`} />}</For>
+                  <Rows each={chart().stops}>{(stop) => <stop offset={stop().offset} stop-color={`rgb(${stop().color})`} />}</Rows>
                 </linearGradient>
               </defs>
               <For each={chart().gust}>{(path) => <path class="wind-gust-band" d={path} fill={`url(#${windId}-fill)`} />}</For>
@@ -1013,18 +1017,18 @@ export default function HistogramScrubber(props: Props) {
           </div>
         }</Show>
         <Show when={!props.loading && view() === 'temperature'}>
-          <For each={cursorTemperature() ?? []}>{(reading) =>
-            <div class="cursor-readout" classList={{ tween: tween(), 'gust-readout': reading.air, below: reading.below }} style={{ left: `${cursorX()}px`, top: `${reading.y}px` }} aria-hidden="true">
-              <span>{reading.text}</span>
+          <Rows each={cursorTemperature() ?? []}>{(reading) =>
+            <div class="cursor-readout" classList={{ tween: readoutTween(), 'gust-readout': reading().air, below: reading().below }} style={{ left: `${cursorX()}px`, top: `${reading().y}px` }} aria-hidden="true">
+              <span>{reading().text}</span>
             </div>
-          }</For>
+          }</Rows>
         </Show>
         <Show when={!props.loading && view() === 'wind'}>
-          <For each={cursorWind() ?? []}>{(reading) =>
-            <div class="cursor-readout" classList={{ tween: tween(), 'gust-readout': reading.gust, below: reading.below }} style={{ left: `${cursorX()}px`, top: `${reading.y}px` }} aria-hidden="true">
-              <span>{reading.text}</span>
+          <Rows each={cursorWind() ?? []}>{(reading) =>
+            <div class="cursor-readout" classList={{ tween: readoutTween(), 'gust-readout': reading().gust, below: reading().below }} style={{ left: `${cursorX()}px`, top: `${reading().y}px` }} aria-hidden="true">
+              <span>{reading().text}</span>
             </div>
-          }</For>
+          }</Rows>
         </Show>
       </div>
     </div>
@@ -1171,4 +1175,15 @@ function dayLabel(epoch: number, todayEpoch: number): string {
   today.setDate(today.getDate() - 2)
   if (date.toDateString() === today.toDateString()) return 'Gisteren'
   return formatWeekdayLong(epoch)
+}
+
+/**
+ * Een lijst die per frame nieuwe objecten krijgt (cursorwaarden, gradiëntstops). Met `domRest` (U111 ronde 4)
+ * `Index`: de elementen blijven en alleen hun waarden wisselen. Zonder: `For`, die elk nieuw object een nieuw element
+ * geeft, met een volledige stijlberekening (in Firefox ook `color-mix()`) per frame.
+ */
+function Rows<T>(props: { each: readonly T[] | undefined; children: (item: () => T) => JSX.Element }): JSX.Element {
+  return domRest
+    ? <Index each={props.each}>{(item) => props.children(item)}</Index>
+    : <For each={props.each}>{(item) => props.children(() => item)}</For>
 }
