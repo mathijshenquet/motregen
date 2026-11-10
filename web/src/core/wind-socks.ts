@@ -154,11 +154,18 @@ export class WindsockLayer {
   }
 
   setPlaces(places: readonly TemperaturePlace[]): void {
-    const same = places.length === this.socks.length && places.every((place, index) => this.socks[index]!.place.name === place.name)
+    const same = places.length === this.socks.length && places.every((place, index) => {
+      const current = this.socks[index]!.place
+      return current.name === place.name && current.lng === place.lng && current.lat === place.lat
+    })
     if (same) return
+    const previous = new Map(this.socks.map((sock) => [sock.place.name, sock]))
     this.socks = places.map((place) => {
       const x = place.lng * Math.PI / 180 * MERCATOR_RADIUS
       const y = Math.log(Math.tan(Math.PI / 4 + place.lat * Math.PI / 360)) * MERCATOR_RADIUS
+      // Dezelfde plek op een nieuwe positie (provincietrede): richting, kracht en wuiven lopen door.
+      const kept = previous.get(place.name)
+      if (kept) return { ...kept, place, x, y }
       const offset: Offset = this.options.side ? [0, 0] : WINDSOCK_ANCHOR_OFFSETS[place.name] ?? [0, 0]
       return { place, x, y, phase: windsockPhase(place.name), offset, wave: 0 }
     })

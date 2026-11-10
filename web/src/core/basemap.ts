@@ -62,8 +62,8 @@ export function loadBasemapStyle(theme: MapTheme): Promise<StyleSpecification> {
         return response.json() as Promise<StyleSpecification>
       }))
       .then((style) => {
-        // U114 `?dev&plekken=orde`: plaatsnamen komen uit de plekkenorde (place-names.ts), niet uit de basiskaart.
-        if (placeOrderOptions(location.search).places === 'orde') style = withoutBasemapPlaceNames(style)
+        // U114 `?dev&plekken=orde|provincies`: plaatsnamen komen uit de plekkenorde (place-names.ts), niet uit de basiskaart.
+        if (placeOrderOptions(location.search).places !== 'nu') style = withoutBasemapPlaceNames(style)
         const prepared = prepareBasemapStyle(style, import.meta.env.VITE_DATA_ORIGIN ?? location.origin, new URL(url, location.href).href)
         for (const source of Object.values(prepared.sources)) {
           if (source.type !== 'vector' || !source.url?.startsWith('pmtiles://')) continue

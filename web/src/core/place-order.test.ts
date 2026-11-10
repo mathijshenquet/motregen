@@ -3,6 +3,7 @@ import { containView, containZoom, MAP_CONTAIN_BOUNDS } from './map-constraint'
 import { MAP_LABEL_SIZES } from './map-labels'
 import {
   decodePlaceOrder, orderedPlaces, PLACE_DENSITIES, PLACE_ORDER, PLACE_ORDER_SCREENS, PLACE_ORDER_TARGET, placeOrderOptions, placeSide,
+  PROVINCE_STEPS, PROVINCES, provincePlaces,
   type CompactPlaceOrder, type OrderedPlace, type PlaceDensity, type PlaceOrderScreen,
 } from './map-places'
 import { FOOTPRINT_KINDS, placeFootprint, type FootprintKind } from './place-footprint'
@@ -25,11 +26,11 @@ const LAND: Record<string, [number, number]> = {
 interface Seen { place: OrderedPlace; x: number; y: number }
 
 /** Zichtbare plekken met hun schermpositie (anker) bij dit middelpunt en deze zoom. */
-function visible(kind: FootprintKind, screen: PlaceOrderScreen, density: PlaceDensity, [lng, lat]: [number, number], zoom: number, neighbours: 'later' | 'meteen' = 'later'): Seen[] {
+function visible(kind: FootprintKind, screen: PlaceOrderScreen, density: PlaceDensity, [lng, lat]: [number, number], zoom: number, neighbours: 'later' | 'meteen' = 'later', tier?: 'provincies'): Seen[] {
   const map = MAPS[screen]
   const overviewZoom = containZoom(MAP_CONTAIN_BOUNDS, map)
   const centre = mercatorFraction(lng, lat), scale = 512 * 2 ** zoom
-  return orderedPlaces({ kind, zoom, overviewZoom, screen, density, neighbours }, table).flatMap((place) => {
+  return orderedPlaces({ kind, zoom, overviewZoom, screen, density, neighbours, tier }, table).flatMap((place) => {
     const at = mercatorFraction(place.lng, place.lat)
     const x = (at.x - centre.x) * scale + map.width / 2, y = (at.y - centre.y) * scale + map.height / 2
     return x >= 0 && y >= 0 && x <= map.width && y <= map.height ? [{ place, x, y }] : []
@@ -131,6 +132,69 @@ describe('plekkenorde (U114, MIP-43)', () => {
     }
   })
 
+  describe('provincietrede (`plekken=provincies`)', () => {
+    it('verst uitgezoomd de 12 zwaartepunten met de provincienaam; bij de stedentrede precies op de hoofdstad', () => {
+      const at = (steps: number) => provincePlaces({ zoom: 6 + steps, overviewZoom: 6 })
+      expect(at(0)!.map((place) => place.name)).toEqual(PROVINCES.map((province) => province.name))
+      expect(at(0)!.map(({ lng, lat }) => [lng, lat])).toEqual(PROVINCES.map(({ lng, lat }) => [expect.closeTo(lng, 9), expect.closeTo(lat, 9)]))
+      const end = at(PROVINCE_STEPS.cities - 1e-9)!
+      for (const [index, province] of PROVINCES.entries()) {
+        const capital = PLACE_ORDER.find((place) => place.name === province.capital)!
+        expect(end[index]!.name).toBe(capital.name)
+        expect(end[index]!.lng).toBeCloseTo(capital.lng, 6)
+        expect(end[index]!.lat).toBeCloseTo(capital.lat, 6)
+      }
+      expect(at(PROVINCE_STEPS.cities)).toBeUndefined()
+    })
+
+    it('de tween is continu (ook terug bij uitzoomen: alleen een functie van de zoom) en de naam wisselt één keer, halverwege', () => {
+      let previous = provincePlaces({ zoom: 6, overviewZoom: 6 })!
+      const switched = new Map<string, number>()
+      for (let steps = 0.01; steps < PROVINCE_STEPS.cities; steps += 0.01) {
+        const next = provincePlaces({ zoom: 6 + steps, overviewZoom: 6 })!
+        for (const [index, place] of next.entries()) {
+          expect(Math.hypot(place.lng - previous[index]!.lng, place.lat - previous[index]!.lat)).toBeLessThan(0.02)
+          if (place.name !== previous[index]!.name) switched.set(place.province, steps)
+        }
+        previous = next
+      }
+      for (const [, steps] of switched) expect(steps).toBeCloseTo((PROVINCE_STEPS.provinces + PROVINCE_STEPS.cities) / 2, 1)
+    })
+
+    it('provincielabels ("Noord-Holland −10°") raken elkaar nergens in de trede, op telefoon en desktop', () => {
+      for (const screen of PLACE_ORDER_SCREENS) {
+        const home = containView(MAP_CONTAIN_BOUNDS, MAPS[screen]), size = MAP_LABEL_SIZES[screen]
+        for (let steps = 0; steps < PROVINCE_STEPS.cities; steps += 0.05) {
+          const zoom = home.zoom + steps
+          const labels = provincePlaces({ zoom, overviewZoom: home.zoom })!.map((place) => ({ ...mercatorFraction(place.lng, place.lat), shapes: placeFootprint(place.name, 'onder', size, 'samen'), name: place.name }))
+          for (const [index, a] of labels.entries()) for (const b of labels.slice(0, index)) {
+            expect(lastClash(a, b, 0, zoom, zoom), `${screen} +${steps.toFixed(2)}: ${a.name} / ${b.name}`).toBe(-Infinity)
+          }
+        }
+      }
+    })
+
+    it('hoofdsteden staan er vanaf de stedentrede altijd: ze verliezen nooit een botsing; daarna monotoon', () => {
+      for (const kind of FOOTPRINT_KINDS) for (const screen of PLACE_ORDER_SCREENS) for (const density of PLACE_DENSITIES) {
+        const map = MAPS[screen], home = containView(MAP_CONTAIN_BOUNDS, map)
+        const zoom = home.zoom + PROVINCE_STEPS.cities
+        const names = new Set(orderedPlaces({ kind, zoom, overviewZoom: home.zoom, screen, density, neighbours: 'later', tier: 'provincies' }, table).map((place) => place.name))
+        for (const province of PROVINCES) expect(names.has(province.capital), `${kind} ${screen} ${density}: ${province.capital}`).toBe(true)
+        expect(orderedPlaces({ kind, zoom: zoom - 0.01, overviewZoom: home.zoom, screen, density, neighbours: 'later', tier: 'provincies' }, table)).toEqual([])
+        for (const centre of [LAND.Randstad!, LAND.Brabant!, LAND.Groningen!]) {
+          for (let at = overview(screen) + PROVINCE_STEPS.cities; at <= overview(screen) + 6; at += 0.25) {
+            const after = new Set(visible(kind, screen, density, centre, at + 0.25, 'later', 'provincies').map((seen) => seen.place.name))
+            for (const seen of visible(kind, screen, density, centre, at, 'later', 'provincies')) {
+              const x = (seen.x - map.width / 2) * 2 ** 0.25 + map.width / 2, y = (seen.y - map.height / 2) * 2 ** 0.25 + map.height / 2
+              if (x < 0 || y < 0 || x > map.width || y > map.height) continue
+              expect(after.has(seen.place.name), `${kind} ${screen} ${density} z${at.toFixed(2)}: ${seen.place.name}`).toBe(true)
+            }
+          }
+        }
+      }
+    })
+  })
+
   it('labelkant: Vlissingen boven (Walcheren), standaard onder', () => {
     expect(placeSide({ name: 'Vlissingen' })).toBe('boven')
     expect(placeSide({ name: 'Utrecht' })).toBe('onder')
@@ -146,6 +210,7 @@ describe('plekkenorde (U114, MIP-43)', () => {
 
   it('leest de knoppen alleen onder ?dev', () => {
     expect(placeOrderOptions('?plekken=orde').places).toBe('nu')
+    expect(placeOrderOptions('?dev&plekken=provincies').places).toBe('provincies')
     expect(placeOrderOptions('?dev&plekken=orde&namen=samen&dichtheid=veel')).toEqual({
       places: 'orde', density: 'veel', names: 'samen', weatherNumbers: 'plekken', neighbours: 'later',
     })

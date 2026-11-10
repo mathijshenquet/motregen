@@ -13,6 +13,11 @@ export interface ThinCandidate {
   shapes: readonly Shape[]
   /** Niet eerder dan deze zoom (bijv. een rangdrempel). */
   floor?: number
+  /**
+   * Twee `tight`-plekken (de hoofdsteden in de provincietrede) hoeven alleen niet te overlappen: geen dichtheidsmarge
+   * en geen zaklijfbereik, zodat ze allemaal blijven waar de provincieplekken eindigen.
+   */
+  tight?: boolean
 }
 
 export interface ThinOptions {
@@ -24,7 +29,7 @@ export interface ThinOptions {
 
 const TILE = 512
 /** Ophogen bij een wijziging in de rekenregel hieronder: de opgeslagen tabel moet dan opnieuw (place-order-build). */
-export const THINNING_VERSION = 2
+export const THINNING_VERSION = 3
 
 export function mercatorFraction(lng: number, lat: number): { x: number; y: number } {
   return { x: (lng + 180) / 360, y: (1 - Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)) / Math.PI) / 2 }
@@ -51,13 +56,18 @@ export function minimumZooms(candidates: readonly ThinCandidate[], options: Thin
       const bound = Math.log2(Math.min(limitX, limitY) / TILE)
       const settled = Math.max(zoom, zooms[other]!)
       if (bound <= settled) continue
-      const clash = lastClash(candidate, before, gapPx, settled, toZoom)
+      const tight = Boolean(candidate.tight && before.tight)
+      const clash = lastClash(tight ? withoutBody(candidate) : candidate, tight ? withoutBody(before) : before, tight ? 0 : gapPx, settled, toZoom)
       if (clash > zooms[other]!) zoom = Math.max(zoom, clash)
     }
     zooms.push(zoom > toZoom ? Infinity : zoom)
     if (zoom <= toZoom) shown.push(index)
   })
   return zooms
+}
+
+function withoutBody(candidate: ThinCandidate): ThinCandidate {
+  return { ...candidate, shapes: candidate.shapes.filter((shape) => !shape.body) }
 }
 
 /**
