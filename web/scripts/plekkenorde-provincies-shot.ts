@@ -7,7 +7,7 @@ import { join } from 'node:path'
 // stedentrede, telefoon en desktop, Gevoel/Wind/Weer; plus per profiel en modus een clip (H.264, ≤ 12 s) van één
 // keer langzaam in- en uitzoomen over de overgang. De clip is frame voor frame opgebouwd (zoomstap, twee
 // animatieframes, still): headless tekent de kaart in software zo traag dat een realtime opname vooral dat toont.
-// usage: pnpm exec tsx scripts/plekkenorde-provincies-shot.ts ORIGIN OUT_DIR   (SHOT_CLIPS=0: zonder clips)
+// usage: pnpm exec tsx scripts/plekkenorde-provincies-shot.ts ORIGIN OUT_DIR   (SHOT_CLIPS=0: zonder clips; SHOT_MODES=gevoel,wind)
 const [origin, outDir] = process.argv.slice(2)
 if (!origin || !outDir) throw new Error('usage: pnpm exec tsx scripts/plekkenorde-provincies-shot.ts ORIGIN OUT_DIR')
 rmSync(outDir, { recursive: true, force: true })
@@ -27,7 +27,7 @@ const CENTRE = { lng: 5.3, lat: 52.2 }
 const counts: Record<string, unknown> = {}
 const browser = await chromium.launch({ headless: true, args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] })
 for (const [profileName, profile] of Object.entries(profiles)) {
-  for (const mode of ['gevoel', 'wind', 'weer'] as const) {
+  for (const mode of (['gevoel', 'wind', 'weer'] as const).filter((mode) => !process.env.SHOT_MODES || process.env.SHOT_MODES.split(',').includes(mode))) {
     const clip = process.env.SHOT_CLIPS !== '0' && mode !== 'weer'
     const context = await browser.newContext({
       ...profile, colorScheme: 'light', locale: 'nl-NL', timezoneId: 'Europe/Amsterdam', serviceWorkers: 'block',
@@ -59,6 +59,8 @@ for (const [profileName, profile] of Object.entries(profiles)) {
         ...Array<number>(FPS).fill(2.5),
         ...Array.from({ length: 5 * FPS }, (_, frame) => 2.5 * (1 - frame / (5 * FPS))),
       ]
+      // Eerst stil op het overzicht, zodat de getallen van de stills eronder uitgefaded zijn.
+      await jump(page, CENTRE.lng, CENTRE.lat, overview, 1_500)
       const shell = page.locator('.map-shell')
       const perFrame: Array<{ step: number; places: number }> = []
       for (const [frame, step] of zooms.entries()) {
@@ -76,7 +78,7 @@ for (const [profileName, profile] of Object.entries(profiles)) {
       await context.close()
       const target = join(outDir, `clip-${mode}-${profileName}.mp4`)
       execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-framerate', String(FPS), '-i', join(videoDir, '%04d.png'),
-        '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '30', '-preset', 'slow', '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2', '-an', `${target}.tmp.mp4`])
+        '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '32', '-preset', 'slow', '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2', '-an', `${target}.tmp.mp4`])
       renameSync(`${target}.tmp.mp4`, target)
       console.log('clip', target, `${Math.round(statSync(target).size / 1024)} kB`)
     } else {
