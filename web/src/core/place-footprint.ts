@@ -68,15 +68,38 @@ export function sockNameWidth(name: string, size: number): number {
   return Math.ceil(name.length * size * 0.85 * 0.55 + 6)
 }
 
-/** Middelpunt van de naam t.o.v. het zakanker, aan de vaste kant van de plek. */
-export function sockNameOffset(side: LabelSide, name: string, size: number, wide = false): [number, number] {
-  const badge = sockPillRadius(size, wide) + 1 + 4
-  const height = size + 4
-  const width = sockNameWidth(name, size)
-  if (side === 'onder') return [0, badge + height / 2]
-  if (side === 'boven') return [0, -badge - height / 2]
-  if (side === 'rechts') return [badge + width / 2, 0]
-  return [-badge - width / 2, 0]
+/** Dichtste afstand van de naam tot de mast (de oude badge plus lucht), als de pil niet aan die kant staat. */
+const MAST_CLEAR_PX = 14 + 1 + 4
+
+/** Vak van een pil t.o.v. de mast (U113 `sockBadge`): middelpunt, halve maten en snede. */
+export interface PillBox { x: number; y: number; halfWidth: number; halfHeight: number; gap: number }
+
+/**
+ * Middelpunt van de naam t.o.v. het zakanker, aan de vaste kant van de plek: vlak bij de mast, en alleen verder weg als
+ * de pil op die plek staat (hij wijst van de zak af, dus dat hangt van de wind af). Zonder `pill` het verste punt.
+ */
+export function sockNameOffset(side: LabelSide, name: string, size: number, wide = false, pill?: PillBox): [number, number] {
+  const height = size + 4, width = sockNameWidth(name, size)
+  const far = sockPillRadius(size, wide) + 1 + 4
+  // Hoe ver de naam van de mast moet om de pil te ontwijken (op de as van zijn kant), als ze elkaar dwars raken.
+  const clear = (along: number, alongHalf: number, across: number, acrossHalf: number, nameAcrossHalf: number) => {
+    if (!pill || Math.abs(across) >= acrossHalf + nameAcrossHalf) return MAST_CLEAR_PX
+    return Math.min(far, Math.max(MAST_CLEAR_PX, along + alongHalf + pill.gap + 4))
+  }
+  if (side === 'onder') return [0, (pill ? clear(pill.y, pill.halfHeight, pill.x, pill.halfWidth + pill.gap, width / 2) : far) + height / 2]
+  if (side === 'boven') return [0, -(pill ? clear(-pill.y, pill.halfHeight, pill.x, pill.halfWidth + pill.gap, width / 2) : far) - height / 2]
+  if (side === 'rechts') return [(pill ? clear(pill.x, pill.halfWidth, pill.y, pill.halfHeight + pill.gap, height / 2) : far) + width / 2, 0]
+  return [-(pill ? clear(-pill.x, pill.halfWidth, pill.y, pill.halfHeight + pill.gap, height / 2) : far) - width / 2, 0]
+}
+
+/** De band waarin de naam kan staan (van vlak bij de mast tot het verste punt), als één vak voor de voetafdruk. */
+export function sockNameSpan(side: LabelSide, name: string, size: number, wide = false): Shape {
+  const height = size + 4, width = sockNameWidth(name, size)
+  const near = MAST_CLEAR_PX, far = sockPillRadius(size, wide) + 1 + 4
+  const vertical = side === 'onder' || side === 'boven', sign = side === 'onder' || side === 'rechts' ? 1 : -1
+  const extent = vertical ? height : width
+  const centre = sign * ((near + far) / 2 + extent / 2), half = (far - near) / 2 + extent / 2
+  return vertical ? { dx: 0, dy: centre, halfWidth: width / 2, halfHeight: half, radius: 0 } : { dx: centre, dy: 0, halfWidth: half, halfHeight: height / 2, radius: 0 }
 }
 
 /** Grootste getal dat een plek kan dragen, voor een vaste maat: "−10°". */
@@ -99,8 +122,7 @@ export function placeFootprint(name: string | undefined, side: LabelSide, size: 
   const wide = kind === 'zak-kmu'
   const shapes: Shape[] = [{ dx: 0, dy: 0, halfWidth: 0, halfHeight: 0, radius: SOCK_REACH_PX, body: true }, { dx: 0, dy: 0, halfWidth: 0, halfHeight: 0, radius: sockPillRadius(size, wide) }]
   if (!name) return shapes
-  const [dx, dy] = sockNameOffset(side, name, size, wide)
-  shapes.push({ dx, dy, halfWidth: sockNameWidth(name, size) / 2, halfHeight: (size + 4) / 2, radius: 0 })
+  shapes.push(sockNameSpan(side, name, size, wide))
   return shapes
 }
 

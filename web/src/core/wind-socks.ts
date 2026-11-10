@@ -343,7 +343,7 @@ export class WindsockLayer {
       const x = screen.x + sock.placed.dx, y = screen.y + sock.placed.dy
       const badge = sockBadge(shape, base - bearing, String(windValue(speed, this.unit)), WIND_UNIT_LABELS[this.unit], this.options.unitStyle, size)
       // U114: de naam aan de vaste kant hoort bij de zak, ook in de vuile rechthoek.
-      const name = sock.named ? { text: sock.place.name, offset: this.nameOffset(sock.place, size), width: sockNameWidth(sock.place.name, size), size } : undefined
+      const name = sock.named ? { text: sock.place.name, offset: this.nameOffset(sock.place, size, badge), width: sockNameWidth(sock.place.name, size), size } : undefined
       pending.push({ sock, x, y, shape, badge, name, rect: sockRect(x, y, shape, badge, ratio, name) })
       this.drawnCount++
       this.drawnMaxStrength = Math.max(this.drawnMaxStrength, strength)
@@ -524,8 +524,8 @@ export class WindsockLayer {
   }
 
   /** Middelpunt van de naam t.o.v. het zakanker (U114 `namen=samen`): aan de vaste kant, standaard eronder. */
-  private nameOffset(place: TemperaturePlace, size: number): [number, number] {
-    return sockNameOffset(this.options.side?.(place) ?? 'onder', place.name, size, this.unit === 'kmh')
+  private nameOffset(place: TemperaturePlace, size: number, pill?: SockBadge): [number, number] {
+    return sockNameOffset(this.options.side?.(place) ?? 'onder', place.name, size, this.unit === 'kmh', pill)
   }
 
   private drawName(context: CanvasRenderingContext2D, name: string, x: number, y: number, size: number): void {
