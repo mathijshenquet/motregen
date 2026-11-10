@@ -9,7 +9,8 @@ import { WINDSOCK_ANCHOR_OFFSETS } from './windsock-anchors.js'
 import { DEFAULT_WINDSOCK_UNIT_STYLE, drawSock, sockBadge, WINDSOCK_UNIT_STYLES, windsockExtent, type SockBadge, type WindsockUnitStyle } from './wind-sock-draw.js'
 import { domRest } from './dom-rest.js'
 import { MapLabelPlacer, type Offset, type Placement } from './map-label-placement.js'
-import { MAP_LABEL_FONT_FAMILY, viewportMapLabelSize } from './map-labels.js'
+import { MAP_LABEL_COLORS, MAP_LABEL_FONT_FAMILY, viewportMapLabelSize } from './map-labels.js'
+import { sockNameOffset, sockNameWidth, type LabelSide } from './place-footprint.js'
 
 interface Sock {
   place: TemperaturePlace
@@ -26,6 +27,8 @@ interface Sock {
   strength?: Spring
   /** Opgetelde golffase van het wuiven (radialen). */
   wave: number
+  /** U114 `namen=samen`: de naam staat onder de zak (er was ruimte bij de laatste indeling). */
+  named?: boolean
 }
 
 /**
@@ -53,6 +56,13 @@ export interface WindsockLayerOptions {
   unitStyle: WindsockUnitStyle
   /** De locatiepin: zakken wijken ervoor, zoals de getallen in Gevoel. */
   pin: () => { lng: number; lat: number } | undefined
+  /** U114 `?dev&plekken=orde&namen=samen`: deze plek krijgt zijn naam bij de zak. */
+  named?: (place: TemperaturePlace) => boolean
+  /**
+   * U114 `?dev&plekken=orde`: zakken staan vast op hun plek (geen ladder, geen uitwijken voor pin of buurzak; de orde
+   * houdt ze uit elkaar) en de naam staat aan deze kant.
+   */
+  side?: (place: TemperaturePlace) => LabelSide
   /** Alleen `?dev&zakcanvas=los` (U111): elke zak een eigen kleine canvas in plaats van één schermvullende. */
   separateCanvases?: boolean
   /** Alleen `?dev&zakdpr=` (U111): bovengrens voor de pixeldichtheid van de zakcanvas. */
@@ -75,12 +85,16 @@ interface SockCanvas {
   originY: number
 }
 
+/** U114: de naam bij de zak, middelpunt t.o.v. het zakanker. */
+interface SockName { text: string; offset: [number, number]; width: number; size: number }
+
 interface SockDraw {
   sock: Sock
   x: number
   y: number
   shape: WindsockShape
   badge: SockBadge
+  name?: SockName
   rect: DirtyRect
 }
 
@@ -192,12 +206,20 @@ export class WindsockLayer {
   }
 
   setPlaces(places: readonly TemperaturePlace[]): void {
-    const same = places.length === this.socks.length && places.every((place, index) => this.socks[index]!.place.name === place.name)
+    const same = places.length === this.socks.length && places.every((place, index) => {
+      const current = this.socks[index]!.place
+      return current.name === place.name && current.lng === place.lng && current.lat === place.lat
+    })
     if (same) return
+    const previous = new Map(this.socks.map((sock) => [sock.place.name, sock]))
     this.socks = places.map((place) => {
       const x = place.lng * Math.PI / 180 * MERCATOR_RADIUS
       const y = Math.log(Math.tan(Math.PI / 4 + place.lat * Math.PI / 360)) * MERCATOR_RADIUS
-      return { place, x, y, phase: windsockPhase(place.name), offset: WINDSOCK_ANCHOR_OFFSETS[place.name] ?? [0, 0], wave: 0 }
+      // Dezelfde plek op een nieuwe positie (provincietrede): richting, kracht en wuiven lopen door.
+      const kept = previous.get(place.name)
+      if (kept) return { ...kept, place, x, y }
+      const offset: Offset = this.options.side ? [0, 0] : WINDSOCK_ANCHOR_OFFSETS[place.name] ?? [0, 0]
+      return { place, x, y, phase: windsockPhase(place.name), offset, wave: 0 }
     })
     this.layoutDirty = true
     this.draw()
@@ -217,6 +239,8 @@ export class WindsockLayer {
   setUnit(unit: WindUnit): void {
     if (unit === this.unit) return
     this.unit = unit
+    // De pil (en de naam ernaast) hangt van de eenheid af.
+    this.layoutDirty = true
     this.draw()
   }
 
@@ -318,7 +342,9 @@ export class WindsockLayer {
       const shape = windsockShape(strength, headings, 'kaart')
       const x = screen.x + sock.placed.dx, y = screen.y + sock.placed.dy
       const badge = sockBadge(shape, base - bearing, String(windValue(speed, this.unit)), WIND_UNIT_LABELS[this.unit], this.options.unitStyle, size)
-      pending.push({ sock, x, y, shape, badge, rect: sockRect(x, y, shape, badge, ratio) })
+      // U114: de naam aan de vaste kant hoort bij de zak, ook in de vuile rechthoek.
+      const name = sock.named ? { text: sock.place.name, offset: this.nameOffset(sock.place, size, badge), width: sockNameWidth(sock.place.name, size), size } : undefined
+      pending.push({ sock, x, y, shape, badge, name, rect: sockRect(x, y, shape, badge, ratio, name) })
       this.drawnCount++
       this.drawnMaxStrength = Math.max(this.drawnMaxStrength, strength)
     }
@@ -364,6 +390,15 @@ export class WindsockLayer {
     const field = this.field, bearing = this.map.getBearing()
     for (const sock of this.socks) {
       const screen = this.map.project([sock.place.lng, sock.place.lat])
+      if (this.options.side) {
+        // Alleen het mastvak telt tegen de bediening; de pil (aan één kant) mag eronder schuiven. Tussen plekken houdt de
+        // orde zijn hele bereik vrij (place-footprint).
+        const radius = MAST_BOX_PX
+        const badge = { left: screen.x - radius, right: screen.x + radius, top: screen.y - radius, bottom: screen.y + radius }
+        sock.placed = this.placer.shows(screen.x, screen.y, badge) ? { dx: 0, dy: 0, index: 0 } : undefined
+        sock.named = Boolean(sock.placed && this.options.named?.(sock.place))
+        continue
+      }
       const ladder = SOCK_RING.map(([dx, dy]): Offset => [sock.offset[0] + dx, sock.offset[1] + dy])
       const wind = field && sampleWind(field, 0, sock.x, sock.y)
       const compass = wind && windsockHeadings(field, sock.x, sock.y, DEFAULT_WINDSOCK_CURVATURE)
@@ -383,7 +418,11 @@ export class WindsockLayer {
       // Het vak ligt om de pil, niet om de mast: de pil steekt naast de mast uit.
       sock.placed = this.placer.place(screen.x + badge.x, screen.y + badge.y, side, ladder, sock.placed?.index, clear)
       if (sock.placed && reach) reaches.push(reach)
+      sock.named = Boolean(sock.placed && this.options.named?.(sock.place)
+        && this.placer.place(screen.x + sock.placed.dx, screen.y + sock.placed.dy + this.nameOffset(sock.place, size)[1], { width: sockNameWidth(sock.place.name, size), height: size + 4 }, [[0, 0]]))
     }
+    // Rig (U114): welke plekken een zak kregen, voor de pin- en monotonietoets.
+    if (this.options.side) this.canvas.dataset.placed = this.socks.filter((sock) => sock.placed).map((sock) => sock.place.name).join('|')
   }
 
   /**
@@ -476,10 +515,31 @@ export class WindsockLayer {
   }
 
   private drawSock(context: CanvasRenderingContext2D, draw: Omit<SockDraw, 'sock' | 'rect'>): void {
-    const { x, y, shape, badge } = draw
+    const { x, y, shape, badge, name } = draw
     context.save()
     context.translate(x, y)
     drawSock({ context, shape, badge, dark: this.dark, fontFamily: MAP_LABEL_FONT_FAMILY, cut: this.options.clipCut ? 'clip' : 'erase' })
+    if (name) this.drawName(context, name.text, name.offset[0], name.offset[1], name.size)
+    context.restore()
+  }
+
+  /** Middelpunt van de naam t.o.v. het zakanker (U114 `namen=samen`): aan de vaste kant, standaard eronder. */
+  private nameOffset(place: TemperaturePlace, size: number, pill?: SockBadge): [number, number] {
+    return sockNameOffset(this.options.side?.(place) ?? 'onder', place.name, size, this.unit === 'kmh', pill)
+  }
+
+  private drawName(context: CanvasRenderingContext2D, name: string, x: number, y: number, size: number): void {
+    context.save()
+    context.font = `400 ${Math.round(size * 0.85)}px ${MAP_LABEL_FONT_FAMILY}`
+    context.textAlign = 'center'
+    context.textBaseline = 'middle'
+    context.lineJoin = 'round'
+    context.lineWidth = 3
+    const colors = MAP_LABEL_COLORS[this.dark ? 'dark' : 'light']
+    context.strokeStyle = colors.halo
+    context.fillStyle = colors.ink
+    context.strokeText(name, x, y)
+    context.fillText(name, x, y)
     context.restore()
   }
 
@@ -546,6 +606,9 @@ function sameField(next: WindsockField | undefined, current: WindsockField | und
 
 interface DirtyRect { x: number; y: number; width: number; height: number }
 
+/** Halve maat van het mastvak tegen de bediening in de plekkenorde (U114): de oude badge. */
+const MAST_BOX_PX = 14
+
 /** Groeimarge van een losse zakcanvas in CSS-px (`separateCanvases`). */
 const SOCK_CANVAS_SLACK = 4
 
@@ -557,10 +620,16 @@ function rectsOverlap(a: DirtyRect, b: DirtyRect): boolean {
  * Canvaspixels (afgerond naar buiten) die een zak op (x, y) kan raken: wat `drawSock` tekent (`windsockExtent`) en het
  * gat rond de badge, dat bij vegen ook wist wat er al stond (`gap` reikt verder dan de inktrand van de badge).
  */
-export function sockRect(x: number, y: number, shape: WindsockShape, badge: SockBadge, ratio: number): DirtyRect {
+export function sockRect(x: number, y: number, shape: WindsockShape, badge: SockBadge, ratio: number, name?: SockName): DirtyRect {
   const extent = windsockExtent(shape, badge)
-  const left = Math.min(extent.left, badge.x - badge.halfWidth - badge.gap - 1), right = Math.max(extent.right, badge.x + badge.halfWidth + badge.gap + 1)
-  const top = Math.min(extent.top, badge.y - badge.halfHeight - badge.gap - 1), bottom = Math.max(extent.bottom, badge.y + badge.halfHeight + badge.gap + 1)
+  let left = Math.min(extent.left, badge.x - badge.halfWidth - badge.gap - 1), right = Math.max(extent.right, badge.x + badge.halfWidth + badge.gap + 1)
+  let top = Math.min(extent.top, badge.y - badge.halfHeight - badge.gap - 1), bottom = Math.max(extent.bottom, badge.y + badge.halfHeight + badge.gap + 1)
+  if (name) {
+    // Halve breedte plus de halo (3 px lijn) en een px marge.
+    const halfWidth = name.width / 2 + 3, halfHeight = (name.size + 4) / 2 + 2
+    left = Math.min(left, name.offset[0] - halfWidth); right = Math.max(right, name.offset[0] + halfWidth)
+    top = Math.min(top, name.offset[1] - halfHeight); bottom = Math.max(bottom, name.offset[1] + halfHeight)
+  }
   const x0 = Math.floor((x + left) * ratio), y0 = Math.floor((y + top) * ratio)
   const x1 = Math.ceil((x + right) * ratio), y1 = Math.ceil((y + bottom) * ratio)
   return { x: x0, y: y0, width: x1 - x0, height: y1 - y0 }

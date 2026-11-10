@@ -9,6 +9,8 @@ import { markLayerDrawn } from './perf'
 import { MapLabelPlacer, PLACE_LADDER } from './map-label-placement'
 import { mapDiscRadius, viewportMapLabelSize } from './map-labels'
 import { MAP_PLACES, mapPlaceSpacingPx, MAX_PLACE_NUMBERS, nestedPlaces } from './map-places'
+import type { TemperaturePlace } from './temperature'
+import { islandBox, nameBoxWidth } from './place-footprint'
 
 /**
  * Temperatuurgetallen in Gevoel (U100 ronde 3, PO-keuze 2026-11-09 "plekken-half"): een getal op vaste plekken naast
@@ -39,6 +41,15 @@ interface Shown {
   marker: Marker
   text: HTMLElement
   dying: boolean
+}
+
+/**
+ * U114 (`?dev&plekken=orde`): plekken uit de plekkenorde i.p.v. `nestedPlaces`, vast op hun plek (geen ladder, geen
+ * uitwijken voor de pin); `named` zet de naam vóór het getal in hetzelfde label (`namen=samen`).
+ */
+export interface NumberPlaces {
+  places(): readonly TemperaturePlace[]
+  named(place: TemperaturePlace): boolean
 }
 
 /** De labelinterface die App per isolijnset aanspreekt; IsolineLabels voldoet er ook aan. */
@@ -79,6 +90,7 @@ export class TemperatureNumbers implements IsolineLabelling {
     pin: () => { lng: number; lat: number } | undefined,
     /** Schijven in de bandkleur onder de getallen (IsolineLayer.setBubbles). */
     private readonly onBubbles: (bubbles: IsolineBubble[]) => void = () => undefined,
+    private readonly placeSource?: NumberPlaces,
   ) {
     this.placer = new MapLabelPlacer(map, pin)
   }
@@ -204,10 +216,13 @@ export class TemperatureNumbers implements IsolineLabelling {
     const wanted = new Map<string, Placed>()
     const previous = new Map(this.shown.filter((label) => !label.dying).map((label) => [label.key, label]))
     this.placer.begin()
-    for (const place of nestedPlaces(this.map.getZoom(), mapPlaceSpacingPx(width, height), MAP_PLACES)) {
+    const places = this.placeSource?.places() ?? nestedPlaces(this.map.getZoom(), mapPlaceSpacingPx(width, height), MAP_PLACES)
+    for (const place of places) {
       if (wanted.size >= MAX_PLACE_NUMBERS) break
       const origin = this.map.project([place.lng, place.lat])
-      const kept = previous.get(place.name)
+      const name = this.placeSource?.named(place) ? place.name : undefined
+      const key = name ? `${place.name}|naam` : place.name
+      const kept = previous.get(key)
       let exact = Number.NaN
       // De maat volgt het getal dat er komt te staan; buiten het dataveld valt een kandidaat af.
       const valueAt = (dx: number, dy: number) => {
@@ -215,16 +230,28 @@ export class TemperatureNumbers implements IsolineLabelling {
         const [column, row] = this.toCell(lngLat.lng, lngLat.lat)
         return this.valueExact(slice, column, row)
       }
-      const first = valueAt(0, 0)
-      const value = kept ? kept.value : this.bandValue(this.bandOf(first ?? 0))
-      const placed = this.placer.place(origin.x, origin.y, islandBox(`${value}°`, size), ladder, kept?.offsetIndex, (dx, dy) => {
-        const sample = valueAt(dx, dy)
+      const value = kept ? kept.value : this.bandValue(this.bandOf(valueAt(0, 0) ?? 0))
+      const box = islandBox(`${value}°`, size)
+      // Naam en getal als één label, samen gecentreerd op de plek; het getal (en zijn schijf) is het rechterdeel.
+      const nameWidth = name ? nameBoxWidth(name, size) : 0
+      const shift = nameWidth / 2
+      if (this.placeSource) {
+        // Plekkenorde: het label staat vast op de plek; welke plekken samen passen, bepaalt de orde zelf.
+        const exactHere = valueAt(shift, 0)
+        const width = box.width + nameWidth
+        const fixed = { left: origin.x - width / 2, right: origin.x + width / 2, top: origin.y - box.height / 2, bottom: origin.y + box.height / 2 }
+        if (exactHere === undefined || !this.placer.shows(origin.x, origin.y, fixed)) continue
+        wanted.set(key, { lng: place.lng, lat: place.lat, dx: shift, dy: 0, offsetIndex: 0, exact: exactHere, name })
+        continue
+      }
+      const placed = this.placer.place(origin.x, origin.y, { width: box.width + nameWidth, height: box.height }, ladder, kept?.offsetIndex, (dx, dy) => {
+        const sample = valueAt(dx + shift, dy)
         if (sample === undefined) return false
         exact = sample
         return true
       })
       if (!placed) continue
-      wanted.set(place.name, { lng: place.lng, lat: place.lat, dx: placed.dx, dy: placed.dy, offsetIndex: placed.index, exact })
+      wanted.set(key, { lng: place.lng, lat: place.lat, dx: placed.dx + shift, dy: placed.dy, offsetIndex: placed.index, exact, name })
     }
     this.apply(wanted, now)
   }
@@ -259,6 +286,13 @@ export class TemperatureNumbers implements IsolineLabelling {
     const text = document.createElement('span')
     text.style.setProperty('--map-label-size', `${this.size()}px`)
     element.append(text)
+    if (next.name) {
+      const name = document.createElement('span')
+      name.className = 'temperature-number-name'
+      name.style.setProperty('--map-label-size', `${this.size()}px`)
+      name.textContent = next.name
+      element.append(name)
+    }
     element.style.opacity = '0'
     if (!this.reducedMotion()) element.style.transition = `opacity ${FADE_MS}ms ease-out`
     const marker = new Marker({ element, offset: [next.dx, next.dy] }).setLngLat([next.lng, next.lat]).setOpacity(this.opacity).addTo(this.map)
@@ -303,14 +337,11 @@ export class TemperatureNumbers implements IsolineLabelling {
   }
 }
 
-interface Placed { lng: number; lat: number; dx: number; dy: number; offsetIndex: number; exact: number }
+interface Placed { lng: number; lat: number; dx: number; dy: number; offsetIndex: number; exact: number; name?: string }
 
 /** Bandwissel: zo lang vloeit de schijf over (en wisselt het cijfer halverwege). */
 const BAND_TWEEN_MS = 280
 /** Zo ver (scherm-px) moet een grens het midden van een getal voorbij zijn voor het wisselt. */
 const BAND_DEADZONE_PX = 5
 
-/** Botsvak van een getal in px (zie .temperature-number): tabelcijfers ±0,6 em, padding 6 × 3 px. */
-export function islandBox(label: string, size: number): { width: number; height: number } {
-  return { width: Math.ceil(label.length * size * 0.6 + 12), height: Math.ceil(size + 6) }
-}
+export { islandBox, nameBoxWidth } from './place-footprint'

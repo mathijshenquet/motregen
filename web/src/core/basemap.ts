@@ -2,6 +2,8 @@ import { addProtocol, type LayerSpecification, type StyleSpecification } from 'm
 import { PMTiles, Protocol } from 'pmtiles'
 
 import type { MapTheme } from './map-theme.js'
+import { placeOrderOptions } from './map-places.js'
+import { withoutBasemapPlaceNames } from './place-names.js'
 export type { MapTheme } from './map-theme.js'
 
 const styleNames: Record<MapTheme, string> = { light: 'licht', dark: 'donker' }
@@ -65,6 +67,8 @@ export function loadBasemapStyle(theme: MapTheme): Promise<StyleSpecification> {
         return response.json() as Promise<StyleSpecification>
       }))
       .then((style) => {
+        // U114: plaatsnamen komen uit de plekkenorde (place-names.ts), niet uit de basiskaart (behalve `?dev&plekken=nu`).
+        if (placeOrderOptions(location.search).places !== 'nu') style = withoutBasemapPlaceNames(style)
         if (typeof location !== 'undefined' && emptyBasemap(location.search)) style = { ...style, layers: style.layers.filter((layer) => layer.type === 'background') }
         const prepared = prepareBasemapStyle(style, import.meta.env.VITE_DATA_ORIGIN ?? location.origin, new URL(url, location.href).href)
         for (const source of Object.values(prepared.sources)) {

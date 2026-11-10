@@ -1,4 +1,5 @@
 import type { Map as MapLibreMap } from 'maplibre-gl'
+import { PLACE_NAMES_LAYER, PLACE_NAMES_PADDING_PX } from './place-names.js'
 
 /**
  * Eén uitwijkregel voor alle kaartgetallen en windzakken (U107, docs/kaartstijl.md): een label staat op de eerste
@@ -54,7 +55,7 @@ export class MapLabelPlacer {
     this.width = container.clientWidth
     this.height = container.clientHeight
     this.chrome = chromeBoxes(container)
-    this.layers = (this.map.getStyle()?.layers ?? []).filter((layer) => layer.type === 'symbol' && layer.id.startsWith('label_')).map((layer) => layer.id)
+    this.layers = (this.map.getStyle()?.layers ?? []).filter((layer) => layer.type === 'symbol' && layer.id.startsWith('label_') && layer.layout?.visibility !== 'none').map((layer) => layer.id)
     this.taken = []
     this.pinBox = pinBox(this.map, this.pin())
   }
@@ -77,19 +78,36 @@ export class MapLabelPlacer {
     return undefined
   }
 
+  /**
+   * Plekkenorde (U114): een plek staat vast op zijn anker en wijkt voor niets; hij staat er als zijn anker in beeld
+   * ligt en zijn vak niet onder de bediening valt. De pin tekent eroverheen.
+   */
+  shows(x: number, y: number, box: Box): boolean {
+    if (x < 0 || y < 0 || x > this.width || y > this.height) return false
+    return !this.chrome.some((other) => overlaps(box, other, 0))
+  }
+
   free(box: Box): boolean {
     if (box.left < 2 || box.top < 2 || box.right > this.width - 2 || box.bottom > this.height - 2) return false
     if (this.taken.some((other) => overlaps(box, other, 3)) || this.chrome.some((other) => overlaps(box, other, 4))) return false
     if (this.pinBox && overlaps(box, this.pinBox, 0)) return false
     if (!this.layers.length) return true
-    const inset = Math.max(0, placeNamePaddingPx(this.map.getZoom()) - 3)
+    // De namen van de plekkenorde (U114) hebben een eigen, kleine padding; de basiskaartnamen die van hun stijl.
+    const own = this.layers.filter((id) => id === PLACE_NAMES_LAYER)
+    const basemap = this.layers.filter((id) => id !== PLACE_NAMES_LAYER)
+    return this.clear(box, basemap, placeNamePaddingPx(this.map.getZoom())) && this.clear(box, own, PLACE_NAMES_PADDING_PX)
+  }
+
+  private clear(box: Box, layers: string[], padding: number): boolean {
+    if (!layers.length) return true
+    const inset = Math.max(0, padding - 3)
     // Nooit kleiner dan het midden: een omgekeerd vak zou een ander gebied bevragen.
     const x = (box.left + box.right) / 2, y = (box.top + box.bottom) / 2
     const query: [[number, number], [number, number]] = [
       [Math.min(x, box.left + inset), Math.min(y, box.top + inset)],
       [Math.max(x, box.right - inset), Math.max(y, box.bottom - inset)],
     ]
-    return !this.map.queryRenderedFeatures(query, { layers: this.layers }).length
+    return !this.map.queryRenderedFeatures(query, { layers }).length
   }
 }
 
@@ -103,6 +121,8 @@ export function chromeBoxes(container: HTMLElement): Box[] {
   const origin = container.getBoundingClientRect()
   const shell = container.closest('.map-shell') ?? container
   return [...shell.querySelectorAll(MAP_CHROME)].flatMap((element) => {
+    // Het dev-paneel telt niet: zijn knoppen haalden plekken onder het open paneel weg (Zeeland, U114).
+    if (element.closest('.dev-panel')) return []
     const rect = element.getBoundingClientRect()
     if (!rect.width || !rect.height) return []
     return [{ left: rect.left - origin.left, right: rect.right - origin.left, top: rect.top - origin.top, bottom: rect.bottom - origin.top }]

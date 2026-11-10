@@ -1,0 +1,154 @@
+{
+ "query": "",
+ "time": "2026-11-10T11:00:00.000Z",
+ "counts": {
+  "gevoel-telefoon-z0": {
+   "numbers": [
+    "Groningen",
+    "Friesland",
+    "Drenthe",
+    "Overijssel",
+    "Flevoland",
+    "Gelderland",
+    "Utrecht",
+    "Noord-Holland",
+    "Zuid-Holland",
+    "Zeeland",
+    "Noord-Brabant",
+    "Limburg"
+   ]
+  },
+  "gevoel-telefoon-z1": {
+   "numbers": [
+    "Overijssel",
+    "Flevoland",
+    "Gelderland",
+    "Utrecht",
+    "Noord-Holland",
+    "Zuid-Holland",
+    "Noord-Brabant",
+    "Eindhoven",
+    "Apeldoorn"
+   ]
+  },
+  "gevoel-telefoon-z2.5": {
+   "numbers": [
+    "Utrecht",
+    "Amersfoort",
+    "Hilversum",
+    "Almere",
+    "Harderwijk",
+    "Ede",
+    "Tiel",
+    "Amstelveen"
+   ]
+  },
+  "wind-telefoon-z0": {
+   "numbers": [],
+   "socks": "Groningen|Zwolle|Maastricht|Noordzee west|Utrecht|Arnhem|Den Bosch|Haarlem|Middelburg|Noordzee noord"
+  },
+  "wind-telefoon-z1": {
+   "numbers": [],
+   "socks": "Zwolle|Den Helder|Utrecht|Arnhem|Den Haag|Den Bosch|Lelystad|Venlo|Haarlem"
+  },
+  "wind-telefoon-z2.5": {
+   "numbers": [],
+   "socks": "Amsterdam|Utrecht|Lelystad|Amersfoort|Almere|Harderwijk|Ede|Tiel|Vinkeveen"
+  },
+  "weer-telefoon-z0": {
+   "numbers": []
+  },
+  "weer-telefoon-z1": {
+   "numbers": []
+  },
+  "weer-telefoon-z2.5": {
+   "numbers": []
+  },
+  "gevoel-desktop-z0": {
+   "numbers": [
+    "Groningen",
+    "Friesland",
+    "Drenthe",
+    "Overijssel",
+    "Flevoland",
+    "Gelderland",
+    "Utrecht",
+    "Noord-Holland",
+    "Zuid-Holland",
+    "Zeeland",
+    "Noord-Brabant",
+    "Limburg"
+   ]
+  },
+  "gevoel-desktop-z1": {
+   "numbers": [
+    "Drenthe",
+    "Overijssel",
+    "Flevoland",
+    "Gelderland",
+    "Utrecht",
+    "Noord-Holland",
+    "Zuid-Holland",
+    "Noord-Brabant",
+    "Den Helder",
+    "Eindhoven",
+    "Winterswijk",
+    "Apeldoorn",
+    "Venlo",
+    "Meppel",
+    "Breda",
+    "Sneek",
+    "Tiel"
+   ]
+  },
+  "gevoel-desktop-z2.5": {
+   "numbers": [
+    "Utrecht",
+    "Tiel",
+    "Amsterdam",
+    "Amersfoort",
+    "Hilversum",
+    "Almere",
+    "Harderwijk",
+    "Ede",
+    "Purmerend",
+    "Amstelveen",
+    "Zaandam",
+    "Huizen",
+    "Wageningen",
+    "Woerden",
+    "Barneveld",
+    "Nijkerk",
+    "Culemborg",
+    "Uithoorn",
+    "Elst",
+    "Weesp",
+    "Leerdam",
+    "Schoonhoven",
+    "Druten",
+    "Elspeet"
+   ]
+  },
+  "wind-desktop-z0": {
+   "numbers": [],
+   "socks": "Groningen|Zwolle|Maastricht|Noordzee west|Leeuwarden|Utrecht|Arnhem|Den Haag|Assen|Den Bosch|Lelystad|Haarlem|Middelburg|Noordzee noord"
+  },
+  "wind-desktop-z1": {
+   "numbers": [],
+   "socks": "Zwolle|Den Helder|Utrecht|IJsselmeer|Arnhem|Den Haag|Breda|Assen|Den Bosch|Lelystad|Venlo|Haarlem|Noordzee kust"
+  },
+  "wind-desktop-z2.5": {
+   "numbers": [],
+   "socks": "Amsterdam|Utrecht|Amersfoort|Hilversum|Almere|Harderwijk|Ede|Tiel|Purmerend|Woerden|Culemborg|Druten|Vinkeveen"
+  },
+  "weer-desktop-z0": {
+   "numbers": []
+  },
+  "weer-desktop-z1": {
+   "numbers": []
+  },
+  "weer-desktop-z2.5": {
+   "numbers": []
+  }
+ }
+}

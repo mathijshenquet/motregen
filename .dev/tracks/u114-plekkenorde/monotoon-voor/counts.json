@@ -1,0 +1,162 @@
+{
+ "origin": "http://ageq-dev2:4315",
+ "counts": {
+  "po-uit-weer-donker": {
+   "zoom": 7.889584546620528,
+   "numbers": []
+  },
+  "po-in-weer-donker": {
+   "zoom": 8.889584546620528,
+   "numbers": []
+  },
+  "po-uit-weer-licht": {
+   "zoom": 7.889584546620528,
+   "numbers": []
+  },
+  "po-in-weer-licht": {
+   "zoom": 8.889584546620528,
+   "numbers": []
+  },
+  "po-uit-wind-donker": {
+   "zoom": 7.889584546620528,
+   "numbers": [],
+   "socks": "9|3.5"
+  },
+  "po-in-wind-donker": {
+   "zoom": 8.889584546620528,
+   "numbers": [],
+   "socks": "5|3.6"
+  },
+  "po-uit-wind-licht": {
+   "zoom": 7.889584546620528,
+   "numbers": [],
+   "socks": "9|2.7"
+  },
+  "po-in-wind-licht": {
+   "zoom": 8.889584546620528,
+   "numbers": [],
+   "socks": "5|2.7"
+  },
+  "pin-eindhoven-gevoel": {
+   "zoom": 9.776086135140854,
+   "numbers": [
+    "4°Eindhoven",
+    "3°Tilburg",
+    "3°Helmond",
+    "4°Weert"
+   ]
+  },
+  "pin-elders-gevoel": {
+   "zoom": 9.776086135140854,
+   "numbers": [
+    "4°Eindhoven",
+    "3°Tilburg",
+    "3°Helmond",
+    "4°Weert"
+   ]
+  },
+  "pin-eindhoven-wind": {
+   "zoom": 9.776086135140854,
+   "numbers": [],
+   "socks": "4|2.2"
+  },
+  "pin-elders-wind": {
+   "zoom": 9.776086135140854,
+   "numbers": [],
+   "socks": "4|2.2"
+  },
+  "zeeland-wind": {
+   "zoom": 9.276086135140854,
+   "numbers": [],
+   "socks": "4|4"
+  },
+  "zeeland-dicht-wind": {
+   "zoom": 10.276086135140854,
+   "numbers": [],
+   "socks": "3|4"
+  },
+  "kop-nh-wind": {
+   "zoom": 9.276086135140854,
+   "numbers": [],
+   "socks": "4|2.5"
+  },
+  "wadden-wind": {
+   "zoom": 8.776086135140854,
+   "numbers": [],
+   "socks": "7|3.6"
+  },
+  "zeeland-telefoon-wind": {
+   "zoom": 7.733068784874337,
+   "numbers": [],
+   "socks": "6|4"
+  },
+  "zeeland-gevoel": {
+   "zoom": 9.276086135140854,
+   "numbers": [
+    "3°Vlissingen",
+    "3°Goes",
+    "3°Middelburg",
+    "1°Brugge"
+   ]
+  },
+  "zeeland-dicht-gevoel": {
+   "zoom": 10.276086135140854,
+   "numbers": [
+    "3°Vlissingen",
+    "3°Goes",
+    "3°Middelburg",
+    "3°Terneuzen"
+   ]
+  },
+  "kop-nh-gevoel": {
+   "zoom": 9.276086135140854,
+   "numbers": [
+    "7°Den Helder",
+    "7°",
+    "7°Alkmaar",
+    "7°Harlingen",
+    "7°Den Burg",
+    "7°Hoorn"
+   ]
+  },
+  "wadden-gevoel": {
+   "zoom": 8.776086135140854,
+   "numbers": [
+    "7°Den Helder",
+    "6°Leeuwarden",
+    "7°",
+    "7°",
+    "7°Harlingen",
+    "7°Den Burg",
+    "6°Drachten",
+    "8°West-Terschelling"
+   ]
+  },
+  "zeeland-telefoon-gevoel": {
+   "zoom": 7.733068784874337,
+   "numbers": [
+    "3°Vlissingen",
+    "3°Goes",
+    "3°Middelburg",
+    "4°Antwerpen",
+    "1°Gent",
+    "2°Brugge"
+   ]
+  },
+  "te-leeg-gevoel": {
+   "zoom": 9.620781032042007,
+   "numbers": [
+    "5°Utrecht",
+    "3°Den Bosch",
+    "5°Amersfoort",
+    "2°Tiel",
+    "2°Oss"
+   ]
+  },
+  "te-leeg-wind": {
+   "zoom": 9.620781032042007,
+   "numbers": [],
+   "socks": "5|2.4"
+  }
+ }
+}

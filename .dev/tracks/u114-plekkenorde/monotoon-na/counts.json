@@ -1,0 +1,278 @@
+{
+ "origin": "http://ageq-dev2:4314",
+ "counts": {
+  "po-uit-weer-donker": {
+   "zoom": 7.889584546620528,
+   "numbers": []
+  },
+  "po-in-weer-donker": {
+   "zoom": 8.889584546620528,
+   "numbers": []
+  },
+  "po-uit-weer-licht": {
+   "zoom": 7.889584546620528,
+   "numbers": []
+  },
+  "po-in-weer-licht": {
+   "zoom": 8.889584546620528,
+   "numbers": []
+  },
+  "po-uit-wind-donker": {
+   "zoom": 7.889584546620528,
+   "numbers": [],
+   "socks": "Amsterdam|Eindhoven|Rotterdam|Utrecht|Arnhem|Breda|Lelystad"
+  },
+  "po-in-wind-donker": {
+   "zoom": 8.889584546620528,
+   "numbers": [],
+   "socks": "Rotterdam|Utrecht|Den Haag|Leiden|Dordrecht|Hilversum|Gouda|Gorinchem|Vinkeveen"
+  },
+  "po-uit-wind-licht": {
+   "zoom": 7.889584546620528,
+   "numbers": [],
+   "socks": "Amsterdam|Eindhoven|Rotterdam|Utrecht|Arnhem|Breda|Lelystad"
+  },
+  "po-in-wind-licht": {
+   "zoom": 8.889584546620528,
+   "numbers": [],
+   "socks": "Rotterdam|Utrecht|Den Haag|Leiden|Dordrecht|Hilversum|Gouda|Gorinchem|Vinkeveen"
+  },
+  "pin-eindhoven-gevoel": {
+   "zoom": 9.776086135140854,
+   "numbers": [
+    "4°Eindhoven",
+    "3°Tilburg",
+    "3°Helmond",
+    "4°Weert",
+    "2°Uden",
+    "4°Lommel",
+    "3°Best",
+    "2°Veghel",
+    "3°Deurne",
+    "2°Boxtel",
+    "4°Valkenswaard",
+    "2°Gemert",
+    "2°Sint-Oedenrode",
+    "4°Asten",
+    "4°Retie",
+    "4°Bladel",
+    "3°Hilvarenbeek",
+    "4°Arendonk",
+    "4°Neerpelt",
+    "4°Aalst",
+    "4°Budel",
+    "2°Boekel",
+    "3°Udenhout",
+    "4°Someren-Eind",
+    "3°Lage Mierde",
+    "2°De Rips"
+   ]
+  },
+  "pin-elders-gevoel": {
+   "zoom": 9.776086135140854,
+   "numbers": [
+    "4°Eindhoven",
+    "3°Tilburg",
+    "3°Helmond",
+    "4°Weert",
+    "2°Uden",
+    "4°Lommel",
+    "3°Best",
+    "2°Veghel",
+    "3°Deurne",
+    "2°Boxtel",
+    "4°Valkenswaard",
+    "2°Gemert",
+    "2°Sint-Oedenrode",
+    "4°Asten",
+    "4°Retie",
+    "4°Bladel",
+    "3°Hilvarenbeek",
+    "4°Arendonk",
+    "4°Neerpelt",
+    "4°Aalst",
+    "4°Budel",
+    "2°Boekel",
+    "3°Udenhout",
+    "4°Someren-Eind",
+    "3°Lage Mierde",
+    "2°De Rips"
+   ]
+  },
+  "pin-eindhoven-wind": {
+   "zoom": 9.776086135140854,
+   "numbers": [],
+   "socks": "Eindhoven|Tilburg|Helmond|Weert|Uden|Lommel|Best|Deurne|Boxtel|Valkenswaard|Gemert|Retie|Bladel|Hilvarenbeek|Neerpelt|Budel|De Rips"
+  },
+  "pin-elders-wind": {
+   "zoom": 9.776086135140854,
+   "numbers": [],
+   "socks": "Eindhoven|Tilburg|Helmond|Weert|Uden|Lommel|Best|Deurne|Boxtel|Valkenswaard|Gemert|Retie|Bladel|Hilvarenbeek|Neerpelt|Budel|De Rips"
+  },
+  "zeeland-wind": {
+   "zoom": 9.276086135140854,
+   "numbers": [],
+   "socks": "Vlissingen|Goes|Brugge|Bergen op Zoom|Zierikzee|Terneuzen|Knokke-Heist|Maldegem|Zelzate|Hulst|Ouddorp|Oostburg|Bruinisse|Kamperland|Haamstede"
+  },
+  "zeeland-dicht-wind": {
+   "zoom": 10.276086135140854,
+   "numbers": [],
+   "socks": "Vlissingen|Terneuzen|Oostburg|Heinkenszand|Breskens|Westkapelle|Oostkapelle|Sluis|IJzendijke|Kamperland|Borssele|Cadzand-Bad"
+  },
+  "kop-nh-wind": {
+   "zoom": 9.276086135140854,
+   "numbers": [],
+   "socks": "Den Helder|IJsselmeer|Den Burg|Enkhuizen|Schagen|Medemblik|De Cocksdorp"
+  },
+  "wadden-wind": {
+   "zoom": 8.776086135140854,
+   "numbers": [],
+   "socks": "Den Helder|Leeuwarden|Waddenzee noord|Harlingen|Drachten|West-Terschelling|Sneek|Heerenveen|Dokkum|Hollum|Schiermonnikoog"
+  },
+  "zeeland-telefoon-wind": {
+   "zoom": 7.733068784874337,
+   "numbers": [],
+   "socks": "Vlissingen|Antwerpen|Gent|Brugge|Bergen op Zoom"
+  },
+  "zeeland-gevoel": {
+   "zoom": 9.276086135140854,
+   "numbers": [
+    "3°Vlissingen",
+    "3°Goes",
+    "2°Brugge",
+    "3°Bergen op Zoom",
+    "3°Zierikzee",
+    "3°Terneuzen",
+    "2°Knokke-Heist",
+    "1°Maldegem",
+    "2°Zelzate",
+    "3°Hulst",
+    "3°Middelharnis",
+    "3°Ouddorp",
+    "2°Oostburg",
+    "3°Oude-Tonge",
+    "3°Sint-Annaland",
+    "3°Kamperland",
+    "3°Haamstede"
+   ]
+  },
+  "zeeland-dicht-gevoel": {
+   "zoom": 10.276086135140854,
+   "numbers": [
+    "3°Vlissingen",
+    "3°Middelburg",
+    "3°Terneuzen",
+    "2°Oostburg",
+    "3°Heinkenszand",
+    "3°Breskens",
+    "3°Hoek",
+    "3°Westkapelle",
+    "3°Oostkapelle",
+    "2°Sluis",
+    "2°IJzendijke",
+    "3°Kamperland",
+    "3°Wolphaartsdijk",
+    "3°Borssele",
+    "3°Hoofdplaat",
+    "2°Cadzand-Bad"
+   ]
+  },
+  "kop-nh-gevoel": {
+   "zoom": 9.276086135140854,
+   "numbers": [
+    "7°Den Helder",
+    "7°",
+    "7°Den Burg",
+    "6°Enkhuizen",
+    "6°Schagen",
+    "6°Julianadorp",
+    "7°Medemblik",
+    "7°Wieringerwerf",
+    "6°Hippolytushoef",
+    "7°De Cocksdorp"
+   ]
+  },
+  "wadden-gevoel": {
+   "zoom": 8.776086135140854,
+   "numbers": [
+    "7°Den Helder",
+    "7°",
+    "6°Leeuwarden",
+    "7°Harlingen",
+    "7°Den Burg",
+    "6°Drachten",
+    "8°West-Terschelling",
+    "6°Sneek",
+    "5°Heerenveen",
+    "6°Dokkum",
+    "5°Wolvega",
+    "6°Buitenpost",
+    "7°Workum",
+    "7°Hollum",
+    "7°De Cocksdorp",
+    "6°Schiermonnikoog"
+   ]
+  },
+  "zeeland-telefoon-gevoel": {
+   "zoom": 7.733068784874337,
+   "numbers": [
+    "3°Vlissingen",
+    "4°Antwerpen",
+    "1°Gent",
+    "2°Brugge",
+    "3°Bergen op Zoom",
+    "3°Zierikzee",
+    "2°Zelzate"
+   ]
+  },
+  "te-leeg-gevoel": {
+   "zoom": 9.620781032042007,
+   "numbers": [
+    "6°Utrecht",
+    "3°Den Bosch",
+    "5°Amersfoort",
+    "2°Tiel",
+    "2°Oss",
+    "6°Zeist",
+    "5°Nieuwegein",
+    "6°Maarssen",
+    "2°Uden",
+    "5°Barneveld",
+    "2°Rosmalen",
+    "4°Waalwijk",
+    "4°Culemborg",
+    "5°Leusden",
+    "3°Vught",
+    "6°Bilthoven",
+    "5°Driebergen-Rijsenburg",
+    "4°Leerdam",
+    "5°Vianen",
+    "2°Heesch",
+    "2°Druten",
+    "3°Zaltbommel",
+    "3°Geldermalsen",
+    "5°Lunteren",
+    "5°Woudenberg",
+    "2°Heeswijk-Dinther",
+    "2°Kerkdriel",
+    "5°Leersum",
+    "4°Wijk en Aalburg",
+    "6°Maartensdijk",
+    "4°Meerkerk",
+    "4°Arkel",
+    "2°Dreumel",
+    "5°Cothen",
+    "2°Lith",
+    "4°Brakel",
+    "4°Oudheusden",
+    "3°Buren",
+    "2°Megen"
+   ]
+  },
+  "te-leeg-wind": {
+   "zoom": 9.620781032042007,
+   "numbers": [],
+   "socks": "Utrecht|Den Bosch|Amersfoort|Tiel|Oss|Zeist|Veenendaal|Uden|Barneveld|Waalwijk|Culemborg|Leerdam|Druten|Zaltbommel|Geldermalsen|Woudenberg|Leersum|Wijk en Aalburg|Loosbroek"
+  }
+ }
+}

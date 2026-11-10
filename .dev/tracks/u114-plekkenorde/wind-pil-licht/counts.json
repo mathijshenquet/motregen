@@ -1,0 +1,30 @@
+{
+ "query": "",
+ "time": "2026-11-10T11:00:00.000Z",
+ "counts": {
+  "wind-telefoon-z0": {
+   "numbers": [],
+   "socks": "Groningen|Maastricht|Utrecht|Middelburg"
+  },
+  "wind-telefoon-z1": {
+   "numbers": [],
+   "socks": "Zwolle|Den Helder|Utrecht|Arnhem|Haarlem"
+  },
+  "wind-telefoon-z2.5": {
+   "numbers": [],
+   "socks": "Amsterdam|Utrecht|Amersfoort|Almere|Harderwijk|Ede|Tiel"
+  },
+  "wind-desktop-z0": {
+   "numbers": [],
+   "socks": "Groningen|Zwolle|Maastricht|Noordzee west|Leeuwarden|Utrecht|Enschede|Arnhem|Haarlem|Middelburg|Noordzee noord"
+  },
+  "wind-desktop-z1": {
+   "numbers": [],
+   "socks": "Zwolle|Den Helder|Utrecht|IJsselmeer|Arnhem|Den Haag|Breda|Assen|Den Bosch|Lelystad|Venlo|Haarlem|Noordzee kust"
+  },
+  "wind-desktop-z2.5": {
+   "numbers": [],
+   "socks": "Amsterdam|Utrecht|Amersfoort|Hilversum|Almere|Harderwijk|Ede|Tiel|Purmerend|Woerden|Culemborg|Nunspeet|Schoonhoven|Druten|Vinkeveen"
+  }
+ }
+}

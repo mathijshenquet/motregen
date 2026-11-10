@@ -1,0 +1,132 @@
+{
+ "query": "dev&plekken=orde&dichtheid=weinig&namen=samen",
+ "time": "2026-11-10T11:00:00Z",
+ "counts": {
+  "weer-telefoon-z0": {
+   "names": 0,
+   "temperatures": 5,
+   "zoom": 5.733068784874337,
+   "numbers": 0,
+   "socks": 0
+  },
+  "weer-telefoon-z1": {
+   "names": 0,
+   "temperatures": 11,
+   "zoom": 6.733068784874337,
+   "numbers": 0,
+   "socks": 0
+  },
+  "weer-telefoon-z2": {
+   "names": 0,
+   "temperatures": 9,
+   "zoom": 7.733068784874337,
+   "numbers": 0,
+   "socks": 0
+  },
+  "gevoel-telefoon-z0": {
+   "names": 0,
+   "temperatures": 5,
+   "zoom": 5.733068784874337,
+   "numbers": 6,
+   "socks": 0
+  },
+  "gevoel-telefoon-z1": {
+   "names": 0,
+   "temperatures": 11,
+   "zoom": 6.733068784874337,
+   "numbers": 12,
+   "socks": 0
+  },
+  "gevoel-telefoon-z2": {
+   "names": 0,
+   "temperatures": 9,
+   "zoom": 7.733068784874337,
+   "numbers": 9,
+   "socks": 0
+  },
+  "wind-telefoon-z0": {
+   "names": 0,
+   "temperatures": 5,
+   "zoom": 5.733068784874337,
+   "numbers": 0,
+   "socks": 6
+  },
+  "wind-telefoon-z1": {
+   "names": 0,
+   "temperatures": 11,
+   "zoom": 6.733068784874337,
+   "numbers": 0,
+   "socks": 13
+  },
+  "wind-telefoon-z2": {
+   "names": 0,
+   "temperatures": 9,
+   "zoom": 7.733068784874337,
+   "numbers": 0,
+   "socks": 10
+  },
+  "weer-desktop-z0": {
+   "names": 0,
+   "temperatures": 10,
+   "zoom": 6.776086135140854,
+   "numbers": 0,
+   "socks": 0
+  },
+  "weer-desktop-z1": {
+   "names": 0,
+   "temperatures": 13,
+   "zoom": 7.776086135140854,
+   "numbers": 0,
+   "socks": 0
+  },
+  "weer-desktop-z2": {
+   "names": 0,
+   "temperatures": 11,
+   "zoom": 8.776086135140854,
+   "numbers": 0,
+   "socks": 0
+  },
+  "gevoel-desktop-z0": {
+   "names": 0,
+   "temperatures": 10,
+   "zoom": 6.776086135140854,
+   "numbers": 10,
+   "socks": 0
+  },
+  "gevoel-desktop-z1": {
+   "names": 0,
+   "temperatures": 13,
+   "zoom": 7.776086135140854,
+   "numbers": 14,
+   "socks": 0
+  },
+  "gevoel-desktop-z2": {
+   "names": 0,
+   "temperatures": 11,
+   "zoom": 8.776086135140854,
+   "numbers": 12,
+   "socks": 0
+  },
+  "wind-desktop-z0": {
+   "names": 0,
+   "temperatures": 10,
+   "zoom": 6.776086135140854,
+   "numbers": 0,
+   "socks": 10
+  },
+  "wind-desktop-z1": {
+   "names": 0,
+   "temperatures": 13,
+   "zoom": 7.776086135140854,
+   "numbers": 0,
+   "socks": 14
+  },
+  "wind-desktop-z2": {
+   "names": 0,
+   "temperatures": 11,
+   "zoom": 8.776086135140854,
+   "numbers": 0,
+   "socks": 11
+  }
+ }
+}

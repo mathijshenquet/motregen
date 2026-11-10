@@ -1585,3 +1585,12 @@ td small { color: var(--muted); font-size: 9px; }
 .viewport-diagnose { position: fixed; top: calc(env(safe-area-inset-top) + 64px); right: 6px; z-index: 40; display: grid; grid-template-columns: auto auto; gap: 1px 8px; margin: 0; padding: 6px 8px; border-radius: 8px; color: #eaf6fb; background: rgba(6, 18, 26, .82); font: 600 10px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; pointer-events: none; }
 .viewport-diagnose dt { color: #9fc3d1; font-weight: 500; }
 .viewport-diagnose dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* U114 `?dev&plekken=orde&namen=samen`: de plaatsnaam links tegen het getal, in hetzelfde label. */
+.temperature-number .temperature-number-name {
+  position: absolute; right: 100%; top: 50%; transform: translateY(-50%);
+  padding: 0 0 0 4px; font-size: calc(var(--map-label-size) * 0.85);
+}
+
+/* U114 plekkenorde: plekken wijken niet voor de pin; de pin tekent erover (boven getallen en windzakken). */
+.location-pin { z-index: 3; }
