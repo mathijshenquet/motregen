@@ -1,5 +1,25 @@
 # motregen — orchestrator log (newest first)
 
+## 2026-11-10 16:35 CET — uitrol: plekkenorde, pil, Firefox-wind, windfilm (Claude, w9)
+
+1. Live (main a6fb7fa, nixos-upgrade Result=success): U114 plekkenorde (MIP-43 accepted: provincietrede die naar de
+   hoofdsteden tweent, label wisselt bij aankomst, vaste plekken, dichtheid per scherm, rang 5–6 lui geladen), U113 pil
+   op de windzak (app + bot Node/Rust; zakafstand volgt de orde), U111 Firefox-wind (gat wegvegen i.p.v. clip(),
+   innerWidth-layout weg, domrust, FPS-teller alleen tijdens meten, ?dev&camera), U112 doorlopende filmdeeltjes
+   (tempo 0,6, PO), botzakken recht. Live bundel index-DeyTjEq-.js = int-build.
+2. Gate op int (na fix place-names GeoJSON-types voor de bot-typecheck): web typecheck 0, test 765/765, build 0; bot
+   typecheck 0, test 153/153; constants --check 0; cargo 0; changelog:check 0; e2e windzak/kaartstijl/basemap/
+   plekkenorde/focus desktop 24 passed, 2 skipped. Dag- en nachtshot Wind zelf bekeken.
+3. Telefoonmeting (Pixel 9, Firefox 159, SurfaceFlinger, laptop-agent via herd-say, tools/laptop/): oude clip 14,8 fps
+   → zakclip=uit 28,8 fps; zonder zakken 35,7; Chrome 43,6; bitmap-zakken 10 fps (afgevallen); domrust geen fps-verschil.
+4. Nieuw kanaal: tools/laptop/herd-say.md (macbook-agent, POST /say op tailscale, token in ~/.config/herd-say/).
+5. Open met PO: vijf changelog-concepten (gevoel-met-zon, kaart-diagram, temperatuur-vaste-schaal,
+   windmodus-windzakken, windzak-eenheid) → release.sh + post; overgang 0,14 s op wind-/temperatuurwaarden (uit);
+   zakken in WebGL (laatste ~20 % Firefox) ja/nee; TWA-MIP; telefoon `svc power stayon ac` terugzetten.
+6. Open voor mij/agents: pin valt over de pil van de eigen plek (Utrecht); Weer-labels onder de legenda; telefoon-
+   overzicht Wind maar 4 zakken; bot nog op de oude plekken (MIP-43 stap bot); dev-knoppen vervallen 2026-11-24;
+   workers u111/u113/u114 sluiten na verificatie botfilm.
+
 ## 2026-11-10 00:15 CET — uitrol eval-2026-11-09: snelheid, windzakken, gevoel met zon, diagramkaart (Claude, w9)
 
 1. Live (main 3213c83 + legendafix b93308d), drie nixos-upgrades, alle Result=success, geen gefaalde units:
