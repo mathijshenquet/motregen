@@ -2001,13 +2001,14 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   let placeNamesKey = ''
   /**
    * Naamlaag bij zoom, maat of modus. Bij `samen` dragen getallen en zakken de naam; de naamlaag staat dan alleen aan
-   * in modi zonder waarde per plek (Lucht, en Weer met `weergetal=isolijn`).
+   * als er geen waarde per plek staat (Weer met `weergetal=isolijn`).
    */
   function updatePlaceNames(): void {
     if (!ordered || !map?.getSource(PLACE_NAMES_LAYER)) return
     const mode = untrack(focusPinned)
-    const valuesCarryNames = mode === 'temperature' || mode === 'wind' || (mode === 'weather' && placeOrder.weatherNumbers === 'plekken')
-    // Alleen in Lucht (en Weer met de oude stadstemperaturen) staat de naam los, op de plek van het label.
+    // Lucht toont dezelfde stadstemperaturen als Weer; met een losse naamlaag stonden naam en "naam getal" op elkaar.
+    const valuesCarryNames = mode === 'temperature' || mode === 'wind' || ((mode === 'weather' || mode === 'air') && placeOrder.weatherNumbers === 'plekken')
+    // Alleen in Weer met de oude stadstemperaturen staat de naam los, op de plek van het label.
     const places = !valuesCarryNames ? visibleOrderPlaces() : []
     const { clientWidth, clientHeight } = map.getContainer()
     const size = mapLabelSize(clientWidth, clientHeight)
