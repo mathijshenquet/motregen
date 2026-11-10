@@ -54,6 +54,13 @@ export interface WindsockLayerOptions {
   separateCanvases?: boolean
   /** Alleen `?dev&zakdpr=` (U111): bovengrens voor de pixeldichtheid van de zakcanvas. */
   maxPixelRatio?: number
+  /**
+   * Alleen `?dev&zakclip=uit` (U111): het gat rond de badge wegvegen in plaats van wegknippen. Op de grote canvas
+   * gaat elke zak dan eerst via een kleine kladcanvas, zodat het vegen geen andere zak raakt.
+   */
+  eraseCut?: boolean
+  /** Alleen `?dev&zak2d=software` (U111): `willReadFrequently`, dan tekent Firefox de canvas in het contentproces. */
+  softwareCanvas?: boolean
 }
 
 /** Eigen canvas van één zak (`separateCanvases`), in canvaspixels rond de afgeronde ankerpixel van de zak. */
@@ -98,6 +105,7 @@ export class WindsockLayer {
   private readonly surface: HTMLElement
   private readonly sockCanvases = new Map<Sock, SockCanvas>()
   private sockCanvasRatio = 0
+  private scratch?: { canvas: HTMLCanvasElement; context: CanvasRenderingContext2D }
   private socks: Sock[] = []
   private field?: WindsockField
   private unit: WindUnit = 'bft'
@@ -165,7 +173,7 @@ export class WindsockLayer {
     }
     this.surface.style.opacity = '0'
     this.surface.style.visibility = 'hidden'
-    this.context = this.canvas.getContext('2d')!
+    this.context = this.context2d(this.canvas)
     this.placer = new MapLabelPlacer(map, options.pin)
     this.measure()
     map.on('render', this.mapRendered)
@@ -327,7 +335,8 @@ export class WindsockLayer {
       else for (const rect of cleared) context.clearRect(rect.x, rect.y, rect.width, rect.height)
       this.drawnRects = rects
       context.setTransform(ratio, 0, 0, ratio, 0, 0)
-      for (const draw of pending) this.drawSock(context, draw.x, draw.y, draw.shape, draw.badge, draw.label)
+      if (this.options.eraseCut) for (const draw of pending) this.drawViaScratch(context, draw, ratio)
+      else for (const draw of pending) this.drawSock(context, draw.x, draw.y, draw.shape, draw.badge, draw.label)
     }
     recordPerfPhase('windsock-draw', performance.now() - drawStarted, { socks: this.drawnCount, fluttering })
     if (this.drawnCount) markLayerDrawn('windzakken')
@@ -387,7 +396,7 @@ export class WindsockLayer {
         const canvas = document.createElement('canvas')
         canvas.className = 'map-overlay'
         this.surface.append(canvas)
-        entry = { canvas, context: canvas.getContext('2d')!, left: 0, top: 0, right: 0, bottom: 0, originX: NaN, originY: NaN }
+        entry = { canvas, context: this.context2d(canvas), left: 0, top: 0, right: 0, bottom: 0, originX: NaN, originY: NaN }
         this.sockCanvases.set(draw.sock, entry)
       }
       const left = rect.x - anchorX, top = rect.y - anchorY, right = left + rect.width, bottom = top + rect.height
@@ -428,10 +437,35 @@ export class WindsockLayer {
     }
   }
 
+  /** `eraseCut` op de grote canvas: de zak op zijn rechthoek in de kladcanvas, dan op gehele canvaspixels erover. */
+  private drawViaScratch(target: CanvasRenderingContext2D, draw: SockDraw, ratio: number): void {
+    const { rect } = draw
+    if (!this.scratch) {
+      const canvas = document.createElement('canvas')
+      this.scratch = { canvas, context: this.context2d(canvas) }
+    }
+    const { canvas, context } = this.scratch
+    if (canvas.width < rect.width || canvas.height < rect.height) {
+      canvas.width = Math.max(canvas.width, rect.width)
+      canvas.height = Math.max(canvas.height, rect.height)
+    }
+    context.setTransform(1, 0, 0, 1, 0, 0)
+    context.clearRect(0, 0, rect.width, rect.height)
+    context.setTransform(ratio, 0, 0, ratio, -rect.x, -rect.y)
+    this.drawSock(context, draw.x, draw.y, draw.shape, draw.badge, draw.label)
+    target.setTransform(1, 0, 0, 1, 0, 0)
+    target.drawImage(canvas, 0, 0, rect.width, rect.height, rect.x, rect.y, rect.width, rect.height)
+    target.setTransform(ratio, 0, 0, ratio, 0, 0)
+  }
+
+  private context2d(canvas: HTMLCanvasElement): CanvasRenderingContext2D {
+    return canvas.getContext('2d', this.options.softwareCanvas ? { willReadFrequently: true } : undefined)!
+  }
+
   private drawSock(context: CanvasRenderingContext2D, x: number, y: number, shape: WindsockShape, badge: WindsockBadge, label: string): void {
     context.save()
     context.translate(x, y)
-    drawSock({ context, shape, badge, label, dark: this.dark, fontFamily: MAP_LABEL_FONT_FAMILY })
+    drawSock({ context, shape, badge, label, dark: this.dark, fontFamily: MAP_LABEL_FONT_FAMILY, cut: this.options.eraseCut ? 'erase' : 'clip' })
     context.restore()
   }
 

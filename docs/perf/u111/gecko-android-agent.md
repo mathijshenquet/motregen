@@ -1,21 +1,24 @@
-# Opdracht voor een agent op de macbook: vier Firefox-profielen van de Android-telefoon
+# Opdracht voor een agent op de macbook: vijf Firefox-profielen van de Android-telefoon (ronde 2)
 
 Je draait op de macbook van de PO (Mathijs). Zijn Android-telefoon (Pixel 9, Firefox 159, pakket `org.mozilla.firefox`)
 hangt met USB aan de macbook; USB-foutopsporing staat aan op de telefoon en in Firefox, en volgens de PO staat de
 profiler in desktop-Firefox klaar (`about:debugging`, telefoon verbonden). De PO wil dit niet zelf doen: werk het
 zelfstandig af en vraag hem alleen iets als je echt vastzit.
 
-Doel: vier Gecko-profielen van de windmodus van motregen, elk ~15 s tijdens afspelen, zodat de orkestrator op
-ageq-dev2 de draden Renderer en Compositor kan lezen. Achtergrond: `docs/perf/u111/README.md` (zelfde map).
+Doel: vijf Gecko-profielen van de windmodus van motregen, elk ~15 s tijdens afspelen, zodat de orkestrator op
+ageq-dev2 de draden CanvasRenderer, Renderer en Compositor kan lezen. Achtergrond: `docs/perf/u111/README.md` (zelfde
+map). Ronde 1 (`android-1-alles` … `android-4-kaart`) is al binnen; dit zijn de varianten van ronde 2, alle vijf met
+alle lagen aan.
 
-## De vier opnames
+## De vijf opnames
 
 | # | bestand | URL |
 | --- | --- | --- |
-| 1 | `android-1-alles.json.gz` | `http://ageq-dev2:4312/?perf=1&modus=wind&dev` |
-| 2 | `android-2-zakken.json.gz` | `http://ageq-dev2:4312/?perf=1&modus=wind&dev&deeltjes=uit&regen=uit&isolijnen=uit` |
-| 3 | `android-3-isolijnen.json.gz` | `http://ageq-dev2:4312/?perf=1&modus=wind&dev&deeltjes=uit&regen=uit&zakken=uit` |
-| 4 | `android-4-kaart.json.gz` | `http://ageq-dev2:4312/?perf=1&modus=wind&dev&deeltjes=uit&regen=uit&zakken=uit&isolijnen=uit` |
+| 1 | `android-r2-basis.json.gz` | `http://ageq-dev2:4312/?perf=1&modus=wind&dev` |
+| 2 | `android-r2-zakclip-uit.json.gz` | `http://ageq-dev2:4312/?perf=1&modus=wind&dev&zakclip=uit` |
+| 3 | `android-r2-zakclip-uit-los.json.gz` | `http://ageq-dev2:4312/?perf=1&modus=wind&dev&zakclip=uit&zakcanvas=los` |
+| 4 | `android-r2-zak2d-software.json.gz` | `http://ageq-dev2:4312/?perf=1&modus=wind&dev&zak2d=software` |
+| 5 | `android-r2-zakclip-uit-zak2d-software.json.gz` | `http://ageq-dev2:4312/?perf=1&modus=wind&dev&zakclip=uit&zak2d=software` |
 
 `ageq-dev2` is een tailnet-naam; de telefoon zit op tailscale en kan hem bereiken.
 
@@ -38,11 +41,11 @@ vraag hem alleen de knoppen van stap 2 en 3 te bedienen terwijl jij de URL's ope
 ## Terugplaatsen
 
 ```sh
-scp ~/Downloads/android-*.json.gz ageq-dev2:motregen-profiles/
+scp ~/Downloads/android-r2-*.json.gz ageq-dev2:motregen-profiles/
 ssh ageq-dev2 ls -l motregen-profiles
 ```
 
-Controleer dat er vier bestanden staan die elk groter zijn dan 100 kB. Meld daarna de PO de vier bestandsnamen en
+Controleer dat er vijf `android-r2-`bestanden staan die elk groter zijn dan 100 kB. Meld daarna de PO de vijf bestandsnamen en
 hun groottes, en alles wat afweek: een opname die niet afspeelde, een foutmelding of een andere preset.
 
 ## Grenzen

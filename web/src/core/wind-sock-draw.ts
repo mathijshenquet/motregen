@@ -12,17 +12,25 @@ export interface SockScene {
   label: string
   dark: boolean
   fontFamily: string
+  /**
+   * `clip` (standaard): de zak rond de badge wegknippen. `erase` (`?dev&zakclip=uit`, U111): eerst de zak, dan het
+   * gat wegvegen met destination-out. Firefox Android rastert voor elke `clip()` een masker in software; `erase`
+   * veegt ook weg wat er al stond, dus alleen op een canvas waar deze zak alleen staat.
+   */
+  cut?: 'clip' | 'erase'
 }
 
-export function drawSock({ context, shape, badge, label, dark, fontFamily }: SockScene): void {
+export function drawSock({ context, shape, badge, label, dark, fontFamily, cut = 'clip' }: SockScene): void {
   context.save()
   context.lineJoin = 'round'
   context.lineCap = 'round'
   context.save()
-  const outside = new Path2D()
-  outside.rect(-240, -240, 480, 480)
-  outside.arc(badge.x, badge.y, badge.cutRadius, 0, Math.PI * 2)
-  context.clip(outside, 'evenodd')
+  if (cut === 'clip') {
+    const outside = new Path2D()
+    outside.rect(-240, -240, 480, 480)
+    outside.arc(badge.x, badge.y, badge.cutRadius, 0, Math.PI * 2)
+    context.clip(outside, 'evenodd')
+  }
   const outline = pathOf(windsockOutline(shape))
   context.save()
   context.translate(0, 1.3)
@@ -46,6 +54,14 @@ export function drawSock({ context, shape, badge, label, dark, fontFamily }: Soc
   mouth.lineTo(...shape.right[0]!)
   context.stroke(mouth)
   context.restore()
+  if (cut === 'erase') {
+    context.save()
+    context.globalCompositeOperation = 'destination-out'
+    const hole = new Path2D()
+    hole.arc(badge.x, badge.y, badge.cutRadius, 0, Math.PI * 2)
+    context.fill(hole)
+    context.restore()
+  }
 
   const circle = new Path2D()
   circle.arc(badge.x, badge.y, badge.radius, 0, Math.PI * 2)

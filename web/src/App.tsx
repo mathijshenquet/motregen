@@ -245,6 +245,9 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     return value >= 1 && value <= 3 ? value : undefined
   }
   const separateSockCanvases = devParams.get('zakcanvas') === 'los'
+  // Ronde 2 (Gecko-profielen): de zakken zonder clip(), en de zakcanvas in het contentproces laten tekenen.
+  const eraseSockCut = devParams.get('zakclip') === 'uit'
+  const softwareSockCanvas = devParams.get('zak2d') === 'software'
   const sockPixelRatio = devPixelRatio('zakdpr')
   const isolinePixelRatio = devPixelRatio('isolijndpr') ?? Infinity
   const stillMode = new URLSearchParams(window.location.search).get('still') === '1'
@@ -2326,7 +2329,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         client.getHeader(frames[blends[0]!.left]!.u.chunk),
       ])
       if (request !== shownWindsockRequest || !map) return
-      windsockLayer ??= new WindsockLayer(map, { ...windsockOptions, separateCanvases: separateSockCanvases, maxPixelRatio: sockPixelRatio, reducedMotion: () => reducedMotion.matches, pin: () => marker?.getLngLat() })
+      windsockLayer ??= new WindsockLayer(map, { ...windsockOptions, separateCanvases: separateSockCanvases, maxPixelRatio: sockPixelRatio, eraseCut: eraseSockCut, softwareCanvas: softwareSockCanvas, reducedMotion: () => reducedMotion.matches, pin: () => marker?.getLngLat() })
       windsockLayer.setUnit(untrack(windUnit))
       windsockLayer.setTheme(untrack(mapSurfaceTheme) === 'dark')
       windsockLayer.setPlaces(nestedPlaces(map.getZoom(), WINDSOCK_SPACING_PX))
