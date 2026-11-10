@@ -59,6 +59,14 @@ product manager (proposals, specs, verification), codex agents
 - Workers starten zonder permissieprompts (PO 2026-11-09): Claude met `--dangerously-skip-permissions`
   (`herdr agent start <naam> --kind claude --pane <pane> -- --model claude-opus-5-5 --dangerously-skip-permissions`),
   Codex met `--dangerously-bypass-approvals-and-sandbox`.
+- Ook in bypass-modus houdt Claude Code een Bash-aanroep tegen met een toestemmingsvraag als het een gevaarlijke `rm`
+  niet kan uitsluiten (check `dangerousRemoval`, PO 2026-11-10). Een onbewaakte worker staat dan uren stil. Schrijf
+  commando's daarom zo dat de check ze kan lezen:
+  - `rm` alleen op letterlijke paden of met `"${D:?}/${naam:?}"`, nooit `rm -r $D/$x` of `rm -r $(…)`; liever een
+    script dat zijn eigen uitvoermap opruimt;
+  - geen `(`, `;` of `#` in geciteerde argumenten (JSON-bodies in een bestand, `--data @bestand`), geen diep geneste
+    `$(…)`;
+  - geen lange ketens met `;`/`&&` rond een aanroep met zulke argumenten; terugleescommando's als aparte aanroep.
 
 ## Changelog en releases
 Lees `changes/README.md` vóór je een notitie schrijft of een release maakt. In het kort (PO 2026-10-18):
