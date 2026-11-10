@@ -245,6 +245,12 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     return value >= 1 && value <= 3 ? value : undefined
   }
   const separateSockCanvases = devParams.get('zakcanvas') === 'los'
+  // Vaste camera voor metingen (U111 ronde 4): `?dev&camera=<lon>,<lat>,<zoom>` zet de kaart daar bij het laden,
+  // zonder kaartbegrenzing, locatiefix, centreren op de pin of opslag, zodat elke browser dezelfde scène heeft.
+  const devCamera = (() => {
+    const [lng, lat, zoom] = (devParams.get('camera') ?? '').split(',').map(Number)
+    return [lng, lat, zoom].every((value) => Number.isFinite(value)) ? { lng: lng!, lat: lat!, zoom: zoom! } : undefined
+  })()
   // Ronde 2 en 3 (Gecko-profielen): het oude gat met clip() ter vergelijking, de zakcanvas in het contentproces,
   // en zuiniger zakpaden.
   const clipSockCut = devParams.get('zakclip') === 'aan'
@@ -255,7 +261,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const sockPixelRatio = devPixelRatio('zakdpr')
   const isolinePixelRatio = devPixelRatio('isolijndpr') ?? Infinity
   const stillMode = new URLSearchParams(window.location.search).get('still') === '1'
-  let rigFreeCamera = false
+  let rigFreeCamera = devCamera !== undefined
   // Bewaar de invoer voordat de live permalink de adresbalk normaliseert.
   const initialUrl = new URL(window.location.href)
   const initialPresets = parsePresets(initialUrl.search, Date.now(), initialUrl.pathname, initialUrl.hash)
@@ -483,7 +489,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const [urlPlace, setUrlPlace] = createSignal<{ name: string; slug: string }>()
   // Verleende locatietoestemming gaat vóór de onthouden plaats (U26); tot de fix er is staat die er.
   void grantedStartFix({ permissions: navigator.permissions, geolocation: navigator.geolocation }, MAP_CONTAIN_BOUNDS).then((fix) => {
-    if (stillMode) return
+    if (stillMode || devCamera) return
     // Een gedeeld punt of een andere plaats dan waar we al staan gaat vóór de locatiefix; de eigen
     // permalink van de huidige plaats niet.
     if (initialPresets.point) return
@@ -981,7 +987,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
       const initialTheme = stillMode ? stillMapTheme(selectedEpoch()) : mapTheme()
       const style = await loadBasemapStyle(initialTheme)
       appliedMapTheme = initialTheme
-      const initialView = constrainView(!stillMode && initialPresets.point
+      const initialView = devCamera ?? constrainView(!stillMode && initialPresets.point
         ? { ...initialPresets.point, zoom: 7 }
         : initialMapView ?? containView(MAP_CONTAIN_BOUNDS, mapViewport()), MAP_CONTAIN_BOUNDS, mapViewport())
       map = new maplibregl.Map({
@@ -2508,7 +2514,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
 
   /** Centreer alleen als het punt anders buiten (of in de rand van) het vrije kaartvlak valt. */
   function revealPoint(lng: number, lat: number): void {
-    if (!map) return
+    if (!map || devCamera) return
     const { width, height, insets } = mapViewport()
     const { x, y } = map.project([lng, lat])
     const margin = PIN_EDGE_MARGIN
@@ -3097,6 +3103,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
 
   function rememberMapView(): void {
+    if (devCamera) return
     window.clearTimeout(mapViewTimer)
     mapViewTimer = window.setTimeout(() => {
       if (!map) return
@@ -3172,7 +3179,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
 
   function applyMapContainLimit(): void {
-    if (!map) return
+    if (!map || devCamera) return
     const minimumZoom = containZoom(MAP_CONTAIN_BOUNDS, mapViewport())
     if (Number.isFinite(minimumZoom)) map.setMinZoom(Math.min(Math.max(minimumZoom, -2), map.getMaxZoom()))
   }

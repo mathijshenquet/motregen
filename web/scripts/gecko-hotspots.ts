@@ -13,7 +13,9 @@ import { originalPositionFor, TraceMap } from '@jridgewell/trace-mapping'
 // draaien meer Web Content-processen).
 //
 // usage: pnpm exec tsx scripts/gecko-hotspots.ts PROFIEL.json.gz [--thread=GeckoMain] [--pid=N] [--top=15]
-//          [--dist=tmp/u111-r2] [--offline]
+//          [--dist=tmp/u111-r2] [--offline] [--under=naam]
+// --under: alleen samples met een frame waarvan de naam met `naam` begint (bijv. `draw (src/core/wind-socks.ts`), om te
+// zien waar die functie zijn tijd kwijt is.
 
 interface Table { schema: Record<string, number>; data: unknown[][] }
 interface Lib { start: number; end: number; offset?: number; debugName?: string; breakpadId?: string }
@@ -28,6 +30,7 @@ const threadName = option('thread') ?? 'GeckoMain'
 const top = Number(option('top') ?? 15)
 const dist = option('dist')
 const offline = args.includes('--offline')
+const under = option('under')
 
 const root = JSON.parse(gunzipSync(readFileSync(file)).toString()) as Process
 const rows = (table: Table) => table.data.map((row) => Object.fromEntries(Object.entries(table.schema).map(([key, index]) => [key, row[index]])) as Record<string, any>)
@@ -123,6 +126,11 @@ let total = 0
 for (const sample of samples) {
   const weight = Number(sample.threadCPUDelta ?? 0)
   if (sample.stack == null || !weight) continue
+  if (under) {
+    let found = false
+    for (let stack = sample.stack; stack != null && !found; stack = stacks[stack]!.prefix) found = frameName(stacks[stack]!.frame as number).name.startsWith(under)
+    if (!found) continue
+  }
   total += weight
   const leafFrame = stacks[sample.stack]!.frame as number
   const leaf = frameName(leafFrame)

@@ -434,6 +434,74 @@ telt rAF; zijn "fps" is dus geen getoond frame.
 Zonder `perf` (getoonde frames met SurfaceFlinger, zoals de laptop-agent meet): dezelfde links zonder `perf=start&`.
 Gecko-profielen: `gecko-android-agent.md` (`android-r3-<variant>.json.gz`).
 
+## Ronde 4 (2026-11-10): DOM-rust op de content-hoofddraad
+
+### Wat er per frame in de DOM verandert (Firefox-rig, Wind, spelend, 10 s, `scripts/wind-dom-churn.ts`)
+
+Alleen echte wijzigingen; build 6c9f00e (vóór), 58 rAF/s:
+
+| element | wat | per s | oorzaak |
+| --- | --- | --- | --- |
+| `.chart-plot` → `div.cursor-readout` | element erbij én eraf | 57 + 57 | `<For each={cursorWind()}>` in `HistogramScrubber`: elke cursorstap nieuwe objecten, dus elke frame een nieuw element (met volledige stijlberekening, ook `color-mix()`) |
+| `.day-labels > span` | `style` (transform) | 55 | daglabels schuiven mee met de scrollende tijdlijn (bedoelde beweging) |
+| zakcanvas | `data-draws` | 29 | eigen teller per zaktekening (alleen een rig las hem) |
+| `.chart-track` | `style` (transform) | 27,5 | de tijdlijn scrolt tijdens afspelen (bedoelde beweging) |
+| `g.cloud-band` | paden erbij/eraf | 12 | `<For>` over padstrings: een gewijzigd pad is een nieuw element |
+| windgradiënt `lineargradient` | stops erbij/eraf | 9,6 | `<For>` over nieuwe stop-objecten |
+| klok, cursortijd, `aria-label`/`aria-valuetext`, `data-epoch` | tekst/attribuut | 8,5 elk | per afspeeltik; de tekst verandert echt |
+| gradiëntstops lucht/wolken | `style` | 3 | de kleur van de lucht verloopt (bedoeld) |
+
+`document.getAnimations()` was tijdens afspelen steeds leeg: er loopt geen CSS-animatie of -overgang.
+`Servo_InterpolateColor` in het Gecko-profiel is dus geen animatie, maar de stijlberekening van de elementen die elke
+frame nieuw zijn (`.cursor-readout span` heeft `background: color-mix(…)`).
+
+Daarbij, in het Gecko-profiel van de zaktekening (`gecko-hotspots.ts --under="draw (src/core/wind-socks.ts"`,
+`android-r2-zakclip-uit`): **`get Window.innerWidth` 46 % van de zaktekening (32 ms/s)**, met daaronder
+`PresShell::DoFlushPendingNotifications Layout` 31 ms/s en een Reflow van 15 ms/s. `draw()` las
+`mapLabelSize(window.innerWidth, window.innerHeight)`; met de vuile DOM hierboven dwingt dat binnen de promise-callback
+van `setField` een synchrone stijl- en layoutflush af, vóór de refresh driver die zelf nog eens doet. Verder 21 % in de
+kladcanvas (sinds ronde 3 weg) en 13,5 % in de labelindeling (`queryRenderedFeatures`, vier keer per s).
+
+### `?dev&domrust` (standaard aan; `uit` = het oude gedrag)
+
+1. `Rows` in `HistogramScrubber`: met `domrust` `<Index>` in plaats van `<For>` voor de cursorwaarden (wind, temperatuur),
+   de gradiëntstops (wind, temperatuur) en de wolkenpaden. De elementen blijven staan; alleen `top`, tekst of `d` wisselen.
+   De `tween`-overgang (`top .14s`) op de wind- en temperatuurwaarden kon met `<For>` nooit lopen (nieuw element); met
+   `domrust` laat ik die klasse daar weg, zodat het beeld gelijk blijft.
+2. `viewportMapLabelSize()` (`map-labels.ts`): innerWidth/innerHeight gecachet tot `resize`, voor de zakken en de
+   temperatuurgetallen.
+3. Geen `data-draws` per zaktekening (`scripts/windsock-perf.ts` leest de teller nu via `__motregenWindsocks()`).
+
+Na (build r4, `domrust` aan): de cursorwaarde houdt één element (`top` 27/s, mee met de scroll), de stops en
+wolkenpaden worden niet meer vervangen, `data-draws` is weg. Over blijven de bedoelde beweging (tijdlijn, daglabels) en
+de per tik echt wijzigende teksten. Beeld: telefoonbeeld gepauzeerd met `deeltjes=uit` (de windstreepjes hangen van de
+klok af), `domrust` aan tegen uit: donker byte-identiek; licht in een tweede paar byte-identiek (in het eerste paar
+verschilde alleen het bronlabel van de kaart, en de opname met `domrust` aan verschilde daar ook van zichzelf: timing).
+
+Niet veranderd:
+- De tijdlijn en de daglabels die tijdens afspelen schuiven: dat is beweging, al via `transform`. Gecko bouwt daarvoor
+  wel elke frame een displaylist; alleen een compositoranimatie (WAAPI) zou dat wegnemen, en dat vraagt een herbouw
+  van het scrollen.
+- De klok en de `aria-valuetext` per afspeeltik: die veranderen echt, en schermlezers lezen ze.
+- `showWindsocks`/`setField` per tik: bewust. De zakken volgen de kaarttijd continu (menging tussen twee uren),
+  zodat ze vloeiend draaien. De ~140 ms/s uit ronde 3 telt dubbel: `showWindsocks` (76 ms/s) bevat `setField`
+  (66 ms/s), en die bevat de tekening zelf. Daarvan was 46 % de layoutflush (nu weg), 21 % de kladcanvas (weg sinds
+  ronde 3) en 13,5 % de labelindeling.
+
+Rig (rAF/s, load 18–95): geen bruikbaar verschil. Beslissen op SurfaceFlinger.
+
+### `?dev&camera=<lon>,<lat>,<zoom>`
+
+Zet de kaart bij het laden vast, zonder kaartbegrenzing, locatiefix, centreren op de pin of minimale zoom, en schrijft
+geen kaartstand of plaats naar de opslag. `scripts/camera-check.ts` (eerst een bezoek zonder knop met geolocatie
+Groningen en opgeslagen stand, dan met `camera=5.29,52.13,7`): Firefox en Chromium allebei `{lng 5.29, lat 52.13,
+zoom 7}`, opslag ongewijzigd. De pin blijft op de onthouden plaats; alleen de camera staat vast.
+
+### Telefoonlinks ronde 4 (zonder `perf`, voor SurfaceFlinger)
+
+1. Basis (domrust aan): `http://ageq-dev2:4312/?modus=wind&dev&camera=5.29,52.13,7`
+2. Oud gedrag: `http://ageq-dev2:4312/?modus=wind&dev&camera=5.29,52.13,7&domrust=uit`
+
 ## Gecko-profiel van Firefox Android via USB (macbook)
 
 De eerdere profielen in `~/motregen-profiles/macbook-firefox/` zijn van desktop-Firefox op de macbook (macOS),

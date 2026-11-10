@@ -7,7 +7,7 @@ import type { IsolineBubble } from './isoline-layer'
 import { sampleSlice, type FieldSlice } from './isoline-spline'
 import { markLayerDrawn } from './perf'
 import { MapLabelPlacer, PLACE_LADDER } from './map-label-placement'
-import { mapDiscRadius, mapLabelSize } from './map-labels'
+import { mapDiscRadius, viewportMapLabelSize } from './map-labels'
 import { MAP_PLACES, mapPlaceSpacingPx, MAX_PLACE_NUMBERS, nestedPlaces } from './map-places'
 
 /**
@@ -187,7 +187,7 @@ export class TemperatureNumbers implements IsolineLabelling {
   }
 
   private size(): number {
-    return mapLabelSize(window.innerWidth, window.innerHeight)
+    return viewportMapLabelSize()
   }
 
   private setText(label: Shown, value: number): void {

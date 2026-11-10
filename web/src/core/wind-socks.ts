@@ -7,9 +7,10 @@ import { windValue, type WindUnit } from './weather.js'
 import { markLayerDrawn, recordPerfPhase } from './perf.js'
 import { WINDSOCK_ANCHOR_OFFSETS } from './windsock-anchors.js'
 import { drawSock, sockCutPath } from './wind-sock-draw.js'
+import { domRest } from './dom-rest.js'
 import { PredrawnSocks, predrawnPose, type PredrawnPose, type PredrawnWave } from './windsock-predrawn.js'
 import { MapLabelPlacer, type Offset, type Placement } from './map-label-placement.js'
-import { MAP_LABEL_FONT_FAMILY, mapLabelSize } from './map-labels.js'
+import { MAP_LABEL_FONT_FAMILY, viewportMapLabelSize } from './map-labels.js'
 
 interface Sock {
   place: TemperaturePlace
@@ -300,7 +301,7 @@ export class WindsockLayer {
     this.drawnAt = seconds
     let fluttering = false
     let settling = false
-    const size = mapLabelSize(window.innerWidth, window.innerHeight)
+    const size = viewportMapLabelSize()
     // Indelen bij een nieuwe stand (pin, plekken, stilstand) of tijdens bewegen hooguit om de LAYOUT_INTERVAL_MS.
     if (this.layoutDirty || ((this.fieldChanged || this.drawnCamera !== this.layoutCamera) && started - this.lastLayout >= LAYOUT_INTERVAL_MS)) {
       this.fieldChanged = false
@@ -359,7 +360,8 @@ export class WindsockLayer {
     if (this.drawnCount) markLayerDrawn('windzakken')
     const summary = `${this.drawnCount}|${Math.round(this.drawnMaxStrength * 10) / 10}`
     if (this.canvas.dataset.socks !== summary) this.canvas.dataset.socks = summary
-    this.canvas.dataset.draws = String(this.draws)
+    // Met `domRest` niet per tekening in de DOM (U111 ronde 4); rigs lezen `draws` via `__motregenWindsocks()`.
+    if (!domRest) this.canvas.dataset.draws = String(this.draws)
     if (this.predrawn) this.canvas.dataset.predrawn = `${this.predrawn.hits}/${this.predrawn.misses}/${this.predrawn.size}`
     if ((fluttering || settling) && this.inView && document.visibilityState !== 'hidden') this.scheduleFlutter(started, this.flutterFps(started))
   }

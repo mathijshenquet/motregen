@@ -71,6 +71,14 @@ De sink schrijft naar `~/motregen-profiles/` op ageq-dev2; de variant staat in d
 de sink op de nieuwe versie van `web/scripts/prof-sink.ts` draait, ook in de bestandsnaam. Deze opnames hebben de
 UserTiming-fasen van de app (tempo en gaten), geen stacks van Firefox zelf.
 
+## Dezelfde scène in elke browser: `camera=`
+
+`?dev&camera=<lon>,<lat>,<zoom>` (bijvoorbeeld `&camera=5.29,52.13,7`, midden van het land) zet de kaart bij het
+laden vast op die plek en zoom. De opgeslagen kaartstand en de locatiefix tellen dan niet mee; de pagina centreert
+niet op de pin en schrijft niets naar de opslag. Zet hem in elke link van een vergelijking tussen Firefox en Chrome,
+of tussen varianten. Voorbeeld:
+`http://ageq-dev2:4312/?modus=wind&dev&camera=5.29,52.13,7&domrust=uit`.
+
 ## Grenzen
 
 - Verander niets aan de telefoon behalve de tabbladen in Firefox, en niets aan ageq-dev2 buiten `~/motregen-profiles/`.
