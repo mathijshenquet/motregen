@@ -235,6 +235,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   // A/B-knoppen voor de framegaten in Wind op Firefox Android (U111, vervallen 2026-11-24).
   const windsocksOff = devParams.get('zakken') === 'uit'
   const isolinesOff = devParams.get('isolijnen') === 'uit'
+  // Bisectie op de telefoon (U111): de WebGL-windlaag niet opzetten; de regenoverlay tekent niets (data en afspelen
+  // lopen door). `?dev&kaart=leeg` zit in basemap.ts.
+  const particlesOff = devParams.get('deeltjes') === 'uit'
+  const rainOff = devParams.get('regen') === 'uit'
   const stillMode = new URLSearchParams(window.location.search).get('still') === '1'
   let rigFreeCamera = false
   // Bewaar de invoer voordat de live permalink de adresbalk normaliseert.
@@ -1750,6 +1754,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   function mountRain(grid: Grid): void {
     if (!map) return
     layer = new RainLayer(grid)
+    if (rainOff) Object.assign(layer, { render: () => {}, contentDrawn: false })
     applyRainColours()
     try {
       rainOverlay = new LayerOverlay(map, layer, windOverlay?.canvas ?? map.getCanvas(), () => WIND_MAX_FPS)
@@ -1760,7 +1765,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   }
 
   function mountWind(grid: Grid): WindLayer | undefined {
-    if (!map) return
+    if (!map || particlesOff) return
     const wind = new WindLayer(grid, mapTheme(), focusedWindTuning())
     windLayer = wind
     try {
