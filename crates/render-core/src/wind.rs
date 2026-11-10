@@ -415,7 +415,10 @@ mod tests {
                         continue;
                     }
                     let step = head(particle, life)[0] - head(particle, before)[0];
-                    let expected = particle.screen_speed * FILM_STEP * mode_constants().scale;
+                    let expected = particle.screen_speed
+                        * FILM_STEP
+                        * mode_constants().wind.film_tempo
+                        * mode_constants().scale;
                     assert!(
                         (step - expected).abs() < 1e-6 * expected,
                         "{step} px != {expected} px"
@@ -437,7 +440,11 @@ mod tests {
             particles
                 .iter()
                 .flatten()
-                .map(|particle| particle.fresh(seconds).unwrap())
+                .map(|particle| {
+                    particle
+                        .fresh(seconds * mode_constants().wind.film_tempo)
+                        .unwrap()
+                })
                 .collect::<Vec<_>>()
         };
         let lives = |drawn: Vec<(Particle, Life)>| {
