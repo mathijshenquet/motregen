@@ -254,6 +254,18 @@ export function configurePerfMode(url: URL, storage: Pick<Storage, 'getItem' | '
   return coldStart
 }
 
+/**
+ * `?perf=start&auto[=naam]` (U111): de koude-startopname na afloop zelf naar de profielsink sturen, zonder tikken,
+ * voor een meetlus met adb. De naam komt in de bestandsnaam; zonder waarde de overige parameters (`zakclip=aan`).
+ */
+export function autoSendLabel(url: URL): string | undefined {
+  if (url.searchParams.get('perf') !== 'start' || !url.searchParams.has('auto')) return undefined
+  const named = url.searchParams.get('auto')
+  if (named) return named
+  const rest = [...url.searchParams].filter(([key]) => !['perf', 'auto', 'modus', 'dev'].includes(key)).map(([key, value]) => value ? `${key}=${value}` : key)
+  return rest.join('&') || 'basis'
+}
+
 export function consumeColdProfile(storage: Pick<Storage, 'getItem' | 'removeItem'>): boolean {
   const requested = storage.getItem(PERF_COLD_STORAGE_KEY) === '1'
   if (requested) {

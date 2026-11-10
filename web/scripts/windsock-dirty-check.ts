@@ -4,18 +4,20 @@ import { chromium, firefox, type Browser } from '@playwright/test'
 // zakken stil (geen wuiven), dus dezelfde camera en hetzelfde veld geven dezelfde zakken. Na een reeks pannen
 // (elke tekening wist alleen rechthoeken) gaan de pixels naast die van een gedwongen volle hertekening.
 //
-// Met --los (`?dev&zakcanvas=los`): de losse zakcanvassen, op hun plek samengelegd. Met --zakclip
-// (`?dev&zakclip=uit`): het gat rond de badge weggeveegd in plaats van weggeknipt. De referentie is steeds een volle
-// tekening van dezelfde laag op zijn grote canvas, met clip(). Skia antialiast de omtrek op een kleine canvas net
-// anders (~0,1 % van de inktpixels); daarom geldt dan: hooguit 0,5 % van de inktpixels met voorvermenigvuldigd
-// Δ > 2, nergens Δ > 64, en met --los niets buiten een zak. Vegen geeft op de rand van het gat ander
-// antialias (clip dekt elke laag apart af, vegen het geheel één keer): pixels binnen 2 canvaspixels van die rand
-// tellen apart en vallen buiten de grens. Een AA-clip verschuift ook elders de randdekking een beetje (Skia tekent
-// dan via de clipblitter), dus met --zakclip mag 1 % van de inktpixels Δ > 2 hebben (gekozen na de eerste meting,
-// 0,47–0,57 %; op 4× uitvergroot niet te zien). Zonder --los en --zakclip: exact gelijk.
-// U111_CROPS=<map> schrijft een uitvergrote uitsnede van het eerste duidelijke verschil.
+// De referentie is steeds een volle tekening van dezelfde laag op zijn grote canvas langs het standaardpad (het gat
+// rond de badge weggeveegd, U111 ronde 3). Getest wordt, naast elkaar te combineren:
+// - --los (`?dev&zakcanvas=los`): de losse zakcanvassen, op hun plek samengelegd. Skia antialiast de omtrek op een
+//   kleine canvas net anders (~0,1 % van de inktpixels): hooguit 0,5 % van de inktpixels met voorvermenigvuldigd
+//   Δ > 2, nergens Δ > 64, niets buiten een zak.
+// - --zakclip (`?dev&zakclip=aan`): het oude gat met clip(). Op de rand van het gat ander antialias (clip dekt elke
+//   laag apart af, vegen het geheel één keer): pixels binnen 2 canvaspixels van die rand tellen apart. Een AA-clip
+//   verschuift ook elders de randdekking een beetje (Skia tekent dan via de clipblitter), dus hier mag 1 % van de
+//   inktpixels Δ > 2 hebben (gekozen na de eerste meting, 0,47–0,57 %; op 4× uitvergroot niet te zien).
+// - --zuinig (`?dev&zakpaden=zuinig`): banden als twee vullingen en de badge uit een bitmapcache (kwart pixel);
+//   dezelfde grens als --zakclip.
+// Zonder vlaggen: exact gelijk. U111_CROPS=<map> schrijft een uitvergrote uitsnede van het eerste duidelijke verschil.
 //
-// usage: xvfb-run -a pnpm exec tsx scripts/windsock-dirty-check.ts ORIGIN [--browser=firefox|chromium] [--theme=licht|donker] [--sabotage] [--los] [--zakclip]
+// usage: xvfb-run -a pnpm exec tsx scripts/windsock-dirty-check.ts ORIGIN [--browser=firefox|chromium] [--theme=licht|donker] [--sabotage] [--los] [--zakclip] [--zuinig]
 
 const args = process.argv.slice(2)
 const origin = args.find((arg) => !arg.startsWith('--'))
@@ -26,7 +28,8 @@ const theme = option('theme') ?? 'licht'
 // Negatieve controle: vóór elke pan de oude rechthoeken vergeten; dan moet de check falen.
 const sabotage = args.includes('--sabotage')
 const separate = args.includes('--los')
-const erase = args.includes('--zakclip')
+const clip = args.includes('--zakclip')
+const lean = args.includes('--zuinig')
 
 const browser: Browser = browserName === 'firefox'
   ? await firefox.launch({
@@ -48,7 +51,7 @@ const context = await browser.newContext({
   colorScheme: theme === 'donker' ? 'dark' : 'light', timezoneId: 'Europe/Amsterdam',
 })
 const page = await context.newPage()
-await page.goto(new URL(`/wind?dev${separate ? '&zakcanvas=los' : ''}${erase ? '&zakclip=uit' : ''}`, origin).href)
+await page.goto(new URL(`/wind?dev${separate ? '&zakcanvas=los' : ''}${clip ? '&zakclip=aan' : ''}${lean ? '&zakpaden=zuinig' : ''}`, origin).href)
 await page.locator('details.dev-panel').evaluate((panel) => panel.removeAttribute('open')).catch(() => {})
 await page.waitForFunction(() => Number((document.querySelector('.map-overlay-windsocks') as HTMLCanvasElement | null)?.dataset.socks?.split('|')[0]) > 0, undefined, { timeout: 120_000 })
 // Pauzeren, zodat het veld vaststaat.
@@ -58,9 +61,9 @@ await page.waitForTimeout(1_000)
 
 // In de pagina, als tekst (tsx voegt anders `__name(…)` in). Getest: wat er na het pannen staat (vuile rechthoeken;
 // met --los de zakcanvassen samengelegd op gehele canvaspixels, dus zonder herbemonstering). Referentie: dezelfde
-// laag gedwongen vol op zijn grote canvas, met clip(); daarna gaat de laag terug naar zijn eigen stand.
+// laag gedwongen vol op zijn grote canvas langs het standaardpad; daarna gaat de laag terug naar zijn eigen stand.
 const compare = `(() => {
-  const separate = ${separate}, tolerant = ${separate || erase}, shift = ${sabotage && separate ? 1 : 0}
+  const separate = ${separate}, tolerant = ${separate || clip || lean}, loose = ${clip || lean}, shift = ${sabotage && separate ? 1 : 0}
   const layer = window.__motregenWindsocks()
   const ratio = window.devicePixelRatio
   const width = Math.round(layer.width * ratio), height = Math.round(layer.height * ratio)
@@ -80,24 +83,25 @@ const compare = `(() => {
     tested = context.getImageData(0, 0, width, height).data
   } else tested = readMain()
 
-  const holder = layer.surface, eraseCut = layer.options.eraseCut
+  const holder = layer.surface, options = { ...layer.options }
   const rings = [], drawSock = layer.drawSock
-  layer.drawSock = function (context, x, y, shape, badge, label) {
-    rings.push([(x + badge.x) * ratio, (y + badge.y) * ratio, badge.cutRadius * ratio])
-    return drawSock.call(this, context, x, y, shape, badge, label)
+  layer.drawSock = function (context, draw, ...rest) {
+    rings.push([(draw.x + draw.badge.x) * ratio, (draw.y + draw.badge.y) * ratio, draw.badge.cutRadius * ratio, draw.badge.radius * ratio])
+    return drawSock.call(this, context, draw, ...rest)
   }
   layer.surface = layer.canvas
-  layer.options.eraseCut = false
+  layer.options.clipCut = false
+  layer.options.leanPaths = false
   layer.drawnRects = undefined
   layer.draw()
   delete layer.drawSock
   const full = readMain()
   layer.surface = holder
-  layer.options.eraseCut = eraseCut
+  Object.assign(layer.options, options)
   if (separate) layer.canvas.width = layer.canvas.height = 0
   layer.draw()
 
-  let different = 0, maxDelta = 0, inked = 0, visible = 0, maxPre = 0, outsideSock = 0, first = -1, ringEdge = 0, maxRing = 0
+  let different = 0, maxDelta = 0, inked = 0, visible = 0, maxPre = 0, outsideSock = 0, first = -1, ringEdge = 0, maxRing = 0, discEdge = 0
   for (let index = 0; index < full.length; index += 4) {
     if (full[index + 3]) inked++
     let pixelDifferent = false
@@ -109,17 +113,18 @@ const compare = `(() => {
     const colourDelta = [0, 1, 2].map((channel) => Math.abs(full[index + channel] * full[index + 3] - tested[index + channel] * tested[index + 3]) / 255)
     const preDelta = Math.max(...colourDelta, Math.abs(full[index + 3] - tested[index + 3]))
     const px = (index / 4) % width + 0.5, py = Math.floor(index / 4 / width) + 0.5
-    if (${erase} && rings.some(([cx, cy, radius]) => Math.abs(Math.hypot(px - cx, py - cy) - radius) <= 2)) {
+    if (${clip} && rings.some(([cx, cy, radius]) => Math.abs(Math.hypot(px - cx, py - cy) - radius) <= 2)) {
       if (preDelta > 2) ringEdge++
       maxRing = Math.max(maxRing, preDelta)
       continue
     }
     maxPre = Math.max(maxPre, preDelta)
     if (preDelta > 2) visible++
-    if (preDelta > 8 && first < 0) first = index / 4
+    if (preDelta > 2 && rings.some(([cx, cy, , radius]) => Math.abs(Math.hypot(px - cx, py - cy) - radius) <= 3)) discEdge++
+    if (preDelta > ${Number(process.env.U111_CROP_MIN ?? 8)} && first < 0) first = index / 4
     if (separate && !boxes.some(([x0, y0, x1, y1]) => px >= x0 && px < x1 && py >= y0 && py < y1)) outsideSock++
   }
-  const ok = tolerant ? visible <= inked * (${erase} ? 0.01 : 0.005) && maxPre <= 64 && !outsideSock : different === 0
+  const ok = tolerant ? visible <= inked * (loose ? 0.01 : 0.005) && maxPre <= 64 && !outsideSock : different === 0
 
   let crops
   if (first >= 0) {
@@ -142,7 +147,7 @@ const compare = `(() => {
   }
   const pixels = canvases.reduce((sum, canvas) => sum + canvas.width * canvas.height, 0)
   const socks = layer.canvas.dataset.socks + (separate ? ', ' + canvases.length + ' canvassen, ' + (pixels / (width * height) * 100).toFixed(1) + ' % van het scherm' : '')
-  const note = 'zichtbaar anders (Δ>2) ' + visible + ' px, max Δ ' + Math.round(maxPre) + (separate ? ', buiten een zak ' + outsideSock + ' px' : '') + (${erase} ? '; rand van het gat ' + ringEdge + ' px (max Δ ' + Math.round(maxRing) + ')' : '')
+  const note = 'zichtbaar anders (Δ>2) ' + visible + ' px, max Δ ' + Math.round(maxPre) + (separate ? ', buiten een zak ' + outsideSock + ' px' : '') + (${lean} ? ', waarvan op de rand van de schijf ' + discEdge + ' px' : '') + (${clip} ? '; rand van het gat ' + ringEdge + ' px (max Δ ' + Math.round(maxRing) + ')' : '')
   return { ok, crops, different, maxDelta, inked, socks: socks + '; ' + note }
 })()`
 

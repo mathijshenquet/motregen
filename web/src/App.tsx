@@ -96,7 +96,7 @@ import { sameFields } from './core/stable'
 import { READY_WINDOW_MS, windowReady } from './core/window-ready'
 import { visibleSlotStates } from './core/screen-truth'
 import type { Intent } from './core/intent'
-import { coldProfileRequested, decode, fetchManifest, initialClient, initialManifest, manifestUrl, perf, profileMode } from './startup'
+import { autoSendProfile, coldProfileRequested, decode, fetchManifest, initialClient, initialManifest, manifestUrl, perf, profileMode } from './startup'
 import { loadsHistoryEarly } from './core/decode-budget'
 const defaultLocation = DEFAULT_LOCATION
 // Intent (MIP-20): velden die de kaart of de scrubber in een van de modi tekent; de straling hoort
@@ -245,9 +245,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     return value >= 1 && value <= 3 ? value : undefined
   }
   const separateSockCanvases = devParams.get('zakcanvas') === 'los'
-  // Ronde 2 (Gecko-profielen): de zakken zonder clip(), en de zakcanvas in het contentproces laten tekenen.
-  const eraseSockCut = devParams.get('zakclip') === 'uit'
+  // Ronde 2 en 3 (Gecko-profielen): het oude gat met clip() ter vergelijking, de zakcanvas in het contentproces,
+  // en zuiniger zakpaden.
+  const clipSockCut = devParams.get('zakclip') === 'aan'
   const softwareSockCanvas = devParams.get('zak2d') === 'software'
+  const leanSockPaths = devParams.get('zakpaden') === 'zuinig'
   const sockPixelRatio = devPixelRatio('zakdpr')
   const isolinePixelRatio = devPixelRatio('isolijndpr') ?? Infinity
   const stillMode = new URLSearchParams(window.location.search).get('still') === '1'
@@ -763,7 +765,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   createEffect(() => perf.setDetailedEnabled(profileMode || perfVisible()))
 
   let profileStop: AbortController | undefined
-  async function startProfile(durationMs = 30_000, captureStartTime = performance.now()): Promise<void> {
+  async function startProfile(durationMs = 30_000, captureStartTime = performance.now(), label?: string): Promise<void> {
     if (profileState() === 'recording') return
     setPerfVisible(true)
     setProfileState('recording')
@@ -772,7 +774,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     profileStop = new AbortController()
     try {
       const { recordProfile } = await import('./core/profile-recorder')
-      const recording = await recordProfile(perf, durationMs, captureStartTime, profileStop.signal)
+      const recording = await recordProfile(perf, durationMs, captureStartTime, profileStop.signal, label)
       setProfileRecording(recording)
       setProfileState('ready')
       setProfileNotice(recording.profilerAvailable ? 'Opname gereed · stacks + fasen' : 'Opname gereed · alleen fasen')
@@ -802,7 +804,11 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     }
   }
 
-  if (coldProfileRequested) void startProfile(Math.max(0, 30_000 - performance.now()), 0)
+  if (coldProfileRequested) {
+    void startProfile(Math.max(0, 30_000 - performance.now()), 0, autoSendProfile).then(() => {
+      if (autoSendProfile !== undefined && profileState() === 'ready') void sendProfile()
+    })
+  }
 
   onMount(() => {
     const telegram = props.telegram
@@ -2329,7 +2335,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         client.getHeader(frames[blends[0]!.left]!.u.chunk),
       ])
       if (request !== shownWindsockRequest || !map) return
-      windsockLayer ??= new WindsockLayer(map, { ...windsockOptions, separateCanvases: separateSockCanvases, maxPixelRatio: sockPixelRatio, eraseCut: eraseSockCut, softwareCanvas: softwareSockCanvas, reducedMotion: () => reducedMotion.matches, pin: () => marker?.getLngLat() })
+      windsockLayer ??= new WindsockLayer(map, { ...windsockOptions, separateCanvases: separateSockCanvases, maxPixelRatio: sockPixelRatio, clipCut: clipSockCut, leanPaths: leanSockPaths, softwareCanvas: softwareSockCanvas, reducedMotion: () => reducedMotion.matches, pin: () => marker?.getLngLat() })
       windsockLayer.setUnit(untrack(windUnit))
       windsockLayer.setTheme(untrack(mapSurfaceTheme) === 'dark')
       windsockLayer.setPlaces(nestedPlaces(map.getZoom(), WINDSOCK_SPACING_PX))

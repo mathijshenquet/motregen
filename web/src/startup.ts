@@ -2,7 +2,7 @@ import type { Manifest } from './core/contract'
 import { browserDeviceHints, decodeBudget } from './core/decode-budget'
 import { fetchInitialManifest } from './core/initial-manifest'
 import { MrfClient } from './core/mrf'
-import { configurePerfMode, consumeColdProfile, installPerfMonitor } from './core/perf'
+import { autoSendLabel, configurePerfMode, consumeColdProfile, installPerfMonitor } from './core/perf'
 import { cursorForPresetEpoch, parsePresets } from './core/presets'
 import { weatherBytes } from './core/range-byte-cache'
 import { buildTimeline } from './core/time-model'
@@ -11,6 +11,7 @@ import { sessionManifestUrls, storedUsageLabel } from './core/usage'
 export const manifestUrl = new URL('/data/manifest.json', location.href)
 export const profileMode = configurePerfMode(new URL(location.href), localStorage)
 export const coldProfileRequested = consumeColdProfile(localStorage)
+export const autoSendProfile = coldProfileRequested ? autoSendLabel(new URL(location.href)) : undefined
 export const perf = installPerfMonitor()
 perf.setDetailedEnabled(profileMode)
 export const decode = decodeBudget(browserDeviceHints())

@@ -245,6 +245,122 @@ Gecko-profielen van dezelfde vijf: `gecko-android-agent.md` (`?perf=1`, `android
 Voor de merge met U113: daar wordt het gat een pil of grotere schijf (`badgePath(…, cut)`). Het weggeveegde gat moet
 dezelfde vorm volgen, en `sockRect()` moet de eenheidsbox (`sockUnitBox`) omvatten.
 
+## Ronde 3 (2026-11-10): `zakclip=uit` wordt standaard, content-hoofddraad, zuiniger paden
+
+Uitslag r2 op de telefoon (orkestrator, `.dev/tracks/u111-firefox-wind/bisect-3.md`): `zakclip=uit` geeft ~40–50 %
+meer frames (`windsock-draw` 15,8 → 22,2 /s, `wind-step` 15,6 → 23,3 /s, CanvasRenderer 452 → 331 ms/s), en de
+maskerhotspot is weg. Chrome op dezelfde telefoon haalt ~70 frames/s.
+
+### 1. Het gat zonder `clip()` is de standaard
+
+Perf-mandaat: op 4× niet te zien (orkestrator en ik hebben zelf gekeken, `zakclip-aan-vs-uit.jpg`). Het oude pad blijft
+als `?dev&zakclip=aan`. Het gat is één functie, `sockCutPath(badge)` in `wind-sock-draw.ts`; bij de merge met U113 wordt
+dat `badgePath(…, cut)` (pil of grotere schijf), en `sockRect()` moet dan de eenheidsbox omvatten.
+
+Anders dan in ronde 2 gaat een zak niet meer standaard via de kladcanvas. Het CanvasRenderer-profiel van
+`android-r2-zakclip-uit` (script `gecko-hotspots.ts --thread=CanvasRenderer`) liet zien dat die kladcanvas zelf duur
+is: `fBindFramebuffer` 18,5 % (twee framebufferwissels per zak per frame), `raw_fTexImage2D` 10 % en ~25 % in ongesymboliseerde
+libc-adressen (vermoedelijk memcpy: de kladcanvas per zak opnieuw geüpload), tegen ~27 % voor `DrawPath`/`Stroke`. Nu veegt elke zak het gat direct
+op de grote canvas weg. Alleen een zak waarvan de rechthoek een eerder getekende zak van dezelfde frame raakt, gaat
+nog via de kladcanvas (zelden: de indeling houdt zakken uit elkaar), zodat vegen nooit een andere zak raakt.
+Pixelcheck (referentie is nu het nieuwe standaardpad): de check zonder vlaggen is exact gelijk (vuile rechthoeken
+tegen een volle tekening), `--sabotage` faalt, en `--zakclip` (het oude clip-pad) geeft hetzelfde beeld als in ronde 2
+(rand van het gat ~900 px, max Δ ~115; elders ~330–360 px met Δ > 2, max Δ 13–14).
+
+### 2. Content-hoofddraad (GeckoMain van het Web Content-proces)
+
+Met `web/scripts/gecko-hotspots.ts` (gewogen met `threadCPUDelta`, native frames via Mozilla's symbolicatieserver,
+JS-namen via de sourcemaps van build `tmp/u111-r2`; dezelfde build als de opnames). Let op: dit script kiest het
+tabblad van de app op de `motregen:`-UserTiming-markers. `gecko-symbolicate-request.mjs` kiest de GeckoMain met de
+meeste samples en pakte in `android-r2-zakclip-uit` een leeg Web Content-proces (pid 20804, 7 ms CPU) in plaats van
+het tabblad (pid 21016).
+
+Eigenaar per sample (de binnenste JS-frame; zonder JS-frame is het Gecko):
+
+| | `zakclip=uit` (447 ms/s) | `zakclip=uit&zakcanvas=los` (538 ms/s) |
+| --- | --- | --- |
+| Gecko (stijl, layout, displaylist, verf) | 231 ms/s · 52 % | 233 ms/s · 43 % |
+| onze JS | 176 ms/s · 40 % | 254 ms/s · 47 % |
+| MapLibre-JS | 27 ms/s · 6 % | 37 ms/s · 7 % |
+| andere JS (buiten de bundel) | 12 ms/s · 3 % | 13 ms/s · 2 % |
+
+Top 15 inclusief, JS (`zakclip=uit`):
+
+| # | % | ms/s | functie |
+| --- | --- | --- | --- |
+| 1 | 16,9 | 76 | `showWindsocks` (App.tsx) |
+| 2 | 16,6 | 74 | `LayerOverlay.draw` (overlay-canvas.ts) |
+| 3 | 15,5 | 69 | `WindsockLayer.draw` (wind-socks.ts) |
+| 4 | 14,7 | 66 | `WindsockLayer.setField` (wind-socks.ts) |
+| 5 | 9,4 | 42 | `time` (playback.ts) |
+| 6 | 9,4 | 42 | `now` (App.tsx) |
+| 7 | 9,3 | 41 | `runUpdates` (solid-js) |
+| 8 | 9,3 | 41 | `renderPlaybackCursor` (App.tsx) |
+| 9 | 9,2 | 41 | `drawRainFrame` (App.tsx) |
+| 10 | 9,0 | 40 | `completeUpdates` (solid-js) |
+| 11 | 8,9 | 40 | `runTop` (solid-js) |
+| 12 | 8,5 | 38 | `LayerOverlay.drawNow` (overlay-canvas.ts) |
+| 13 | 8,5 | 38 | `updateComputation` (solid-js) |
+| 14 | 8,1 | 36 | `triggerRepaint`-callback (overlay-canvas.ts) |
+| 15 | 7,8 | 35 | `batch` (solid-js) |
+
+Top 15 inclusief, Gecko-fasen (`zakclip=uit`): RefreshDriver tick 83,1 % (371 ms/s) · `js::RunScript` 49,0 % ·
+Animation and video frame callbacks 43,6 % · **Paint 37,8 % (169 ms/s)** · `nsLayoutUtils::PaintFrame` 37,2 % ·
+`PVsync::Msg_Notify` 30,5 % · FrameRequestCallback 24,2 % · promise callback 21,7 % · `nsDisplayList::PaintRoot`
+21,0 % · WebRender display list 18,7 % (84 ms/s) · DisplayList building 16,0 % (71 ms/s) ·
+`ViewportFrame::BuildDisplayList` 13,2 % · Layout-flush 8,0 % (36 ms/s). Hoogste zelf-tijd: ongesymboliseerde libc-adressen
+(~14 %, vermoedelijk memcpy/memset), `nsIFrame::BuildDisplayListForChild` 3,4 %, `ComputedStyle::IsFixedPosContainingBlock`,
+`RetainedDisplayList::DeleteAll`, `AbsoluteColor::to_color_space`/`Servo_InterpolateColor` (CSS-kleuranimatie of
+-overgang die elke frame loopt) en `SVGPathElement::HasValidDimensions`.
+
+Lezing:
+1. Ruim de helft van de hoofddraad is Gecko zelf, vooral **Paint: per frame een nieuwe displaylist** (~170 ms/s, bij
+   ~22 frames/s ~7,5 ms per frame). Een canvas die verandert, vraagt geen nieuwe displaylist; DOM die elke frame
+   verandert wel. Kandidaten: de afspeelcursor en klok (`renderPlaybackCursor`), de DOM-labels van isolijnen en
+   temperaturen, en een CSS-kleuranimatie (`Servo_InterpolateColor`). Volgende stap: in de profiler de markers
+   "Styles"/"Reflow" en hun oorzaak (cause stack) bekijken.
+2. Onze JS is ~40 %; de zakken zelf (`WindsockLayer.draw`) 69 ms/s, de overlays van wind, regen en isolijnen
+   (`LayerOverlay.draw`) 74 ms/s, de Solid-updates per afspeeltik ~40 ms/s. MapLibre is klein (6 %).
+3. Met `zakcanvas=los` rastert Skia de kleine canvassen **in het contentproces** (`blit_trapezoid_row`,
+   `aaa_fill_path` in de zelf-top): de CanvasRenderer daalt, de hoofddraad stijgt evenveel. Kleine canvassen zijn
+   dus geen uitweg.
+
+### 3. Kandidaat voor het padtekenen: `?dev&zakpaden=zuinig`
+
+Een bitmapcache van de hele zak zou de golf moeten afronden: vorm, kracht en golf hangen continu van de tijd af, en
+afgeronde stappen zie je. Wel vast per frame is de badge. `zakpaden=zuinig` doet daarom twee dingen: de vijf banden als
+twee vullingen (oranje en wit elk één pad), en de schijf van de badge (schaduw, wit, inktrand: drie paden) uit een
+bitmapcache per maat en kwart canvaspixel subpixelfase. Het getal blijft live (uit een cache schoof Gecko de glyphs
+tot een canvaspixel op, Δ 227). Per zak per frame zijn dat 8 in plaats van 14 padopdrachten (incl. de tekst).
+
+Beeldverschil (`windsock-dirty-check.ts --zuinig`, vijf pannen, licht en donker; de check faalt bewust op zijn
+grens): 5 000–5 800 px met Δ > 2 op ~78 000 inktpixels (6–7 %), max Δ 101–121. Daarvan ligt ~80 % op de rand van de
+schijf: de kwartfase en de cache verschuiven het antialias daar (met 16 fasen halveert dat, maar dan 16× zoveel
+cachebitmaps); de rest zit op de bandnaden (de banden van één kleur gaan nu in één keer, dus een andere kleur ligt
+bovenaan op de naad). Op 4× uitvergroot zie ik in licht en donker geen verschil: `zakpaden-basis-vs-zuinig.jpg`
+(links basis, rechts zuinig). Niet onzichtbaar volgens de pixelcheck, dus een PO-keuze als de telefoon er baat bij
+heeft.
+
+Rig (build r3, alle lagen aan, één run, load 20–41): alle varianten laden en spelen af (`windsock-draw` en `wind-step`
+> 0); de spelend-fps (basis 20, `zakclip=aan` 44, `zuinig` 41, `zuinig&zakcanvas=los` 18) volgen vooral de load (basis
+viel op load 36–42) en zeggen niets over de telefoon.
+
+### 4. `?perf=start&auto`
+
+`?perf=start&auto` (of `&auto=<naam>`) stuurt de koude-startopname na afloop zelf naar de profielsink (dezelfde POST
+als Versturen). De variant gaat mee in `metadata.label`: de waarde van `auto`, anders de overige parameters
+(`zakclip=aan`); `prof-sink.ts` zet die in de bestandsnaam. Gecontroleerd met `scripts/perf-auto-check.ts` tegen een
+eigen sink: "Verstuurd als 2026-11-10T11:49:12.597Z-linux-x86_64-zakclip-aan.json". De sink op 4331 draait nog de
+oude `prof-sink.ts`; tot een herstart staat het label alleen in de metadata.
+
+### Telefoonlinks ronde 3
+
+1. Basis (nieuwe standaard): `http://ageq-dev2:4312/?perf=start&modus=wind&dev`
+2. Oude clip: `http://ageq-dev2:4312/?perf=start&modus=wind&dev&zakclip=aan`
+3. Kandidaat paden: `http://ageq-dev2:4312/?perf=start&modus=wind&dev&zakpaden=zuinig`
+
+Gecko-profielen van dezelfde drie: `gecko-android-agent.md` (`android-r3-<variant>.json.gz`).
+
 ## Gecko-profiel van Firefox Android via USB (macbook)
 
 De eerdere profielen in `~/motregen-profiles/macbook-firefox/` zijn van desktop-Firefox op de macbook (macOS),
