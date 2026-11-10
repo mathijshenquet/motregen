@@ -15,9 +15,13 @@ import { chromium, firefox, type Browser } from '@playwright/test'
 //   inktpixels Δ > 2 hebben (gekozen na de eerste meting, 0,47–0,57 %; op 4× uitvergroot niet te zien).
 // - --zuinig (`?dev&zakpaden=zuinig`): banden als twee vullingen en de badge uit een bitmapcache (kwart pixel);
 //   dezelfde grens als --zakclip.
+// - --bitmap (`?dev&zakpaden=bitmap`): voorgetekende zakken per gekwantiseerde stand; dezelfde grens als --zakclip.
+//   Met reducedMotion staan de zakken stil, dus dat meet alleen de krachtstappen en het herbemonsteren bij draaien;
+//   --wuivend zet reducedMotion uit en bevriest performance.now() tijdens getest en referentie (beide vers getekend),
+//   zodat ook de afronding van de golffasen meetelt.
 // Zonder vlaggen: exact gelijk. U111_CROPS=<map> schrijft een uitvergrote uitsnede van het eerste duidelijke verschil.
 //
-// usage: xvfb-run -a pnpm exec tsx scripts/windsock-dirty-check.ts ORIGIN [--browser=firefox|chromium] [--theme=licht|donker] [--sabotage] [--los] [--zakclip] [--zuinig]
+// usage: xvfb-run -a pnpm exec tsx scripts/windsock-dirty-check.ts ORIGIN [--browser=firefox|chromium] [--theme=licht|donker] [--sabotage] [--los] [--zakclip] [--zuinig] [--bitmap] [--wuivend] [--query=a=b&c=d]
 
 const args = process.argv.slice(2)
 const origin = args.find((arg) => !arg.startsWith('--'))
@@ -30,6 +34,8 @@ const sabotage = args.includes('--sabotage')
 const separate = args.includes('--los')
 const clip = args.includes('--zakclip')
 const lean = args.includes('--zuinig')
+const bitmap = args.includes('--bitmap')
+const swaying = args.includes('--wuivend')
 
 const browser: Browser = browserName === 'firefox'
   ? await firefox.launch({
@@ -47,11 +53,11 @@ const browser: Browser = browserName === 'firefox'
   })
   : await chromium.launch({ headless: true, args: ['--enable-webgl', '--ignore-gpu-blocklist', '--use-angle=swiftshader'] })
 const context = await browser.newContext({
-  viewport: { width: 402, height: 844 }, deviceScaleFactor: 3, hasTouch: true, reducedMotion: 'reduce',
+  viewport: { width: 402, height: 844 }, deviceScaleFactor: 3, hasTouch: true, reducedMotion: swaying ? 'no-preference' : 'reduce',
   colorScheme: theme === 'donker' ? 'dark' : 'light', timezoneId: 'Europe/Amsterdam',
 })
 const page = await context.newPage()
-await page.goto(new URL(`/wind?dev${separate ? '&zakcanvas=los' : ''}${clip ? '&zakclip=aan' : ''}${lean ? '&zakpaden=zuinig' : ''}`, origin).href)
+await page.goto(new URL(`/wind?dev${separate ? '&zakcanvas=los' : ''}${clip ? '&zakclip=aan' : ''}${lean ? '&zakpaden=zuinig' : ''}${bitmap ? '&zakpaden=bitmap' : ''}${option('query') ? `&${option('query')}` : ''}`, origin).href)
 await page.locator('details.dev-panel').evaluate((panel) => panel.removeAttribute('open')).catch(() => {})
 await page.waitForFunction(() => Number((document.querySelector('.map-overlay-windsocks') as HTMLCanvasElement | null)?.dataset.socks?.split('|')[0]) > 0, undefined, { timeout: 120_000 })
 // Pauzeren, zodat het veld vaststaat.
@@ -63,8 +69,16 @@ await page.waitForTimeout(1_000)
 // met --los de zakcanvassen samengelegd op gehele canvaspixels, dus zonder herbemonstering). Referentie: dezelfde
 // laag gedwongen vol op zijn grote canvas langs het standaardpad; daarna gaat de laag terug naar zijn eigen stand.
 const compare = `(() => {
-  const separate = ${separate}, tolerant = ${separate || clip || lean}, loose = ${clip || lean}, shift = ${sabotage && separate ? 1 : 0}
+  const separate = ${separate}, tolerant = ${separate || clip || lean || bitmap}, loose = ${clip || lean || bitmap}, shift = ${sabotage && separate ? 1 : 0}
   const layer = window.__motregenWindsocks()
+  if (${swaying}) {
+    const frozen = performance.now()
+    Object.defineProperty(performance, 'now', { value: () => frozen, configurable: true })
+    // Geen tijd verstreken: de veren springen naar hun doel en de golffase blijft staan, in beide tekeningen.
+    layer.drawnAt = frozen / 1000
+    layer.drawnRects = undefined
+    layer.draw()
+  }
   const ratio = window.devicePixelRatio
   const width = Math.round(layer.width * ratio), height = Math.round(layer.height * ratio)
   const readMain = () => layer.canvas.getContext('2d').getImageData(0, 0, width, height).data
@@ -92,6 +106,7 @@ const compare = `(() => {
   layer.surface = layer.canvas
   layer.options.clipCut = false
   layer.options.leanPaths = false
+  layer.options.predrawn = false
   layer.drawnRects = undefined
   layer.draw()
   delete layer.drawSock
@@ -100,6 +115,7 @@ const compare = `(() => {
   Object.assign(layer.options, options)
   if (separate) layer.canvas.width = layer.canvas.height = 0
   layer.draw()
+  if (${swaying}) delete performance.now
 
   let different = 0, maxDelta = 0, inked = 0, visible = 0, maxPre = 0, outsideSock = 0, first = -1, ringEdge = 0, maxRing = 0, discEdge = 0
   for (let index = 0; index < full.length; index += 4) {
@@ -147,7 +163,7 @@ const compare = `(() => {
   }
   const pixels = canvases.reduce((sum, canvas) => sum + canvas.width * canvas.height, 0)
   const socks = layer.canvas.dataset.socks + (separate ? ', ' + canvases.length + ' canvassen, ' + (pixels / (width * height) * 100).toFixed(1) + ' % van het scherm' : '')
-  const note = 'zichtbaar anders (Δ>2) ' + visible + ' px, max Δ ' + Math.round(maxPre) + (separate ? ', buiten een zak ' + outsideSock + ' px' : '') + (${lean} ? ', waarvan op de rand van de schijf ' + discEdge + ' px' : '') + (${clip} ? '; rand van het gat ' + ringEdge + ' px (max Δ ' + Math.round(maxRing) + ')' : '')
+  const note = 'zichtbaar anders (Δ>2) ' + visible + ' px, max Δ ' + Math.round(maxPre) + (separate ? ', buiten een zak ' + outsideSock + ' px' : '') + (${lean || bitmap} ? ', waarvan op de rand van de schijf ' + discEdge + ' px' : '') + (${clip} ? '; rand van het gat ' + ringEdge + ' px (max Δ ' + Math.round(maxRing) + ')' : '')
   return { ok, crops, different, maxDelta, inked, socks: socks + '; ' + note }
 })()`
 

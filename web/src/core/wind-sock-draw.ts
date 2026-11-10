@@ -18,8 +18,12 @@ export interface SockScene {
    * al stond, dus alleen waar het gat geen andere tekening raakt.
    */
   cut?: 'clip' | 'erase'
-  /** Een deel: de zak, de schijf van de badge of het getal (de schijf uit een bitmapcache, `?dev&zakpaden=zuinig`). */
-  parts?: 'all' | 'body' | 'disc' | 'label'
+  /**
+   * Een deel: de zak, de schijf van de badge of het getal (de schijf uit een bitmapcache, `?dev&zakpaden=zuinig`).
+   * Voor voorgetekende zakken (`?dev&zakpaden=bitmap`): `shadow` alleen de schaduw zonder verschuiving, `fabric` de zak
+   * zonder schaduw; beide zonder gat (dat komt op het scherm, rond de badge).
+   */
+  parts?: 'all' | 'body' | 'disc' | 'label' | 'shadow' | 'fabric'
   /** De oranje en de witte banden elk als één pad: twee vullingen in plaats van vijf (`?dev&zakpaden=zuinig`). */
   mergedBands?: boolean
 }
@@ -35,13 +39,14 @@ export function drawSock({ context, shape, badge, label, dark, fontFamily, cut =
   context.save()
   context.lineJoin = 'round'
   context.lineCap = 'round'
-  if (parts === 'all' || parts === 'body') drawBody(context, shape, badge, dark, cut, mergedBands)
+  if (parts === 'all' || parts === 'body') drawBody(context, shape, badge, dark, cut, mergedBands, 'all')
+  if (parts === 'shadow' || parts === 'fabric') drawBody(context, shape, badge, dark, 'none', mergedBands, parts)
   if (parts === 'all' || parts === 'disc') drawDisc(context, badge)
   if (parts === 'all' || parts === 'label') drawLabel(context, badge, label, fontFamily)
   context.restore()
 }
 
-function drawBody(context: CanvasRenderingContext2D, shape: WindsockShape, badge: WindsockBadge, dark: boolean, cut: 'clip' | 'erase', mergedBands: boolean): void {
+function drawBody(context: CanvasRenderingContext2D, shape: WindsockShape, badge: WindsockBadge, dark: boolean, cut: 'clip' | 'erase' | 'none', mergedBands: boolean, layers: 'all' | 'shadow' | 'fabric'): void {
   context.save()
   if (cut === 'clip') {
     const outside = new Path2D()
@@ -50,12 +55,18 @@ function drawBody(context: CanvasRenderingContext2D, shape: WindsockShape, badge
     context.clip(outside, 'evenodd')
   }
   const outline = pathOf(windsockOutline(shape))
-  context.save()
-  context.translate(0, 1.3)
-  context.strokeStyle = 'rgba(0, 0, 0, 0.22)'
-  context.lineWidth = 3.5
-  context.stroke(outline)
-  context.restore()
+  if (layers !== 'fabric') {
+    context.save()
+    if (layers === 'all') context.translate(0, 1.3)
+    context.strokeStyle = 'rgba(0, 0, 0, 0.22)'
+    context.lineWidth = 3.5
+    context.stroke(outline)
+    context.restore()
+  }
+  if (layers === 'shadow') {
+    context.restore()
+    return
+  }
   context.strokeStyle = `rgba(255, 255, 255, ${dark ? 0.6 : 0.9})`
   context.lineWidth = 3.2
   context.stroke(outline)

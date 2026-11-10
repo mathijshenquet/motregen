@@ -250,6 +250,8 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
   const clipSockCut = devParams.get('zakclip') === 'aan'
   const softwareSockCanvas = devParams.get('zak2d') === 'software'
   const leanSockPaths = devParams.get('zakpaden') === 'zuinig'
+  const predrawnSocks = devParams.get('zakpaden') === 'bitmap'
+  const predrawnWave = devParams.get('zakgolf') === 'regelmatig' ? 'regular' as const : 'exact' as const
   const sockPixelRatio = devPixelRatio('zakdpr')
   const isolinePixelRatio = devPixelRatio('isolijndpr') ?? Infinity
   const stillMode = new URLSearchParams(window.location.search).get('still') === '1'
@@ -2335,7 +2337,7 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
         client.getHeader(frames[blends[0]!.left]!.u.chunk),
       ])
       if (request !== shownWindsockRequest || !map) return
-      windsockLayer ??= new WindsockLayer(map, { ...windsockOptions, separateCanvases: separateSockCanvases, maxPixelRatio: sockPixelRatio, clipCut: clipSockCut, leanPaths: leanSockPaths, softwareCanvas: softwareSockCanvas, reducedMotion: () => reducedMotion.matches, pin: () => marker?.getLngLat() })
+      windsockLayer ??= new WindsockLayer(map, { ...windsockOptions, separateCanvases: separateSockCanvases, maxPixelRatio: sockPixelRatio, clipCut: clipSockCut, leanPaths: leanSockPaths, predrawn: predrawnSocks, predrawnWave, softwareCanvas: softwareSockCanvas, reducedMotion: () => reducedMotion.matches, pin: () => marker?.getLngLat() })
       windsockLayer.setUnit(untrack(windUnit))
       windsockLayer.setTheme(untrack(mapSurfaceTheme) === 'dark')
       windsockLayer.setPlaces(nestedPlaces(map.getZoom(), WINDSOCK_SPACING_PX))

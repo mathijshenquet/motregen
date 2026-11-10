@@ -44,7 +44,7 @@ const sampler = `(() => {
 
 interface Window { gaps: Stats; frames: number; playingShare: number; cpuMsPerSecond: number; cpuMsPerFrame: number; seconds: number; fps: number; phases: Record<string, { count: number; p50: number; sum: number }>; load: number }
 interface Stats { p50: number; p90: number; p99: number; max: number }
-interface Visit { browser: string; variant: string; run: number; stil?: Window; spelend?: Window }
+interface Visit { browser: string; variant: string; run: number; stil?: Window; spelend?: Window; predrawn?: string }
 
 function quantile(sorted: number[], q: number): number {
   if (!sorted.length) return NaN
@@ -156,6 +156,8 @@ async function visit(browser: Browser, variant: string, run: number): Promise<Vi
   const stillCpu = treeCpuMs()
   await page.waitForTimeout(stillSeconds * 1_000)
   result.stil = await window(page, stillFrom, await now(page), treeCpuMs() - stillCpu)
+  // `?dev&zakpaden=bitmap`: treffers/missers/grootte van de cache met voorgetekende zakken.
+  result.predrawn = await page.evaluate(() => (document.querySelector('.map-overlay-windsocks') as HTMLElement | null)?.dataset.predrawn)
   await context.close()
   return result
 }
@@ -174,7 +176,7 @@ for (let run = 1; run <= repeat; run++) {
     const result = await visit(browser, variant, run)
     visits.push(result)
     console.log(`#${run} ${line(result, 'stil')}`)
-    console.log(`#${run} ${line(result, 'spelend')}`)
+    console.log(`#${run} ${line(result, 'spelend')}${result.predrawn ? ` · bitmapcache treffers/missers/grootte ${result.predrawn}` : ''}`)
   }
 }
 await browser.close()

@@ -345,6 +345,65 @@ Rig (build r3, alle lagen aan, één run, load 20–41): alle varianten laden en
 > 0); de spelend-fps (basis 20, `zakclip=aan` 44, `zuinig` 41, `zuinig&zakcanvas=los` 18) volgen vooral de load (basis
 viel op load 36–42) en zeggen niets over de telefoon.
 
+### 3a. Voorgetekende zakken: `?dev&zakpaden=bitmap` (PO-aanvulling 11:55 UTC)
+
+`src/core/windsock-predrawn.ts`. Met de standaardkromming (`geen`) is een zak ten opzichte van zijn richting een functie
+van de kracht, twee golffasen (`sin(reis) + 0,35·sin(1,7·reis + 2,3·fase)`, dus niet periodiek in één fase), de trage
+vlaag en het uitdempen. Per stand (kracht per ⅛ Bft, golf 16 standen, tweede golf 8, uitdempen per ¼) gaan twee
+bitmaps lui in een cache van 240 standen, minst recent gebruikt eruit, met thema en DPR in de sleutel: de zak zonder
+schaduw, en de schaduw apart (die valt op het scherm altijd 1,3 px omlaag; in de gedraaide bitmap zou hij meedraaien).
+De vlaag wordt een draaiing van de hele zak (zijn waarde halverwege). Per zak per frame: twee `drawImage` met de
+draaiing in de transform, het gat vegen (de badge staat op de mast, dus het gat is rond en draait niet mee), de schijf uit
+de schijfcache en het getal live. Uit een bitmap schoof het getal tot een canvaspixel op (zie `zuinig`), daarom geen
+bitmap per tekst.
+
+Cache in de rig (treffers/missers na ~25 s, alle lagen aan, afspelen en stil):
+
+| | treffers / missers | treffers |
+| --- | --- | --- |
+| `zakpaden=bitmap` (exacte golf) | 645 / 2 885 · 1 845 / 4 675 · 2 072 / 4 688 · 2 595 / 5 025 | 18–34 % |
+| `zakpaden=bitmap&zakgolf=regelmatig` | 6 126 / 624 · 6 349 / 631 | 91 % |
+
+Met de exacte golf heeft een zak per krachtstap 16 × 8 = 128 standen, en tijdens afspelen loopt de kracht continu: de
+cache zit na seconden vol en de meeste frames tekenen de zak opnieuw in twee bitmaps, dus méér werk dan direct.
+`zakgolf=regelmatig` maakt de tweede golf een harmonische (2× in plaats van 1,7×, met een vaste fase per zak), zodat een
+zak per krachtstap 16 standen heeft. Dat maakt het wuiven regelmatiger; de opmerking in `windsock-flow.ts` noemt de
+1,7× juist tegen "een metronoom". Dat is dus een PO-keuze.
+
+Beeldverschil (`windsock-dirty-check.ts --bitmap`, vijf pannen; met `--wuivend` zonder reducedMotion en met bevroren klok,
+zodat getest en referentie dezelfde wuifstand hebben; de controle `--wuivend` zonder bitmap is exact gelijk):
+
+| | Δ > 2, van ~79 000 inktpixels | max Δ | waarvan schijfrand |
+| --- | --- | --- | --- |
+| stil (`--bitmap`) | 20 500–22 000 px (26–27 %) | 193–212 | ~4 200 px |
+| wuivend (`--bitmap --wuivend`) | 21 100–22 800 px (27–28 %) | 215–230 | ~4 200 px |
+| wuivend, regelmatig | 22 400–24 000 px (28–30 %) | 229–234 | ~4 200 px |
+
+Het meeste zit niet in de golf maar in het draaien (`drawImage` herbemonstert elke rand bilineair) en de krachtstap (⅛ Bft
+is tot ~0,3 CSS-px lengte). Stilstaand op 4× zie ik in licht en donker geen duidelijk verschil
+(`zakpaden-basis-vs-bitmap.jpg`, links basis, rechts bitmap). De beweging zelf heb ik niet als film bekeken: bij zwakke
+wind (0,45 Hz) zijn 16 golfstanden ~7 sprongen per seconde, en dat kan schokken. Op de telefoon kijken.
+
+Rig (rAF-tempo, load 14–26, ruis): de JS per zaktekening werd niet lager (p50 basis 3–4 ms, bitmap 5–16 ms, regelmatig
+4–5 ms), en het tempo spelend lag binnen de ruis van de basis. De rig rastert in software en telt rAF; beslissen kan alleen
+op getoonde frames op de telefoon.
+
+### 3b. Schets: stijve segmenten in WebGL (niet gebouwd)
+
+1. Niet in de canvas van de deeltjes: die ligt onder de regen (de zakken liggen erboven), en met `deeltjes=uit` is hij er
+   niet. Wel een eigen `LayerOverlay` met een `SockLayer` (custom layer, WebGL2) als bovenste canvas, op dezelfde plek als
+   nu de 2D-canvas. Dat is één WebGL-canvas, zonder 2D-commando's die de CanvasRenderer moet afspelen.
+2. Geometrie op de CPU zoals nu (`windsockShape`, exact, geen kwantisering): per zak de 21 aspunten, daaruit per band een
+   quad (vier hoeken op de bandgrenzen links en rechts). Per frame één instancebuffer (14 zakken × 5 banden × 4 hoeken,
+   ~2 kB) en één instanced draw voor banden, rand en schaduw. Een fragmentshader tekent de rand als afstandsveld tot de
+   omtrek (wit 3,2 px, inkt 1,1 px, schaduw 1,3 px omlaag), met antialias over één apparaatpixel. Voor de voegen tussen
+   segmenten werkt een omtrek per zak (een strip langs `left` en `right`) beter dan losse quads.
+3. Badge: een tweede instanced draw met cirkels als afstandsveld. De cijfers komen uit een glyph-atlas (0–9 en
+   eenheden, één keer met de 2D-canvas gerasterd en geüpload).
+4. Het gat: geen vegen nodig, de cirkelafstand in de bandshader zet de alfa binnen `cutRadius` op 0.
+5. Risico's: het antialias wijkt af van Skia (pixelcheck tegen het 2D-pad), en de cijfers uit een atlas schuiven net als
+   bij `zuinig`. Schatting 1–2 dagen inclusief pixelcheck.
+
 ### 4. `?perf=start&auto`
 
 `?perf=start&auto` (of `&auto=<naam>`) stuurt de koude-startopname na afloop zelf naar de profielsink (dezelfde POST
@@ -353,13 +412,27 @@ als Versturen). De variant gaat mee in `metadata.label`: de waarde van `auto`, a
 eigen sink: "Verstuurd als 2026-11-10T11:49:12.597Z-linux-x86_64-zakclip-aan.json". De sink op 4331 draait nog de
 oude `prof-sink.ts`; tot een herstart staat het label alleen in de metadata.
 
+### 5. De fps-teller in de app telt rAF
+
+Laptop-agent (SurfaceFlinger): `?perf=1` toont 51,6 fps waar het scherm 24,0 frames krijgt. De teller
+(`PerfMonitor.frameTick`) telt `requestAnimationFrame`-callbacks. Gecko roept rAF aan op het tempo van de refresh driver,
+ook als de compositor of de GPU dat frame niet op het scherm krijgt. Getoonde frames kan een pagina niet zien. Erger:
+de teller liep altijd, ook zonder `?perf` (`installPerfMonitor` startte hem bij het laden). Zo'n eeuwige rAF-lus houdt
+de refresh driver op schermtempo (120 Hz op de Pixel 9), wat `overlay-canvas.ts` juist vermijdt. Nu loopt de teller
+alleen tijdens het meten (`?perf` of de HUD zichtbaar, `setDetailedEnabled`), en heet hij in de HUD "rAF/s", met de
+uitleg in een tooltip. `e2e/focus.spec.ts` zet het meten aan voordat hij de fps logt. Ook de rig (`wind-frame-gaps.ts`)
+telt rAF; zijn "fps" is dus geen getoond frame.
+
 ### Telefoonlinks ronde 3
 
 1. Basis (nieuwe standaard): `http://ageq-dev2:4312/?perf=start&modus=wind&dev`
 2. Oude clip: `http://ageq-dev2:4312/?perf=start&modus=wind&dev&zakclip=aan`
-3. Kandidaat paden: `http://ageq-dev2:4312/?perf=start&modus=wind&dev&zakpaden=zuinig`
+3. Voorgetekend (3a): `http://ageq-dev2:4312/?perf=start&modus=wind&dev&zakpaden=bitmap`
+4. Voorgetekend, regelmatige golf: `http://ageq-dev2:4312/?perf=start&modus=wind&dev&zakpaden=bitmap&zakgolf=regelmatig`
+5. Zuinige paden: `http://ageq-dev2:4312/?perf=start&modus=wind&dev&zakpaden=zuinig`
 
-Gecko-profielen van dezelfde drie: `gecko-android-agent.md` (`android-r3-<variant>.json.gz`).
+Zonder `perf` (getoonde frames met SurfaceFlinger, zoals de laptop-agent meet): dezelfde links zonder `perf=start&`.
+Gecko-profielen: `gecko-android-agent.md` (`android-r3-<variant>.json.gz`).
 
 ## Gecko-profiel van Firefox Android via USB (macbook)
 

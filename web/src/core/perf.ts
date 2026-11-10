@@ -432,6 +432,10 @@ export class PerfMonitor {
   setDetailedEnabled(enabled: boolean): void {
     detailedMeasurementsEnabled = enabled
     activeMonitor = this
+    // De fps-teller vraagt elke frame een rAF aan; dat houdt de refresh driver op schermtempo (120 Hz), ook als er
+    // niets beweegt. Alleen tijdens het meten (U111).
+    if (enabled) this.start()
+    else this.stop()
     if (!enabled) {
       this.longFrameObserver?.disconnect()
       this.longFrameObserver = undefined
@@ -686,7 +690,6 @@ export function installPerfMonitor(): PerfMonitor {
     cancelFrame: (handle) => cancelAnimationFrame(handle),
   })
   performance.setResourceTimingBufferSize(2_000)
-  monitor.start()
   activeMonitor = monitor
   window.__motregenPerf = monitor
   return monitor

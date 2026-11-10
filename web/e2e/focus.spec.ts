@@ -17,6 +17,8 @@ async function ready(page: Page): Promise<void> {
 }
 
 async function fps(page: Page): Promise<number | null> {
+  // De rAF-teller loopt alleen tijdens het meten (U111).
+  await page.evaluate(() => (window as typeof window & { __motregenPerf: { setDetailedEnabled: (enabled: boolean) => void } }).__motregenPerf.setDetailedEnabled(true))
   await page.waitForTimeout(2_200)
   return page.evaluate(() => (window as typeof window & { __motregenPerf: { snapshot: () => { fps: number | null } } }).__motregenPerf.snapshot().fps)
 }

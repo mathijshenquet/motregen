@@ -1,25 +1,30 @@
-# Opdracht voor een agent op de macbook: drie Firefox-profielen van de Android-telefoon (ronde 3)
+# Opdracht voor een agent op de macbook: vier Firefox-profielen van de Android-telefoon (ronde 3)
 
 Je draait op de macbook van de PO (Mathijs). Zijn Android-telefoon (Pixel 9, Firefox 159, pakket `org.mozilla.firefox`)
 hangt met USB aan de macbook; USB-foutopsporing staat aan op de telefoon en in Firefox, en volgens de PO staat de
 profiler in desktop-Firefox klaar (`about:debugging`, telefoon verbonden). De PO wil dit niet zelf doen: werk het
 zelfstandig af en vraag hem alleen iets als je echt vastzit.
 
-Doel: drie Gecko-profielen van de windmodus van motregen, elk ~15 s tijdens afspelen, zodat de orkestrator op
+Doel: vier Gecko-profielen van de windmodus van motregen, elk ~15 s tijdens afspelen, zodat de orkestrator op
 ageq-dev2 de draden CanvasRenderer, GeckoMain, Renderer en Compositor kan lezen. Achtergrond:
 `docs/perf/u111/README.md` (zelfde map). Ronde 1 en 2 (`android-1-…`, `android-r2-…`) zijn al binnen. In ronde 3 is
 het gat rond de badge zonder `clip()` de standaard; `zakclip=aan` is de oude manier ter vergelijking en
-`zakpaden=zuinig` de kandidaat voor het padtekenen. Alle drie met alle lagen aan.
+`zakpaden=bitmap` de voorgetekende zakken (met de exacte golf, en met `zakgolf=regelmatig` een regelmatiger golf die de
+cache veel vaker raakt). Alle vier met alle lagen aan.
 
-## De drie opnames
+## De vier opnames
 
 | # | bestand | URL |
 | --- | --- | --- |
 | 1 | `android-r3-basis.json.gz` | `http://ageq-dev2:4312/?perf=1&modus=wind&dev` |
 | 2 | `android-r3-zakclip-aan.json.gz` | `http://ageq-dev2:4312/?perf=1&modus=wind&dev&zakclip=aan` |
-| 3 | `android-r3-zakpaden-zuinig.json.gz` | `http://ageq-dev2:4312/?perf=1&modus=wind&dev&zakpaden=zuinig` |
+| 3 | `android-r3-zakpaden-bitmap.json.gz` | `http://ageq-dev2:4312/?perf=1&modus=wind&dev&zakpaden=bitmap` |
+| 4 | `android-r3-zakpaden-bitmap-regelmatig.json.gz` | `http://ageq-dev2:4312/?perf=1&modus=wind&dev&zakpaden=bitmap&zakgolf=regelmatig` |
 
-Meet ze om en om (1, 2, 3, en zo nodig nog eens 1): de telefoon wordt warm, en dat drukt latere opnames.
+Zo nodig nog `android-r3-zakpaden-zuinig.json.gz` met `&zakpaden=zuinig`. Meet ze om en om (1, 2, 3, 4, en zo nodig
+nog eens 1): de telefoon wordt warm, en dat drukt latere opnames. Meet daarnaast de getoonde frames zoals in je reeks
+zonder profiler (SurfaceFlinger), met dezelfde links zonder `perf=1&`: daarop wordt beslist. De fps in de app-HUD
+heet nu "rAF/s"; dat zijn geen getoonde frames.
 
 `ageq-dev2` is een tailnet-naam; de telefoon zit op tailscale en kan hem bereiken.
 
@@ -46,7 +51,7 @@ scp ~/Downloads/android-r3-*.json.gz ageq-dev2:motregen-profiles/
 ssh ageq-dev2 ls -l motregen-profiles
 ```
 
-Controleer dat er drie `android-r3-`bestanden staan die elk groter zijn dan 100 kB. Meld daarna de PO de drie bestandsnamen en
+Controleer dat er vier `android-r3-`bestanden staan die elk groter zijn dan 100 kB. Meld daarna de PO de vier bestandsnamen en
 hun groottes, en alles wat afweek: een opname die niet afspeelde, een foutmelding of een andere preset.
 
 ## Zonder profiler: de eigen opname van de app in een lus
@@ -56,7 +61,7 @@ tikken naar de profielsink op ageq-dev2 sturen (dezelfde POST als de knop Verstu
 varianten meten, bijvoorbeeld:
 
 ```sh
-for variant in '' '&zakclip=aan' '&zakpaden=zuinig'; do
+for variant in '' '&zakclip=aan' '&zakpaden=bitmap' '&zakpaden=bitmap&zakgolf=regelmatig'; do
   adb shell am start -a android.intent.action.VIEW -d "'http://ageq-dev2:4312/?perf=start&auto&modus=wind&dev$variant'" org.mozilla.firefox
   sleep 45
 done

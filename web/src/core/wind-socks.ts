@@ -6,7 +6,8 @@ import type { TemperaturePlace } from './temperature.js'
 import { windValue, type WindUnit } from './weather.js'
 import { markLayerDrawn, recordPerfPhase } from './perf.js'
 import { WINDSOCK_ANCHOR_OFFSETS } from './windsock-anchors.js'
-import { drawSock } from './wind-sock-draw.js'
+import { drawSock, sockCutPath } from './wind-sock-draw.js'
+import { PredrawnSocks, predrawnPose, type PredrawnPose, type PredrawnWave } from './windsock-predrawn.js'
 import { MapLabelPlacer, type Offset, type Placement } from './map-label-placement.js'
 import { MAP_LABEL_FONT_FAMILY, mapLabelSize } from './map-labels.js'
 
@@ -58,6 +59,10 @@ export interface WindsockLayerOptions {
   clipCut?: boolean
   /** Alleen `?dev&zakpaden=zuinig` (U111): banden als twee vullingen en de badge uit een bitmapcache. */
   leanPaths?: boolean
+  /** Alleen `?dev&zakpaden=bitmap` (U111): voorgetekende zakken per gekwantiseerde stand (windsock-predrawn). */
+  predrawn?: boolean
+  /** Alleen `?dev&zakgolf=regelmatig` (U111, met `predrawn`): zie `PredrawnWave`. */
+  predrawnWave?: PredrawnWave
   /** Alleen `?dev&zak2d=software` (U111): `willReadFrequently`, dan tekent Firefox de canvas in het contentproces. */
   softwareCanvas?: boolean
 }
@@ -82,6 +87,8 @@ interface SockDraw {
   badge: WindsockBadge
   label: string
   rect: DirtyRect
+  /** Met `predrawn`: de gekwantiseerde stand; `shape` is dan die stand op het scherm. */
+  pose?: PredrawnPose
 }
 
 /** Ring van uitwijkplekken rond de voorkeursplek in CSS-px: eerst dichtbij, dan verder weg (zoals PLACE_LADDER). */
@@ -106,6 +113,7 @@ export class WindsockLayer {
   private sockCanvasRatio = 0
   private scratch?: { canvas: HTMLCanvasElement; context: CanvasRenderingContext2D }
   private readonly discCache = new Map<string, { canvas: HTMLCanvasElement; half: number }>()
+  private predrawn?: PredrawnSocks
   private socks: Sock[] = []
   private field?: WindsockField
   private unit: WindUnit = 'bft'
@@ -315,11 +323,15 @@ export class WindsockLayer {
       const flutterBend = animate ? swayBends(strength, sock.wave, seconds, sock.phase).map((bend) => bend * calm) : undefined
       if (flutterBend) fluttering = true
       const base = sock.heading!.value
+      // Voorgetekend alleen zonder kromming langs de zak (de standaard): dan is de vorm een draaiing van één stand.
+      const pose = this.options.predrawn && compass.every((heading) => heading === target)
+        ? predrawnPose(strength, sock.wave, sock.phase, seconds, animate ? calm : 0, base - bearing, this.options.predrawnWave)
+        : undefined
       const headings = compass.map((heading, index) => base + angleDifference(target, heading) - bearing + (flutterBend?.[index] ?? 0))
-      const shape = windsockShape(strength, headings, 'kaart')
+      const shape = pose?.screen ?? windsockShape(strength, headings, 'kaart')
       const x = screen.x + sock.placed.dx, y = screen.y + sock.placed.dy, label = String(windValue(speed, this.unit))
       const badge = windsockBadge(shape, DEFAULT_WINDSOCK_BADGE, label, size)
-      pending.push({ sock, x, y, shape, badge, label, rect: sockRect(x, y, shape, badge, ratio) })
+      pending.push({ sock, x, y, shape, badge, label, rect: sockRect(x, y, shape, badge, ratio), pose })
       this.drawnCount++
       this.drawnMaxStrength = Math.max(this.drawnMaxStrength, strength)
     }
@@ -348,6 +360,7 @@ export class WindsockLayer {
     const summary = `${this.drawnCount}|${Math.round(this.drawnMaxStrength * 10) / 10}`
     if (this.canvas.dataset.socks !== summary) this.canvas.dataset.socks = summary
     this.canvas.dataset.draws = String(this.draws)
+    if (this.predrawn) this.canvas.dataset.predrawn = `${this.predrawn.hits}/${this.predrawn.misses}/${this.predrawn.size}`
     if ((fluttering || settling) && this.inView && document.visibilityState !== 'hidden') this.scheduleFlutter(started, this.flutterFps(started))
   }
 
@@ -472,11 +485,18 @@ export class WindsockLayer {
 
   /** `offsetX/Y`: canvaspixel van de doelcanvas waar de transform (ratio, 0, 0, ratio, -offsetX, -offsetY) begint. */
   private drawSock(context: CanvasRenderingContext2D, draw: Omit<SockDraw, 'sock' | 'rect'>, ratio: number, offsetX: number, offsetY: number): void {
-    const { x, y, shape, badge, label } = draw
-    const lean = this.options.leanPaths === true
+    const { x, y, shape, badge, label, pose } = draw
+    const lean = this.options.leanPaths === true || pose !== undefined
     context.save()
     context.translate(x, y)
-    drawSock({ context, shape, badge, label, dark: this.dark, fontFamily: MAP_LABEL_FONT_FAMILY, cut: this.options.clipCut ? 'clip' : 'erase', parts: lean ? 'body' : 'all', mergedBands: lean })
+    if (pose) {
+      this.predrawn ??= new PredrawnSocks((canvas) => this.context2d(canvas), MAP_LABEL_FONT_FAMILY)
+      this.predrawn.draw(context, pose, ratio, this.dark)
+      context.globalCompositeOperation = 'destination-out'
+      context.fill(sockCutPath(badge))
+    } else {
+      drawSock({ context, shape, badge, label, dark: this.dark, fontFamily: MAP_LABEL_FONT_FAMILY, cut: this.options.clipCut ? 'clip' : 'erase', parts: lean ? 'body' : 'all', mergedBands: lean })
+    }
     context.restore()
     if (!lean) return
     this.drawCachedDisc(context, draw, ratio, offsetX, offsetY)
