@@ -95,6 +95,91 @@ achtergrond). In de rig gecontroleerd: elke combinatie laadt en speelt af.
 
 Elke link opent met het open dev-paneel; dat staat er in alle vijf, dus het telt overal gelijk mee.
 
+## Bisectie ronde 1 (2026-11-10, PO-telefoon, Firefox 159)
+
+PO: "alleen 4 was smooth". Samenvatting van de orkestrator (`.dev/tracks/u111-firefox-wind/bisect-1.md`):
+
+| link | `windsock-draw`-gat p50 / p90 / max | `wind-step`-gat p50 / p90 | afspeeltikken |
+| --- | --- | --- | --- |
+| 1 alles aan | 49 / 95 / 150 ms | 37 / 104 ms | 12,6 /s |
+| 2 `deeltjes=uit` | 15 / 93 / 183 ms | — | 11,2 /s |
+| 3 + `regen=uit` | 34 / 110 / 228 ms | — | 11,1 /s |
+| 4 + `zakken=uit` + `isolijnen=uit` | — | — | 19,9 /s |
+
+De rem zit dus in de zakken en/of de isolijnen, niet in de WebGL-deeltjes.
+
+### Wat de code zegt over het vermoeden "volle canvas-upload per frame"
+
+1. **Canvasmaat.** Beide overlays zijn schermvullend op de volle DPR: de zakken een 2D-canvas van
+   containermaat × DPR (402 × 844 CSS-px → 1206 × 2532 = 3,05 Mpx, 12,2 MB RGBA), de isolijnen (in Wind de
+   Beaufortvlakken) een eigen WebGL2-canvas van dezelfde maat als de kaartcanvas (`LayerOverlay`). Wind en regen zijn
+   nog twee zulke WebGL-canvassen.
+2. **Aanraken per frame.** De zakken tekenen bij elke afspeeltik (nieuw veld) en daarnaast bij wuiven tot
+   30 frames/s (`WINDSOCK_FLUTTER_FPS`); sinds b41397f wissen ze alleen hun eigen rechthoeken, maar de canvas als
+   geheel verandert nog elk frame. De isolijnen tekenen per afspeeltik een nieuwe snede (vectorpass, vulpass,
+   composite naar de canvas); een ongewijzigde snede slaan ze sinds b41397f over.
+3. **Teruglezen.** `willReadFrequently`/`getImageData` zit alleen in het watermasker van de windlaag (eenmalig, eigen
+   canvas, en in de worker), niet op het tekenpad van zakken of isolijnen. Geen `readPixels` per frame (alleen
+   `fillCoverage` voor e2e).
+4. **Transforms.** Alle overlays staan absoluut in `.maplibregl-canvas-container`, zonder CSS-transform. De zakcanvas
+   krijgt `opacity` (1 in Wind, alleen lager tijdens de overgang). Wel opvallend, buiten deze bisectie: de regencanvas
+   heeft overdag in Wind `mix-blend-mode: multiply`; in links 3 en 4 is die canvas verborgen.
+
+Het vermoeden past dus bij de code: twee schermvullende canvassen op DPR 3 die tijdens afspelen elk frame
+veranderen. Of Firefox Android de 2D-canvas op de CPU rastert en heel uploadt, en of de WebGL-canvas bij presenteren
+gekopieerd wordt, kan alleen een Gecko-profiel (Renderer, Compositor, canvas-draden) laten zien
+(`gecko-android-agent.md`).
+
+### Drie kandidaat-knoppen (build 4312, `docs/dev-opties.md`)
+
+1. `zakcanvas=los`: elke zak een eigen kleine 2D-canvas. Die groeit alleen (een trillende zak krijgt dus geen nieuwe
+   canvas) en verschuift alleen als het anker een canvaspixel verschuift; de zak valt op dezelfde subpixelfase.
+   Samen 16,6–17,8 % van de schermpixels, dus per frame ~6× minder canvasoppervlak naar de compositor.
+   Beeld: `windsock-dirty-check.ts --los` (vijf pannen, licht en donker) vindt alleen antialiasverschil op de omtrek,
+   40–100 pixels met voorvermenigvuldigd Δ > 2 (max Δ 18–56 van 255) op ~80 000 inktpixels, en niets buiten een zak;
+   `--los --sabotage` (één canvas een pixel verschoven) faalt met ~2 100 pixels. Twee schermbeelden van de hele
+   pagina met en zonder de knop hebben geen pixel met een verschil boven 2 van 255 (`zakcanvas-los-vs-een.jpg`).
+2. `zakdpr=2`: de zakcanvas op DPR 2 (44 % van de pixels). Zichtbaar zachter (`zakken-dpr3-vs-dpr2.png`); toont alleen
+   of het pixelvolume van de zakken de rem is.
+3. `isolijndpr=2`: de isolijncanvas en zijn passes op DPR 2; de lijnen houden dezelfde CSS-dikte (lijnbreedte en
+   vultarget rekenen met de begrensde DPR). Iets zachter (`isolijndpr3-vs-2.jpg`, 2× uitvergroot). Toont of het
+   pixelvolume van de isolijnen de rem is.
+
+Niet gebouwd: één gedeelde canvas voor zakken en isolijnen (de zakken zijn 2D, de isolijnen WebGL; delen vraagt de
+zakken in WebGL, en dat tekenwerk is net in U113 in beweging) en zakken als MapLibre-symbolen (de vorm verandert per
+frame). Volgende stap als de telefoon met `zakcanvas=los` of `zakdpr=2` vloeiend wordt.
+
+### Firefox-rig met de knoppen (build 2d13546, basis `deeltjes=uit&regen=uit`, twee runs om en om, load 2–16)
+
+De rig haalt nu in alle varianten de vsync-grens (p50-gat 17 ms, 54–59 fps); het verschil zit in de CPU van de
+hele browserprocesboom per frame en in de JS per zaktekening. Eén run (#2 los + isolijndpr) viel samen met een
+loadsprong naar 16 en telt niet mee.
+
+| variant | spelend: CPU ms per frame | stil: CPU ms per frame | JS per `windsock-draw`, p50 |
+| --- | --- | --- | --- |
+| basis | 32,1 · 32,8 | 8,4 · 10,8 | 5–7 ms |
+| `zakcanvas=los` | 30,7 · 32,1 | 7,4 · 7,1 | 3 ms |
+| `zakdpr=2` | 31,7 · 29,8 | 12,2 (load 7) · 7,6 | 3–6 ms |
+| `isolijndpr=2` | 31,8 (load 14) · 24,3 | 13,3 (load 15) · 8,1 | 5–8 ms |
+| `zakcanvas=los&isolijndpr=2` | 23,8 · (verstoord) | 7,7 · (verstoord) | 3 ms |
+
+Lezing: in de rig (softwareraster) scheelt `isolijndpr=2` tijdens afspelen ~25 % CPU per frame, en `zakcanvas=los`
+halveert ongeveer de JS per zaktekening, maar scheelt tijdens afspelen nauwelijks CPU. De rig overschat pixelwerk
+(zie boven): de telefoon beslist.
+
+### Telefoonlinks ronde 1 (basis: `deeltjes=uit&regen=uit`)
+
+1. Basis (zakken en isolijnen): `http://ageq-dev2:4312/?perf=start&modus=wind&dev&deeltjes=uit&regen=uit`
+2. Alleen zakken: `…&deeltjes=uit&regen=uit&isolijnen=uit`
+3. Alleen isolijnen: `…&deeltjes=uit&regen=uit&zakken=uit`
+4. Fix A, losse zakcanvassen: `…&deeltjes=uit&regen=uit&zakcanvas=los`
+5. Fix B, zakken op DPR 2: `…&deeltjes=uit&regen=uit&zakdpr=2`
+6. Fix C, isolijnen op DPR 2: `…&deeltjes=uit&regen=uit&isolijndpr=2`
+7. Fix A + C: `…&deeltjes=uit&regen=uit&zakcanvas=los&isolijndpr=2`
+8. Alles aan met fix A: `http://ageq-dev2:4312/?perf=start&modus=wind&dev&zakcanvas=los`
+9. Alles aan met fix B: `http://ageq-dev2:4312/?perf=start&modus=wind&dev&zakdpr=2`
+10. Alles aan met fix C: `http://ageq-dev2:4312/?perf=start&modus=wind&dev&isolijndpr=2`
+
 ## Gecko-profiel van Firefox Android via USB (macbook)
 
 De eerdere profielen in `~/motregen-profiles/macbook-firefox/` zijn van desktop-Firefox op de macbook (macOS),
