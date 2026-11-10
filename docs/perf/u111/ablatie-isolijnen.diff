@@ -1,0 +1,26 @@
+diff --git a/web/src/core/isoline-layer.ts b/web/src/core/isoline-layer.ts
+index 89705de..7f3c521 100644
+--- a/web/src/core/isoline-layer.ts
++++ b/web/src/core/isoline-layer.ts
+@@ -14,6 +14,8 @@ import { PALETTE_STOPS, paletteUniforms, type PaletteStops } from './temperature
+ import { CLOUD_MAP_SAMPLES, CLOUD_FLOW_DOWNSAMPLE, CLOUD_FLOW_HOURS, cloudDriftAt, cloudFlowPhase, type CloudMapStyle } from './cloud-map'
+ import { cloudMapFragment, cloudFlowFragment } from './cloud-map-shader'
+ 
++const U111_EXP = new URLSearchParams(globalThis.location?.search ?? '').get('u111exp') ?? ''
++
+ export interface IsolineStyle {
+   cloudMap?: CloudMapStyle
+   step: number
+@@ -644,9 +646,10 @@ export class IsolineLayer implements CustomLayerInterface {
+       const request = this.traceRequest(zoom, time)
+       return { time, request, key: JSON.stringify(request) }
+     })
+-    for (const [key, result] of this.pendingTraces) this.store(gl, key, result, wanted.map((entry) => entry.key))
++    const frozen = U111_EXP && this.slices.some((slice) => slice.geometry)
++    if (!(frozen && U111_EXP === 'nopass')) for (const [key, result] of this.pendingTraces) this.store(gl, key, result, wanted.map((entry) => entry.key))
+     this.pendingTraces.clear()
+-    const missing = wanted.find((entry) => !this.slices.some((slice) => slice.key === entry.key))
++    const missing = frozen && U111_EXP === 'notrace' ? undefined : wanted.find((entry) => !this.slices.some((slice) => slice.key === entry.key))
+     const now = performance.now()
+     if (missing && missing.key !== this.requestedTrace && traceDue(now, this.lastTraceAt, this.moving)) {
+       this.requestedTrace = missing.key
