@@ -10,7 +10,7 @@ import { DEFAULT_WINDSOCK_UNIT_STYLE, drawSock, sockBadge, WINDSOCK_UNIT_STYLES,
 import { domRest } from './dom-rest.js'
 import { MapLabelPlacer, type Offset, type Placement } from './map-label-placement.js'
 import { MAP_LABEL_COLORS, MAP_LABEL_FONT_FAMILY, viewportMapLabelSize } from './map-labels.js'
-import { sockNameOffset, sockNameWidth, sockPillRadius, type LabelSide } from './place-footprint.js'
+import { sockNameOffset, sockNameWidth, type LabelSide } from './place-footprint.js'
 
 interface Sock {
   place: TemperaturePlace
@@ -391,8 +391,9 @@ export class WindsockLayer {
     for (const sock of this.socks) {
       const screen = this.map.project([sock.place.lng, sock.place.lat])
       if (this.options.side) {
-        // De pil kan aan elke kant van de mast staan: zijn hele bereik telt (place-footprint).
-        const radius = sockPillRadius(size, this.unit === 'kmh')
+        // Alleen het mastvak telt tegen de bediening; de pil (aan één kant) mag eronder schuiven. Tussen plekken houdt de
+        // orde zijn hele bereik vrij (place-footprint).
+        const radius = MAST_BOX_PX
         const badge = { left: screen.x - radius, right: screen.x + radius, top: screen.y - radius, bottom: screen.y + radius }
         sock.placed = this.placer.shows(screen.x, screen.y, badge) ? { dx: 0, dy: 0, index: 0 } : undefined
         sock.named = Boolean(sock.placed && this.options.named?.(sock.place))
@@ -604,6 +605,9 @@ function sameField(next: WindsockField | undefined, current: WindsockField | und
 }
 
 interface DirtyRect { x: number; y: number; width: number; height: number }
+
+/** Halve maat van het mastvak tegen de bediening in de plekkenorde (U114): de oude badge. */
+const MAST_BOX_PX = 14
 
 /** Groeimarge van een losse zakcanvas in CSS-px (`separateCanvases`). */
 const SOCK_CANVAS_SLACK = 4
