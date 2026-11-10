@@ -1918,7 +1918,10 @@ export default function App(props: { telegram?: TelegramWebApp } = {}) {
     const key = places.map((place) => place.name).join('|')
     if (key !== placeNamesKey) {
       placeNamesKey = key
-      ;(map.getSource(PLACE_NAMES_LAYER) as GeoJSONSource).setData(placeNamesData(places))
+      // Geen namen: laag uit i.p.v. lege data. Na setData naar nul features gooide queryRenderedFeatures (ook die van
+      // MapLabelPlacer) "Out of bounds" op de verouderde symboolindex (U114, reproduceerbaar met namen=later).
+      if (places.length) (map.getSource(PLACE_NAMES_LAYER) as GeoJSONSource).setData(placeNamesData(places))
+      map.setLayoutProperty(PLACE_NAMES_LAYER, 'visibility', places.length ? 'visible' : 'none')
     }
     // Zonder naam ernaast staat het Weer-getal op de plek zelf; met naam wijkt het uit zoals de stadstemperaturen.
     if (map.getLayer('motregen-temperature') && placeOrder.weatherNumbers === 'plekken') {
